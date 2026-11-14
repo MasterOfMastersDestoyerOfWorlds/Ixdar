@@ -610,7 +610,7 @@ class RegionControlAutomationTest {
         List<Tool> modes = new ArrayList<>(scene.tools);
         modes.removeIf(Tool::replacesView);
         modes.add(scene.ringTool.bisector);
-        Map<String, Integer> keyByAction = Map.of(TOGGLE_NUMBERS, Keys.N, TOGGLE_LABELS, Keys.P);
+        Map<String, Keys> keyByAction = Map.of(TOGGLE_NUMBERS, Keys.N, TOGGLE_LABELS, Keys.P);
         for (Tool mode : modes) {
             if (mode == scene.ringTool.bisector) {
                 scene.switchTool(scene.ringTool);
@@ -625,13 +625,13 @@ class RegionControlAutomationTest {
                                     + row.actionName);
                 }
             }
-            for (Map.Entry<String, Integer> action : keyByAction.entrySet()) {
+            for (Map.Entry<String, Keys> action : keyByAction.entrySet()) {
                 assertTrue(scene.controls.get(Scene.SCENE_SECTION).stream()
                         .anyMatch(row -> row.actionName.equals(action.getKey())),
                         action.getKey() + " is not a scene row in " + mode.toolName());
                 boolean numbersBefore = scene.showNumbers;
                 boolean labelsBefore = scene.showLabels;
-                scene.keys.handleSceneKeys(action.getValue(), 0);
+                scene.keys.handleSceneKeys(action.getValue().keyCode, 0);
                 assertEquals(action.getKey(), scene.keys.lastFiredControl.actionName,
                         "in " + mode.toolName() + " the key fired another row");
                 JsonObject body = new JsonObject();

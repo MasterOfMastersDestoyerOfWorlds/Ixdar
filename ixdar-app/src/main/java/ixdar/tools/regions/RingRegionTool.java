@@ -139,65 +139,71 @@ public final class RingRegionTool extends Tool {
 
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint(ControlHint.NO_KEY, "click", "select region"));
-        controls.add(new ControlHint(ControlHint.NO_KEY, "shift+click", "add / drop region"));
-        controls.add(new ControlHint("clear-selection", Keys.C, "C", "clear selection", this::clearSelection));
-        controls.add(new ControlHint("extract", Keys.E, "E", "extract selection / back to surface",
+        controls.add(new ControlHint(Keys.CLICK, "select region"));
+        controls.add(new ControlHint(Keys.CLICK, false, true, "add / drop region"));
+        controls.add(new ControlHint("clear-selection", Keys.C, "clear selection", this::clearSelection));
+        controls.add(new ControlHint("extract", Keys.E, "extract selection / back to surface",
                 this::extractPressed));
-        controls.add(new ControlHint("toggle-open-cut", Keys.O, "O", "extracted: open cut / capped",
+        controls.add(new ControlHint("toggle-open-cut", Keys.O, "extracted: open cut / capped",
                 this::toggleOpenCut));
-        controls.add(new ControlHint("toggle-explode", Keys.X, "X", "explode / collapse regions",
+        controls.add(new ControlHint("toggle-explode", Keys.X, "explode / collapse regions",
                 scene.regionLayer.explosion::toggle));
-        controls.add(new ControlHint("hide-selected", Keys.H, false, true, "shift+H", "hide selected regions",
+        controls.add(new ControlHint("hide-selected", Keys.H, false, true, "hide selected regions",
                 () -> scene.regionLayer.hideSelection(false)));
-        controls.add(new ControlHint("isolate-selected", Keys.I, false, true, "shift+I",
+        controls.add(new ControlHint("isolate-selected", Keys.I, false, true,
                 "isolate selected regions (hide the rest)",
                 () -> scene.regionLayer.hideSelection(true)));
         RegionLayer layer = scene.regionLayer;
-        controls.add(ControlHint.repeating("explode-less", Keys.COMMA, ",", "explode less (hold to repeat)",
+        controls.add(ControlHint.repeating("explode-less", Keys.COMMA, "explode less (hold to repeat)",
                 () -> layer.explosion.nudge(-1)));
-        controls.add(ControlHint.repeating("explode-more", Keys.PERIOD, ".", "explode more (hold to repeat)",
+        controls.add(ControlHint.repeating("explode-more", Keys.PERIOD, "explode more (hold to repeat)",
                 () -> layer.explosion.nudge(1)));
-        controls.add(new ControlHint("drop-part-names", Keys.L, false, true, "shift+L",
-                "drop the selected regions' part names", () -> {
-                    RingRegions regions = layer.regions;
-                    if (regions == null || selectedCount() == 0) {
-                        lastError = "select the regions whose part names to drop first";
-                        scene.errorToasts.show(TOOL_NAME, lastError);
-                        return;
-                    }
-                    int dropped = 0;
-                    for (int region = 0; region < selectedRegions.length; region++) {
-                        dropped += selectedRegions[region]
-                                ? layer.partLabels.unlabel(regions, region) : 0;
-                    }
-                    layer.labelsChanged();
-                    clearSelection();
-                    lastError = "";
-                    lastRow = "dropped " + dropped + " part name point(s); unsaved";
-                    Platforms.get().log(LOG_PREFIX + lastRow);
-                }));
-        // The name is typed on the terminal's command line, the scene's one text entry, after the
-        // command word this row puts there; Enter runs it.
-        controls.add(new ControlHint("name-part", Keys.L, "L",
-                "name the selected regions as one part: type the name, then Enter", () -> {
-                    Terminal terminal = scene.sceneTerminal;
-                    if (terminal == null || selectedCount() == 0) {
-                        lastError = terminal == null ? "this scene has no terminal to type in"
-                                : "select the regions to name first";
-                        scene.errorToasts.show(TOOL_NAME, lastError);
-                        return;
-                    }
-                    lastError = "";
-                    lastRow = "naming " + selectedCount() + " region(s): type the part name, "
-                            + "then Enter";
-                    Toggle.setPanelFocus(Toggle.IsTerminalFocused);
-                    terminal.type(LabelCommand.cmd);
-                    terminal.keyPress(Keys.SPACE, 0, false);
-                }));
+        controls.add(new ControlHint("drop-part-names", Keys.L, false, true,
+                "drop the selected regions' part names", this::dropPartNames));
+        controls.add(new ControlHint("name-part", Keys.L,
+                "name the selected regions as one part: type the name, then Enter", this::startNamingPart));
     }
 
-    /** E: drop a shown extraction, else extract the selection on the next frame. */
+    /** Drop the part names of the selected regions, then clear the selection. */
+    private void dropPartNames() {
+        RegionLayer layer = scene.regionLayer;
+        RingRegions regions = layer.regions;
+        if (regions == null || selectedCount() == 0) {
+            lastError = "select the regions whose part names to drop first";
+            scene.errorToasts.show(TOOL_NAME, lastError);
+            return;
+        }
+        int dropped = 0;
+        for (int region = 0; region < selectedRegions.length; region++) {
+            dropped += selectedRegions[region] ? layer.partLabels.unlabel(regions, region) : 0;
+        }
+        layer.labelsChanged();
+        clearSelection();
+        lastError = "";
+        lastRow = "dropped " + dropped + " part name point(s); unsaved";
+        Platforms.get().log(LOG_PREFIX + lastRow);
+    }
+
+    /**
+     * Focus the terminal with the label command typed, so the part name is typed on the
+     * scene's one text entry and Enter runs it.
+     */
+    private void startNamingPart() {
+        Terminal terminal = scene.sceneTerminal;
+        if (terminal == null || selectedCount() == 0) {
+            lastError = terminal == null ? "this scene has no terminal to type in"
+                    : "select the regions to name first";
+            scene.errorToasts.show(TOOL_NAME, lastError);
+            return;
+        }
+        lastError = "";
+        lastRow = "naming " + selectedCount() + " region(s): type the part name, then Enter";
+        Toggle.setPanelFocus(Toggle.IsTerminalFocused);
+        terminal.type(LabelCommand.cmd);
+        terminal.keyPress(Keys.SPACE.keyCode, 0, false);
+    }
+
+    /** Drop a shown extraction, else extract the selection on the next frame. */
     public void extractPressed() {
         if (showingExtraction) {
             releaseExtraction();
@@ -221,7 +227,7 @@ public final class RingRegionTool extends Tool {
         extraction = null;
     }
 
-    /** O: switch a shown extraction between the open cut and the capped mesh. */
+    /** Switch a shown extraction between the open cut and the capped mesh. */
     public void toggleOpenCut() {
         if (!showingExtraction || extraction == null) {
             lastError = "no extraction is shown - select a region and press E first";
@@ -508,8 +514,8 @@ public final class RingRegionTool extends Tool {
      * @return true while either Shift key is down
      */
     public boolean shiftHeld() {
-        return scene.keys != null && (scene.keys.pressedKeys.contains(Keys.LEFT_SHIFT)
-                || scene.keys.pressedKeys.contains(Keys.RIGHT_SHIFT));
+        return scene.keys != null && (scene.keys.pressedKeys.contains(Keys.LEFT_SHIFT.keyCode)
+                || scene.keys.pressedKeys.contains(Keys.RIGHT_SHIFT.keyCode));
     }
 
     /**

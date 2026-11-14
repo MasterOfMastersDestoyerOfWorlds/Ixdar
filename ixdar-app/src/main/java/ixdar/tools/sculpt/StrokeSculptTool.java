@@ -536,93 +536,127 @@ public final class StrokeSculptTool extends Tool {
      */
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint(ControlHint.NO_KEY, "drag", "draw a " + KINDS[mode]
+        controls.add(new ControlHint(Keys.DRAG, "draw a " + KINDS[mode]
                 + " stroke; ctrl+drag orbits, shift+drag pans"));
         for (int kind = 0; kind < KINDS.length; kind++) {
             int picked = kind;
-            controls.add(new ControlHint("stroke-" + KINDS[kind], '1' + kind, String.valueOf(kind + 1),
-                    "draw " + KINDS[kind] + " strokes" + (kind == mode ? " (drawing)" : ""), () -> {
-                        mode = picked;
-                        lastRow = "drag to draw a " + KINDS[picked] + " stroke";
-                        scene.refreshControls();
-                    }));
+            controls.add(new ControlHint("stroke-" + KINDS[kind], Keys.of('1' + kind), "draw " + KINDS[kind]
+                    + " strokes" + (kind == mode ? " (drawing)" : ""), () -> pickKind(picked)));
         }
         for (int step = -1; step <= 1; step += 2) {
             float delta = step * STRENGTH_STEP;
             controls.add(ControlHint.repeating(step < 0 ? "strength-down" : "strength-up",
-                    step < 0 ? Keys.MINUS : Keys.EQUAL, step < 0 ? "-" : "=",
-                    String.format(Locale.ROOT, "strength %.1f, %s", strength, step < 0 ? "lower" : "raise"), () -> {
-                        strength = Math.round(Math.max(-1f, Math.min(1f, strength + delta)) * STRENGTH_STEPS_PER_UNIT)
-                                / STRENGTH_STEPS_PER_UNIT;
-                        lastRow = String.format(Locale.ROOT, "stroke strength %.1f", strength);
-                        scene.refreshControls();
-                    }));
+                    step < 0 ? Keys.MINUS : Keys.EQUAL,
+                    String.format(Locale.ROOT, "strength %.1f, %s", strength, step < 0 ? "lower" : "raise"),
+                    () -> stepStrength(delta)));
         }
         for (int step = -1; step <= 1; step += 2) {
             float factor = step < 0 ? 1f / WIDTH_FACTOR : WIDTH_FACTOR;
             controls.add(ControlHint.repeating(step < 0 ? "width-down" : "width-up",
-                    step < 0 ? Keys.COMMA : Keys.PERIOD, step < 0 ? "," : PORT_SEPARATOR,
+                    step < 0 ? Keys.COMMA : Keys.PERIOD,
                     String.format(Locale.ROOT, "width %.0f px, %s", widthPixels, step < 0 ? "narrower" : "wider"),
-                    () -> {
-                        widthPixels = Math.max(MINIMUM_WIDTH_PIXELS, Math.min(MAXIMUM_WIDTH_PIXELS, widthPixels * factor));
-                        lastRow = String.format(Locale.ROOT, "stroke width %.0f px", widthPixels);
-                        scene.refreshControls();
-                    }));
+                    () -> scaleWidth(factor)));
         }
-        controls.add(new ControlHint("commit-pass", Keys.ENTER, "enter", "commit the open pass", () -> {
-            lastError = "";
-            SculptPass open = openPass();
-            if (open == null) {
-                lastError = "no open pass to commit - draw a stroke first";
-                return;
+        controls.add(new ControlHint("commit-pass", Keys.ENTER, "commit the open pass", this::commitPass));
+        controls.add(new ControlHint("toggle-symmetry", Keys.X, ControlHint.toggled("symmetry across x",
+                symmetric) + ", toggle", this::toggleSymmetry));
+        controls.add(new ControlHint("save-sculpt", Keys.S, true, "save the .dsl and pass SVGs", this::save));
+    }
+
+    /**
+     * Draw strokes of one kind from now on.
+     *
+     * @param kind index in {@link #KINDS}
+     */
+    private void pickKind(int kind) {
+        mode = kind;
+        lastRow = "drag to draw a " + KINDS[kind] + " stroke";
+        scene.refreshControls();
+    }
+
+    /**
+     * Raise or lower the stroke strength by one step, within -1 to 1.
+     *
+     * @param delta the step, signed
+     */
+    private void stepStrength(float delta) {
+        strength = Math.round(Math.max(-1f, Math.min(1f, strength + delta)) * STRENGTH_STEPS_PER_UNIT)
+                / STRENGTH_STEPS_PER_UNIT;
+        lastRow = String.format(Locale.ROOT, "stroke strength %.1f", strength);
+        scene.refreshControls();
+    }
+
+    /**
+     * Widen or narrow the stroke by a factor, within the width limits.
+     *
+     * @param factor what the width is multiplied by
+     */
+    private void scaleWidth(float factor) {
+        widthPixels = Math.max(MINIMUM_WIDTH_PIXELS, Math.min(MAXIMUM_WIDTH_PIXELS, widthPixels * factor));
+        lastRow = String.format(Locale.ROOT, "stroke width %.0f px", widthPixels);
+        scene.refreshControls();
+    }
+
+    /** Commit the open pass, as one edit, so the next stroke opens a new one. */
+    private void commitPass() {
+        lastError = "";
+        SculptPass open = openPass();
+        if (open == null) {
+            lastError = "no open pass to commit - draw a stroke first";
+            return;
+        }
+        List<SculptPass> after = new ArrayList<>(passes);
+        after.set(after.size() - 1, new SculptPass(open.id, open.upstream, open.svgPath, open.svg, open.symmetry,
+                false));
+        applyEdit("commit pass " + open.id, after);
+    }
+
+    /**
+     * Toggle mirroring across x: on the open pass as one edit, else for the next pass.
+     */
+    private void toggleSymmetry() {
+        lastError = "";
+        symmetric = !symmetric;
+        String axis = symmetric ? SYMMETRY_AXIS : StrokeSculptNode.NO_SYMMETRY;
+        SculptPass open = openPass();
+        if (open == null) {
+            lastRow = ControlHint.toggled("the next pass mirrors across x", symmetric);
+            scene.refreshControls();
+            return;
+        }
+        List<SculptPass> after = new ArrayList<>(passes);
+        after.set(after.size() - 1, new SculptPass(open.id, open.upstream, open.svgPath, open.svg, axis, true));
+        if (!applyEdit("symmetry " + axis + " on " + open.id, after)) {
+            symmetric = !symmetric;
+        }
+    }
+
+    /**
+     * Write each pass drawn here as an SVG in a folder named after the .dsl, then the .dsl.
+     */
+    private void save() {
+        lastError = "";
+        if (documentFile == null) {
+            lastError = NOT_ACTIVE;
+            return;
+        }
+        String source = source();
+        Path folder = Path.of(documentFile).toAbsolutePath().resolveSibling(
+                Path.of(documentFile).getFileName().toString().replaceFirst(DSL_EXTENSION, ""));
+        try {
+            for (int pass = loadedPasses; pass < passes.size(); pass++) {
+                SculptPass drawn = passes.get(pass);
+                Files.createDirectories(folder);
+                Files.write(folder.resolve(drawn.id + SVG_SUFFIX), drawn.svg.getBytes(StandardCharsets.UTF_8));
             }
-            List<SculptPass> after = new ArrayList<>(passes);
-            after.set(after.size() - 1, new SculptPass(open.id, open.upstream, open.svgPath, open.svg, open.symmetry,
-                    false));
-            applyEdit("commit pass " + open.id, after);
-        }));
-        controls.add(new ControlHint("toggle-symmetry", Keys.X, "X", ControlHint.toggled("symmetry across x",
-                symmetric) + ", toggle", () -> {
-                    lastError = "";
-                    symmetric = !symmetric;
-                    String axis = symmetric ? SYMMETRY_AXIS : StrokeSculptNode.NO_SYMMETRY;
-                    SculptPass open = openPass();
-                    if (open == null) {
-                        lastRow = ControlHint.toggled("the next pass mirrors across x", symmetric);
-                        scene.refreshControls();
-                        return;
-                    }
-                    List<SculptPass> after = new ArrayList<>(passes);
-                    after.set(after.size() - 1, new SculptPass(open.id, open.upstream, open.svgPath, open.svg, axis,
-                            true));
-                    if (!applyEdit("symmetry " + axis + " on " + open.id, after)) {
-                        symmetric = !symmetric;
-                    }
-                }));
-        controls.add(new ControlHint("save-sculpt", Keys.S, true, "ctrl+S", "save the .dsl and pass SVGs", () -> {
-            lastError = "";
-            if (documentFile == null) {
-                lastError = NOT_ACTIVE;
-                return;
-            }
-            String source = source();
-            Path folder = Path.of(documentFile).toAbsolutePath().resolveSibling(
-                    Path.of(documentFile).getFileName().toString().replaceFirst(DSL_EXTENSION, ""));
-            try {
-                for (int pass = loadedPasses; pass < passes.size(); pass++) {
-                    SculptPass drawn = passes.get(pass);
-                    Files.createDirectories(folder);
-                    Files.write(folder.resolve(drawn.id + SVG_SUFFIX), drawn.svg.getBytes(StandardCharsets.UTF_8));
-                }
-                RingDslWriter.writeAtomically(Path.of(documentFile), source);
-            } catch (IOException | RuntimeException failure) {
-                lastError = "could not save to " + documentFile + ": " + failure.getMessage();
-                return;
-            }
-            savedSource = source;
-            lastRow = String.format(Locale.ROOT, "saved %d pass(es) to %s, %d drawn here with their SVGs in %s",
-                    passes.size(), documentFile, passes.size() - loadedPasses, folder);
-            Platforms.get().log(LOG_PREFIX + lastRow);
-        }));
+            RingDslWriter.writeAtomically(Path.of(documentFile), source);
+        } catch (IOException | RuntimeException failure) {
+            lastError = "could not save to " + documentFile + ": " + failure.getMessage();
+            return;
+        }
+        savedSource = source;
+        lastRow = String.format(Locale.ROOT, "saved %d pass(es) to %s, %d drawn here with their SVGs in %s",
+                passes.size(), documentFile, passes.size() - loadedPasses, folder);
+        Platforms.get().log(LOG_PREFIX + lastRow);
     }
 }

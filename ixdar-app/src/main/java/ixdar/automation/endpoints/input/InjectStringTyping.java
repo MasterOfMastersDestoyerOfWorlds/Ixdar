@@ -43,8 +43,8 @@ public class InjectStringTyping extends AutomationEndpoint implements Automation
                     for (int i = 0; i < text.length(); i++) {
                         char typed = text.charAt(i);
                         if (typed == ' ') {
-                            keys.keyCallback(0L, Keys.SPACE, 0, Keys.ACTION_PRESS, 0);
-                            keys.keyCallback(0L, Keys.SPACE, 0, Keys.ACTION_RELEASE, 0);
+                            keys.keyCallback(0L, Keys.SPACE.keyCode, 0, Keys.ACTION_PRESS, 0);
+                            keys.keyCallback(0L, Keys.SPACE.keyCode, 0, Keys.ACTION_RELEASE, 0);
                         } else {
                             keys.charCallback(0L, typed);
                         }

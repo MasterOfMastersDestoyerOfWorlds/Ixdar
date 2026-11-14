@@ -129,13 +129,13 @@ public class MeshBooleanScene extends ModelScene {
     @Override
     public void setControls(List<ControlHint> controls) {
         super.setControls(controls);
-        controls.add(new ControlHint(UNION_ACTION, Keys.U, "U", UNION_ACTION,
+        controls.add(new ControlHint(UNION_ACTION, Keys.U, UNION_ACTION,
                 () -> setOperation(MeshBooleanNode.UNION)));
-        controls.add(new ControlHint(DIFFERENCE_ACTION, Keys.D, "D", DIFFERENCE_ACTION,
+        controls.add(new ControlHint(DIFFERENCE_ACTION, Keys.D, DIFFERENCE_ACTION,
                 () -> setOperation(MeshBooleanNode.DIFFERENCE)));
-        controls.add(new ControlHint(INTERSECT_ACTION, Keys.I, "I", INTERSECT_ACTION,
+        controls.add(new ControlHint(INTERSECT_ACTION, Keys.I, INTERSECT_ACTION,
                 () -> setOperation(MeshBooleanNode.INTERSECT)));
-        controls.add(new ControlHint("toggle-wireframe", Keys.W, "W", "toggle wireframe", this::toggleWireframe));
+        controls.add(new ControlHint("toggle-wireframe", Keys.W, "toggle wireframe", this::toggleWireframe));
     }
 
     /**

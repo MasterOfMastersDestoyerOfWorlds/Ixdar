@@ -1,71 +1,163 @@
 package ixdar.platform.input;
 
-public final class Keys {
+import java.util.HashMap;
+import java.util.Map;
 
-    // Actions
+/**
+ * The keys and mouse gestures a control is bound to: each one's GLFW code, its label in text, and
+ * its glyph in the key glyph atlas, res/keyglyphs.png, built by {@code tools/build_key_glyphs.py}.
+ */
+public enum Keys {
+
+    // Named keys; the glyphs follow NAMED in tools/build_key_glyphs.py. The enter, shift,
+    // backspace, arrow and move symbols in them are Material Design Icons,
+    // https://github.com/Templarian/MaterialDesign, Apache License 2.0.
+    ENTER(257, 0xE100, "enter"),
+    LEFT_SHIFT(340, Codes.SHIFT_GLYPH, Codes.SHIFT),
+    LEFT_CONTROL(341, Codes.CTRL_GLYPH, Codes.CTRL),
+    ESCAPE(256, 0xE103, "esc"),
+    BACKSPACE(259, 0xE104, "backspace"),
+    DELETE(261, 0xE105, "del"),
+    TAB(258, 0xE107, "tab"),
+    LEFT_ALT(342, Codes.ALT_GLYPH, Codes.ALT),
+    UP(265, 0xE109, "up"),
+    DOWN(264, 0xE10A, "down"),
+    LEFT(263, 0xE10B, "left"),
+    RIGHT(262, 0xE10C, "right"),
+    SPACE(32, 0xE110, "space"),
+    RIGHT_SHIFT(344, Codes.SHIFT_GLYPH, Codes.SHIFT),
+    RIGHT_CONTROL(345, Codes.CTRL_GLYPH, Codes.CTRL),
+    RIGHT_ALT(346, Codes.ALT_GLYPH, Codes.ALT),
+    LEFT_SUPER(343, Codes.NO_GLYPH, Codes.SUPER),
+    RIGHT_SUPER(347, Codes.NO_GLYPH, Codes.SUPER),
+
+    // Printable keys: the code is the character's ASCII code, the glyph its keycap.
+    A('A'),
+    B('B'),
+    C('C'),
+    D('D'),
+    E('E'),
+    F('F'),
+    G('G'),
+    H('H'),
+    I('I'),
+    J('J'),
+    K('K'),
+    L('L'),
+    M('M'),
+    N('N'),
+    O('O'),
+    P('P'),
+    Q('Q'),
+    R('R'),
+    S('S'),
+    T('T'),
+    U('U'),
+    V('V'),
+    W('W'),
+    X('X'),
+    Y('Y'),
+    Z('Z'),
+    DIGIT_0('0'),
+    DIGIT_1('1'),
+    DIGIT_2('2'),
+    DIGIT_3('3'),
+    DIGIT_4('4'),
+    DIGIT_5('5'),
+    DIGIT_6('6'),
+    DIGIT_7('7'),
+    DIGIT_8('8'),
+    DIGIT_9('9'),
+    MINUS('-'),
+    EQUAL('='),
+    COMMA(','),
+    PERIOD('.'),
+    LEFT_BRACKET('['),
+    RIGHT_BRACKET(']'),
+    // The key left of 1, listed by the tilde it shifts to.
+    GRAVE(96, Codes.KEYCAP_GLYPHS_START + '~', "~"),
+
+    // Mouse gestures, which no key code fires.
+    CLICK(Codes.NO_KEY_CODE, 0xE10D, "click"),
+    DRAG(Codes.NO_KEY_CODE, 0xE10E, "drag"),
+    SCROLL(Codes.NO_KEY_CODE, 0xE10F, "scroll"),
+    DOUBLE_CLICK(Codes.NO_KEY_CODE, Codes.NO_GLYPH, "double-click");
+
     public static final int ACTION_RELEASE = 0;
+
     public static final int ACTION_PRESS = 1;
+
     public static final int ACTION_REPEAT = 2;
 
-    // Mouse
     public static final int MOUSE_BUTTON_LEFT = 0;
+
     public static final int MOUSE_BUTTON_RIGHT = 1;
 
-    // Control keys (match GLFW constants)
-    public static final int ESCAPE = 256;
-    public static final int ENTER = 257;
-    public static final int TAB = 258;
-    public static final int BACKSPACE = 259;
-    public static final int DELETE = 261;
-    public static final int LEFT_SHIFT = 340;
-    public static final int RIGHT_SHIFT = 344;
-    public static final int LEFT_CONTROL = 341;
-    public static final int RIGHT_CONTROL = 345;
-    public static final int LEFT_ALT = 342;
-    public static final int RIGHT_ALT = 346;
-    public static final int LEFT_SUPER = 343;
-    public static final int RIGHT_SUPER = 347;
-    public static final int UP = 265;
-    public static final int DOWN = 264;
-    public static final int LEFT = 263;
-    public static final int RIGHT = 262;
+    public static final int NO_KEY_CODE = Codes.NO_KEY_CODE;
 
-    // Printable keys (ASCII-compatible)
-    public static final int SPACE = 32;
-    public static final int A = 65;
-    public static final int B = 66;
-    public static final int C = 67;
-    public static final int D = 68;
-    public static final int E = 69;
-    public static final int F = 70;
-    public static final int G = 71;
-    public static final int H = 72;
-    public static final int I = 73;
-    public static final int J = 74;
-    public static final int K = 75;
-    public static final int L = 76;
-    public static final int M = 77;
-    public static final int N = 78;
-    public static final int O = 79;
-    public static final int P = 80;
-    public static final int Q = 81;
-    public static final int R = 82;
-    public static final int S = 83;
-    public static final int T = 84;
-    public static final int U = 85;
-    public static final int V = 86;
-    public static final int W = 87;
-    public static final int X = 88;
-    public static final int Y = 89;
-    public static final int Z = 90;
-    public static final int MINUS = 45;
-    public static final int EQUAL = 61;
-    public static final int COMMA = 44;
-    public static final int PERIOD = 46;
-    public static final int LEFT_BRACKET = 91;
-    public static final int RIGHT_BRACKET = 93;
-    public static final int GRAVE = 96;
+    private static final Map<Integer, Keys> BY_KEY_CODE = new HashMap<>();
 
-    private Keys() {
+    static {
+        for (Keys key : values()) {
+            if (key.keyCode != NO_KEY_CODE) {
+                BY_KEY_CODE.putIfAbsent(key.keyCode, key);
+            }
+        }
+    }
+
+    /** GLFW key code, or {@link #NO_KEY_CODE} for a mouse gesture. */
+    public final int keyCode;
+
+    /** The key glyph atlas's private-use character for the key, or 0 when it has none. */
+    public final char glyph;
+
+    /** The key's name in text, such as {@code esc} or {@code A}. */
+    public final String label;
+
+    Keys(char printable) {
+        this(printable, Codes.KEYCAP_GLYPHS_START + printable, String.valueOf(printable));
+    }
+
+    Keys(int keyCode, int glyph, String label) {
+        this.keyCode = keyCode;
+        this.glyph = (char) glyph;
+        this.label = label;
+    }
+
+    /**
+     * The key a GLFW key code names.
+     *
+     * @param keyCode the code
+     * @return its key, or {@code null} for a code none here has
+     */
+    public static Keys of(int keyCode) {
+        return BY_KEY_CODE.get(keyCode);
+    }
+
+    /** What the constants are built from: an enum's constants come before its own fields. */
+    private static final class Codes {
+
+        static final int NO_KEY_CODE = -1;
+
+        static final int NO_GLYPH = 0;
+
+        static final int KEYCAP_GLYPHS_START = 0xE200;
+
+        static final int SHIFT_GLYPH = 0xE101;
+
+        static final int CTRL_GLYPH = 0xE102;
+
+        static final int ALT_GLYPH = 0xE108;
+
+        static final String SHIFT = "shift";
+
+        static final String CTRL = "ctrl";
+
+        static final String ALT = "alt";
+
+        static final String SUPER = "super";
+
+        private Codes() {
+        }
     }
 }

@@ -93,7 +93,7 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
                 if (!fireable.contains(candidate)) {
                     fireable.add(candidate);
                 }
-                boolean matches = actionName.isEmpty() ? hint.key.equalsIgnoreCase(label)
+                boolean matches = actionName.isEmpty() ? hint.keyLabel().equalsIgnoreCase(label)
                         : hint.actionName.equals(actionName);
                 row = row == null && matches ? hint : row;
             }
@@ -125,7 +125,7 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
             runtime.recordAbstractAction(COMMAND, payload);
             JsonObject applied = success();
             applied.addProperty(ACTION, row.actionName);
-            applied.addProperty(KEY, row.key);
+            applied.addProperty(KEY, row.keyLabel());
             return applied;
         });
     }

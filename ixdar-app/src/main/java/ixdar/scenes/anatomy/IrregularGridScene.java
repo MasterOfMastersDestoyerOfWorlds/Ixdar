@@ -63,7 +63,7 @@ public class IrregularGridScene extends Scene {
      */
     @Override
     public void setControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("reset-camera", Keys.R, "R", "reset the camera", camera2D::reset));
+        controls.add(new ControlHint("reset-camera", Keys.R, "reset the camera", camera2D::reset));
         super.setControls(controls);
     }
 

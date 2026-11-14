@@ -25,9 +25,9 @@ import ixdar.scenes.main.MainScene;
  */
 class KeyGuyMainSceneShortcutsTest {
 
-    private static final int[] CONTROL_CHORDS = {Keys.B, Keys.N, Keys.S, Keys.Q};
+    private static final Keys[] CONTROL_CHORDS = {Keys.B, Keys.N, Keys.S, Keys.Q};
 
-    private static final int[] PLAIN_KEYS = {Keys.C, Keys.B, Keys.Y, Keys.M, Keys.RIGHT_BRACKET,
+    private static final Keys[] PLAIN_KEYS = {Keys.C, Keys.B, Keys.Y, Keys.M, Keys.RIGHT_BRACKET,
         Keys.UP, Keys.LEFT_BRACKET, Keys.DOWN, Keys.O, Keys.G, Keys.U, Keys.ENTER, Keys.R,
         Keys.ESCAPE, Keys.LEFT, Keys.RIGHT};
 
@@ -72,15 +72,15 @@ class KeyGuyMainSceneShortcutsTest {
     @Test
     void everyEditorShortcutIsInertUnderAnOrbitCamera() {
         boolean[] armed = toggleValues();
-        for (int key : CONTROL_CHORDS) {
+        for (Keys key : CONTROL_CHORDS) {
             assertDoesNotThrow(() -> {
-                keyGuy.keyCallback(0L, Keys.LEFT_CONTROL, 0, Keys.ACTION_PRESS, 0);
+                keyGuy.keyCallback(0L, Keys.LEFT_CONTROL.keyCode, 0, Keys.ACTION_PRESS, 0);
                 pressAndRelease(key, KeyNames.MOD_CONTROL);
-                keyGuy.keyCallback(0L, Keys.LEFT_CONTROL, 0, Keys.ACTION_RELEASE, 0);
-            }, "ctrl + key code " + key);
+                keyGuy.keyCallback(0L, Keys.LEFT_CONTROL.keyCode, 0, Keys.ACTION_RELEASE, 0);
+            }, "ctrl + " + key);
         }
-        for (int key : PLAIN_KEYS) {
-            assertDoesNotThrow(() -> pressAndRelease(key, 0), "key code " + key);
+        for (Keys key : PLAIN_KEYS) {
+            assertDoesNotThrow(() -> pressAndRelease(key, 0), key.name());
         }
         assertArrayEquals(armed, toggleValues(), "a toggle changed");
         assertEquals(List.of(), List.copyOf(keyGuy.pressedKeys), "a key stayed held");
@@ -89,13 +89,13 @@ class KeyGuyMainSceneShortcutsTest {
     /**
      * Press {@code key}, run one frame of the handler while it is held, then release it.
      *
-     * @param key  key code
+     * @param key  the key
      * @param mods modifier bitmask
      */
-    private void pressAndRelease(int key, int mods) {
-        keyGuy.keyCallback(0L, key, 0, Keys.ACTION_PRESS, mods);
+    private void pressAndRelease(Keys key, int mods) {
+        keyGuy.keyCallback(0L, key.keyCode, 0, Keys.ACTION_PRESS, mods);
         keyGuy.paintUpdate(1f);
-        keyGuy.keyCallback(0L, key, 0, Keys.ACTION_RELEASE, mods);
+        keyGuy.keyCallback(0L, key.keyCode, 0, Keys.ACTION_RELEASE, mods);
     }
 
     /**

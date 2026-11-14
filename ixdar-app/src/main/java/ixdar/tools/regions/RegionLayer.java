@@ -149,12 +149,11 @@ public final class RegionLayer {
         }
     }
 
-    /** U: show every hidden face again. */
+    /** Show every hidden face again. */
     public void showAll() {
         if (hiddenByActiveFace.length == 0) {
             return;
         }
-        Platforms.get().log(LOG_PREFIX + "showing every region");
         hide(new boolean[0]);
     }
 

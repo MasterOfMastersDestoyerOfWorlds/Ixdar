@@ -60,8 +60,8 @@ public class RunTerminalLine extends AutomationEndpoint implements AutomationRou
                 Toggle.setPanelFocus(Toggle.IsTerminalFocused);
                 List<String> before = terminal.history.plainLines();
                 typeLine(keys, line);
-                keys.keyCallback(0L, Keys.ENTER, 0, Keys.ACTION_PRESS, 0);
-                keys.keyCallback(0L, Keys.ENTER, 0, Keys.ACTION_RELEASE, 0);
+                keys.keyCallback(0L, Keys.ENTER.keyCode, 0, Keys.ACTION_PRESS, 0);
+                keys.keyCallback(0L, Keys.ENTER.keyCode, 0, Keys.ACTION_RELEASE, 0);
                 List<String> after = terminal.history.plainLines();
                 int last = after.size();
                 while (last > 0 && after.get(last - 1).isBlank()) {
@@ -99,8 +99,8 @@ public class RunTerminalLine extends AutomationEndpoint implements AutomationRou
         for (int index = 0; index < line.length(); index++) {
             char typed = line.charAt(index);
             if (typed == ' ') {
-                keys.keyCallback(0L, Keys.SPACE, 0, Keys.ACTION_PRESS, 0);
-                keys.keyCallback(0L, Keys.SPACE, 0, Keys.ACTION_RELEASE, 0);
+                keys.keyCallback(0L, Keys.SPACE.keyCode, 0, Keys.ACTION_PRESS, 0);
+                keys.keyCallback(0L, Keys.SPACE.keyCode, 0, Keys.ACTION_RELEASE, 0);
             } else {
                 keys.charCallback(0L, typed);
             }

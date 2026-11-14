@@ -129,11 +129,11 @@ public class CrossFieldExaminationScene extends ModelScene {
     @Override
     public void setControls(List<ControlHint> controls) {
         super.setControls(controls);
-        controls.add(new ControlHint("toggle-reference-field", Keys.R, "R", "toggle reference field",
+        controls.add(new ControlHint("toggle-reference-field", Keys.R, "toggle reference field",
                 this::toggleReferenceField));
-        controls.add(new ControlHint("toggle-constraints", Keys.C, "C", "toggle constraints",
+        controls.add(new ControlHint("toggle-constraints", Keys.C, "toggle constraints",
                 this::toggleConstraints));
-        controls.add(new ControlHint("toggle-cross-field", Keys.X, "X", "toggle cross field",
+        controls.add(new ControlHint("toggle-cross-field", Keys.X, "toggle cross field",
                 this::toggleCrossField));
     }
 

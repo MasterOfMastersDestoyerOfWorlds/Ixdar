@@ -54,7 +54,7 @@ public class InfoPane extends Pane {
             }
             rows.addLine(scene.controlSectionName(section), palette.headingText);
             for (ControlHint hint : scene.controls.get(section)) {
-                rows.addWord(hint.key, palette.mutedText);
+                rows.addWord(hint.glyphLabel(), palette.mutedText);
                 rows.addLine(hint.description, palette.text);
             }
         }

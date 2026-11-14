@@ -59,12 +59,12 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
 
     @Override
     public void setControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("toggle-traces", Keys.T, "T", "toggle traces",
+        controls.add(new ControlHint("toggle-traces", Keys.T, "toggle traces",
                 () -> quadRuntime.showTraces = !quadRuntime.showTraces));
-        controls.add(new ControlHint("toggle-nodes", Keys.N, "N", "toggle nodes",
+        controls.add(new ControlHint("toggle-nodes", Keys.N, "toggle nodes",
                 () -> quadRuntime.showNodes = !quadRuntime.showNodes));
-        controls.add(new ControlHint("decrease-alpha", Keys.COMMA, ",", "decrease alpha", () -> stepAlpha(-1f)));
-        controls.add(new ControlHint("increase-alpha", Keys.PERIOD, ".", "increase alpha", () -> stepAlpha(1f)));
+        controls.add(new ControlHint("decrease-alpha", Keys.COMMA, "decrease alpha", () -> stepAlpha(-1f)));
+        controls.add(new ControlHint("increase-alpha", Keys.PERIOD, "increase alpha", () -> stepAlpha(1f)));
         super.setControls(controls);
     }
 

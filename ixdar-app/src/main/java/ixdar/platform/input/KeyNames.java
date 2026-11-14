@@ -1,7 +1,5 @@
 package ixdar.platform.input;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -47,10 +45,6 @@ public final class KeyNames {
 
     public static final Map<String, Integer> KEY_CODES = keyCodes();
 
-    private static final String ACTION_PREFIX = "ACTION_";
-
-    private static final String MOUSE_PREFIX = "MOUSE_";
-
     private static final String SPEC_SEPARATOR = "\\+";
 
     private static final String NAME_LIST_SEPARATOR = ", ";
@@ -70,26 +64,19 @@ public final class KeyNames {
 
     private static Map<String, Integer> modifierKeys() {
         Map<String, Integer> keys = new LinkedHashMap<>();
-        keys.put(SHIFT, Keys.LEFT_SHIFT);
-        keys.put(CTRL, Keys.LEFT_CONTROL);
-        keys.put(CONTROL, Keys.LEFT_CONTROL);
-        keys.put(ALT, Keys.LEFT_ALT);
-        keys.put(SUPER, Keys.LEFT_SUPER);
+        keys.put(SHIFT, Keys.LEFT_SHIFT.keyCode);
+        keys.put(CTRL, Keys.LEFT_CONTROL.keyCode);
+        keys.put(CONTROL, Keys.LEFT_CONTROL.keyCode);
+        keys.put(ALT, Keys.LEFT_ALT.keyCode);
+        keys.put(SUPER, Keys.LEFT_SUPER.keyCode);
         return Collections.unmodifiableMap(keys);
     }
 
     private static Map<String, Integer> keyCodes() {
         Map<String, Integer> codes = new LinkedHashMap<>();
-        for (Field field : Keys.class.getFields()) {
-            boolean constant = Modifier.isStatic(field.getModifiers()) && field.getType() == int.class;
-            if (!constant || field.getName().startsWith(ACTION_PREFIX)
-                    || field.getName().startsWith(MOUSE_PREFIX)) {
-                continue;
-            }
-            try {
-                codes.put(field.getName(), field.getInt(null));
-            } catch (IllegalAccessException unreachable) {
-                continue;
+        for (Keys key : Keys.values()) {
+            if (key.keyCode != Keys.NO_KEY_CODE) {
+                codes.put(key.name(), key.keyCode);
             }
         }
         for (char digit = '0'; digit <= '9'; digit++) {

@@ -50,9 +50,9 @@ public class KeyGuy {
 
     /**
      * The held key whose row handed focus to the terminal, whose character must not land on the
-     * command line; {@link ControlHint#NO_KEY} once that character is dropped or the key released.
+     * command line; {@link Keys#NO_KEY_CODE} once that character is dropped or the key released.
      */
-    private int focusHandOffKey = ControlHint.NO_KEY;
+    private int focusHandOffKey = Keys.NO_KEY_CODE;
 
     /**
      * Key handler for a scene, firing the rows of its {@link Scene#controls}.
@@ -89,7 +89,7 @@ public class KeyGuy {
      * @return {@code true} while the terminal has focus and {@code key} is not the toggle key
      */
     public static boolean terminalOwnsKey(int key) {
-        return Toggle.IsTerminalFocused.value && key != Keys.GRAVE;
+        return Toggle.IsTerminalFocused.value && key != Keys.GRAVE.keyCode;
     }
 
     private void keyPressed(int key, int mods, boolean repeated) {
@@ -137,7 +137,7 @@ public class KeyGuy {
             for (ControlHint hint : section) {
                 boolean modifierHeld = hint.controlHeld == control
                         && (!hint.shiftHeld || (mods & KeyNames.MOD_SHIFT) != 0);
-                if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null
+                if (hint.key.keyCode == key && key != Keys.NO_KEY_CODE && hint.action != null
                         && modifierHeld) {
                     fire(hint);
                     KeyActions.markKeyConsumed();
@@ -162,10 +162,10 @@ public class KeyGuy {
         recordAbstractAction("key_release", KEY, key, "mask", mask);
         pressedKeys.remove(key);
         if (key == focusHandOffKey) {
-            focusHandOffKey = ControlHint.NO_KEY;
+            focusHandOffKey = Keys.NO_KEY_CODE;
         }
-        controlMask = pressedKeys.contains(LEFT_CONTROL) || pressedKeys.contains(RIGHT_CONTROL);
-        shiftMask = pressedKeys.contains(LEFT_SHIFT) || pressedKeys.contains(RIGHT_SHIFT);
+        controlMask = pressedKeys.contains(LEFT_CONTROL.keyCode) || pressedKeys.contains(RIGHT_CONTROL.keyCode);
+        shiftMask = pressedKeys.contains(LEFT_SHIFT.keyCode) || pressedKeys.contains(RIGHT_SHIFT.keyCode);
     }
 
     /**
@@ -189,7 +189,7 @@ public class KeyGuy {
         }
         for (List<ControlHint> section : canvas.controls) {
             for (ControlHint hint : section) {
-                if (hint.repeatsWhileHeld && pressedKeys.contains(hint.keyCode) && !controlMask) {
+                if (hint.repeatsWhileHeld && pressedKeys.contains(hint.key.keyCode) && !controlMask) {
                     lastRepeatMillis = now;
                     fire(hint);
                 }
@@ -260,8 +260,8 @@ public class KeyGuy {
         if (codepoint == '`' || codepoint == '~') {
             return;
         }
-        if (focusHandOffKey != ControlHint.NO_KEY) {
-            focusHandOffKey = ControlHint.NO_KEY;
+        if (focusHandOffKey != Keys.NO_KEY_CODE) {
+            focusHandOffKey = Keys.NO_KEY_CODE;
             return;
         }
         if (Toggle.IsTerminalFocused.value && Terminal.current != null) {

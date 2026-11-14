@@ -100,20 +100,20 @@ public abstract class KnotTool extends Tool {
      */
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(ControlHint.repeating("cycle-clockwise", Keys.LEFT, "left",
+        controls.add(ControlHint.repeating("cycle-clockwise", Keys.LEFT,
                 "cycle " + cycleKeysStep + " clockwise", this::cycleLeft));
-        controls.add(ControlHint.repeating("cycle-anticlockwise", Keys.RIGHT, "right",
+        controls.add(ControlHint.repeating("cycle-anticlockwise", Keys.RIGHT,
                 "cycle " + cycleKeysStep + " anticlockwise", this::cycleRight));
         // Two keys each step the layer, one action under both.
-        controls.add(new ControlHint(NEXT_LAYER, Keys.RIGHT_BRACKET, "]", "next " + layerKeysStep,
+        controls.add(new ControlHint(NEXT_LAYER, Keys.RIGHT_BRACKET, "next " + layerKeysStep,
                 Toggle.IsMainFocused.gate(this::increaseViewLayer)));
-        controls.add(new ControlHint(NEXT_LAYER, Keys.UP, "up", "next " + layerKeysStep,
+        controls.add(new ControlHint(NEXT_LAYER, Keys.UP, "next " + layerKeysStep,
                 Toggle.IsMainFocused.gate(this::increaseViewLayer)));
-        controls.add(new ControlHint(PREVIOUS_LAYER, Keys.LEFT_BRACKET, "[", "previous " + layerKeysStep,
+        controls.add(new ControlHint(PREVIOUS_LAYER, Keys.LEFT_BRACKET, "previous " + layerKeysStep,
                 Toggle.IsMainFocused.gate(this::decreaseViewLayer)));
-        controls.add(new ControlHint(PREVIOUS_LAYER, Keys.DOWN, "down", "previous " + layerKeysStep,
+        controls.add(new ControlHint(PREVIOUS_LAYER, Keys.DOWN, "previous " + layerKeysStep,
                 Toggle.IsMainFocused.gate(this::decreaseViewLayer)));
-        controls.add(new ControlHint(CONFIRM, Keys.ENTER, "enter", CONFIRM,
+        controls.add(new ControlHint(CONFIRM, Keys.ENTER, CONFIRM,
                 Toggle.IsMainFocused.gate(this::confirm)));
     }
 

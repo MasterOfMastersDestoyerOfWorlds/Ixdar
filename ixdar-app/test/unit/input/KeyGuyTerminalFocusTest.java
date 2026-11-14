@@ -28,7 +28,7 @@ class KeyGuyTerminalFocusTest {
 
     private static final String TOGGLE_TERMINAL = "toggle terminal";
 
-    private static final int[] CONTROL_KEYS = {Keys.R, Keys.T, Keys.I, Keys.S, Keys.N, Keys.C,
+    private static final Keys[] CONTROL_KEYS = {Keys.R, Keys.T, Keys.I, Keys.S, Keys.N, Keys.C,
         Keys.X, Keys.ENTER, Keys.BACKSPACE, Keys.ESCAPE};
 
     private static final boolean[] CONTROL_HELD = {true, true, true, true, false, false, false,
@@ -58,13 +58,13 @@ class KeyGuyTerminalFocusTest {
         canvasBefore = Scene.instance;
         Scene canvas = new MenuScene();
         List<ControlHint> controls = canvas.controls.get(Scene.SCENE_SECTION);
-        controls.add(new ControlHint(TOGGLE_TERMINAL, Keys.GRAVE, "~", TOGGLE_TERMINAL, () -> {
+        controls.add(new ControlHint(TOGGLE_TERMINAL, Keys.GRAVE, TOGGLE_TERMINAL, () -> {
             fired.add(TOGGLE_TERMINAL);
             Toggle.IsTerminalFocused.value = !Toggle.IsTerminalFocused.value;
         }));
         for (int index = 0; index < CONTROL_KEYS.length; index++) {
             String label = CONTROL_LABELS.get(index);
-            controls.add(new ControlHint(label, CONTROL_KEYS[index], CONTROL_HELD[index], label, label,
+            controls.add(new ControlHint(label, CONTROL_KEYS[index], CONTROL_HELD[index], label,
                     () -> fired.add(label)));
         }
         canvas.mouse.controller = canvas.camera;
@@ -123,10 +123,10 @@ class KeyGuyTerminalFocusTest {
      * {@code keyCallback} that fires controls; the rest forwards to the terminal, whose class
      * needs a GL context to load.
      *
-     * @param key  key code
+     * @param key  the key
      * @param mods modifier bitmask
      */
-    private void press(int key, int mods) {
-        keyGuy.handleSceneKeys(key, mods);
+    private void press(Keys key, int mods) {
+        keyGuy.handleSceneKeys(key.keyCode, mods);
     }
 }

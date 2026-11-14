@@ -188,7 +188,7 @@ class RingEscapeTest {
         RingScene scene = sceneOn(RingAnchorOrderTest.tube(0f, RADIUS));
         ControlHint escape = null;
         for (ControlHint hint : scene.controls().get(Scene.SCENE_SECTION)) {
-            escape = hint.keyCode == Keys.ESCAPE ? hint : escape;
+            escape = hint.key == Keys.ESCAPE ? hint : escape;
         }
         assertNotNull(escape, "no Esc row in the controls");
         assertTrue(escape.description.contains("close an unedited ring (an edited one stays open)")

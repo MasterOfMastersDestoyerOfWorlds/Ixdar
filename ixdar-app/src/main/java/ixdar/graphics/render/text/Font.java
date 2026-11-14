@@ -29,6 +29,9 @@ public class Font {
     public static final float MEDIAN_MAX_MIP_LEVEL = 4f;
 
     private static final String ATLAS_JSON_PATH = "opensans.json";
+    private static final String ATLAS_IMAGE_PATH = "opensans.png";
+    private static final String KEY_GLYPHS_JSON_PATH = "keyglyphs.json";
+    private static final String KEY_GLYPHS_IMAGE_PATH = "keyglyphs.png";
     public Map<Character, Glyph> glyphs;
     public Texture texture;
 
@@ -43,21 +46,34 @@ public class Font {
     private Map<Integer, Map<Integer, Float>> kerningEm;
 
     /**
+     * The key glyph atlas ({@link ixdar.platform.input.Keys#glyph}), a second texture whose glyphs
+     * share this font's em, drawn for the characters {@link #glyphs} lacks; {@code null} in the
+     * key glyph font itself.
+     */
+    private Font keyGlyphs;
+
+    /**
      * Load the OpenSans MSDF atlas (synchronously when available, otherwise
      * asynchronously) and finalize {@link #glyphs}, {@link #texture}, the
-     * SDF shader, and metric-derived {@link #fontHeight}/{@link #fontWidth}.
+     * SDF shader, and metric-derived {@link #fontHeight}/{@link #fontWidth}; then the
+     * {@link #keyGlyphs} atlas the same way.
      */
     public Font() {
-        String json = Platforms.get().trySyncLoadSource(RES, ATLAS_JSON_PATH);
+        this(ATLAS_JSON_PATH, ATLAS_IMAGE_PATH);
+        keyGlyphs = new Font(KEY_GLYPHS_JSON_PATH, KEY_GLYPHS_IMAGE_PATH);
+    }
+
+    private Font(String jsonPath, String imagePath) {
+        String json = Platforms.get().trySyncLoadSource(RES, jsonPath);
         if (json != null && !json.isEmpty()) {
-            finishFromAtlasJson(json);
+            finishFromAtlasJson(json, imagePath);
             return;
         }
         int platformId = Platforms.gl().getPlatformID();
-        Platforms.get().loadSourceAsync(RES, ATLAS_JSON_PATH, platformId, this::finishFromAtlasJson);
+        Platforms.get().loadSourceAsync(RES, jsonPath, platformId, loaded -> finishFromAtlasJson(loaded, imagePath));
     }
 
-    private void finishFromAtlasJson(String json) {
+    private void finishFromAtlasJson(String json, String imagePath) {
         try {
             if (json == null || json.isEmpty()) {
                 Platforms.get().log(FONT_ATLAS_INIT_FAILED);
@@ -82,7 +98,7 @@ public class Font {
             this.fontHeight = atlas.derivedLineHeight;
             this.fontWidth = atlas.sizePx;
             final float distanceRange = (float) root.atlas.distanceRange;
-            Platforms.get().loadTexture("opensans.png", Platforms.gl().getPlatformID(), t -> {
+            Platforms.get().loadTexture(imagePath, Platforms.gl().getPlatformID(), t -> {
                 this.texture = t;
                 this.shader = ShaderType.TextureSDF.getShader();
                 this.sdfTexture = new SDFTexture(this.texture);
@@ -125,7 +141,7 @@ public class Font {
             if (c == '\r') {
                 continue;
             }
-            Glyph g = glyphs.get(c);
+            Glyph g = glyph(c);
             if (g == null)
                 continue;
             if (prevCodePoint != -1) {
@@ -158,65 +174,6 @@ public class Font {
             }
         }
         return Math.round(lines * fontHeight);
-    }
-
-    /**
-     * Render a sequence of {@link HyperChar} glyphs at {@code (x, y)} using
-     * the active SDF shader's already-running setup pass. Walks the string
-     * laying out plane-space glyph quads with kerning and newlines.
-     *
-     * @param text glyph stream to render
-     * @param x left x in world coordinates
-     * @param y top y in world coordinates
-     * @param glyphHeight target glyph height in pixels
-     * @param c text tint
-     * @param camera camera providing transform and z-index
-     */
-    public void drawTextNoSetup(ArrayList<HyperChar> text, float x, float y, float glyphHeight,
-            Color c, Camera camera) {
-        if (sdfTexture == null || glyphs == null) {
-            return;
-        }
-        float scale = glyphHeight / fontHeight;
-        float drawX = x;
-        float baselineY = y + (ascenderPx * scale) * BASELINE_OFFSET_RATIO;
-        float penEm = 0f;
-        int prevCodePoint = -1;
-
-        for (int i = 0; i < text.size(); i++) {
-            char ch = text.get(i).c;
-            if (ch == '\n') {
-                baselineY -= fontHeight * scale;
-                penEm = 0f;
-                prevCodePoint = -1;
-                continue;
-            }
-            if (ch == '\r') {
-                continue;
-            }
-            Glyph g = glyphs.get(ch);
-            if (g == null) {
-                prevCodePoint = -1;
-                continue;
-            }
-            if (prevCodePoint != -1) {
-                penEm += getKerningEm(prevCodePoint, ch);
-            }
-            float glyphLeftPx = (penEm + g.planeLeft) * pxPerEm * scale;
-            float glyphBottomPx = (g.planeBottom) * pxPerEm * scale;
-            float glyphWidthPx = (g.planeRight - g.planeLeft) * pxPerEm * scale;
-            float glyphHeightPx = (g.planeTop - g.planeBottom) * pxPerEm * scale;
-
-            if (glyphWidthPx > 0 && glyphHeightPx > 0) {
-
-                HyperChar h = text.get(i);
-                h.drawRegionNoSetup(drawX + glyphLeftPx, baselineY + glyphBottomPx,
-                        glyphWidthPx, glyphHeightPx,
-                        g.x, g.y, g.width, g.height, c, camera);
-            }
-            penEm += g.advance;
-            prevCodePoint = ch;
-        }
     }
 
     /**
@@ -346,13 +303,81 @@ public class Font {
         }
         int[] layers = outlined ? new int[] { SDFTexture.LAYER_BORDER_ONLY, SDFTexture.LAYER_FILL_ONLY }
                 : new int[] { SDFTexture.LAYER_FILL_OVER_BORDER };
+        drawLayers(this, parts, layers, height, camera);
+        boolean anyKeyGlyph = keyGlyphs.sdfTexture != null && parts.stream()
+                .flatMap(part -> part.text.stream())
+                .anyMatch(ch -> keyGlyphs.glyphs.containsKey(ch.c) && !glyphs.containsKey(ch.c));
+        if (anyKeyGlyph) {
+            // The key glyphs sample their own texture: end the caller's pass, draw them in one of
+            // their own, and set the caller's up again for it to clean up.
+            sdfTexture.cleanup(camera);
+            keyGlyphs.sdfTexture.setup(camera);
+            drawLayers(keyGlyphs, parts, layers, height, camera);
+            keyGlyphs.sdfTexture.cleanup(camera);
+            sdfTexture.setup(camera);
+        }
+    }
+
+    /**
+     * In the pass {@code atlas} has set up, lay out each word with kerning and newlines and draw,
+     * layer by layer, the glyphs that atlas holds; the other atlas's glyphs only advance the pen.
+     *
+     * @param atlas  this font or its {@link #keyGlyphs}, whose texture the pass samples
+     * @param parts  the words, laid out
+     * @param layers the SDF layers to draw, in order
+     * @param height row height in pixels
+     * @param camera camera providing the z-index
+     */
+    private void drawLayers(Font atlas, List<HyperWord> parts, int[] layers, float height, Camera camera) {
+        float scale = height / fontHeight;
+        float emPx = pxPerEm * scale;
         for (int layer : layers) {
-            sdfTexture.setLayer(layer);
+            atlas.sdfTexture.setLayer(layer);
             for (HyperWord part : parts) {
-                sdfTexture.setWordBorder(part.borderColor, part.borderPixels);
-                drawTextNoSetup(part.text, part.x, part.y, height, part.color, camera);
+                atlas.sdfTexture.setWordBorder(part.borderColor, part.borderPixels);
+                float baselineY = part.y + ascenderPx * scale * BASELINE_OFFSET_RATIO;
+                float penEm = 0f;
+                int prevCodePoint = -1;
+                for (HyperChar hyperChar : part.text) {
+                    char ch = hyperChar.c;
+                    if (ch == '\n') {
+                        baselineY -= fontHeight * scale;
+                        penEm = 0f;
+                        prevCodePoint = -1;
+                        continue;
+                    }
+                    Glyph g = ch == '\r' ? null : glyph(ch);
+                    if (g == null) {
+                        prevCodePoint = ch == '\r' ? prevCodePoint : -1;
+                        continue;
+                    }
+                    penEm += prevCodePoint == -1 ? 0f : getKerningEm(prevCodePoint, ch);
+                    float width = (g.planeRight - g.planeLeft) * emPx;
+                    float glyphHeight = (g.planeTop - g.planeBottom) * emPx;
+                    if (width > 0 && glyphHeight > 0 && atlas.glyphs.get(ch) == g) {
+                        atlas.sdfTexture.drawRegionNoSetup(part.x + (penEm + g.planeLeft) * emPx,
+                                baselineY + g.planeBottom * emPx, width, glyphHeight,
+                                g.x, g.y, g.width, g.height, part.color, camera);
+                    }
+                    penEm += g.advance;
+                    prevCodePoint = ch;
+                }
             }
         }
+    }
+
+    /**
+     * The glyph drawn for {@code ch}: the text atlas's, else the {@link #keyGlyphs} atlas's.
+     *
+     * @param ch the character
+     * @return its glyph, or {@code null} when neither atlas has it or the atlas is still loading
+     */
+    private Glyph glyph(char ch) {
+        Glyph g = glyphs.get(ch);
+        if (g == null && keyGlyphs != null && keyGlyphs.glyphs != null) {
+            g = keyGlyphs.glyphs.get(ch);
+        }
+        return g;
     }
 
     private static Map<Character, Glyph> buildGlyphs(FontAtlasDTO root) {

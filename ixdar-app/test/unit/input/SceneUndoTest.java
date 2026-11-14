@@ -65,7 +65,7 @@ class SceneUndoTest {
         scene.initPoints();
         scene.setTools();
         scene.switchTool(scene.defaultTool);
-        scene.keys.handleSceneKeys(Keys.Z, KeyNames.MOD_CONTROL);
+        scene.keys.handleSceneKeys(Keys.Z.keyCode, KeyNames.MOD_CONTROL);
         assertEquals("nothing to undo in the " + scene.defaultTool.toolName(), scene.defaultTool.lastError);
 
         StrokeSculptTool sculpt = scene.strokeSculptTool;
@@ -75,13 +75,13 @@ class SceneUndoTest {
         sculpt.history.push("stroke", sculpt.passes, drawn);
         sculpt.passes = drawn;
 
-        scene.keys.handleSceneKeys(Keys.Z, KeyNames.MOD_CONTROL);
+        scene.keys.handleSceneKeys(Keys.Z.keyCode, KeyNames.MOD_CONTROL);
         assertEquals(List.of(), sculpt.passes, sculpt.lastError);
         assertTrue(sculpt.lastRow.startsWith("undid stroke"), sculpt.lastRow);
-        scene.keys.handleSceneKeys(Keys.Y, KeyNames.MOD_CONTROL);
+        scene.keys.handleSceneKeys(Keys.Y.keyCode, KeyNames.MOD_CONTROL);
         assertEquals(drawn, sculpt.passes, sculpt.lastError);
-        scene.keys.handleSceneKeys(Keys.Z, KeyNames.MOD_CONTROL);
-        scene.keys.handleSceneKeys(Keys.Z, KeyNames.MOD_CONTROL | KeyNames.MOD_SHIFT);
+        scene.keys.handleSceneKeys(Keys.Z.keyCode, KeyNames.MOD_CONTROL);
+        scene.keys.handleSceneKeys(Keys.Z.keyCode, KeyNames.MOD_CONTROL | KeyNames.MOD_SHIFT);
         assertEquals(drawn, sculpt.passes, sculpt.lastError);
     }
 
@@ -96,9 +96,9 @@ class SceneUndoTest {
         assertTrue(scene.game.network.pipe(place(scene.game, "Farrow"), place(scene.game, "Elmet"), 0));
         assertEquals(loops + 1, scene.game.player.loops.size());
 
-        scene.keys.handleSceneKeys(Keys.Z, KeyNames.MOD_CONTROL);
+        scene.keys.handleSceneKeys(Keys.Z.keyCode, KeyNames.MOD_CONTROL);
         assertEquals(loops, scene.game.player.loops.size());
-        scene.keys.handleSceneKeys(Keys.Y, KeyNames.MOD_CONTROL);
+        scene.keys.handleSceneKeys(Keys.Y.keyCode, KeyNames.MOD_CONTROL);
         assertEquals(loops + 1, scene.game.player.loops.size());
     }
 

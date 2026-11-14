@@ -566,11 +566,12 @@ public abstract class Scene extends SceneDrawable {
         if (sceneTerminal == null) {
             return;
         }
-        controls.add(
-                new ControlHint("toggle-terminal", Keys.GRAVE, "~", "toggle the terminal", () -> {
-                    boolean focusTerminal = !Toggle.IsTerminalFocused.value;
-                    Toggle.setPanelFocus(focusTerminal ? Toggle.IsTerminalFocused : Toggle.IsMainFocused);
-                }));
+        controls.add(new ControlHint("toggle-terminal", Keys.GRAVE, "toggle the terminal", this::toggleTerminal));
+    }
+
+    /** Move the keyboard focus to the terminal, or back to the main pane. */
+    private void toggleTerminal() {
+        Toggle.setPanelFocus(Toggle.IsTerminalFocused.value ? Toggle.IsMainFocused : Toggle.IsTerminalFocused);
     }
 
     /**
@@ -633,8 +634,8 @@ public abstract class Scene extends SceneDrawable {
             if (tool == activeTool) {
                 description.append(ACTIVE_MARK);
             }
-            switches.add(new ControlHint(hint.actionName, hint.keyCode, hint.controlHeld, hint.shiftHeld,
-                    hint.key, description.toString(), hint.action));
+            switches.add(new ControlHint(hint.actionName, hint.key, hint.controlHeld, hint.shiftHeld,
+                    description.toString(), hint.action));
         }
         if (activeTool != null) {
             activeTool.addControls(toolRows);
@@ -646,18 +647,18 @@ public abstract class Scene extends SceneDrawable {
             // Undo and redo are every scene's, whatever tool is up; redo comes first, since a
             // ctrl+Z row also answers ctrl+shift+Z.
             Action redone = () -> stepHistory(false);
-            sceneRows.add(new ControlHint(REDO_ACTION, Keys.Z, true, true, "ctrl+shift+Z", REDO_DESCRIPTION, redone));
-            sceneRows.add(new ControlHint(UNDO_ACTION, Keys.Z, true, "ctrl+Z", "undo the last edit",
+            sceneRows.add(new ControlHint(REDO_ACTION, Keys.Z, true, true, REDO_DESCRIPTION, redone));
+            sceneRows.add(new ControlHint(UNDO_ACTION, Keys.Z, true, "undo the last edit",
                     () -> stepHistory(true)));
-            sceneRows.add(new ControlHint(REDO_ACTION, Keys.Y, true, "ctrl+Y", REDO_DESCRIPTION, redone));
+            sceneRows.add(new ControlHint(REDO_ACTION, Keys.Y, true, REDO_DESCRIPTION, redone));
             boolean bindsF = false;
             for (List<ControlHint> section : controls) {
                 for (ControlHint hint : section) {
-                    bindsF |= hint.keyCode == Keys.F && !hint.controlHeld && !hint.shiftHeld;
+                    bindsF |= hint.key == Keys.F && !hint.controlHeld && !hint.shiftHeld;
                 }
             }
             if (!bindsF) {
-                sceneRows.add(0, new ControlHint(FRAME_ALL_ACTION, Keys.F, "F", FRAME_ALL_DESCRIPTION,
+                sceneRows.add(0, new ControlHint(FRAME_ALL_ACTION, Keys.F, FRAME_ALL_DESCRIPTION,
                         this::frameAll));
             }
         }

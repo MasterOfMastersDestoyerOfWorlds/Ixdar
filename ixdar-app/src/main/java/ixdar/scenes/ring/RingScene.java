@@ -173,11 +173,11 @@ public class RingScene extends MeshNodeViewerScene {
     @Override
     public void setTools() {
         super.setTools();
-        addToolSwitch(ringTool, new ControlHint("ring-tool", Keys.R, true, "ctrl+R", "draw and edit rings",
+        addToolSwitch(ringTool, new ControlHint("ring-tool", Keys.R, true, "draw and edit rings",
                 () -> switchTool(ringTool)));
-        addToolSwitch(regionTool, new ControlHint("region-tool", Keys.T, true, "ctrl+T",
+        addToolSwitch(regionTool, new ControlHint("region-tool", Keys.T, true,
                 RingRegionTool.TOOL_PURPOSE, () -> switchTool(regionTool)));
-        addToolSwitch(connectionTool, new ControlHint("connection-tool", Keys.J, true, "ctrl+J",
+        addToolSwitch(connectionTool, new ControlHint("connection-tool", Keys.J, true,
                 "find the neck joining two places", () -> switchTool(connectionTool)));
     }
 
@@ -542,50 +542,64 @@ public class RingScene extends MeshNodeViewerScene {
      */
     @Override
     public void setControls(List<ControlHint> controls) {
-        // Each toggle reports its new state as the active tool's last row, which the reply carries.
-        // G picks the regions look and back to the look picked before it.
-        controls.add(new ControlHint("toggle-region-colours", Keys.G, "G", "region colours in every tool", () -> {
-            boolean on = !regionLookPicked();
-            if (on) {
-                lookBeforeRegions = looks.picked.id;
-            }
-            setLook(on ? REGIONS_LOOK : lookBeforeRegions, headlight);
-            refreshControls();
-            activeTool.lastRow = ControlHint.toggled("region colours outside the region tool", on);
-        }));
-        controls.add(new ControlHint("collapse-slivers", Keys.A, "A",
-                "collapse slivers: one ring keeps each lens, the other becomes bisectors",
-                () -> {
-                    ringTool.collapseSlivers();
-                    activeTool.lastRow = ringTool.lastRow;
-                    errorToasts.show(ringTool.toolName(), ringTool.lastError);
-                }));        controls.add(new ControlHint("show-hidden-regions", Keys.U, "U", "show hidden regions", regionLayer::showAll));
-        controls.add(new ControlHint(SAVE_RINGS_ACTION, Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
-        // H flips the visibility that applies now: the exploded view's, or the assembled one.
-        controls.add(new ControlHint("toggle-rings", Keys.H, "H", "show / hide rings", () -> {
-            if (regionLayer.explosion.exploded()) {
-                showRingsExploded = !showRingsExploded;
-            } else {
-                showRings = !showRings;
-            }
-            activeTool.lastRow = ControlHint.toggled("rings shown", ringsShown());
-        }));
-        // N shows or hides every number, P every label; both start off.
-        controls.add(new ControlHint(TOGGLE_NUMBERS_ACTION, Keys.N, "N", "all numbers: rings and regions (R3)",
-                () -> {
-                    showNumbers = !showNumbers;
-                    regionLayer.labelsShownChanged();
-                    activeTool.lastRow = ControlHint.toggled("numbers shown", showNumbers);
-                }));
-        // Part colours go with the part names, so the labels row recolours the regions too.
-        controls.add(new ControlHint(TOGGLE_LABELS_ACTION, Keys.P, "P", "all labels: part names, coloured by part",
-                () -> {
-                    showLabels = !showLabels;
-                    regionLayer.labelsShownChanged();
-                    regionLayer.redraw();
-                    activeTool.lastRow = ControlHint.toggled("labels shown", showLabels);
-                }));
+        controls.add(new ControlHint("toggle-region-colours", Keys.G, "region colours in every tool",
+                this::toggleRegionColours));
+        controls.add(new ControlHint("collapse-slivers", Keys.A,
+                "collapse slivers: one ring keeps each lens, the other becomes bisectors", this::collapseSlivers));
+        controls.add(new ControlHint("show-hidden-regions", Keys.U, "show hidden regions", regionLayer::showAll));
+        controls.add(new ControlHint(SAVE_RINGS_ACTION, Keys.S, true, "save rings", this::saveRingsPressed));
+        controls.add(new ControlHint("toggle-rings", Keys.H, "show / hide rings", this::toggleRings));
+        controls.add(new ControlHint(TOGGLE_NUMBERS_ACTION, Keys.N, "all numbers: rings and regions (R3)",
+                this::toggleNumbers));
+        controls.add(new ControlHint(TOGGLE_LABELS_ACTION, Keys.P, "all labels: part names, coloured by part",
+                this::toggleLabels));
         super.setControls(controls);
+    }
+
+    /**
+     * pick the regions look, or back to the look picked before it; each toggle here reports its
+     * new state as the active tool's last row, which the reply carries.
+     */
+    private void toggleRegionColours() {
+        boolean on = !regionLookPicked();
+        if (on) {
+            lookBeforeRegions = looks.picked.id;
+        }
+        setLook(on ? REGIONS_LOOK : lookBeforeRegions, headlight);
+        refreshControls();
+        activeTool.lastRow = ControlHint.toggled("region colours outside the region tool", on);
+    }
+
+    /** collapse the sliver lenses between rings, from any tool. */
+    private void collapseSlivers() {
+        ringTool.collapseSlivers();
+        activeTool.lastRow = ringTool.lastRow;
+        errorToasts.show(ringTool.toolName(), ringTool.lastError);
+    }
+
+    /** flip the ring visibility that applies now, the exploded view's or the assembled one. */
+    private void toggleRings() {
+        if (regionLayer.explosion.exploded()) {
+            showRingsExploded = !showRingsExploded;
+        } else {
+            showRings = !showRings;
+        }
+        activeTool.lastRow = ControlHint.toggled("rings shown", ringsShown());
+    }
+
+    /** show or hide every ring and region number; off at the start. */
+    private void toggleNumbers() {
+        showNumbers = !showNumbers;
+        regionLayer.labelsShownChanged();
+        activeTool.lastRow = ControlHint.toggled("numbers shown", showNumbers);
+    }
+
+    /** show or hide every part name; part colours go with the names, so the regions recolour. */
+    private void toggleLabels() {
+        showLabels = !showLabels;
+        regionLayer.labelsShownChanged();
+        regionLayer.redraw();
+        activeTool.lastRow = ControlHint.toggled("labels shown", showLabels);
     }
 
     /**

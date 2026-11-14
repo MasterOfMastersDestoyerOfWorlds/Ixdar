@@ -142,16 +142,16 @@ class RefusalToastTest {
         return toasts.colors.get(toast).toVector4f().w;
     }
 
-    private static void press(RingScene scene, int keyCode) {
+    private static void press(RingScene scene, Keys key) {
         for (List<ControlHint> section : scene.controls()) {
             for (ControlHint hint : section) {
-                if (hint.keyCode == keyCode && !hint.controlHeld && hint.action != null) {
+                if (hint.key == key && !hint.controlHeld && hint.action != null) {
                     hint.action.perform();
                     return;
                 }
             }
         }
-        throw new AssertionError("no hint for key " + keyCode);
+        throw new AssertionError("no hint for key " + key);
     }
 
     private static RingScene sceneOn(MeshTopology tube) {

@@ -203,7 +203,7 @@ class ToolInputReplyTest {
 
             @Override
             public void addControls(List<ControlHint> controls) {
-                controls.add(new ControlHint("draw-stroke", Keys.P, DRAW_KEY, DREW, () -> {
+                controls.add(new ControlHint("draw-stroke", Keys.P, DREW, () -> {
                     lastRow = DREW;
                     penHistory.push(DREW, "", "");
                 }));
@@ -221,7 +221,7 @@ class ToolInputReplyTest {
 
             @Override
             public boolean onRelease(float x, float y, boolean click) {
-                lastRow = scene.keys.pressedKeys.contains(Keys.LEFT_SHIFT) ? CLICKED_WITH_SHIFT : CLICKED;
+                lastRow = scene.keys.pressedKeys.contains(Keys.LEFT_SHIFT.keyCode) ? CLICKED_WITH_SHIFT : CLICKED;
                 return true;
             }
         };
@@ -241,11 +241,11 @@ class ToolInputReplyTest {
 
             @Override
             public void addControls(List<ControlHint> controls) {
-                controls.add(new ControlHint(HIDE_ACTION, Keys.H, false, true, HIDE_KEY, HIDE, () -> lastRow = HIDE));
+                controls.add(new ControlHint(HIDE_ACTION, Keys.H, false, true, HIDE, () -> lastRow = HIDE));
             }
         };
-        scene.addToolSwitch(pen, new ControlHint(PEN, Keys.Q, true, "ctrl+Q", "draw", () -> scene.switchTool(pen)));
-        scene.addToolSwitch(brush, new ControlHint(BRUSH, Keys.W, true, BRUSH_SWITCH, BRUSH,
+        scene.addToolSwitch(pen, new ControlHint(PEN, Keys.Q, true, "draw", () -> scene.switchTool(pen)));
+        scene.addToolSwitch(brush, new ControlHint(BRUSH, Keys.W, true, BRUSH,
                 () -> scene.switchTool(brush)));
         scene.tools.add(new RingTool(null));
         scene.defaultTool = pen;
@@ -454,7 +454,7 @@ class ToolInputReplyTest {
         ringTool.addControls(controls);
         String modeHint = "";
         for (ControlHint hint : controls) {
-            if (hint.keyCode == Keys.T) {
+            if (hint.key == Keys.T) {
                 modeHint = hint.description;
             }
         }

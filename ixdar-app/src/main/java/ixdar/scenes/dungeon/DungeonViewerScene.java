@@ -271,13 +271,13 @@ public class DungeonViewerScene extends ModelScene {
      */
     @Override
     public void setControls(List<ControlHint> controls) {
-        controls.add(new ControlHint(ControlHint.NO_KEY, "drag", "look round; while walking every move looks"));
-        controls.add(new ControlHint(ControlHint.NO_KEY, "scroll", "zoom the third-person camera"));
-        controls.add(new ControlHint("toggle-player-mode", Keys.F, "F", "walk the player or fly the camera",
+        controls.add(new ControlHint(Keys.DRAG, "look round; while walking every move looks"));
+        controls.add(new ControlHint(Keys.SCROLL, "zoom the third-person camera"));
+        controls.add(new ControlHint("toggle-player-mode", Keys.F, "walk the player or fly the camera",
                 this::togglePlayerMode));
-        controls.add(new ControlHint("toggle-view-mode", Keys.V, "V", "first or third person while walking",
+        controls.add(new ControlHint("toggle-view-mode", Keys.V, "first or third person while walking",
                 this::toggleViewMode));
-        controls.add(new ControlHint("reset-look", Keys.R, "R", "reset the look", camera::reset));
+        controls.add(new ControlHint("reset-look", Keys.R, "reset the look", camera::reset));
         super.setControls(controls);
     }
 

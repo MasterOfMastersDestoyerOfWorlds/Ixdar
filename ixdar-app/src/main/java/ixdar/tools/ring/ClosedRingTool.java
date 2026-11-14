@@ -105,27 +105,33 @@ public final class ClosedRingTool extends RingSubTool {
 
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint(ControlHint.NO_KEY, "click", "draft ring / add or pick anchor"));
-        controls.add(new ControlHint("discard-draft", Keys.X, "X", "discard draft",
+        controls.add(new ControlHint(Keys.CLICK, "draft ring / add or pick anchor"));
+        controls.add(new ControlHint("discard-draft", Keys.X, "discard draft",
                 ringTool.refusalShown(() -> discardDraft())));
-        // Delete or Backspace removes the selected anchor, or the whole ring with none selected.
-        for (int key : new int[] { Keys.DELETE, Keys.BACKSPACE }) {
-            controls.add(new ControlHint("remove-anchor", key, key == Keys.DELETE ? "del" : "backspace",
-                    REMOVE_SELECTED_ANCHOR_HINT, ringTool.refusalShown(() -> {
-                        if (ringTool.draft != null && ringTool.selectedIndex() < 0) {
-                            ringTool.deleteDraftRing();
-                        } else {
-                            ringTool.deleteSelectedAnchor();
-                        }
-                    })));
+        for (Keys key : new Keys[] { Keys.DELETE, Keys.BACKSPACE }) {
+            controls.add(new ControlHint("remove-anchor", key, REMOVE_SELECTED_ANCHOR_HINT,
+                    ringTool.refusalShown(this::removeSelected)));
         }
-        controls.add(new ControlHint(RingTool.BISECT_ACTION, Keys.K, "K", "bisect", ringTool.refusalShown(() -> {
-            if (ringTool.draft != null) {
-                ringTool.lastError = "confirm or discard the open ring draft before bisecting";
-            } else {
-                ringTool.switchSubTool(ringTool.bisector);
-            }
-        })));
+        controls.add(new ControlHint(RingTool.BISECT_ACTION, Keys.K, "bisect",
+                ringTool.refusalShown(this::startBisecting)));
+    }
+
+    /** Remove the selected anchor, or the whole draft with none selected. */
+    private void removeSelected() {
+        if (ringTool.draft != null && ringTool.selectedIndex() < 0) {
+            ringTool.deleteDraftRing();
+        } else {
+            ringTool.deleteSelectedAnchor();
+        }
+    }
+
+    /** Switch to the bisector, refused while a ring draft is open. */
+    private void startBisecting() {
+        if (ringTool.draft != null) {
+            ringTool.lastError = "confirm or discard the open ring draft before bisecting";
+        } else {
+            ringTool.switchSubTool(ringTool.bisector);
+        }
     }
 
     /**

@@ -31,8 +31,9 @@ import ixdar.tools.Tool;
 import ixdar.tools.ring.RingTool;
 
 /**
- * The editing scene's connection tool: two picks on the surface show the shortest path joining
- * them and the narrowest cross-section on it, the neck, which Enter makes a ring to edit.
+ * The editing scene's connection tool: two picks on the surface show the
+ * shortest path joining them and the narrowest cross-section on it, the neck,
+ * which Enter makes a ring to edit.
  */
 @ToolAnnotation(id = ConnectionTool.TOOL_NAME)
 public final class ConnectionTool extends Tool {
@@ -53,10 +54,14 @@ public final class ConnectionTool extends Tool {
 
     public static final String NECK = "neck";
 
-    /** Scene the tool runs on, whose ring tool holds the rings that act as walls. */
+    /**
+     * Scene the tool runs on, whose ring tool holds the rings that act as walls.
+     */
     public final RingScene scene;
 
-    /** The connection over the shown surface, built when the tool first runs on it. */
+    /**
+     * The connection over the shown surface, built when the tool first runs on it.
+     */
     public SurfaceConnection connection;
 
     /** Whether the tool is the scene's active one. */
@@ -68,10 +73,16 @@ public final class ConnectionTool extends Tool {
     /** Whether the faces repair_mesh added are coloured on the surface. */
     public boolean showingFills;
 
-    /** Vertex each pick sits on, start then end, -1 while unset; the end is set only after. */
+    /**
+     * Vertex each pick sits on, start then end, -1 while unset; the end is set only
+     * after.
+     */
     public final int[] pickVertexId = { -1, -1 };
 
-    /** Active face each pick was made on, which the connection starts from, parallel. */
+    /**
+     * Active face each pick was made on, which the connection starts from,
+     * parallel.
+     */
     public final int[] pickActiveFace = { -1, -1 };
 
     /** Pick under the cursor, which a press drags, or -1. */
@@ -80,10 +91,16 @@ public final class ConnectionTool extends Tool {
     /** Pick being dragged along the surface, or -1. */
     public int draggingPick = -1;
 
-    /** The neck snapped to mesh edges, its vertex ids in walking order; empty when none. */
+    /**
+     * The neck snapped to mesh edges, its vertex ids in walking order; empty when
+     * none.
+     */
     public int[] neckLoopVertexId = new int[0];
 
-    /** Faces repair_mesh added to the shown surface, by active face index; empty when unknown. */
+    /**
+     * Faces repair_mesh added to the shown surface, by active face index; empty
+     * when unknown.
+     */
     public boolean[] filledByActiveFace = new boolean[0];
 
     /** Drawn number of the ring the last Enter made, or -1. */
@@ -118,8 +135,8 @@ public final class ConnectionTool extends Tool {
     }
 
     /**
-     * The two picks, start then end, with the one being dragged selected and the one under the
-     * cursor hovered; valid once both are set.
+     * The two picks, start then end, with the one being dragged selected and the
+     * one under the cursor hovered; valid once both are set.
      *
      * @return the picks, or {@code null} before the first
      */
@@ -142,8 +159,9 @@ public final class ConnectionTool extends Tool {
     }
 
     /**
-     * The traced connection: the neck's narrowest point, whether the picks are joined, the time
-     * the path and the cross-sections took, and the path and neck as the detail.
+     * The traced connection: the neck's narrowest point, whether the picks are
+     * joined, the time the path and the cross-sections took, and the path and neck
+     * as the detail.
      *
      * @return the preview, or {@code null} before the picks were joined once
      */
@@ -157,8 +175,8 @@ public final class ConnectionTool extends Tool {
     }
 
     /**
-     * The joined path and the neck on it: the path by its faces and length, the neck by its loop's
-     * edges, girth and fingerprint at its narrowest point.
+     * The joined path and the neck on it: the path by its faces and length, the
+     * neck by its loop's edges, girth and fingerprint at its narrowest point.
      *
      * @return the path then the neck, empty while the picks are not joined
      */
@@ -190,7 +208,10 @@ public final class ConnectionTool extends Tool {
         return found;
     }
 
-    /** Show the connection the tool holds; clicks and pick drags arrive through the pointer callbacks. */
+    /**
+     * Show the connection the tool holds; clicks and pick drags arrive through the
+     * pointer callbacks.
+     */
     @Override
     public void activate() {
         active = true;
@@ -200,7 +221,9 @@ public final class ConnectionTool extends Tool {
         }
     }
 
-    /** Hand the mouse back and take the drawing off the surface, keeping the picks. */
+    /**
+     * Hand the mouse back and take the drawing off the surface, keeping the picks.
+     */
     @Override
     public void deactivate() {
         releasePick();
@@ -218,46 +241,59 @@ public final class ConnectionTool extends Tool {
 
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint(ControlHint.NO_KEY, "click", "pick two places (cyan)"));
-        controls.add(new ControlHint(ControlHint.NO_KEY, "drag pick", "move it, re-run on release"));
-        controls.add(new ControlHint("confirm-neck", Keys.ENTER, "enter", "make the green neck a ring and edit it",
-                () -> {
-                    confirmNeck();
-                    scene.errorToasts.show(TOOL_NAME, lastError);
-                }));
-        controls.add(new ControlHint("toggle-rings-as-walls", Keys.W, "W", "rings as walls on / off", () -> {
-            ringsAreWalls = !ringsAreWalls;
-            Platforms.get().log(LOG_PREFIX + "rings are " + (ringsAreWalls ? "" : "not ") + "walls");
-            if (pickVertexId[1] >= 0 && !run()) {
-                scene.errorToasts.show(TOOL_NAME, lastError);
-            }
-            lastRow = ControlHint.toggled("rings as walls", ringsAreWalls) + (pickVertexId[1] < 0 ? ""
-                    : "; " + lastRow);
-        }));
-        controls.add(new ControlHint("toggle-repair-fills", Keys.F, "F", "repair_mesh fills (orange-red) on / off",
-                () -> {
-            showingFills = !showingFills;
-            if (active) {
-                showFills(showingFills);
-            }
-        }));
-        controls.add(new ControlHint("clear-picks", Keys.C, "C", "clear picks", () -> {
-            Arrays.fill(pickVertexId, -1);
-            draggingPick = -1;
-            hoveredPick = -1;
-            neckLoopVertexId = new int[0];
-            if (connection != null) {
-                connection.connected = false;
-            }
-            lastRow = "picks cleared";
-            overlayStale = true;
-        }));
+        controls.add(new ControlHint(Keys.CLICK, "pick two places (cyan)"));
+        controls.add(new ControlHint(Keys.DRAG, "move a pick, re-run on release"));
+        controls.add(new ControlHint("confirm-neck", Keys.ENTER, "make the green neck a ring and edit it",
+                this::confirmNeckPressed));
+        controls.add(new ControlHint("toggle-rings-as-walls", Keys.W, "rings as walls on / off",
+                this::toggleRingsAsWalls));
+        controls.add(new ControlHint("toggle-repair-fills", Keys.F, "repair_mesh fills (orange-red) on / off",
+                this::toggleRepairFills));
+        controls.add(new ControlHint("clear-picks", Keys.C, "clear picks", this::clearPicks));
+    }
+
+    /** Make the green neck a ring, its refusal shown as a toast. */
+    private void confirmNeckPressed() {
+        confirmNeck();
+        scene.errorToasts.show(TOOL_NAME, lastError);
+    }
+
+    /** Toggle whether the rings wall the search off, re-running it when both places are picked. */
+    private void toggleRingsAsWalls() {
+        ringsAreWalls = !ringsAreWalls;
+        Platforms.get().log(LOG_PREFIX + "rings are " + (ringsAreWalls ? "" : "not ") + "walls");
+        if (pickVertexId[1] >= 0 && !run()) {
+            scene.errorToasts.show(TOOL_NAME, lastError);
+        }
+        lastRow = ControlHint.toggled("rings as walls", ringsAreWalls) + (pickVertexId[1] < 0 ? ""
+                : "; " + lastRow);
+    }
+
+    /** Show or hide the repair_mesh fills while the tool is active. */
+    private void toggleRepairFills() {
+        showingFills = !showingFills;
+        if (active) {
+            showFills(showingFills);
+        }
+    }
+
+    /** Drop both picks and the neck found between them. */
+    private void clearPicks() {
+        Arrays.fill(pickVertexId, -1);
+        draggingPick = -1;
+        hoveredPick = -1;
+        neckLoopVertexId = new int[0];
+        if (connection != null) {
+            connection.connected = false;
+        }
+        lastRow = "picks cleared";
+        overlayStale = true;
     }
 
     /**
-     * One frame while active: rebuild the face graph for a new surface, re-run when the rings
-     * moved, pick under the cursor, move a dragged pick or find the hovered one, then run a
-     * queued click.
+     * One frame while active: rebuild the face graph for a new surface, re-run when
+     * the rings moved, pick under the cursor, move a dragged pick or find the
+     * hovered one, then run a queued click.
      */
     @Override
     public void perFrame() {
@@ -317,8 +353,10 @@ public final class ConnectionTool extends Tool {
             }
             scene.errorToasts.show(TOOL_NAME, lastError);
         }
-        // Draw the connection over the surface, the path yellow and the neck green, and the picks
-        // as the ring tool's anchor discs: cyan, the one under the cursor or dragged yellow and
+        // Draw the connection over the surface, the path yellow and the neck green, and
+        // the picks
+        // as the ring tool's anchor discs: cyan, the one under the cursor or dragged
+        // yellow and
         // larger, drawn last so it wins an overlap.
         Palette palette = scene.palette;
         if (!overlayStale && hoveredPick == uploadedHoveredPick && palette == uploadedPalette
@@ -356,7 +394,8 @@ public final class ConnectionTool extends Tool {
         }
         int emphasised = draggingPick >= 0 ? draggingPick : hoveredPick;
         int picked = pickVertexId[1] >= 0 ? PICKS : 1;
-        // The emphasised pick last, so it shows over the other where the two discs overlap.
+        // The emphasised pick last, so it shows over the other where the two discs
+        // overlap.
         SurfaceDots pickDots = new SurfaceDots();
         for (int pick = 0; overlay.surfaceMesh != null && pick < picked; pick++) {
             if (pick != emphasised) {
@@ -373,8 +412,8 @@ public final class ConnectionTool extends Tool {
     }
 
     /**
-     * Build the face graph and read repair_mesh's fill faces when the shown surface changed,
-     * dropping picks made on the old one.
+     * Build the face graph and read repair_mesh's fill faces when the shown surface
+     * changed, dropping picks made on the old one.
      *
      * @param surface the shown surface
      */
@@ -404,8 +443,8 @@ public final class ConnectionTool extends Tool {
     }
 
     /**
-     * Connect the two picks with the rings as walls or not, order the neck's snapped edges into
-     * a loop, log what was found and redraw.
+     * Connect the two picks with the rings as walls or not, order the neck's
+     * snapped edges into a loop, log what was found and redraw.
      *
      * @return true when the picks are joined and the neck is one closed edge loop
      */
@@ -447,7 +486,8 @@ public final class ConnectionTool extends Tool {
         }
         if (!found) {
             lastError = (joined.failure.isEmpty()
-                    ? "the neck's snapped edges are not one closed loop" : joined.failure)
+                    ? "the neck's snapped edges are not one closed loop"
+                    : joined.failure)
                     + " - drag a pick to try another neck";
         }
         lastRow = String.format(Locale.ROOT, "path %.4f over %d faces%s; neck %.4f around, "
@@ -464,8 +504,8 @@ public final class ConnectionTool extends Tool {
     }
 
     /**
-     * Enter: confirm the neck as an unsaved ring, then switch to the ring tool with that ring
-     * open as the draft, its anchors ready to drag, add and delete.
+     * Confirm the neck as an unsaved ring, then switch to the ring tool with
+     * that ring open as the draft, its anchors ready to drag, add and delete.
      *
      * @return true when the ring tool holds the neck as its draft
      */
@@ -540,7 +580,8 @@ public final class ConnectionTool extends Tool {
         }
         runtime.clearTagColors();
         runtime.setTagColor(FILL_TAG, scene.palette.warning.toVector4f());
-        // The fills draw as face-group colours, as the regions do, so they show in that look.
+        // The fills draw as face-group colours, as the regions do, so they show in that
+        // look.
         scene.looks.override(RingScene.REGIONS_LOOK);
         runtime.setTags(Map.of(FILL_TAG, mask));
         lastRow = fills + " repair_mesh fill faces coloured";
@@ -548,10 +589,11 @@ public final class ConnectionTool extends Tool {
     }
 
     /**
-     * A press on a pick keeps the drag for moving it rather than orbiting the camera; Shift leaves
-     * the drag to the camera's pan.
+     * A press on a pick keeps the drag for moving it rather than orbiting the
+     * camera; Shift leaves the drag to the camera's pan.
      *
-     * @param x    framebuffer x of the press, unused: the frame's surface pick moves the pick
+     * @param x    framebuffer x of the press, unused: the frame's surface pick
+     *             moves the pick
      * @param y    framebuffer y of the press, unused
      * @param mods modifier-key bitmask of the press
      * @return true when the tool took the drag
@@ -580,8 +622,8 @@ public final class ConnectionTool extends Tool {
     }
 
     /**
-     * End a pick drag, then queue a click for the next frame, which picks the surface under the
-     * cursor first.
+     * End a pick drag, then queue a click for the next frame, which picks the
+     * surface under the cursor first.
      *
      * @param x     framebuffer x of the release, unused
      * @param y     framebuffer y of the release, unused

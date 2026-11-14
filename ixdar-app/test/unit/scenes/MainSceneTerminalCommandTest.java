@@ -276,7 +276,7 @@ class MainSceneTerminalCommandTest {
      */
     private static void enter(Terminal terminal, String line) {
         terminal.type(line);
-        terminal.keyPress(Keys.ENTER, 0, false);
+        terminal.keyPress(Keys.ENTER.keyCode, 0, false);
     }
 
     /**
@@ -312,7 +312,7 @@ class MainSceneTerminalCommandTest {
         MainScene editor = editorInNeighborViewWithCutMatchAndGradientOff();
         ControlHint resetRow = null;
         for (ControlHint hint : editor.controls.get(Scene.SCENE_SECTION)) {
-            if (hint.keyCode == Keys.R && !hint.controlHeld) {
+            if (hint.key == Keys.R && !hint.controlHeld) {
                 resetRow = hint;
             }
         }

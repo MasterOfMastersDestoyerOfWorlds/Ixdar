@@ -153,7 +153,7 @@ class PaneScrollBoxTest {
         MenuScrollBar bar = terminal.scrollBox.scrollBar;
         assertTrue(bar.isNeeded(), "30 lines overflow four rows");
         assertEquals(0, bar.scrollOffset, "the history opens at its top");
-        terminal.keyPress(Keys.ENTER, 0, false);
+        terminal.keyPress(Keys.ENTER.keyCode, 0, false);
         terminal.draw(camera);
         assertEquals(bar.maximumScrollOffset(), bar.scrollOffset, EPSILON);
         HyperWord prompt = terminal.scrollBox.text.getLastWord();
@@ -163,7 +163,7 @@ class PaneScrollBoxTest {
 
     @Test
     void theWheelOverTheBoxScrollsItInFramebufferPixels() {
-        terminal.keyPress(Keys.ENTER, 0, false);
+        terminal.keyPress(Keys.ENTER.keyCode, 0, false);
         terminal.draw(camera);
         MenuScrollBar bar = terminal.scrollBox.scrollBar;
         float bottom = bar.scrollOffset;
@@ -179,7 +179,7 @@ class PaneScrollBoxTest {
     @Test
     void aPressOnTheBarPagesAndAClickOnTheRowsRunsTheWordAndFocusesTheTerminal() {
         terminal.history.addWordClick(CLICKABLE_TEXT, Color.WHITE, () -> clicks[0]++);
-        terminal.keyPress(Keys.ENTER, 0, false);
+        terminal.keyPress(Keys.ENTER.keyCode, 0, false);
         terminal.draw(camera);
         MenuScrollBar bar = terminal.scrollBox.scrollBar;
         float bottom = bar.scrollOffset;

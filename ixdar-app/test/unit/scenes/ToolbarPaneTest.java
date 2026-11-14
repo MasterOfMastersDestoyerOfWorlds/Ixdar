@@ -100,8 +100,10 @@ class ToolbarPaneTest {
         List<ControlHint> hints = scene.controls.get(Scene.TOOL_SECTION);
         assertFalse(hints.isEmpty(), tool + " has keys to list");
         for (ControlHint hint : hints) {
-            assertTrue(text.contains(hint.key + ": " + hint.description),
-                    "the bar lists " + hint.key + ": " + text);
+            // A key drawn as glyphs has no colon; one left as text keeps it.
+            String label = hint.glyphLabel();
+            String listed = label + (label.equals(hint.keyLabel()) ? ":" : "") + " " + hint.description;
+            assertTrue(text.contains(listed), "the bar lists " + hint.key + ": " + text);
         }
         return text;
     }

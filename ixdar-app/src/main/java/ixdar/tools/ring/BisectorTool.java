@@ -21,23 +21,16 @@ import ixdar.tools.ControlHint;
 import ixdar.tools.Draft;
 import ixdar.tools.Item;
 import ixdar.tools.Preview;
-import ixdar.tools.Tool;
 
 /**
- * The ring tool's bisector sub-tool: open splines across the surface whose ends snap onto rings
- * or other bisectors, in the ring tool's geodesic or crease mode. The ring tool holds the rings,
- * the draft, the walls and the overlay it works on; this holds only the bisector's own ends.
+ * The ring tool's bisector sub-tool: open splines across the surface whose ends
+ * snap onto rings or other bisectors, in the ring tool's geodesic or crease
+ * mode. The ring tool holds the rings, the draft, the walls and the overlay it
+ * works on; this holds only the bisector's own ends.
  */
 public final class BisectorTool extends RingSubTool {
 
     public static final String TOOL_NAME = "bisector";
-
-    public static final String BISECTOR_HINT = "bisecting: a spline through your anchors, traced "
-            + "like a ring but open; each end snaps to the nearest wall vertex, and it may cross walls, "
-            + "splitting every region it crosses";
-
-    public static final String CLICK_HINT = "pick an end near a ring or bisector, then add "
-            + "anchors that steer it";
 
     public static final String DRAFT_LABEL = "bisector draft";
 
@@ -53,15 +46,10 @@ public final class BisectorTool extends RingSubTool {
 
     public static final String LEAVE = "leave the bisector";
 
-    public static final String ESCAPE_HINT = "leave the bisector: an unedited draft closes, an "
-            + "edited one is confirmed, or dropped when Enter refuses it";
-
     public static final String WALLS_NOTHING = "the bisector runs along its wall or does "
             + "not join its two walls; add an anchor to steer it off";
 
     public static final String DISCARD_ACTION = "discard-draft";
-
-    public static final String DISCARD_HINT = "discard the bisector draft, or its waiting first end";
 
     public static final String NOTHING_TO_DISCARD = "no bisector draft or waiting first end to "
             + "discard - click near a wall to start one";
@@ -70,19 +58,27 @@ public final class BisectorTool extends RingSubTool {
 
     public static final String WAITING_LABEL = "bisector first end";
 
-    /** Serials of the walls the draft's ends sit on when it is a bisector, else {@code null}. */
+    /**
+     * Serials of the walls the draft's ends sit on when it is a bisector, else
+     * {@code null}.
+     */
     public int[] draftEnds;
 
     /**
-     * The draft's {@link ConfirmedRing#bisectorStretch} when it re-opened a stretch of a ring;
-     * {@code null} for any other draft.
+     * The draft's {@link ConfirmedRing#bisectorStretch} when it re-opened a stretch
+     * of a ring; {@code null} for any other draft.
      */
     public int[] draftStretch;
 
-    /** Whether the bisector draft runs without crossing itself; Enter refuses it otherwise. */
+    /**
+     * Whether the bisector draft runs without crossing itself; Enter refuses it
+     * otherwise.
+     */
     public boolean draftSimple = true;
 
-    /** Wall vertex the first end was clicked onto, waiting for its second, or -1. */
+    /**
+     * Wall vertex the first end was clicked onto, waiting for its second, or -1.
+     */
     public int startVertexId = -1;
 
     /** Serial of the wall the waiting first end sits on, or -1. */
@@ -94,7 +90,9 @@ public final class BisectorTool extends RingSubTool {
     /** Where the last bisector traced crosses or touches itself, when it does. */
     public final SurfacePathCrossings crossings = new SurfacePathCrossings();
 
-    /** Serial of the wall the last snap landed on, or -1 when none lay within reach. */
+    /**
+     * Serial of the wall the last snap landed on, or -1 when none lay within reach.
+     */
     public int snappedWall = -1;
 
     private final Vector3f scratchPosition = new Vector3f();
@@ -107,8 +105,8 @@ public final class BisectorTool extends RingSubTool {
     private int snapEpoch;
 
     /**
-     * The bisector of a ring tool, which hands it the clicks and the hover while it is the active
-     * sub-tool.
+     * The bisector of a ring tool, which hands it the clicks and the hover while it
+     * is the active sub-tool.
      *
      * @param ringTool the ring tool owning it
      */
@@ -126,18 +124,23 @@ public final class BisectorTool extends RingSubTool {
         return "Bisect between rings: an open spline whose ends snap onto rings or bisectors";
     }
 
-    /** K: start bisecting, the region colours shown. */
+    /** Start bisecting, the region colours shown. */
     @Override
     public void activate() {
         ringTool.lastError = "";
-        ringTool.lastRow = BISECTOR_HINT;
+        ringTool.lastRow = "bisecting: a spline through your anchors, traced "
+                + "like a ring but open; each end snaps to the nearest wall vertex, and it may cross walls, "
+                + "splitting every region it crosses";
         ringTool.previewedFace = -1;
         ringTool.invalidateRings();
         ringTool.scene.refreshControls();
         Platforms.get().log(RingTool.LOG_PREFIX + ringTool.lastRow);
     }
 
-    /** Stop previewing ends; a waiting first end and an open bisector draft stay for later. */
+    /**
+     * Stop previewing ends; a waiting first end and an open bisector draft stay for
+     * later.
+     */
     @Override
     public void deactivate() {
         ringTool.previewValid = false;
@@ -150,31 +153,31 @@ public final class BisectorTool extends RingSubTool {
 
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint(ControlHint.NO_KEY, "click", CLICK_HINT));
-        // Shift+X is listed before X, which also fires with Shift held.
-        controls.add(new ControlHint(DISCARD_ACTION, Keys.X, false, true, "shift+X", DISCARD_HINT,
+        controls.add(new ControlHint(Keys.CLICK, "pick an end near a ring or bisector, then add "
+                + "anchors that steer it"));
+        controls.add(new ControlHint(DISCARD_ACTION, Keys.X, false, true,
+                "discard the bisector draft, or its waiting first end",
                 ringTool.refusalShown(() -> discardDraft())));
-        for (int key : new int[] { Keys.X, Keys.DELETE, Keys.BACKSPACE }) {
-            controls.add(new ControlHint("delete-bisector-point", key, key == Keys.X ? "X"
-                    : key == Keys.DELETE ? "del" : "backspace", DELETE_POINT_HINT,
+        for (Keys key : new Keys[] { Keys.X, Keys.DELETE, Keys.BACKSPACE }) {
+            controls.add(new ControlHint("delete-bisector-point", key, DELETE_POINT_HINT,
                     ringTool.refusalShown(() -> deletePoint())));
         }
-        // K is the one bisect row: it enters the bisector from a ring and leaves it here, as Esc.
-        controls.add(new ControlHint(RingTool.BISECT_ACTION, Keys.K, "K", LEAVE,
+        controls.add(new ControlHint(RingTool.BISECT_ACTION, Keys.K, LEAVE,
                 ringTool.refusalShown(() -> ringTool.escapePressed())));
     }
 
     /**
-     * One frame with no draft open and the surface under the cursor: the wall vertex a click puts
-     * an end on and, with a first end waiting, the bisector it would trace there, invalid off a
-     * wall or when it crosses itself.
+     * One frame with no draft open and the surface under the cursor: the wall
+     * vertex a click puts an end on and, with a first end waiting, the bisector it
+     * would trace there, invalid off a wall or when it crosses itself.
      */
     @Override
     public void perFrame() {
         RingScene scene = ringTool.scene;
         float[] hitPoint = scene.cursorPoint;
         int faceId = scene.cursorFaceId;
-        if (ringTool.draft != null || scene.cursorVertexId < 0 || faceId == ringTool.previewedFace && Arrays.equals(hitPoint, ringTool.previewedHit)) {
+        if (ringTool.draft != null || scene.cursorVertexId < 0
+                || faceId == ringTool.previewedFace && Arrays.equals(hitPoint, ringTool.previewedHit)) {
             return;
         }
         long start = System.nanoTime();
@@ -204,9 +207,11 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * The wall a click would put an end on now: the ring or bisector the cursor's snap reached.
+     * The wall a click would put an end on now: the ring or bisector the cursor's
+     * snap reached.
      *
-     * @return that wall's ring item, or {@code null} with a draft open or no wall within reach
+     * @return that wall's ring item, or {@code null} with a draft open or no wall
+     *         within reach
      */
     @Override
     public Item hovered() {
@@ -216,8 +221,9 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * A click the ring tool did not take to pick an anchor: with no draft it puts an end on the
-     * nearest wall vertex, the second opening the bisector as the draft; on a draft it steers it.
+     * A click the ring tool did not take to pick an anchor: with no draft it puts
+     * an end on the nearest wall vertex, the second opening the bisector as the
+     * draft; on a draft it steers it.
      *
      * @param x framebuffer x of the click, unused: the ring tool's pick places it
      * @param y framebuffer y of the click, unused
@@ -234,8 +240,9 @@ public final class BisectorTool extends RingSubTool {
                 END_REACH_PIXELS);
         // A refused click leaves a waiting first end in place, so the refusal names it.
         int waitingRing = ringTool.ringOfSerial(startWall);
-        String waiting = startVertexId < 0 || waitingRing < 0 ? "" : "; the first end still waits "
-                + "on " + ringTool.liveLabel(waitingRing) + " - Shift+X drops it";
+        String waiting = startVertexId < 0 || waitingRing < 0 ? ""
+                : "; the first end still waits "
+                        + "on " + ringTool.liveLabel(waitingRing) + " - Shift+X drops it";
         if (snapped < 0) {
             ringTool.lastError = String.format(Locale.ROOT, "refused: no ring or bisector within "
                     + "%.0f px; a bisector's ends sit on walls, so click on or beside one%s",
@@ -260,7 +267,8 @@ public final class BisectorTool extends RingSubTool {
             Platforms.get().log(RingTool.LOG_PREFIX + ringTool.lastRow);
             return true;
         }
-        // The lower vertex leads, so which end was clicked first does not change the trace.
+        // The lower vertex leads, so which end was clicked first does not change the
+        // trace.
         boolean startLeads = startVertexId < snapped;
         draftEnds = startLeads ? new int[] { startWall, snappedWall }
                 : new int[] { snappedWall, startWall };
@@ -284,9 +292,10 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * Take a steering anchor in the span, of the {@link #CANDIDATE_SPANS} it detours least from,
-     * where the traced bisector comes out shortest without crossing itself, never outside its
-     * ends; click order does not decide the place.
+     * Take a steering anchor in the span, of the {@link #CANDIDATE_SPANS} it
+     * detours least from, where the traced bisector comes out shortest without
+     * crossing itself, never outside its ends; click order does not decide the
+     * place.
      *
      * @param vertexId mesh vertex the anchor sits on
      * @return true when the bisector took the anchor
@@ -304,8 +313,10 @@ public final class BisectorTool extends RingSubTool {
         int[] held = ringTool.draftAuthoredVertexId;
         int[] kept = null;
         SurfaceSpline shortest = null;
-        // Each trial traces the whole bisector, so only the spans the anchor adds least chord
-        // length to are traced, nearest first, and the rest only while none of those takes it.
+        // Each trial traces the whole bisector, so only the spans the anchor adds least
+        // chord
+        // length to are traced, nearest first, and the rest only while none of those
+        // takes it.
         float[] heldXyz = ringTool.positionsOf(held);
         float[] at = ringTool.positionsOf(new int[] { vertexId });
         double[] detour = new double[held.length - 1];
@@ -358,11 +369,13 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * Trace the bisector draft whole at full depth through anchors, its ends kept on their walls;
-     * one that crosses itself is drawn as invalid, and Enter refuses it.
+     * Trace the bisector draft whole at full depth through anchors, its ends kept
+     * on their walls; one that crosses itself is drawn as invalid, and Enter
+     * refuses it.
      *
      * @param authored   anchor vertices end to end
-     * @param keepSimple whether to refuse anchors that would make a simple bisector cross itself
+     * @param keepSimple whether to refuse anchors that would make a simple bisector
+     *                   cross itself
      * @return true when the draft now runs through {@code authored}
      */
     @Override
@@ -391,11 +404,12 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * T on a crease bisector: the geodesic bisector following its crease path, its two wall ends
-     * kept and inner anchors added and dropped; a stretch of a closed ring has no crease path of
-     * its own and is refused.
+     * T on a crease bisector: the geodesic bisector following its crease path, its
+     * two wall ends kept and inner anchors added and dropped; a stretch of a closed
+     * ring has no crease path of its own and is refused.
      *
-     * @return the re-fit, or {@code null} with the ring tool's last error saying why
+     * @return the re-fit, or {@code null} with the ring tool's last error saying
+     *         why
      */
     @Override
     public GeodesicRefit refitGeodesic() {
@@ -406,7 +420,8 @@ public final class BisectorTool extends RingSubTool {
                     + "ring re-fits as a geodesic bisector";
             return null;
         }
-        // A stretch of a ring is fitted the same way, to the path it has now, and is from then on
+        // A stretch of a ring is fitted the same way, to the path it has now, and is
+        // from then on
         // a bisector of its own that follows its walls by its two ends.
         int[] stretchBefore = draftStretch;
         draftStretch = null;
@@ -416,7 +431,8 @@ public final class BisectorTool extends RingSubTool {
                 RingTool.COORDINATES_PER_POINT * curve.pointCount);
         int[] curveVertexId = Arrays.copyOf(curve.vertexId, curve.pointCount);
         if (stretchBefore != null) {
-            // A stretch's traced path runs on past its walls; the part it keeps is its marked
+            // A stretch's traced path runs on past its walls; the part it keeps is its
+            // marked
             // edges, walked here from the end that meets its start wall.
             MeshTopology surface = ringTool.geodesics.mesh;
             boolean[] marked = crease.marks.markedByEdgeId;
@@ -497,14 +513,14 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * The wall vertex nearest a surface point within a reach on screen, found by a walk out from
-     * the vertex under it; {@link #snappedWall} names its wall. Walls are the live confirmed rings
-     * and bisectors, the draft's own original aside.
+     * The wall vertex nearest a surface point within a reach on screen, found by a
+     * walk out from the vertex under it; {@link #snappedWall} names its wall. Walls
+     * are the live confirmed rings and bisectors, the draft's own original aside.
      *
      * @param vertexId    mesh vertex under the point
      * @param xyz         the point, packed xyz
-     * @param reachPixels how far from the point a wall may lie, in framebuffer pixels:
-     *                    {@link #END_REACH_PIXELS} for a click
+     * @param reachPixels how far from the point a wall may lie, in framebuffer
+     *                    pixels: {@link #END_REACH_PIXELS} for a click
      * @return the wall vertex, or -1 when no wall lies within reach
      */
     public int snapToWall(int vertexId, float[] xyz, float reachPixels) {
@@ -528,7 +544,7 @@ public final class BisectorTool extends RingSubTool {
                 for (int edgeId : wall.spline.marks.markedEdgeIds) {
                     int halfEdge = surface.edgeHalfEdge(edgeId);
                     for (int end : new int[] { surface.halfEdgeVertex(halfEdge),
-                        surface.halfEdgeEndVertex(halfEdge) }) {
+                            surface.halfEdgeEndVertex(halfEdge) }) {
                         if (wallVertexStamp[end] != wallEpoch) {
                             wallVertexStamp[end] = wallEpoch;
                             wallSerialByVertex[end] = wall.serial;
@@ -574,17 +590,21 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * A bisector through anchors, each end first moved onto the nearest vertex of its wall as the
-     * wall stands now unless already on it, so a bisector follows an edited wall.
+     * A bisector through anchors, each end first moved onto the nearest vertex of
+     * its wall as the wall stands now unless already on it, so a bisector follows
+     * an edited wall.
      *
-     * @param anchors anchor vertices end to end; the two ends are re-attached in place
+     * @param anchors anchor vertices end to end; the two ends are re-attached in
+     *                place
      * @param ends    serials of the walls the first and the last anchor sit on
      * @param mode    how it runs between its anchors
-     * @param stretch for a stretch of a closed ring, its {@link ConfirmedRing#bisectorStretch},
-     *                its ends then left in place and its meeting points re-attached to the walls;
+     * @param stretch for a stretch of a closed ring, its
+     *                {@link ConfirmedRing#bisectorStretch}, its ends then left in
+     *                place and its meeting points re-attached to the walls;
      *                {@code null} for any other bisector
-     * @return the bisector, with no marked edge when it walls nothing ({@link #WALLS_NOTHING}), or
-     *         {@code null} with the ring tool's last error saying which wall is gone
+     * @return the bisector, with no marked edge when it walls nothing
+     *         ({@link #WALLS_NOTHING}), or {@code null} with the ring tool's last
+     *         error saying which wall is gone
      */
     public SurfaceSpline traced(int[] anchors, int[] ends, RingSegmentMode mode, int[] stretch) {
         MeshTopology surface = ringTool.geodesics.mesh;
@@ -628,8 +648,9 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * X, Delete or Backspace: delete the selected point, else the last inner anchor; a deleted end
-     * hands its place to the anchor next to it when that lies on a wall.
+     * X, Delete or Backspace: delete the selected point, else the last inner
+     * anchor; a deleted end hands its place to the anchor next to it when that lies
+     * on a wall.
      *
      * @return true when a point was deleted
      */
@@ -674,15 +695,16 @@ public final class BisectorTool extends RingSubTool {
             Platforms.get().log(RingTool.LOG_PREFIX + ringTool.lastRow);
             return true;
         }
-        // An end goes only when the inner anchor next to it lies on a wall, its selected disc
-        // touching one, and takes its place; else the refusal names the anchors in the way of
+        // An end goes only when the inner anchor next to it lies on a wall, its
+        // selected disc
+        // touching one, and takes its place; else the refusal names the anchors in the
+        // way of
         // the nearest one on a wall.
         int inward = doomed == 0 ? 1 : -1;
         int neighbour = doomed + inward;
         if (end) {
             int onWall = -1;
-            for (int anchor = neighbour; onWall < 0 && anchor > 0 && anchor < held.length - 1;
-                    anchor += inward) {
+            for (int anchor = neighbour; onWall < 0 && anchor > 0 && anchor < held.length - 1; anchor += inward) {
                 onWall = snapToWall(held[anchor],
                         ringTool.positionsOf(new int[] { held[anchor] }),
                         RingTool.SELECTED_ANCHOR_PIXELS) >= 0 ? anchor : -1;
@@ -726,15 +748,16 @@ public final class BisectorTool extends RingSubTool {
         }
         ringTool.recordEdit(POINT_DELETED, stateBefore);
         ringTool.selectedAnchorVertexId = end ? ringTool.draftAuthoredVertexId[promoted] : -1;
-        ringTool.reportDraft(!end ? POINT_DELETED : "bisector end deleted, anchor " + neighbour
-                + " on " + ringTool.liveLabel(ringTool.ringOfSerial(draftEnds[doomed == 0 ? 0 : 1]))
-                + " is the end now");
+        ringTool.reportDraft(!end ? POINT_DELETED
+                : "bisector end deleted, anchor " + neighbour
+                        + " on " + ringTool.liveLabel(ringTool.ringOfSerial(draftEnds[doomed == 0 ? 0 : 1]))
+                        + " is the end now");
         return true;
     }
 
     /**
-     * Shift+X: drop the bisector draft, a re-opened bisector staying as it was, or with none open
-     * the waiting first end; either is one undoable edit.
+     * Drop the bisector draft, a re-opened bisector staying as it was, or
+     * with none open the waiting first end; either is one undoable edit.
      */
     @Override
     public void discardDraft() {
@@ -750,7 +773,8 @@ public final class BisectorTool extends RingSubTool {
     /**
      * The waiting first end, which the next click near a wall pairs with a second.
      *
-     * @return the end as a one-point draft that is not valid, or {@code null} while none waits
+     * @return the end as a one-point draft that is not valid, or {@code null} while
+     *         none waits
      */
     @Override
     public Draft pendingDraft() {
@@ -770,10 +794,11 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * Where the cursor hit and the end a click would place there: on which wall, or why none.
+     * Where the cursor hit and the end a click would place there: on which wall, or
+     * why none.
      *
-     * @return the preview, valid when a click would place an end, or the second end of a bisector
-     *         that runs simple
+     * @return the preview, valid when a click would place an end, or the second end
+     *         of a bisector that runs simple
      */
     @Override
     public Preview preview() {
@@ -781,12 +806,15 @@ public final class BisectorTool extends RingSubTool {
         int wall = ringTool.ringOfSerial(snappedWall);
         String detail = ringTool.draft != null ? "a bisector draft is open: a click steers it"
                 : scene.cursorVertexId < 0 ? scene.cursorMissReason
-                : ringTool.previewAuthoredVertexId < 0 || wall < 0
-                        ? String.format(Locale.ROOT, "no ring or bisector within %.0f px",
-                                END_REACH_PIXELS)
-                : (startVertexId < 0 ? "a click puts the first end on " : "a click puts the second "
-                        + "end on ") + ringTool.liveLabel(wall) + (startVertexId < 0 || previewSimple
-                                ? "" : ", but that bisector crosses itself or walls nothing");
+                        : ringTool.previewAuthoredVertexId < 0 || wall < 0
+                                ? String.format(Locale.ROOT, "no ring or bisector within %.0f px",
+                                        END_REACH_PIXELS)
+                                : (startVertexId < 0 ? "a click puts the first end on "
+                                        : "a click puts the second "
+                                                + "end on ")
+                                        + ringTool.liveLabel(wall) + (startVertexId < 0 || previewSimple
+                                                ? ""
+                                                : ", but that bisector crosses itself or walls nothing");
         boolean valid = ringTool.draft == null && scene.cursorVertexId >= 0
                 && ringTool.previewAuthoredVertexId >= 0
                 && (startVertexId < 0 || ringTool.previewValid && previewSimple);
@@ -794,8 +822,9 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * Esc or K: leave the bisector for the ring tool's rings. An edited draft is confirmed when
-     * Enter would take it, else dropped; either is one undoable edit, as is dropping a waiting end.
+     * Esc or K: leave the bisector for the ring tool's rings. An edited draft is
+     * confirmed when Enter would take it, else dropped; either is one undoable
+     * edit, as is dropping a waiting end.
      *
      * @return true: the bisector always takes the key
      */
@@ -822,12 +851,13 @@ public final class BisectorTool extends RingSubTool {
 
     @Override
     public String escapeDescription() {
-        return ESCAPE_HINT;
+        return "leave the bisector: an unedited draft closes, an "
+                + "edited one is confirmed, or dropped when Enter refuses it";
     }
 
     /**
-     * One step of a drag: an inner anchor moves to the vertex, an end onto the wall vertex nearest
-     * it on any wall, the bisector re-traced whole.
+     * One step of a drag: an inner anchor moves to the vertex, an end onto the wall
+     * vertex nearest it on any wall, the bisector re-traced whole.
      *
      * @param selected index of the selected anchor in the draft's authored anchors
      * @param vertexId mesh vertex it moves to
@@ -892,8 +922,9 @@ public final class BisectorTool extends RingSubTool {
     public String draftDetail() {
         int firstWall = ringTool.ringOfSerial(draftEnds[0]);
         int lastWall = ringTool.ringOfSerial(draftEnds[1]);
-        return firstWall < 0 || lastWall < 0 ? "" : ", bisector from "
-                + ringTool.liveLabel(firstWall) + " to " + ringTool.liveLabel(lastWall);
+        return firstWall < 0 || lastWall < 0 ? ""
+                : ", bisector from "
+                        + ringTool.liveLabel(firstWall) + " to " + ringTool.liveLabel(lastWall);
     }
 
     @Override
@@ -907,8 +938,8 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * A bisector draws as invalid while it crosses itself or walls nothing, and its preview while
-     * it crosses itself or ends off a wall.
+     * A bisector draws as invalid while it crosses itself or walls nothing, and its
+     * preview while it crosses itself or ends off a wall.
      *
      * @return true to draw it in the palette's invalid draft colour
      */
@@ -919,7 +950,8 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * With no draft open, the waiting first end and the wall vertex a click would put an end on.
+     * With no draft open, the waiting first end and the wall vertex a click would
+     * put an end on.
      *
      * @return those vertices that are placed
      */
@@ -943,8 +975,8 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * A new bisector walls the regions it would split while it runs simple, as their colours
-     * preview it.
+     * A new bisector walls the regions it would split while it runs simple, as
+     * their colours preview it.
      *
      * @return true unless it draws as invalid
      */
@@ -964,7 +996,8 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * Esc on an edited bisector leaves it, confirmed or dropped as {@link #escapePressed} says.
+     * Esc on an edited bisector leaves it, confirmed or dropped as
+     * {@link #escapePressed} says.
      *
      * @return true
      */
@@ -974,7 +1007,8 @@ public final class BisectorTool extends RingSubTool {
     }
 
     /**
-     * A new bisector's waiting first end goes too, so Esc always leaves the bisector.
+     * A new bisector's waiting first end goes too, so Esc always leaves the
+     * bisector.
      *
      * @return the leaving note for the closing row
      */

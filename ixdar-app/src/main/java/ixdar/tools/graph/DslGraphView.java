@@ -175,27 +175,25 @@ public class DslGraphView extends Tool {
      */
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint(ControlHint.NO_KEY, "drag",
-                "pan the graph anywhere; the scroll bars grow to where it is"));
-        controls.add(new ControlHint(ControlHint.NO_KEY, "scroll", "scroll within the graph's frame and the"
+        controls.add(new ControlHint(Keys.DRAG, "pan the graph anywhere; the scroll bars grow to where it is"));
+        controls.add(new ControlHint(Keys.SCROLL, "scroll within the graph's frame and the"
                 + " panned-to view: wheel and swipe up/down vertically, sideways swipe or shift+wheel horizontally"));
-        controls.add(new ControlHint(ControlHint.NO_KEY, "ctrl+scroll",
-                "zoom about the cursor, smoothly (stands in for pinch)"));
-        controls.add(new ControlHint(ControlHint.NO_KEY, "click", "a box: focus it"));
-        controls.add(new ControlHint("frame-graph", ControlHint.NO_KEY, Scene.FRAME_ALL_CLICK,
-                "frame the whole graph, as F does", scene::frameAll));
-        controls.add(new ControlHint(ControlHint.NO_KEY, "scroll bars",
-                "drag a thumb, click an arrow or the track to scroll"));
-        controls.add(new ControlHint("toggle-group", Keys.E, "E", "expand the group box under the cursor; on a"
+        controls.add(new ControlHint(Keys.SCROLL, true, false, "zoom about the cursor, smoothly (stands in for pinch)"));
+        controls.add(new ControlHint(Keys.CLICK, "a box: focus it"));
+        controls.add(new ControlHint("frame-graph", Keys.DOUBLE_CLICK, "empty space: frame the whole graph, as F does",
+                scene::frameAll));
+        controls.add(new ControlHint(Keys.CLICK, "a scroll bar: drag its thumb, or click an arrow or the track, to "
+                + "scroll"));
+        controls.add(new ControlHint("toggle-group", Keys.E, "expand the group box under the cursor; on a"
                 + " node or frame inside a group, collapse it", () -> toggleGroup(null)));
         String selected = hotspot < 0 ? "" : " (hotspot " + (hotspot + 1) + "/" + hotspotPaths.length + ")";
-        controls.add(new ControlHint("next-hotspot", Keys.RIGHT_BRACKET, "]", "next hotspot, slowest node first,"
+        controls.add(new ControlHint("next-hotspot", Keys.RIGHT_BRACKET, "next hotspot, slowest node first,"
                 + " groups opened to it" + selected, () -> cycleHotspot(1)));
-        controls.add(new ControlHint("previous-hotspot", Keys.LEFT_BRACKET, "[",
+        controls.add(new ControlHint("previous-hotspot", Keys.LEFT_BRACKET,
                 "previous hotspot; the scene's own [ ] wait", () -> cycleHotspot(-1)));
-        controls.add(new ControlHint("toggle-menu", Keys.I, true, "ctrl+I", "menu",
+        controls.add(new ControlHint("toggle-menu", Keys.I, true, "menu",
                 () -> scene.sceneModelMenu.toggle()));
-        controls.add(new ControlHint("escape", Keys.ESCAPE, "esc", scene.escapeDescription(), scene::escapePressed));
+        controls.add(new ControlHint("escape", Keys.ESCAPE, scene.escapeDescription(), scene::escapePressed));
     }
 
     /**

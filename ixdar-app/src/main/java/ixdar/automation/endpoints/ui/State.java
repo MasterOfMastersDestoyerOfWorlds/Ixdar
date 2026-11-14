@@ -307,9 +307,9 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         for (ControlHint hint : hints) {
             JsonObject control = new JsonObject();
             control.addProperty("action", hint.actionName);
-            control.addProperty("key", hint.key);
+            control.addProperty("key", hint.keyLabel());
             control.addProperty(DESCRIPTION, hint.description);
-            control.addProperty("keyCode", hint.keyCode);
+            control.addProperty("keyCode", hint.key.keyCode);
             control.addProperty("controlHeld", hint.controlHeld);
             control.addProperty("shiftHeld", hint.shiftHeld);
             controls.add(control);

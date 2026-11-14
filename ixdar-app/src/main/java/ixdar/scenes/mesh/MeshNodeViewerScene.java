@@ -218,7 +218,7 @@ public class MeshNodeViewerScene extends ModelScene {
     @Override
     public void setTools() {
         super.setTools();
-        addToolSwitch(strokeSculptTool, new ControlHint("stroke-sculpt-tool", Keys.K, true, "ctrl+K",
+        addToolSwitch(strokeSculptTool, new ControlHint("stroke-sculpt-tool", Keys.K, true,
                 "draw strokes into stroke_sculpt passes", () -> switchTool(strokeSculptTool)));
     }
 
@@ -920,9 +920,9 @@ public class MeshNodeViewerScene extends ModelScene {
 
     @Override
     public void setControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("previous-model", Keys.LEFT_BRACKET, "[", "previous model", this::prevModel));
-        controls.add(new ControlHint("next-model", Keys.RIGHT_BRACKET, "]", "next model", this::nextModel));
-        controls.add(new ControlHint("toggle-wireframe", Keys.Z, "Z", "toggle wireframe", this::toggleMeshWireframe));
+        controls.add(new ControlHint("previous-model", Keys.LEFT_BRACKET, "previous model", this::prevModel));
+        controls.add(new ControlHint("next-model", Keys.RIGHT_BRACKET, "next model", this::nextModel));
+        controls.add(new ControlHint("toggle-wireframe", Keys.Z, "toggle wireframe", this::toggleMeshWireframe));
         super.setControls(controls);
     }
 

@@ -127,10 +127,10 @@ public class PlayerController {
         float rightZ = (float) Math.cos(yawRad);
 
         float horizX = 0f, horizZ = 0f;
-        if (pressedKeys.contains(Keys.W)) { horizX += fwdX;   horizZ += fwdZ; }
-        if (pressedKeys.contains(Keys.S)) { horizX -= fwdX;   horizZ -= fwdZ; }
-        if (pressedKeys.contains(Keys.D)) { horizX += rightX; horizZ += rightZ; }
-        if (pressedKeys.contains(Keys.A)) { horizX -= rightX; horizZ -= rightZ; }
+        if (pressedKeys.contains(Keys.W.keyCode)) { horizX += fwdX;   horizZ += fwdZ; }
+        if (pressedKeys.contains(Keys.S.keyCode)) { horizX -= fwdX;   horizZ -= fwdZ; }
+        if (pressedKeys.contains(Keys.D.keyCode)) { horizX += rightX; horizZ += rightZ; }
+        if (pressedKeys.contains(Keys.A.keyCode)) { horizX -= rightX; horizZ -= rightZ; }
         // Normalize so diagonal movement isn't faster.
         float horizLen = (float) Math.sqrt(horizX * horizX + horizZ * horizZ);
         if (horizLen > MOVE_EPSILON) {
@@ -149,7 +149,7 @@ public class PlayerController {
 
         // Vertical velocity: gravity each frame, jump on press while grounded.
         float vy = velocity.y() - gravity * dt;
-        if (grounded && pressedKeys.contains(Keys.SPACE)) {
+        if (grounded && pressedKeys.contains(Keys.SPACE.keyCode)) {
             vy = jumpSpeed;
         }
 

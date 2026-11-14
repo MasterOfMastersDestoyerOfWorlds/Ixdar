@@ -196,11 +196,11 @@ public class TradeScene extends Scene {
         pipeTool = new PipeTool(this);
         growTool = new GrowTool(this);
         collapseTool = new CollapseTool(this);
-        addToolSwitch(pipeTool, new ControlHint("pipe-tool", Keys.P, "P", "join two places or two loops",
+        addToolSwitch(pipeTool, new ControlHint("pipe-tool", Keys.P, "join two places or two loops",
                 () -> switchTool(pipeTool)));
-        addToolSwitch(growTool, new ControlHint("grow-tool", Keys.G, "G", "add a place to a loop",
+        addToolSwitch(growTool, new ControlHint("grow-tool", Keys.G, "add a place to a loop",
                 () -> switchTool(growTool)));
-        addToolSwitch(collapseTool, new ControlHint("collapse-tool", Keys.C, "C",
+        addToolSwitch(collapseTool, new ControlHint("collapse-tool", Keys.C,
                 "join the ends of a chain of knots", () -> switchTool(collapseTool)));
         defaultTool = pipeTool;
     }
@@ -230,18 +230,21 @@ public class TradeScene extends Scene {
      */
     @Override
     public void setControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("end-lap", Keys.E, "E", "end the lap", this::endLap));
-        controls.add(new ControlHint("map-mode", Keys.M, "M", "step the map mode", () -> mapMode = mapMode.next()));
-        controls.add(new ControlHint("restart-level", Keys.R, "R", "restart the level", () -> loadLevel(levelIndex)));
-        controls.add(new ControlHint("escape", Keys.ESCAPE, "esc", "close a menu or the place panel, else back to the menu",
-                () -> {
-                    if (!activeTool.escapePressed() && selectedPlace == null && toolbar.open == null
-                            && backScene != null) {
-                        switchTo(backScene);
-                    }
-                    selectedPlace = null;
-                    toolbar.open = null;
-                }));
+        controls.add(new ControlHint("end-lap", Keys.E, "end the lap", this::endLap));
+        controls.add(new ControlHint("map-mode", Keys.M, "step the map mode", () -> mapMode = mapMode.next()));
+        controls.add(new ControlHint("restart-level", Keys.R, "restart the level", () -> loadLevel(levelIndex)));
+        controls.add(new ControlHint("escape", Keys.ESCAPE, "close a menu or the place panel, else back to the menu",
+                this::escapePressed));
+    }
+
+    /** Close the tool's menu or the place panel, else go back to the menu scene. */
+    @Override
+    public void escapePressed() {
+        if (!activeTool.escapePressed() && selectedPlace == null && toolbar.open == null && backScene != null) {
+            switchTo(backScene);
+        }
+        selectedPlace = null;
+        toolbar.open = null;
     }
 
     /**

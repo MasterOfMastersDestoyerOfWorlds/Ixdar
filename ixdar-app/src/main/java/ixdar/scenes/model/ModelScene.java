@@ -172,7 +172,7 @@ public abstract class ModelScene extends Scene {
         tools.add(orbitTool);
         defaultTool = orbitTool;
         graphTool = new DslGraphView(this);
-        addToolSwitch(graphTool, new ControlHint("graph-tool", Keys.G, true, "ctrl+G",
+        addToolSwitch(graphTool, new ControlHint("graph-tool", Keys.G, true,
                 "the DSL's node graph and run times",
                 () -> switchTool(activeTool == graphTool ? defaultTool : graphTool)));
     }
@@ -921,29 +921,32 @@ public abstract class ModelScene extends Scene {
     @Override
     public void setControls(List<ControlHint> controls) {
         if (mouse.controller == camera) {
-            controls.add(new ControlHint(ControlHint.NO_KEY, "drag", "orbit the camera"));
-            controls.add(new ControlHint(ControlHint.NO_KEY, "scroll", "zoom"));
+            controls.add(new ControlHint(Keys.DRAG, "orbit the camera"));
+            controls.add(new ControlHint(Keys.SCROLL, "zoom"));
         }
         boolean controlRBound = false;
         for (List<ControlHint> section : this.controls) {
             for (ControlHint hint : section) {
-                controlRBound |= hint.keyCode == Keys.R && hint.controlHeld && !hint.shiftHeld;
+                controlRBound |= hint.key == Keys.R && hint.controlHeld && !hint.shiftHeld;
             }
         }
         if (!controlRBound) {
-            controls.add(new ControlHint("recentre-orbit", Keys.R, true, "ctrl+R",
+            controls.add(new ControlHint("recentre-orbit", Keys.R, true,
                     "re-centre the orbit on the model", camera::resetTarget));
         }
         if (looks.registered.size() > 1) {
-            controls.add(new ControlHint("cycle-look", Keys.M, "M", "cycle the look: "
-                    + looks.names() + " (now " + looks.picked.id + ")", () -> {
-                setLook(looks.next().id, headlight);
-                refreshControls();
-            }));
+            controls.add(new ControlHint("cycle-look", Keys.M, "cycle the look: "
+                    + looks.names() + " (now " + looks.picked.id + ")", this::cycleLook));
         }
-        controls.add(new ControlHint("toggle-menu", Keys.I, true, "ctrl+I", "menu", () -> sceneModelMenu.toggle()));
-        controls.add(new ControlHint("escape", Keys.ESCAPE, "esc", escapeDescription(), this::escapePressed));
+        controls.add(new ControlHint("toggle-menu", Keys.I, true, "menu", () -> sceneModelMenu.toggle()));
+        controls.add(new ControlHint("escape", Keys.ESCAPE, escapeDescription(), this::escapePressed));
         super.setControls(controls);
+    }
+
+    /** Pick the next registered look. */
+    private void cycleLook() {
+        setLook(looks.next().id, headlight);
+        refreshControls();
     }
 
     @Override

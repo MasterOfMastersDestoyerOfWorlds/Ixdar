@@ -498,98 +498,117 @@ public final class RingTool extends Tool {
      */
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint(ControlHint.NO_KEY, "drag anchor", "move it"));
-        controls.add(new ControlHint("confirm-draft", Keys.ENTER, "enter", "confirm draft",
+        controls.add(new ControlHint(Keys.DRAG, "move an anchor"));
+        controls.add(new ControlHint("confirm-draft", Keys.ENTER, "confirm draft",
                 refusalShown(() -> confirmDraft())));
-        // T switches between the geodesic spline and the crease path: the open draft, as one
-        // edit, and the drafts clicks open from now on. A crease draft turns into the geodesic
-        // draft that follows its crease path, anchors added and dropped to fit it; a geodesic
-        // draft re-traces its own anchors as crease paths.
         boolean refits = draft != null && draftMode == RingSegmentMode.CREASE;
-        controls.add(new ControlHint("switch-mode", Keys.T, "T", "mode: "
+        controls.add(new ControlHint("switch-mode", Keys.T, "mode: "
                 + (draft != null ? draftMode : newDraftMode()).label
                 + (refits ? ", fit to geodesic" : ", switch to " + switchedMode().label),
-                refusalShown(() -> {
-            RingSegmentMode next = switchedMode();
-            if (next == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())) {
-                return;
-            }
-            if (draft != null && draftMode == RingSegmentMode.CREASE) {
-                RingToolState stateBefore = new RingToolState(this);
-                int[] creaseAnchors = draftAuthoredVertexId;
-                GeodesicRefit refit = draftOwner.refitGeodesic();
-                if (refit == null) {
-                    return;
-                }
-                int added = 0;
-                for (int anchor : draftAuthoredVertexId) {
-                    added += Arrays.stream(creaseAnchors).anyMatch(held -> held == anchor) ? 0 : 1;
-                }
-                int dropped = creaseAnchors.length - (draftAuthoredVertexId.length - added);
-                selectedAnchorVertexId = -1;
-                invalidateRings();
-                recordEdit("geodesic fit", stateBefore);
-                reportDraft(String.format(Locale.ROOT, "fitted to its crease path as geodesic, %d "
-                        + "anchor(s) added and %d dropped, within %.4f of the crease path "
-                        + "(tolerance %.4f, %d traces)", added, dropped, refit.deviation,
-                        refit.tolerance, refit.traces));
-            } else if (draft != null) {
-                RingToolState stateBefore = new RingToolState(this);
-                RingSegmentMode previous = draftMode;
-                draftMode = next;
-                if (!draftOwner.retrace(draftAuthoredVertexId, false)) {
-                    draftMode = previous;
-                    return;
-                }
-                recordEdit("segment mode " + next.label, stateBefore);
-                reportDraft("now in " + next.label + " mode");
-            } else {
-                lastRow = "a click drafts in " + next.label + " mode";
-            }
-            mode = next.ordinal();
-            previewedFace = -1;
-            scene.refreshControls();
-        })));
-        // Shift+T does T's fit to every crease ring at once, each its own undoable edit; one the
-        // fit refuses stays as it was and is named in the row. Every stretch of a ring is fitted
-        // first, while the walls it is cut between still stand where it was cut: a stretch does
-        // not follow a wall that moves, a bisector fitted to it does. Other bisectors are left.
-        controls.add(new ControlHint("fit-all-geodesic", Keys.T, false, true, "shift+T",
-                "fit every crease ring to geodesic", refusalShown(() -> {
-            if (draft != null) {
-                lastError = "confirm or discard the open draft before fitting every ring";
-                return;
-            }
-            int fitted = 0;
-            List<String> kept = new ArrayList<>();
-            for (int ring = 0; ring < 2 * confirmedRings.size(); ring++) {
-                boolean stretches = ring < confirmedRings.size();
-                ConfirmedRing crease = confirmedRings.get(ring % confirmedRings.size());
-                if (crease.deleted || (stretches ? crease.bisectorStretch == null
-                        : crease.mode != RingSegmentMode.CREASE || crease.bisectorEnds != null)) {
-                    continue;
-                }
-                int index = ring % confirmedRings.size();
-                if (reopenRing(index) && draftOwner.refitGeodesic() != null && confirmDraft()) {
-                    fitted += stretches ? 0 : 1;
-                    // Confirming leaves here a bisector that could not follow the fitted ring.
-                    if (!lastError.isEmpty()) {
-                        kept.add(lastError);
-                    }
-                    continue;
-                }
-                kept.add(liveLabel(index) + " (" + lastError + ")");
-                if (draft != null) {
-                    discardDraft();
-                }
-            }
-            lastError = "";
-            lastRow = fitted + " crease ring(s) fitted as geodesic"
-                    + (kept.isEmpty() ? "" : ", left as they were: " + kept);
-            Platforms.get().log(LOG_PREFIX + lastRow);
-            scene.refreshControls();
-        })));
+                refusalShown(this::switchMode)));
+        controls.add(new ControlHint("fit-all-geodesic", Keys.T, false, true,
+                "fit every crease ring to geodesic", refusalShown(this::fitEveryCreaseRingToGeodesic)));
         activeSubTool.addControls(controls);
+    }
+
+    /**
+     * Switch the open draft, as one edit, and the drafts clicks open from now on, to the
+     * other segment mode. A crease draft is {@link #fitDraftToGeodesic fitted to geodesic}; a
+     * geodesic draft re-traces its own anchors as crease paths.
+     */
+    private void switchMode() {
+        RingSegmentMode next = switchedMode();
+        if (next == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())) {
+            return;
+        }
+        if (draft != null && draftMode == RingSegmentMode.CREASE) {
+            if (!fitDraftToGeodesic()) {
+                return;
+            }
+        } else if (draft != null) {
+            RingToolState stateBefore = new RingToolState(this);
+            RingSegmentMode previous = draftMode;
+            draftMode = next;
+            if (!draftOwner.retrace(draftAuthoredVertexId, false)) {
+                draftMode = previous;
+                return;
+            }
+            recordEdit("segment mode " + next.label, stateBefore);
+            reportDraft("now in " + next.label + " mode");
+        } else {
+            lastRow = "a click drafts in " + next.label + " mode";
+        }
+        mode = next.ordinal();
+        previewedFace = -1;
+        scene.refreshControls();
+    }
+
+    /**
+     * The one geodesic fit, as one edit: the open crease draft becomes the geodesic draft that
+     * follows its crease path, anchors added and dropped to fit it.
+     *
+     * @return true when the draft was fitted
+     */
+    private boolean fitDraftToGeodesic() {
+        RingToolState stateBefore = new RingToolState(this);
+        int[] creaseAnchors = draftAuthoredVertexId;
+        GeodesicRefit refit = draftOwner.refitGeodesic();
+        if (refit == null) {
+            return false;
+        }
+        int added = 0;
+        for (int anchor : draftAuthoredVertexId) {
+            added += Arrays.stream(creaseAnchors).anyMatch(held -> held == anchor) ? 0 : 1;
+        }
+        int dropped = creaseAnchors.length - (draftAuthoredVertexId.length - added);
+        selectedAnchorVertexId = -1;
+        invalidateRings();
+        recordEdit("geodesic fit", stateBefore);
+        reportDraft(String.format(Locale.ROOT, "fitted to its crease path as geodesic, %d "
+                + "anchor(s) added and %d dropped, within %.4f of the crease path "
+                + "(tolerance %.4f, %d traces)", added, dropped, refit.deviation,
+                refit.tolerance, refit.traces));
+        return true;
+    }
+
+    /**
+     * Re-open, {@link #fitDraftToGeodesic fit} and confirm every crease ring, each its
+     * own edits; a ring the fit refuses stays as it was and is named in the row. Bisector
+     * stretches go first, while the walls they are cut between still stand.
+     */
+    private void fitEveryCreaseRingToGeodesic() {
+        if (draft != null) {
+            lastError = "confirm or discard the open draft before fitting every ring";
+            return;
+        }
+        int fitted = 0;
+        List<String> kept = new ArrayList<>();
+        for (int ring = 0; ring < 2 * confirmedRings.size(); ring++) {
+            boolean stretches = ring < confirmedRings.size();
+            int index = ring % confirmedRings.size();
+            ConfirmedRing crease = confirmedRings.get(index);
+            if (crease.deleted || (stretches ? crease.bisectorStretch == null
+                    : crease.mode != RingSegmentMode.CREASE || crease.bisectorEnds != null)) {
+                continue;
+            }
+            if (reopenRing(index) && fitDraftToGeodesic() && confirmDraft()) {
+                fitted += stretches ? 0 : 1;
+                // Confirming leaves here a bisector that could not follow the fitted ring.
+                if (!lastError.isEmpty()) {
+                    kept.add(lastError);
+                }
+                continue;
+            }
+            kept.add(liveLabel(index) + " (" + lastError + ")");
+            if (draft != null) {
+                discardDraft();
+            }
+        }
+        lastError = "";
+        lastRow = fitted + " crease ring(s) fitted as geodesic"
+                + (kept.isEmpty() ? "" : ", left as they were: " + kept);
+        Platforms.get().log(LOG_PREFIX + lastRow);
+        scene.refreshControls();
     }
 
     /**
@@ -1330,7 +1349,7 @@ public final class RingTool extends Tool {
     }
 
     /**
-     * Esc: an unedited draft closes, its opening click taken back, the sub-tool finishing the key;
+     * An unedited draft closes, its opening click taken back, the sub-tool finishing the key;
      * an edited one goes to the sub-tool owning it, which may leave the key to the scene.
      *
      * @return true when the ring tool or its sub-tool took the key
@@ -2012,7 +2031,7 @@ public final class RingTool extends Tool {
     }
 
     /**
-     * A: collapse every lens sliver two rings pinch, one ring keeping each run of lenses and the
+     * Collapse every lens sliver two rings pinch, one ring keeping each run of lenses and the
      * other deleted, its stretches outside the runs new bisectors ending on the keepers, as one
      * undoable edit.
      *

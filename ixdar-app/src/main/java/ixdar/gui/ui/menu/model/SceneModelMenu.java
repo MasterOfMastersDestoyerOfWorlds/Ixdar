@@ -144,7 +144,7 @@ public final class SceneModelMenu implements PointerRegion {
             }
             controlsBox.addRow(scene.controlSectionName(section), palette.headingText, null);
             for (ControlHint hint : scene.controls().get(section)) {
-                controlsBox.addRow(hint.toString(),
+                controlsBox.addRow(hint.glyphLabel() + ControlHint.KEY_DESCRIPTION_GAP + hint.description,
                         hint.action == null ? palette.disabled : palette.linkText,
                         hint.action == null ? null : () -> scene.keys.fire(hint));
             }

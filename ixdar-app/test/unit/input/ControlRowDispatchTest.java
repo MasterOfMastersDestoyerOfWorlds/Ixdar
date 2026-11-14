@@ -52,11 +52,11 @@ class ControlRowDispatchTest {
         canvasBefore = Scene.instance;
         Toggle.IsTerminalFocused.value = false;
         Scene canvas = new MenuScene();
-        canvas.controls.get(Scene.TOOL_SWITCH_SECTION).add(new ControlHint(CONTROL_B, Keys.B, true, CONTROL_B,
+        canvas.controls.get(Scene.TOOL_SWITCH_SECTION).add(new ControlHint(CONTROL_B, Keys.B, true,
                 CONTROL_B, () -> fired.add(CONTROL_B)));
-        canvas.controls.get(Scene.SCENE_SECTION).add(new ControlHint(PLAIN_B, Keys.B, PLAIN_B, PLAIN_B,
+        canvas.controls.get(Scene.SCENE_SECTION).add(new ControlHint(PLAIN_B, Keys.B, PLAIN_B,
                 () -> fired.add(PLAIN_B)));
-        canvas.controls.get(Scene.SCENE_SECTION).add(ControlHint.repeating(CYCLE, Keys.LEFT, CYCLE, CYCLE,
+        canvas.controls.get(Scene.SCENE_SECTION).add(ControlHint.repeating(CYCLE, Keys.LEFT, CYCLE,
                 () -> fired.add(CYCLE)));
         keyGuy = new KeyGuy(canvas);
     }
@@ -73,14 +73,14 @@ class ControlRowDispatchTest {
 
     @Test
     void aPlainRowStaysSilentUnderControl() {
-        keyGuy.handleSceneKeys(Keys.LEFT, KeyNames.MOD_CONTROL);
-        keyGuy.handleSceneKeys(Keys.LEFT, 0);
+        keyGuy.handleSceneKeys(Keys.LEFT.keyCode, KeyNames.MOD_CONTROL);
+        keyGuy.handleSceneKeys(Keys.LEFT.keyCode, 0);
         assertEquals(List.of(CYCLE), fired);
     }
 
     @Test
     void aHeldRepeatingRowStaysSilentUnderControl() {
-        keyGuy.pressedKeys.add(Keys.LEFT);
+        keyGuy.pressedKeys.add(Keys.LEFT.keyCode);
         keyGuy.controlMask = true;
         keyGuy.lastRepeatMillis -= KeyGuy.REPEAT_MILLIS + 1;
         keyGuy.paintUpdate(1f);
@@ -89,21 +89,21 @@ class ControlRowDispatchTest {
 
     @Test
     void theControlChordAndItsPlainKeyEachFireTheirOwnRow() {
-        keyGuy.handleSceneKeys(Keys.B, KeyNames.MOD_CONTROL);
-        keyGuy.handleSceneKeys(Keys.B, 0);
+        keyGuy.handleSceneKeys(Keys.B.keyCode, KeyNames.MOD_CONTROL);
+        keyGuy.handleSceneKeys(Keys.B.keyCode, 0);
         assertEquals(List.of(CONTROL_B, PLAIN_B), fired);
     }
 
     @Test
     void aHeldRepeatingRowRefiresOnlyAfterTheRepeatInterval() {
-        keyGuy.pressedKeys.add(Keys.LEFT);
-        keyGuy.handleSceneKeys(Keys.LEFT, 0);
+        keyGuy.pressedKeys.add(Keys.LEFT.keyCode);
+        keyGuy.handleSceneKeys(Keys.LEFT.keyCode, 0);
         keyGuy.paintUpdate(1f);
         assertEquals(List.of(CYCLE), fired);
         keyGuy.lastRepeatMillis -= KeyGuy.REPEAT_MILLIS + 1;
         keyGuy.paintUpdate(1f);
         assertEquals(List.of(CYCLE, CYCLE), fired);
-        keyGuy.pressedKeys.remove(Keys.LEFT);
+        keyGuy.pressedKeys.remove(Keys.LEFT.keyCode);
         keyGuy.lastRepeatMillis -= KeyGuy.REPEAT_MILLIS + 1;
         keyGuy.paintUpdate(1f);
         assertEquals(List.of(CYCLE, CYCLE), fired);

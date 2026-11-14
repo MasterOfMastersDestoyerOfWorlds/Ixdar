@@ -153,12 +153,12 @@ public abstract class TradeRouteTool extends Tool {
      */
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("previous-layer", Keys.LEFT_BRACKET, "[", "act at the layer above",
+        controls.add(new ControlHint("previous-layer", Keys.LEFT_BRACKET, "act at the layer above",
                 () -> stepLayer(-1)));
-        controls.add(new ControlHint("next-layer", Keys.RIGHT_BRACKET, "]", "act at the layer below",
+        controls.add(new ControlHint("next-layer", Keys.RIGHT_BRACKET, "act at the layer below",
                 () -> stepLayer(1)));
-        controls.add(ControlHint.repeating("undo-route", Keys.Z, "Z", "undo the last route edit", this::undo));
-        controls.add(ControlHint.repeating("redo-route", Keys.Y, "Y", "redo", this::redo));
+        controls.add(ControlHint.repeating("undo-route", Keys.Z, "undo the last route edit", this::undo));
+        controls.add(ControlHint.repeating("redo-route", Keys.Y, "redo", this::redo));
     }
 
     /**

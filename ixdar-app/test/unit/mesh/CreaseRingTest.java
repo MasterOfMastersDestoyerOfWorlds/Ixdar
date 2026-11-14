@@ -391,14 +391,14 @@ class CreaseRingTest {
         return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
     }
 
-    private static void press(List<ControlHint> controls, int keyCode) {
+    private static void press(List<ControlHint> controls, Keys key) {
         for (ControlHint hint : controls) {
-            if (hint.keyCode == keyCode && !hint.controlHeld) {
+            if (hint.key == key && !hint.controlHeld) {
                 hint.action.perform();
                 return;
             }
         }
-        throw new AssertionError("no control on key " + keyCode);
+        throw new AssertionError("no control on key " + key);
     }
 
     private static int vertexAt(int ring, int side) {
@@ -601,12 +601,12 @@ class CreaseRingTest {
         return vertexAt(ring, side);
     }
 
-    private static String labelOf(List<ControlHint> controls, int keyCode) {
+    private static String labelOf(List<ControlHint> controls, Keys key) {
         for (ControlHint hint : controls) {
-            if (hint.keyCode == keyCode && !hint.controlHeld) {
+            if (hint.key == key && !hint.controlHeld) {
                 return hint.description;
             }
         }
-        throw new AssertionError("no control on key " + keyCode);
+        throw new AssertionError("no control on key " + key);
     }
 }

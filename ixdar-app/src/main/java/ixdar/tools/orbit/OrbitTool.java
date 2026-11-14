@@ -3,6 +3,7 @@ package ixdar.tools.orbit;
 import java.util.List;
 
 import ixdar.annotations.tool.ToolAnnotation;
+import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
@@ -63,10 +64,10 @@ public final class OrbitTool extends Tool {
     @Override
     public void addControls(List<ControlHint> controls) {
         if (scene.mouse.controller == scene.camera) {
-            controls.add(new ControlHint(ControlHint.NO_KEY, "shift+drag", "pan the camera"));
+            controls.add(new ControlHint(Keys.DRAG, false, true, "pan the camera"));
         }
-        controls.add(new ControlHint("frame-model", ControlHint.NO_KEY, Scene.FRAME_ALL_CLICK,
-                "frame the whole model, as F does", scene::frameAll));
+        controls.add(new ControlHint("frame-model", Keys.DOUBLE_CLICK, "empty space: frame the whole model, as F does",
+                scene::frameAll));
     }
 
     /**

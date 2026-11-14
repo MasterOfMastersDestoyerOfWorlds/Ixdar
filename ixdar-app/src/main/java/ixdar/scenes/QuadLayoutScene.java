@@ -97,23 +97,23 @@ public class QuadLayoutScene extends ModelScene {
 
     @Override
     public void setControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("toggle-coons-fill", Keys.C, "C", "toggle Coons fill", this::toggleCoonsFill));
-        controls.add(new ControlHint("toggle-initial-grid", Keys.O, "O", "toggle pre-relaxation grid",
+        controls.add(new ControlHint("toggle-coons-fill", Keys.C, "toggle Coons fill", this::toggleCoonsFill));
+        controls.add(new ControlHint("toggle-initial-grid", Keys.O, "toggle pre-relaxation grid",
                 this::toggleInitialGrid));
-        controls.add(new ControlHint("toggle-quad-grid", Keys.Q, "Q", "toggle quad grid",
+        controls.add(new ControlHint("toggle-quad-grid", Keys.Q, "toggle quad grid",
                 () -> quadRuntime.showQuadGrid = !quadRuntime.showQuadGrid));
-        controls.add(new ControlHint("toggle-patch-fill", Keys.P, "P", "toggle patch fill",
+        controls.add(new ControlHint("toggle-patch-fill", Keys.P, "toggle patch fill",
                 () -> quadRuntime.showLayoutPatches = !quadRuntime.showLayoutPatches));
-        controls.add(new ControlHint("toggle-layout-boundaries", Keys.B, "B", "toggle layout boundaries",
+        controls.add(new ControlHint("toggle-layout-boundaries", Keys.B, "toggle layout boundaries",
                 () -> quadRuntime.showLayoutBoundaries = !quadRuntime.showLayoutBoundaries));
-        controls.add(new ControlHint("toggle-embedded-arcs", Keys.E, "E", "toggle embedded arcs",
+        controls.add(new ControlHint("toggle-embedded-arcs", Keys.E, "toggle embedded arcs",
                 () -> quadRuntime.showEmbeddedArcs = !quadRuntime.showEmbeddedArcs));
-        controls.add(new ControlHint("toggle-nodes", Keys.N, "N", "toggle nodes",
+        controls.add(new ControlHint("toggle-nodes", Keys.N, "toggle nodes",
                 () -> quadRuntime.showNodes = !quadRuntime.showNodes));
-        controls.add(new ControlHint("cycle-grid-map", Keys.G, "G", "cycle grid map paint (off/initial/relaxed)",
+        controls.add(new ControlHint("cycle-grid-map", Keys.G, "cycle grid map paint (off/initial/relaxed)",
                 this::cycleGridMapView));
-        controls.add(new ControlHint("decrease-alpha", Keys.COMMA, ",", "decrease alpha", () -> stepAlpha(-1f)));
-        controls.add(new ControlHint("increase-alpha", Keys.PERIOD, ".", "increase alpha", () -> stepAlpha(1f)));
+        controls.add(new ControlHint("decrease-alpha", Keys.COMMA, "decrease alpha", () -> stepAlpha(-1f)));
+        controls.add(new ControlHint("increase-alpha", Keys.PERIOD, "increase alpha", () -> stepAlpha(1f)));
         super.setControls(controls);
     }
 

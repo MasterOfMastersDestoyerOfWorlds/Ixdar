@@ -141,7 +141,7 @@ public class Terminal extends Pane {
      * @param controlMask {@code true} if Ctrl is held (enables word-wise backspace)
      */
     public void keyPress(int key, int mods, boolean controlMask) {
-        if (key == Keys.BACKSPACE) {
+        if (key == Keys.BACKSPACE.keyCode) {
             if (controlMask) {
                 commandLine = Compat.stripTrailing(commandLine);
                 int lastSpace = commandLine.lastIndexOf(" ");
@@ -159,7 +159,7 @@ public class Terminal extends Pane {
             }
             return;
         }
-        if (key == Keys.BACKSPACE) {
+        if (key == Keys.BACKSPACE.keyCode) {
             int nextCommand = commandHistoryIdx + 1;
             if (nextCommand >= commandHistory.size()) {
                 return;
@@ -170,7 +170,7 @@ public class Terminal extends Pane {
             commandHistoryIdx = nextCommand;
             commandLine = commandHistory.get(nextCommand);
             return;
-        } else if (key == Keys.DOWN) {
+        } else if (key == Keys.DOWN.keyCode) {
             int prevCommand = commandHistoryIdx - 1;
             if (prevCommand < -1) {
                 return;
@@ -183,7 +183,7 @@ public class Terminal extends Pane {
             commandHistoryIdx = prevCommand;
             return;
         }
-        if (key == Keys.ENTER) {
+        if (key == Keys.ENTER.keyCode) {
             String entered = commandLine;
             commandLine = "";
             scrollBox.scrollToEndPending = true;
@@ -195,11 +195,11 @@ public class Terminal extends Pane {
             }
             return;
         }
-        if (key == Keys.SPACE) {
+        if (key == Keys.SPACE.keyCode) {
             commandLine += " ";
             return;
         }
-        if (key == Keys.TAB) {
+        if (key == Keys.TAB.keyCode) {
             if (Compat.isBlank(commandLine) && nextLogicalCommand.length > 0) {
                 commandLine = nextLogicalCommand[nextLogicalCommandIdx];
                 nextLogicalCommandIdx = (nextLogicalCommandIdx + 1) % nextLogicalCommand.length;

@@ -26,14 +26,12 @@ public enum KeyActions {
     Integer[] keys;
     boolean controlMask;
 
-    KeyActions(Integer... defaultKeyPresses) {
+    KeyActions(Keys... defaultKeyPresses) {
         controlMask = false;
-        keys = defaultKeyPresses;
-    }
-
-    KeyActions(boolean control, Integer... defaultKeyPresses) {
-        controlMask = control;
-        keys = defaultKeyPresses;
+        keys = new Integer[defaultKeyPresses.length];
+        for (int i = 0; i < keys.length; i++) {
+            keys[i] = defaultKeyPresses[i].keyCode;
+        }
     }
 
     /**
@@ -113,35 +111,14 @@ public enum KeyActions {
     }
 
     /**
-     * Display name for special keys that don't render well as a single ASCII character (arrows,
-     * modifiers, escape, enter). Falls through to {@code (char) keyCode}.
+     * A key code's name: its {@link Keys#label}, or the character for a code no key has.
      *
-     * @param keyCode key code from {@code Keys}
+     * @param keyCode GLFW key code
      * @return human-readable key name
      */
     public static String extraNames(int keyCode) {
-        switch (keyCode) {
-        case ESCAPE:
-            return "Escape";
-        case LEFT_CONTROL:
-        case RIGHT_CONTROL:
-            return "Ctrl";
-        case LEFT_SHIFT:
-        case RIGHT_SHIFT:
-            return "Shift";
-        case LEFT:
-            return "Left";
-        case RIGHT:
-            return "Right";
-        case UP:
-            return "Up";
-        case DOWN:
-            return "Down";
-        case ENTER:
-            return "Enter";
-        default:
-            return "" + (char) keyCode;
-        }
+        Keys key = Keys.of(keyCode);
+        return key == null ? String.valueOf((char) keyCode) : key.label;
     }
 
     /**

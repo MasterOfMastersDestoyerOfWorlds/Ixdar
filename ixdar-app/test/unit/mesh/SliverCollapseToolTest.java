@@ -198,22 +198,22 @@ class SliverCollapseToolTest {
             if (active.replacesView()) {
                 tool.collapseSlivers();
             } else {
-                scene.keys.handleSceneKeys(Keys.A, 0);
+                scene.keys.handleSceneKeys(Keys.A.keyCode, 0);
             }
             assertEquals(0, twoRingSlivers(rebuilt(tool)), name + ": A left slivers");
 
-            scene.keys.handleSceneKeys(Keys.Z, KeyNames.MOD_CONTROL);
+            scene.keys.handleSceneKeys(Keys.Z.keyCode, KeyNames.MOD_CONTROL);
             assertEquals(before, twoRingSlivers(rebuilt(tool)), name + ": " + active.lastError);
             assertTrue(active.lastRow.startsWith("undid slivers collapsed"), name + ": " + active.lastRow);
             assertEquals(rings, tool.confirmedRings.size(), name + ": the bisectors stayed");
             assertFalse(tool.confirmedRings.get(1).deleted, name + ": ring_01 stayed deleted");
 
-            scene.keys.handleSceneKeys(Keys.Y, KeyNames.MOD_CONTROL);
+            scene.keys.handleSceneKeys(Keys.Y.keyCode, KeyNames.MOD_CONTROL);
             assertEquals(0, twoRingSlivers(rebuilt(tool)), name + ": ctrl+Y " + active.lastError);
-            scene.keys.handleSceneKeys(Keys.Z, KeyNames.MOD_CONTROL);
-            scene.keys.handleSceneKeys(Keys.Z, KeyNames.MOD_CONTROL | KeyNames.MOD_SHIFT);
+            scene.keys.handleSceneKeys(Keys.Z.keyCode, KeyNames.MOD_CONTROL);
+            scene.keys.handleSceneKeys(Keys.Z.keyCode, KeyNames.MOD_CONTROL | KeyNames.MOD_SHIFT);
             assertEquals(0, twoRingSlivers(rebuilt(tool)), name + ": ctrl+shift+Z " + active.lastError);
-            scene.keys.handleSceneKeys(Keys.Z, KeyNames.MOD_CONTROL);
+            scene.keys.handleSceneKeys(Keys.Z.keyCode, KeyNames.MOD_CONTROL);
             assertEquals(before, twoRingSlivers(rebuilt(tool)), name + ": " + active.lastError);
         }
     }
