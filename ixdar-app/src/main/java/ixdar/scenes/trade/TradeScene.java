@@ -384,9 +384,6 @@ public class TradeScene extends Scene {
         float panelBottom = loopListPanel.draw(this, panelX, topBarBottom - Hud.PADDING, toolbarHeight + Hud.PADDING,
                 panelWidth);
         if (width != framedWidth || height != framedHeight) {
-            // Fit the whole map between the top bar and the toolbar, clear of the side panel: beside it or
-            // below it, whichever shows the map larger. The camera spans a square range: measure the pixels a
-            // range covers, size the range to fit, then pan onto the free space's centre.
             framedWidth = width;
             framedHeight = height;
             float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
@@ -410,7 +407,6 @@ public class TradeScene extends Scene {
             for (float range : new float[] { Math.max(spanX, spanY), 0 }) {
                 float span = range > 0 ? range : pixelsPerRange / fit;
                 Shell corners = new Shell();
-                // PointND drops trailing zero coordinates, and the map's corner sits at 0: keep it off zero.
                 corners.add(new PointND.Float(minX - MAP_MARGIN, minY - MAP_MARGIN));
                 corners.add(new PointND.Float(minX - MAP_MARGIN + span, minY - MAP_MARGIN + span));
                 mapPoints = corners.toPointSet();

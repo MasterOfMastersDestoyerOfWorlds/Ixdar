@@ -97,8 +97,6 @@ public final class NetworkContraction {
                     network.validate();
                 }
             }
-            // The whole-network checks run per round only when debugging; in production they
-            // run once below, on the fixed point.
             if (VALIDATE_EVERY_COLLAPSE) {
                 network.validate();
                 network.requireArcFlanksMatchCovers(progress("collapse round"));
@@ -211,8 +209,6 @@ public final class NetworkContraction {
             operator = "patchSplit " + nonSimple;
         }
         network.validate();
-        // Stepping is the debug path: unlike contract()'s per-round check, a stepped tear
-        // names the exact operator that tore the covers.
         network.requireArcFlanksMatchCovers(progress(operator));
         return String.format("%s collapses=%d patchSplits=%d edgeSplits=+%d V=%d(+%d) F=%d",
                 operator, arcCollapseCount, patchSplitCount,

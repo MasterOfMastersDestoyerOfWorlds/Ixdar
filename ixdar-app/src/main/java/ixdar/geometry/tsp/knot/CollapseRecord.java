@@ -32,15 +32,12 @@ public class CollapseRecord extends OperationRecord {
 
     @Override
     public void undo() {
-        // Remove the direct connection
         if (addedDirect != null && startKnot != null) {
-            // Find the parent knot containing these
             Knot parent = findCommonParent(startKnot, endKnot);
             if (parent != null) {
                 parent.manifoldSegments.remove(addedDirect);
                 parent.sortedSegments.remove(addedDirect);
             }
-            // Remove match connections
             addedDirect.first.matchList.remove(addedDirect.last);
             addedDirect.last.matchList.remove(addedDirect.first);
             if (addedDirect.first.m1 == addedDirect.last) {
@@ -54,7 +51,6 @@ public class CollapseRecord extends OperationRecord {
             addedDirect.last.matchCount = Math.max(0, addedDirect.last.matchCount - 1);
         }
 
-        // Remove all internal crossings
         for (int i = 0; i < addedCrossings.size() && i < pathKnots.size(); i++) {
             Segment crossing = addedCrossings.get(i);
             Knot knot = pathKnots.get(i);
@@ -62,7 +58,6 @@ public class CollapseRecord extends OperationRecord {
             knot.manifoldSegments.remove(crossing);
             knot.sortedSegments.remove(crossing);
 
-            // Remove match connections
             crossing.first.matchList.remove(crossing.last);
             crossing.last.matchList.remove(crossing.first);
             if (crossing.first.m1 == crossing.last) {
@@ -76,9 +71,7 @@ public class CollapseRecord extends OperationRecord {
             crossing.last.matchCount = Math.max(0, crossing.last.matchCount - 1);
         }
 
-        // Restore all removed pipe segments
         for (Segment pipeSeg : removedPipeSegments) {
-            // Find which knot's manifold this belongs to
             Knot parent = findCommonParent(pipeSeg.first, pipeSeg.last);
             if (parent != null) {
                 parent.manifoldSegments.add(pipeSeg);
@@ -86,7 +79,6 @@ public class CollapseRecord extends OperationRecord {
                 parent.sortedSegments.sort(null);
             }
 
-            // Restore match connections
             pipeSeg.first.setMatch(pipeSeg.last, pipeSeg);
             pipeSeg.last.setMatch(pipeSeg.first, pipeSeg);
         }
@@ -94,7 +86,6 @@ public class CollapseRecord extends OperationRecord {
 
     @Override
     public void redo() {
-        // Remove pipe segments again
         for (Segment pipeSeg : removedPipeSegments) {
             Knot parent = findCommonParent(pipeSeg.first, pipeSeg.last);
             if (parent != null) {
@@ -102,7 +93,6 @@ public class CollapseRecord extends OperationRecord {
                 parent.sortedSegments.remove(pipeSeg);
             }
 
-            // Remove match connections
             pipeSeg.first.matchList.remove(pipeSeg.last);
             pipeSeg.last.matchList.remove(pipeSeg.first);
             if (pipeSeg.first.m1 == pipeSeg.last) {
@@ -116,7 +106,6 @@ public class CollapseRecord extends OperationRecord {
             pipeSeg.last.matchCount = Math.max(0, pipeSeg.last.matchCount - 1);
         }
 
-        // Re-add internal crossings
         for (int i = 0; i < addedCrossings.size() && i < pathKnots.size(); i++) {
             Segment crossing = addedCrossings.get(i);
             Knot knot = pathKnots.get(i);
@@ -125,12 +114,10 @@ public class CollapseRecord extends OperationRecord {
             knot.sortedSegments.add(crossing);
             knot.sortedSegments.sort(null);
 
-            // Add match connections
             crossing.first.setMatch(crossing.last, crossing);
             crossing.last.setMatch(crossing.first, crossing);
         }
 
-        // Re-add direct connection
         if (addedDirect != null && startKnot != null) {
             Knot parent = findCommonParent(startKnot, endKnot);
             if (parent != null) {
@@ -156,12 +143,10 @@ public class CollapseRecord extends OperationRecord {
             return null;
         }
 
-        // Check if they share a top group knot
         if (a.topGroupKnot != null && a.topGroupKnot == b.topGroupKnot) {
             return a.topGroupKnot;
         }
 
-        // Check if one contains the other
         if (a.contains(b)) {
             return a;
         }
@@ -169,7 +154,6 @@ public class CollapseRecord extends OperationRecord {
             return b;
         }
 
-        // Walk up a's hierarchy looking for b
         Knot current = a.topGroupKnot;
         while (current != null) {
             if (current.contains(b)) {

@@ -391,7 +391,6 @@ public final class SeamlessDofSystem {
                 continue;
             }
             if (faceB >= 0 && cutGraph.isCutEdge[activeEdge]) {
-                // Feature edge ended up on the cut despite the bias.
                 continue;
             }
             int halfEdge = mesh.edgeHalfEdge(edgeId);

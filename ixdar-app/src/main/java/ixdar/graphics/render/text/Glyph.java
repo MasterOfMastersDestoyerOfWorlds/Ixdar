@@ -10,8 +10,6 @@ public class Glyph {
     public final int y;
     public final float advance;
 
-    // Plane-space bounds (EM units) from the font atlas JSON.
-    // These define the glyph's quad relative to the baseline.
     public final float planeLeft;
     public final float planeBottom;
     public final float planeRight;

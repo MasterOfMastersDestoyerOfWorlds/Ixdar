@@ -18,7 +18,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 public final class PrimMinimumSpanningTree {
     public static final long EXTRA_EDGE_SEED_MIX = 0x9E3779B97F4A7C15L;
 
-    // vazgriz
     public static final double DEFAULT_EXTRA_EDGE_PROB = 0.125;
 
     private PrimMinimumSpanningTree() {
@@ -50,8 +49,6 @@ public final class PrimMinimumSpanningTree {
             weights[i] = pa.distance(pb);
         }
 
-        // Adjacency in CSR form indexed by dense vertex, each vertex's incident edges in dense
-        // edge order; a candidate's weight is weights[edgeIdx].
         int[] adjOffsets = new int[n + 1];
         for (int i = 0; i < e; i++) {
             adjOffsets[pairs[i * 2] + 1]++;
@@ -72,10 +69,6 @@ public final class PrimMinimumSpanningTree {
             adjNeighbor[fill[b]++] = a;
         }
 
-        // Prim's starting from dense vertex 0. The queue holds candidate edge indices ordered
-        // by weight, tie-broken by edge index so the order is fully deterministic; an edge is
-        // queued from the endpoint already in the tree, so its far endpoint is the one not yet
-        // in the tree when it is polled.
         boolean[] inTree = new boolean[n];
         Set<Integer> mstEdgeIndices = new LinkedHashSet<>();
         PriorityQueue<Integer> pq = new PriorityQueue<>((left, right) -> {
@@ -100,7 +93,6 @@ public final class PrimMinimumSpanningTree {
             }
         }
 
-        // Extra-edge pass on its own RNG stream.
         Random extraRng = new Random(seed ^ EXTRA_EDGE_SEED_MIX);
         boolean[] selection = new boolean[e];
         for (int i : mstEdgeIndices) {

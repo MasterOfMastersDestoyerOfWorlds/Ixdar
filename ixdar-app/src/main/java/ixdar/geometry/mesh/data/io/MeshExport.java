@@ -114,8 +114,6 @@ public final class MeshExport {
         }
         UvField uv = bundle.slots().get(CornerUvField.SLOT) instanceof UvField field ? field : null;
 
-        // Copy the mesh's vertices into dense arrays, recording where each vertex id landed so the
-        // faces can be re-indexed.
         int count = mesh.vertexCount();
         int maxVertexId = 0;
         for (int index = 0; index < count; index++) {
@@ -139,9 +137,6 @@ public final class MeshExport {
             normals[offset + 2] = scratch.z;
         }
 
-        // Fan every face into triangles, collecting the corner UVs alongside so a seam can be
-        // split back out. A non-finite UV becomes zero and is counted: the hole fills a repair
-        // mints carry no texture coordinates, and glTF accessors may not hold NaN.
         int faceCount = mesh.faceCount();
         int corners = 0;
         for (int index = 0; index < faceCount; index++) {
@@ -178,7 +173,6 @@ public final class MeshExport {
             anyNormal = normals[slot] != 0;
         }
         if (!anyNormal && triangleCount() > 0) {
-            // Each vertex takes the normalized sum of its triangles' unit normals.
             Vector3f corner0 = new Vector3f();
             Vector3f edgeA = new Vector3f();
             Vector3f edgeB = new Vector3f();
@@ -214,8 +208,6 @@ public final class MeshExport {
             }
         }
 
-        // Number the vertices that share a bitwise-identical position 0, 1, ... in vertex order,
-        // leaving weldKey null when every position is unique.
         Integer[] order = new Integer[count];
         for (int vertex = 0; vertex < count; vertex++) {
             order[vertex] = vertex;
@@ -251,12 +243,9 @@ public final class MeshExport {
         if (!splitSeams || cornerU == null || triangleCount() == 0) {
             return;
         }
-        // Give every corner UV a vertex of its own, duplicating the positions and normals the
-        // seam shares, so a per-vertex file format can hold the field.
         float[] splitUv = new float[CornerUvSplit.maxSplitUvLength(triangleCount())];
         int[] splitCorners = new int[triangleIndices.length];
         int[] weldedOfSplit = new int[triangleIndices.length];
-        // Mesh face order, so split corner i is still dense corner i for the weld keys below.
         int splitCount = CornerUvSplit.split(triangleIndices, new CornerUvField(cornerU, cornerV), null,
                 splitUv, splitCorners, weldedOfSplit);
         int[] denseCorners = triangleIndices;

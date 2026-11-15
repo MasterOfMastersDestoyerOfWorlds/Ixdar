@@ -39,7 +39,6 @@ public final class BezierFit {
             return out;
         }
 
-        // Chord-length parameterisation.
         float[] t = new float[n];
         float total = 0f;
         for (int i = 1; i < n; i++) {
@@ -49,7 +48,6 @@ public final class BezierFit {
             t[i] = total;
         }
         if (total < EPSILON) {
-            // All points coincide — straight-line Bezier is the only sensible answer.
             out[1].set(p0);
             out[2].set(p3);
             return out;
@@ -57,13 +55,6 @@ public final class BezierFit {
         for (int i = 1; i < n; i++) t[i] /= total;
         t[n - 1] = 1f;
 
-        // Build 2×2 normal-equation system per axis. Bernstein basis:
-        //   A₀(t) = (1-t)³    A₁(t) = 3(1-t)²t
-        //   A₂(t) = 3(1-t)t²  A₃(t) = t³
-        // Residual rᵢ = Pᵢ - A₀ P₀ - A₃ P₃. Solve for [P₁; P₂] in
-        //   M · [P₁; P₂] = b where
-        //   M = [Σ A₁² , Σ A₁A₂; Σ A₁A₂ , Σ A₂²]
-        //   b = [Σ A₁·r ; Σ A₂·r]  (per-axis, so 3 RHS).
         double m00 = 0, m01 = 0, m11 = 0;
         double bx0 = 0, bx1 = 0, by0 = 0, by1 = 0, bz0 = 0, bz1 = 0;
         for (int i = 0; i < n; i++) {
@@ -86,8 +77,6 @@ public final class BezierFit {
         }
         double det = m00 * m11 - m01 * m01;
         if (Math.abs(det) < DET_EPSILON) {
-            // Fallback: interpolate control points along the chord — happens
-            // when the polyline is too short (≤3 points) so the system rank-deficits.
             out[1].set(p0).lerp(p3, 1f / 3f);
             out[2].set(p0).lerp(p3, 2f / 3f);
             return out;

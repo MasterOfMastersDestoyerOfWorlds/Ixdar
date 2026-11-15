@@ -276,7 +276,6 @@ public final class NormalMatrix {
     public NormalMatrix(NormalMatrix matrix, int[] permutation, int[] inversePermutation) {
         variableCount = matrix.variableCount;
 
-        // New slot k takes old variable permutation[k].
         diagonal = new double[variableCount];
         rightHandSide = new double[variableCount];
         for (int newIndex = 0; newIndex < variableCount; newIndex++) {
@@ -285,7 +284,6 @@ public final class NormalMatrix {
             rightHandSide[newIndex] = matrix.rightHandSide[oldIndex];
         }
 
-        // Each new row inherits the entry count of the old row it came from.
         rowStart = new int[variableCount + 1];
         for (int oldRow = 0; oldRow < variableCount; oldRow++) {
             int newRow = inversePermutation[oldRow];
@@ -295,7 +293,6 @@ public final class NormalMatrix {
             rowStart[row + 1] += rowStart[row];
         }
 
-        // Copy each entry into its permuted row, remapping the column too.
         rowColumn = new int[rowStart[variableCount]];
         rowValue = new double[rowStart[variableCount]];
         int[] cursor = rowStart.clone();
@@ -350,7 +347,6 @@ public final class NormalMatrix {
             newDiagonal[i] = diagonal[i] - other.diagonal[i];
         }
 
-        // --- symbolic pass: union column count per row ---
         int[] degree = new int[n];
         int[] mark = new int[n];
         Arrays.fill(mark, -1);
@@ -380,7 +376,6 @@ public final class NormalMatrix {
         int[] newRowColumn = new int[newRowStart[n]];
         double[] newRowValue = new double[newRowStart[n]];
 
-        // --- numeric pass: accumulate this - other into the union slots ---
         int[] cursor = newRowStart.clone();
         int[] slotOfCol = new int[n];
         int[] seen = new int[n];

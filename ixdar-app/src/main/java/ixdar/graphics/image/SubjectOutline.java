@@ -39,7 +39,6 @@ public final class SubjectOutline {
         }
         PixelImage picture = new PixelImage(decoded.width, decoded.height);
         for (int pixel = 0; pixel < decoded.width * decoded.height; pixel++) {
-            // The decoder flips rows to the OpenGL bottom-left origin; a picture's row 0 is its top.
             int source = (decoded.height - 1 - pixel / decoded.width) * decoded.width + pixel % decoded.width;
             int at = source * DecodedImage.BYTES_PER_PIXEL;
             picture.pixels[pixel] = PixelImage.OPAQUE | (decoded.rgba[at] & PixelImage.CHANNEL_MASK) << PixelImage.RED_SHIFT

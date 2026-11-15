@@ -351,8 +351,6 @@ public final class RingRegionTool extends Tool {
                 extraction = null;
                 return;
             }
-            // The export is a frozen operand for load_mesh and mesh_boolean; the node line logged
-            // after it is the live form that follows ring edits.
             List<Integer> picked = new ArrayList<>();
             StringBuilder name = new StringBuilder(EXPORT_PREFIX);
             for (int region = 0; region < selectedRegions.length; region++) {
@@ -418,8 +416,6 @@ public final class RingRegionTool extends Tool {
         int framebufferY = height <= 0 ? 0
                 : Math.round(scene.mouse.lastY
                         * (float) Platforms.get().getFrameBufferHeight() / height);
-        // An extraction hides the surface and the id pass draws an exploded view assembled, so
-        // either refuses the click rather than naming a region the cursor is not over.
         lastError = scene.cursorPickRefusal(runtime);
         int activeFace = !lastError.isEmpty() ? -1
                 : runtime.faceIndexAtPixel(scene.camera, framebufferX, framebufferY);

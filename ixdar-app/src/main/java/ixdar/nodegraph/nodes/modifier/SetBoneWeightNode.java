@@ -78,17 +78,14 @@ public class SetBoneWeightNode implements MeshNode {
 
         String slotKey = BONE_WEIGHT_PREFIX + boneName;
 
-        // Get or create per-vertex weight array
         int vertCount = mesh.vertexCount();
         float[] weights = new float[vertCount];
 
-        // Copy existing weights for this bone if present
         Object existing = base.slots().get(slotKey);
         if (existing instanceof float[] prev) {
             System.arraycopy(prev, 0, weights, 0, Math.min(prev.length, weights.length));
         }
 
-        // For each selected face, assign weight to all its vertices
         int faceCount = mesh.faceCount();
         for (int fi = 0; fi < faceCount; fi++) {
             boolean sel = FieldBroadcast.boolAt(selObj, fi, true);

@@ -100,7 +100,6 @@ public class CurvePrimitiveBezierNode implements MeshNode {
             float x, y, z;
 
             if (quadratic) {
-                // Quadratic Bézier: P = (1-t)²·P0 + 2(1-t)t·P1 + t²·P3
                 float u = 1f - t;
                 float uu = u * u;
                 float tt = t * t;
@@ -109,7 +108,6 @@ public class CurvePrimitiveBezierNode implements MeshNode {
                 y = uu * p0.y() + ut2 * p1.y() + tt * p3.y();
                 z = uu * p0.z() + ut2 * p1.z() + tt * p3.z();
             } else {
-                // Cubic Bézier: P = (1-t)³·P0 + 3(1-t)²t·P1 + 3(1-t)t²·P2 + t³·P3
                 float u = 1f - t;
                 float uu = u * u;
                 float uuu = uu * u;

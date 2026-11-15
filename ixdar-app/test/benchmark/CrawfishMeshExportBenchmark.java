@@ -47,7 +47,6 @@ public final class CrawfishMeshExportBenchmark {
     public void exportRoundTripsOneRepairedScan(@TempDir Path directory) throws IOException {
         String glbPath = System.getProperty(CrawfishMeshRepairBenchmark.GLB_PROPERTY,
                 CrawfishMeshRepairBenchmark.DEFAULT_GLB);
-        // repair_mesh with the settings dsl/crawfish_repair_export.dsl uses.
         RepairMeshNode node = new RepairMeshNode();
         MapNodeContext context = new MapNodeContext(node);
         context.setInput(RepairMeshNode.GEOMETRY.name, MeshLoader.loadBundle(glbPath));
@@ -72,7 +71,6 @@ public final class CrawfishMeshExportBenchmark {
         GeometryBundle reloaded = MeshLoader.loadBundle(first.toString());
         double reloadSeconds = (System.nanoTime() - reloadStart) / NANOS_PER_SECOND;
         assertSameSurface(repaired, reloaded, "GLB");
-        // Every corner UV came back, a non-finite one as the zero the export writes.
         UvField beforeUv = assertInstanceOf(UvField.class,
                 repaired.slots().get(CornerUvField.SLOT), "the repaired scan carries corner UVs");
         UvField afterUv = assertInstanceOf(UvField.class,

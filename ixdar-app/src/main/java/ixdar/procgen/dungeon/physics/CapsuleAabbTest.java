@@ -50,21 +50,18 @@ public final class CapsuleAabbTest {
         float r = c.radius();
         if (distSq >= r * r) return new Vector3f(0f, 0f, 0f);
 
-        // P outside AABB (Q on its surface): standard sphere-vs-AABB push along (P - Q).
         if (distSq > DEGENERATE_THRESHOLD) {
             float dist = (float) Math.sqrt(distSq);
             float scale = (r - dist) / dist;
             return new Vector3f(dx * scale, dy * scale, dz * scale);
         }
 
-        // P is inside the AABB. Pick the face nearest P and push outward through it.
         float dxMin = px - a.minX();
         float dxMax = a.maxX() - px;
         float dyMin = py - a.minY();
         float dyMax = a.maxY() - py;
         float dzMin = pz - a.minZ();
         float dzMax = a.maxZ() - pz;
-        // Smallest = nearest face; ties broken in axis order X, Y, Z.
         float min = dxMin;
         int face = 0; // 0:-X, 1:+X, 2:-Y, 3:+Y, 4:-Z, 5:+Z
         if (dxMax < min) { min = dxMax; face = 1; }
@@ -91,12 +88,10 @@ public final class CapsuleAabbTest {
      * @return packed 6-element array {@code [Px, Py, Pz, Qx, Qy, Qz]}
      */
     private static float[] closestPair(CapsuleShape c, AabbBox a) {
-        // P on capsule's vertical axis: X and Z fixed, Y chosen to minimize distance to AABB Y range.
         float aabbMidY = (a.minY() + a.maxY()) * 0.5f;
         float py = clamp(aabbMidY, c.segmentMinY(), c.segmentMaxY());
         float px = c.centerX();
         float pz = c.centerZ();
-        // Q on AABB closest to P: just clamp.
         float qx = clamp(px, a.minX(), a.maxX());
         float qy = clamp(py, a.minY(), a.maxY());
         float qz = clamp(pz, a.minZ(), a.maxZ());

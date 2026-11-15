@@ -228,7 +228,6 @@ public final class StrokeSculptTool extends Tool {
         }
         List<SculptPass> loaded = new ArrayList<>();
         if (source == null) {
-            // No graph to chain onto: a fresh sculpt of the sphere, saved under the next free name.
             int serial = 1;
             Path root = ModelCatalog.repoDslRoot();
             while (Files.exists(root.resolve(NEW_DOCUMENT_NAME + (serial == 1 ? "" : "_" + serial)
@@ -271,7 +270,6 @@ public final class StrokeSculptTool extends Tool {
             anchor = last == null ? ""
                     : last.id + PORT_SEPARATOR + (lastPass >= 0 ? StrokeSculptNode.GEOMETRY_OUT.name
                             : RingDslWriter.geometryPort(last.type));
-            // The text splits at the statement after the last pass; parsed lines are 1-based.
             String[] lines = source.split(LINE_BREAK, -1);
             int split = lastPass >= 0 && lastPass + 1 < statements.size()
                     ? Math.min(lines.length, statements.get(lastPass + 1).line - 1) : lines.length;
@@ -473,7 +471,6 @@ public final class StrokeSculptTool extends Tool {
             strokePointsDrawn = 0;
             return true;
         }
-        // Shoelace area of the closed outline: a fill drawn as a line encloses nothing to lift.
         double enclosed = 0.0;
         for (int point = 0, previous = strokePointsDrawn - 1; point < strokePointsDrawn; previous = point++) {
             enclosed += strokePixels[2 * previous] * strokePixels[2 * point + 1]
@@ -488,7 +485,6 @@ public final class StrokeSculptTool extends Tool {
         SculptPass open = openPass();
         List<SculptPass> after = new ArrayList<>(passes);
         if (open == null && !passes.isEmpty()) {
-            // One pass sums every stroke on its base (MESH-86); a second would sculpt a sculpt.
             lastError = "one stroke_sculpt pass per base: " + passes.get(passes.size() - 1).id + " already sculpts it. "
                     + "Edit its SVG and run ixdar-cli sculpt-sync, or save the sculpt as a new base (mesh-export) "
                     + "and start a new DSL that loads it";
@@ -503,7 +499,6 @@ public final class StrokeSculptTool extends Tool {
             }
             String id = PASS_ID_PREFIX + (serial + 1);
             String upstream = anchor;
-            // A .dsl under the resources folder names its SVGs as resources, any other one by path.
             String normalized = documentFile.replace('\\', '/');
             String stem = Path.of(documentFile).getFileName().toString().replaceFirst(DSL_EXTENSION, "");
             int resources = normalized.indexOf(RESOURCE_ROOT);

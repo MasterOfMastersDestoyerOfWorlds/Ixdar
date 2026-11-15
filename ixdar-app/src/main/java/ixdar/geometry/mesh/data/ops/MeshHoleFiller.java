@@ -39,10 +39,8 @@ public final class MeshHoleFiller {
 
     private static final int PARALLEL_LOOP_LENGTH = 256;
 
-    // Longest polygon the triangulation searches whole; longer ones are cut along a chord first.
     private static final int SPLIT_LOOP_LENGTH = 256;
 
-    // A cut leaves at least this fraction of the polygon's vertices on each side, as a divisor.
     private static final int CUT_SHARE = 4;
 
     private static final int PACKED_VERTEX_BITS = 20;
@@ -180,9 +178,6 @@ public final class MeshHoleFiller {
      */
     private boolean triangulate(int[] polygon) {
         int n = polygon.length;
-        // The cut is the shortest chord leaving both sides at least a quarter of the polygon, so a
-        // long loop costs a few small cubic searches instead of one large one; if a side has no
-        // triangulation, the whole polygon is searched instead.
         if (n > SPLIT_LOOP_LENGTH) {
             int cutFrom = -1;
             int cutTo = -1;
@@ -213,7 +208,6 @@ public final class MeshHoleFiller {
             }
         }
         double[][] cost = new double[n][n];
-        // The same costs indexed [end][start], so the inner loop reads both halves in order.
         double[][] costToEnd = new double[n][n];
         int[][] split = new int[n][n];
         boolean[][] feasible = new boolean[n][n];
@@ -224,11 +218,9 @@ public final class MeshHoleFiller {
         }
         for (int span = 2; span < n; span++) {
             int spanLength = span;
-            // Every interval of one span reads only shorter spans, so they solve independently.
             IntStream starts = IntStream.range(0, n - span);
             (n >= PARALLEL_LOOP_LENGTH ? starts.parallel() : starts).forEach(start -> {
                 int end = start + spanLength;
-                // The polygon's own sides are loop sides or the chord it was cut along.
                 if (!(start == 0 && end == n - 1) && Arrays.binarySearch(forbiddenChords,
                         EdgeKey.undirected(polygon[start], polygon[end])) >= 0) {
                     return;
@@ -243,7 +235,6 @@ public final class MeshHoleFiller {
                     if (!feasibleFromStart[middle] || !feasibleToEndRow[middle]) {
                         continue;
                     }
-                    // An area is never negative, so halves already costing the best cannot win.
                     double halves = fromStart[middle] + toEnd[middle];
                     if (halves >= best) {
                         continue;
@@ -545,7 +536,6 @@ public final class MeshHoleFiller {
      */
     private void applyToUnknowns(double[] unknownValues, double[] full, double[] scratch,
             int fixedCount, double[] destination) {
-        // The held entries of the embedded vector stay zero; only the unknowns are written.
         System.arraycopy(unknownValues, 0, full, fixedCount, unknownValues.length);
         applyNormalOperator(full, scratch);
         System.arraycopy(scratch, fixedCount, destination, 0, unknownValues.length);
@@ -558,8 +548,6 @@ public final class MeshHoleFiller {
      * @param destination filled with the operator's output, one value per local vertex
      */
     private void applyNormalOperator(double[] source, double[] destination) {
-        // Only the minted vertices' rows are read back, and they read the umbrella of themselves
-        // and their neighbours alone, so only those umbrellas are formed.
         int fixedCount = loopLength + ringCount;
         double[] umbrella = umbrellaScratch;
         for (int vertex : umbrellaRows) {
@@ -711,8 +699,6 @@ public final class MeshHoleFiller {
      * @param payload values to permute the same way
      */
     private static void sortByKey(long[] keys, int[] payload) {
-        // While the vertex indices and positions fit, each (key, position) pair packs into one long
-        // whose ascending order is the stable order by key, and a primitive sort finds it.
         long vertexLimit = 1L << PACKED_VERTEX_BITS;
         boolean packable = keys.length < 1 << PACKED_POSITION_BITS;
         for (int index = 0; index < keys.length && packable; index++) {

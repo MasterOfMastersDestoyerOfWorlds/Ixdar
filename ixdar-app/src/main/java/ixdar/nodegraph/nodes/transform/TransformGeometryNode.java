@@ -85,7 +85,6 @@ public class TransformGeometryNode implements MeshNode {
             return;
         }
 
-        // Build SRT matrix: Translation * Rotation * Scale
         Matrix4f mat = new Matrix4f();
         mat.translation(trans.x(), trans.y(), trans.z());
         if (hasRotation) {
@@ -99,7 +98,6 @@ public class TransformGeometryNode implements MeshNode {
         Vector3f tmp = new Vector3f();
         GeometryBundle result = base;
 
-        // Transform mesh vertices if present
         MeshTopology mesh = base.mesh();
         HalfEdgeMesh out = null;
         int[] activeVertexOfId = null;
@@ -107,7 +105,6 @@ public class TransformGeometryNode implements MeshNode {
             int n = mesh.vertexCount();
             int fc = mesh.faceCount();
 
-            // Output vertex i is the input's active vertex i; faces keep their corners.
             float[] newPositions = new float[n * VECTOR_STRIDE];
             activeVertexOfId = new int[mesh.vertexIdBound()];
             for (int activeVertex = 0; activeVertex < n; activeVertex++) {
@@ -138,18 +135,11 @@ public class TransformGeometryNode implements MeshNode {
             result = result.withMesh(out);
         }
 
-        // Transform bezier handle offset vectors if present. Handles are offset
-        // (direction) vectors, so translation has no effect; only rotation/scale
-        // need to be applied. Previously these were pass-through, which distorted
-        // curves under non-uniform scale.
         if (hasRotation || hasScale) {
             result = transformHandleSlot(result, AssignBezierHandlesNode.SLOT_HANDLES_START, mat, tmp);
             result = transformHandleSlot(result, AssignBezierHandlesNode.SLOT_HANDLES_END, mat, tmp);
         }
 
-        // Handles are keyed by edge id, start at the tail of the edge's half-edge; the rebuilt
-        // mesh numbers and orients its edges afresh, so each pair moves to the output edge
-        // joining the same vertices, swapped when that edge runs the other way.
         if (out != null && result.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START) instanceof float[] start
                 && result.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_END) instanceof float[] end) {
             float[] outStart = new float[out.edgeIdBound() * VECTOR_STRIDE];
@@ -172,7 +162,6 @@ public class TransformGeometryNode implements MeshNode {
                     .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, outEnd);
         }
 
-        // Transform curve geometry if present in slots
         Object curveObj = base.slots().get(CurveGeometry.SLOT);
         if (curveObj instanceof CurveGeometry cg) {
             float[] srcPos = cg.positions;

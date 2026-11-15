@@ -74,14 +74,11 @@ public final class StrokeElementGrid {
         }
         lowAcross = low0;
         lowUp = low1;
-        // Cells start one radius wide; a stroke long against its radius widens them, which only adds
-        // elements to a cell's list, so the grid stays within its cell budget per element.
         float area = Math.max(0f, high0 - low0) * Math.max(0f, high1 - low1);
         float widest = (float) Math.sqrt(area / Math.max(1, MAXIMUM_CELLS_PER_ELEMENT * elementCount));
         cell = Math.max(stroke.radius, widest);
         columns = elementCount == 0 ? 0 : (int) ((high0 - low0) / cell) + 1;
         rows = elementCount == 0 ? 0 : (int) ((high1 - low1) / cell) + 1;
-        // Each element's cell rectangle: first column, last column, first row, last row.
         int[] span = new int[4 * elementCount];
         cellStart = new int[columns * rows + 1];
         for (int element = 0; element < elementCount; element++) {

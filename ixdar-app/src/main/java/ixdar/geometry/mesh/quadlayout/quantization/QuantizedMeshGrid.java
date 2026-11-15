@@ -225,10 +225,6 @@ public class QuantizedMeshGrid {
         }
         int added = 0;
         for (List<Integer> mergedVertexIds : collapse.mergedSingularityVertexIdsByCluster) {
-            // Path packing: keep extracting connecting zero paths and blocking
-            // their arcs until the cluster's singularities disconnect, so one
-            // round covers the full braid width of the corridor instead of one
-            // strand per solve.
             boolean[] blockedArc = new boolean[network.arcs.size()];
             for (int startVertexIndex = 0; startVertexIndex < mergedVertexIds.size(); startVertexIndex++) {
                 while (added < MAX_CUTS_PER_ROUND) {
@@ -443,16 +439,9 @@ public class QuantizedMeshGrid {
                 if (meeting.intersectionNodeId < 0) {
                     continue;
                 }
-                // The l_ji/l_ij > tan α ratio is the perpendicular right-triangle
-                // form of |α_ij| > α; a collinear (head-on crash) meeting has
-                // deviation exactly zero and must not trigger it.
                 if (meeting.ourAxis == meeting.otherAxis) {
                     continue;
                 }
-                // Section 4.3 orients each crossing pair as l_ij >= l_ji and adds one
-                // constraint, on the shorter trace's prefix S_ji. Read from the shorter
-                // side the ratio test is vacuously true, so emitting both directions
-                // would separate every crossing unconditionally.
                 boolean orientedPair = meeting.ourParametricLength >= meeting.theirParametricLength;
                 boolean triggered = trace.featureTrace || (orientedPair
                         && meeting.theirParametricLength > tanAlpha * meeting.ourParametricLength);

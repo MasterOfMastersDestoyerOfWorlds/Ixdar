@@ -33,13 +33,11 @@ public final class DiscreteGradientCells {
      */
     public static Result assemble(MeshTopology mesh, float[] scalar) {
         DiscreteGradient.Result asc = DiscreteGradient.compute(mesh, scalar);
-        // Negate scalar with simulation-of-simplicity preservation.
         float[] neg = new float[scalar.length];
         for (int i = 0; i < scalar.length; i++) neg[i] = -scalar[i];
         DiscreteGradient.Result desc = DiscreteGradient.compute(mesh, neg);
 
         int faceCount = asc.nt();
-        // Collect critical 2-cells = local maxima of the +scalar gradient.
         Map<Integer, Integer> maxLabelByTriId = new HashMap<>();
         List<Integer> maxList = new ArrayList<>();
         for (int c : asc.criticalCells()) {
@@ -49,7 +47,6 @@ public final class DiscreteGradientCells {
                 maxList.add(triId);
             }
         }
-        // Critical 2-cells of -scalar = local minima of +scalar.
         Map<Integer, Integer> minLabelByTriId = new HashMap<>();
         List<Integer> minList = new ArrayList<>();
         for (int c : desc.criticalCells()) {
@@ -60,7 +57,6 @@ public final class DiscreteGradientCells {
             }
         }
 
-        // V-path trace per face.
         int[] ascMaxLabel = new int[faceCount];
         int[] descMinLabel = new int[faceCount];
         for (int f = 0; f < faceCount; f++) {
@@ -68,7 +64,6 @@ public final class DiscreteGradientCells {
             descMinLabel[f] = traceVPath(f, desc, minLabelByTriId);
         }
 
-        // Quad-cell id = unique (ascMax, descMin) pair seen.
         Map<Long, Integer> pairToCell = new HashMap<>();
         int[] facePatchId = new int[faceCount];
         int orphanCount = 0;
@@ -101,7 +96,6 @@ public final class DiscreteGradientCells {
             int pairedEdgeCell = g.pair()[triCellId];
             if (pairedEdgeCell < 0 || g.dimOf(pairedEdgeCell) != 1) return -1;
             int eid = g.localIdx(pairedEdgeCell);
-            // Move to the OTHER triangle on this edge.
             int[] cofacets = g.trianglesByEdge()[eid];
             int next = -1;
             for (int t : cofacets) {

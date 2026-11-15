@@ -77,8 +77,6 @@ public final class RegionExplosion {
         modelCentroid.zero();
         double[] weightedSum = new double[XYZ];
         double[] regionWeightedSum = new double[XYZ * regions];
-        // Each fan triangle's area and moments are found in parallel blocks of faces, then summed
-        // in face order, so the sums are the ones a single pass makes.
         int faceCount = regionByActiveFace.length;
         int[] triangleStart = new int[faceCount + 1];
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
@@ -137,8 +135,6 @@ public final class RegionExplosion {
         for (int axis = 0; totalArea > 0 && axis < XYZ; axis++) {
             modelCentroid.setComponent(axis, (float) (weightedSum[axis] / totalArea));
         }
-        // A region without area has no centroid of its own; placing it at the model centroid
-        // keeps it still.
         regionCentroidXyz = new float[XYZ * regions];
         for (int region = 0; region < regions; region++) {
             for (int axis = 0; axis < XYZ; axis++) {

@@ -155,7 +155,6 @@ public final class BatchDslEvaluator {
             params.add(p);
         }
 
-        // Find the last node for output
         String lastId = parsed.isEmpty() ? "" : parsed.get(parsed.size() - 1).id;
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -177,8 +176,6 @@ public final class BatchDslEvaluator {
             System.exit(1);
         }
 
-        // Pre-process reference mesh for comparison (if provided)
-        // Normalize to unit bounding-box diagonal (same as viewer normalize=true)
         float[] normalizedRefPositions = null;
         if (refObjPath != null && !refObjPath.isEmpty()) {
             try {
@@ -190,7 +187,6 @@ public final class BatchDslEvaluator {
             }
         }
 
-        // Find the output node and the ports its mesh may come out of.
         String lastId = runtime.lastId();
         Supplier<? extends MeshNode> lastSupplier = registry.get(
                 runtime.root.declared.get(runtime.root.declared.size() - 1).type);
@@ -249,8 +245,6 @@ public final class BatchDslEvaluator {
                     }
                     row.put("watertight", boundaryEdges == 0);
 
-                    // Inline mesh comparison against reference (if available)
-                    // Uses exact same path as viewer: normalize + computeAllMetrics(scale=1.0)
                     if (normalizedRefPositions != null) {
                         MeshDistance.MeshMetrics metrics = MeshDistance.computeAllMetrics(
                                 MeshDistance.normalizedPositions(mesh), normalizedRefPositions, 1.0f);
@@ -258,7 +252,6 @@ public final class BatchDslEvaluator {
                         row.put("hausdorff", metrics.hausdorffDistance);
                         row.put("chamfer", metrics.chamferDistance);
                     } else {
-                        // No ref — still write OBJ for external comparison
                         Path objPath = outputDir.resolve(String.format("sample_%04d.obj", i));
                         writeObj(mesh, objPath);
                         row.put("objPath", objPath.toString());
@@ -278,7 +271,6 @@ public final class BatchDslEvaluator {
         System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(output));
     }
 
-    // ─── Skeleton sensitivity mode ───
 
     private static void skeletonSensitivity(List<PythonParser.ParsedNode> parsed,
             String refObjPath, int resolution, float epsilon) throws Exception {
@@ -289,14 +281,12 @@ public final class BatchDslEvaluator {
         SkeletonSensitivityAnalyzer.SensitivityResult result =
                 SkeletonSensitivityAnalyzer.analyze(parsed, refObjPath, resolution, epsilon);
 
-        // Build output JSON
         Map<String, Object> output = new LinkedHashMap<>();
         output.put("baselineScore", result.baselineScore());
         output.put("projectedScore", result.projectedScore());
         output.put("parameterCount", result.parameters().size());
         output.put("jointCount", result.jointIndices().size());
 
-        // Parameters with sensitivity info
         List<Map<String, Object>> paramList = new ArrayList<>();
         for (int pi = 0; pi < result.parameters().size(); pi++) {
             OptimizableParameter p = result.parameters().get(pi);
@@ -316,7 +306,6 @@ public final class BatchDslEvaluator {
         }
         output.put(PARAMETERS, paramList);
 
-        // Suggested new values
         Map<String, Object> suggestedValues = new LinkedHashMap<>();
         for (OptimizableParameter p : result.parameters()) {
             float base = p.defaultValue();
@@ -325,7 +314,6 @@ public final class BatchDslEvaluator {
         }
         output.put("suggestedValues", suggestedValues);
 
-        // Baseline errors per branch
         List<Map<String, Object>> branchErrors = new ArrayList<>();
         String currentBranch = null;
         float branchTotalErr = 0;
@@ -361,7 +349,6 @@ public final class BatchDslEvaluator {
         System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(output));
     }
 
-    // ─── Skeleton optimization mode ───
 
     private static void skeletonOptimize(List<PythonParser.ParsedNode> parsed,
             String refObjPath, int resolution, int maxIters, float targetScore) throws Exception {
@@ -379,10 +366,8 @@ public final class BatchDslEvaluator {
         output.put(IMPROVEMENT, result.finalScore() - result.initialScore());
         output.put("iterations", result.steps().size());
 
-        // Final parameter values
         output.put("finalParams", result.finalParams());
 
-        // Step history
         List<Map<String, Object>> stepList = new ArrayList<>();
         for (SkeletonSensitivityAnalyzer.OptimizationStep step : result.steps()) {
             Map<String, Object> sm = new LinkedHashMap<>();
@@ -396,7 +381,6 @@ public final class BatchDslEvaluator {
         System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(output));
     }
 
-    // ─── CLI flag parsing ───
 
     private static int intFlag(String[] args, String flag, int defaultVal) {
         for (int i = 0; i < args.length - 1; i++) {

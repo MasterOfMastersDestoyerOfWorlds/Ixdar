@@ -950,9 +950,6 @@ public class ArcNetwork {
                 }
             }
         }
-        // Flank records can be stale on a degenerated arc; the side lists are ground truth
-        // for which cells the point still pretends to bound, and patch-id order decides which
-        // owner becomes the left flank.
         List<Integer> owners = new ArrayList<>();
         IntIdList candidates = arcId < sidePatchCandidatesByArc.length
                 ? sidePatchCandidatesByArc[arcId] : null;
@@ -1005,8 +1002,6 @@ public class ArcNetwork {
             }
             markPatchChanged(realFlanks.get(0));
         }
-        // With no real flank the point's cells vanish entirely; the cover label beside the
-        // point names the enclosing cell their stale labels must resolve into.
         int enclosingPatchId = NONE;
         if (realFlanks.isEmpty() && topology.patchCoversLabeled) {
             int pointVertex = arc.path.copyVertexPath.get(0);
@@ -1227,9 +1222,6 @@ public class ArcNetwork {
                     + quantizedOffset + ": it lies outside the arc's length "
                     + arc.quantizedLength);
         }
-        // The inserted node inherits the split arc's feature status, so it may never be
-        // moved
-        // off that curve. See also: LCBK19 Section 6.1
         int splitVertex = vertices.get(pathVertexIndex);
         int splitNodeId = addNode(NONE, splitVertex, arc.feature, arc.feature);
         releaseClaims(arc);
@@ -1956,8 +1948,6 @@ public class ArcNetwork {
                 labeledCount++;
             }
         }
-        // Patch interiors tile the copy, so a face claimed twice means a flood leaked
-        // its patch and every label is then suspect.
         if (overlapCount > 0) {
             topology.patchAliasByPatch = new int[0];
             Platforms.log("[contract] patch covers unusable: %d of %d faces claimed twice%n",
@@ -1988,8 +1978,6 @@ public class ArcNetwork {
         if (resolved == NONE || !patches.get(resolved).alive) {
             return;
         }
-        // A patch pinched until every side is a point encloses nothing to read; one whose
-        // sides still run along edges must enclose exactly what its boundary walls in.
         if (!corridor.hasSeedableBoundary(resolved)) {
             return;
         }

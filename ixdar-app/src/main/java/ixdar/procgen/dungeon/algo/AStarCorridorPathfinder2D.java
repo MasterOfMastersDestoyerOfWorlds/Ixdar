@@ -47,7 +47,6 @@ public final class AStarCorridorPathfinder2D {
                                    double hallwayReuseCost, double emptyCellCost, double throughRoomCost) {
         CellType[] cells = new CellType[gridW * gridH];
         Arrays.fill(cells, CellType.EMPTY);
-        // Paint rooms first so pathfinder sees them as obstacles.
         int n = rooms.vertexCount();
         Vector3f p = new Vector3f();
         for (int i = 0; i < n; i++) {
@@ -62,10 +61,8 @@ public final class AStarCorridorPathfinder2D {
                 }
             }
         }
-        // Carve corridors for each edge in input order.
         Vector3f pa = new Vector3f();
         Vector3f pb = new Vector3f();
-        // 4-connected A* per edge, with the Manhattan heuristic priced at the cheapest entry cost.
         Dijkstra walk = new Dijkstra();
         double hUnit = Math.min(hallwayReuseCost, Math.min(emptyCellCost, throughRoomCost));
         for (int i = 0; i < edgePairs.length; i += 2) {
@@ -93,7 +90,6 @@ public final class AStarCorridorPathfinder2D {
                 }
             }
             if (!walk.isReached(targetIdx)) continue;
-            // Cells already ROOM or HALLWAY are left as-is.
             for (int node = targetIdx; node >= 0; node = walk.via(node)) {
                 if (cells[node] == CellType.EMPTY) {
                     cells[node] = CellType.HALLWAY;
@@ -109,7 +105,6 @@ public final class AStarCorridorPathfinder2D {
             case HALLWAY -> hallwayReuseCost;
             case EMPTY   -> emptyCellCost;
             case ROOM    -> throughRoomCost;
-            // Stair cells should not appear in 2D output but treat them as expensive if seen.
             case STAIR_UP, STAIR_DOWN -> throughRoomCost;
         };
     }

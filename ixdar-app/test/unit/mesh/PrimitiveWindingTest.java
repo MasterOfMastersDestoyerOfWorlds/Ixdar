@@ -21,7 +21,6 @@ class PrimitiveWindingTest {
 
     private static final String FIXTURE = "dsl/fixtures/primitives.dsl";
 
-    // Float vertex positions carry about seven digits; the faceted volumes below are exact.
     private static final double EXACT = 1e-5;
 
     private static final double FOUR_THIRDS_PI = 4.0 * Math.PI / 3.0;
@@ -53,15 +52,10 @@ class PrimitiveWindingTest {
                         5.0 * (3.0 + Math.sqrt(5.0)) / 12.0 * Math.pow(icosahedronEdge, 3), false),
                 Shape.exact("cylinder_shape", MESH, polygonArea(CYLINDER_SEGMENTS, 1.0), false),
                 Shape.exact("cone_shape", MESH, polygonArea(CYLINDER_SEGMENTS, 1.0) / 3.0, false),
-                // Pappus over 24 straight wedges of a 12-gon section of radius 0.35 at radius 1.
                 Shape.exact("torus_shape", MESH,
                         polygonArea(12, 0.35) * 24.0 * Math.sin(2.0 * Math.PI / 24.0), true),
-                // Flat caps close an octagonal prism of radius 0.5 and height 2; a seven-sided one
-                // closes each cap with one triangle.
                 Shape.exact("quad_cylinder_shape", GEOMETRY, polygonArea(8, 0.5) * 2.0, true),
                 Shape.exact("odd_quad_cylinder_shape", GEOMETRY, polygonArea(7, 0.5) * 2.0, false),
-                // The faceted spheres lie inside the sphere through their vertices: a 32 x 16 UV
-                // sphere loses under 5% of it, the 16 x 16 cube-projected one (radius 0.5) under 10%.
                 new Shape("uv_sphere_shape", MESH, 0.95 * FOUR_THIRDS_PI, FOUR_THIRDS_PI, false),
                 new Shape("sphere_shape", MESH, 0.9 * FOUR_THIRDS_PI / 8.0, FOUR_THIRDS_PI / 8.0, true));
         return shapes.stream().map(shape -> dynamicTest(shape.id(), () -> {

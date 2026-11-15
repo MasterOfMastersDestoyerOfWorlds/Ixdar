@@ -25,7 +25,6 @@ class SurfaceMetricTest {
 
     private static final int SPHERE_SUBDIVISIONS = 4;
 
-    // Vertex pairs far enough apart on the icosphere that every geodesic flips edges.
     private static final int[][] FIRST_USER_PAIRS = { { 0, 40 }, { 3, 900 }, { 17, 2000 } };
 
     private static final int[][] SECOND_USER_PAIRS = { { 5, 1500 }, { 0, 40 }, { 700, 2500 } };
@@ -63,7 +62,6 @@ class SurfaceMetricTest {
         IntrinsicTriangulation second = IntrinsicTriangulation.over(shared);
         int[] firstSeed = GeodesicSeedPath.throughVertices(first, FIRST_USER_PAIRS[1], false);
         int[] secondSeed = GeodesicSeedPath.throughVertices(second, SECOND_USER_PAIRS[2], false);
-        // Both runs keep their flips while the other one runs.
         FlipGeodesics firstFlipper = new FlipGeodesics();
         int[] firstPath = firstFlipper.shorten(first, firstSeed, false,
                 FlipGeodesics.UNBOUNDED_ITERATIONS);

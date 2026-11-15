@@ -119,7 +119,6 @@ public class CutMatch {
             for (Segment s : cutSegments) {
                 if (!superKnotSegments.contains(s)) {
                     shell.buff.add(this);
-                    // throw new InvalidCutException(sbe);
                 }
             }
 

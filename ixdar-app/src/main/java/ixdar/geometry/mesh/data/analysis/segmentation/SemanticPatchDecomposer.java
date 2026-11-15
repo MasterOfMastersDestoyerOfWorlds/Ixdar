@@ -64,45 +64,19 @@ public final class SemanticPatchDecomposer {
     private static final float T_FEATURE_RAD = 0.20f;       // ~11°, top ~20% of edges on smooth meshes
     private static final float T_CONCAVE_RAD = -0.08f;      // angle defect below p5
     private static final float T_PRINCIPAL = 12.0f;         // |κ| above this (units of 1/mesh-extent)
-                                                            // promotes the edge to a feature cut
-                                                            // (PATCH-8 principal curvature lines).
-                                                            // Tuned on the skull: p95 of |κ| is ≈5
-                                                            // in 1/extent units, so this catches the
-                                                            // top ~2-3% of edges, the real ridges
-                                                            // and valleys rather than ambient noise.
     private static final int MIN_CONCAVITY_VERTS = 20;
     private static final int CONCAVITY_RING_EXPAND = 0;
     private static final int MIN_PATCH_FACES = 150;
 
-    // PATCH-6 quality-score thresholds that decide whether a patch needs
-    // further subdivision. A patch is "done" when all three agree: flat
-    // enough (T_FLAT), close to 4 sides, and with a reasonable isoperimetric
-    // ratio. Vertex-count is a hard safety ceiling that overrides the scorer
-    // so pathological inputs can't produce a single 50k-vert patch.
     private static final float T_FLAT = 0.45f;              // stddev of mean dihedral per vertex;
-                                                            // below = smooth patch, keep
     private static final float T_CORNER_RAD = 1.22f;        // 70°, boundary direction change
-                                                            // that counts as a real corner
     private static final int IDEAL_SIDES = 4;               // Coons target
     private static final int MAX_SIDES_BEFORE_SPLIT = 8;
     private static final float T_ISO_RATIO = 0.03f;         // 4π·area / perimeter² below = elongated
     private static final int MAX_K_PER_SPLIT = 4;           // cap split branching so one
-                                                            // patch can't balloon into 20
     private static final int HARD_MAX_PATCH_VERTS = 5000;   // absolute safety ceiling
 
-    // PATCH-16 Coons reconstruction-error base case. A 4-sided patch is
-    // "done" iff a cubic Coons fit to its boundary sits within this
-    // fraction of the mesh's largest bounding-box axis span at p95 per-vertex
-    // distance. Raised to 0.025 after PATCH-19 recursive split landed:
-    // at 0.008 the recursion over-fragments the skull into ~5600 sub-
-    // patches because organic curvature can't be Coons-fit that tightly
-    // without cutting down to ~20-face tiles. 0.025 ≈ 2.5% of mesh
-    // diameter lets anatomical patches settle at 4-sided Coons-able
-    // scale (~100-500 patches on a skull).
     private static final float T_COONS_ERROR_FRAC = 0.025f;
-    // Coons UV grid resolution. 16×16 = 256 samples per patch; linear
-    // nearest-neighbour scan per mesh vertex, fine for skull-scale
-    // meshes (~25k verts). Bump if we see quantization artifacts.
     private static final int COONS_UV_SAMPLES = 16;
 
     private SemanticPatchDecomposer() {}
@@ -142,26 +116,14 @@ public final class SemanticPatchDecomposer {
                     new float[0], 0f, null);
         }
 
-        // Step 2 first: the dihedral map also carries the in-place triangle fan every stage reads.
         EdgeDihedrals ed = computeEdgeDihedrals(mesh);
         int[] faceIdx = ed.triangles();
         int faceCount = faceIdx.length / 3;
         float[] positions = ed.positions();
 
-        // Step 1: skeleton partition.
         SkeletonResult skel = MeshSkeletonExtractor.extract(mesh, resolution);
         int[] vertexBranchId = assignByNearestBranch(mesh, skel);
 
-        // Per-vertex principal curvatures from the 1-ring shape operator, the one
-        // estimator every stage reads: the crest and saddle detectors, the Morse-Smale
-        // field (H = mean of the two, K = their product) and the cuts below.
-        // Edges where BOTH endpoints have strongly-positive κ₁ (convex ridge)
-        // or strongly-negative κ₂ (concave valley) are promoted to feature cuts
-        // alongside the high-dihedral set. This catches ridge/valley lines
-        // whose individual edge dihedrals fall below T_FEATURE_RAD but whose
-        // aggregate bending at the vertex is significant — notably tooth
-        // crown ridges and inter-tooth valleys.
-        // Largest axis span over the live vertices.
         float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
         float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
@@ -182,56 +144,25 @@ public final class SemanticPatchDecomposer {
             meanH[vertexId] = 0.5f * (kappa1[vertexId] + kappa2[vertexId]);
             gaussK[vertexId] = kappa1[vertexId] * kappa2[vertexId];
         }
-        // Adaptive principal-magnitude threshold: the hardcoded
-        // T_PRINCIPAL=12/extent fired on ~34% of skull edges (25k of 75k),
-        // flooding the face with spurious feature cuts that fragment region
-        // growing into chaos. Use p95 of the per-vertex |κ₁| / −κ₂
-        // distributions so we only promote genuine top-tail curvature.
         float ridgeT = percentileAbs(mesh, kappa1, PRINCIPAL_CURVATURE_PERCENTILE, /*positive=*/true);
         float valleyT = percentileAbs(mesh, kappa2, PRINCIPAL_CURVATURE_PERCENTILE, /*positive=*/false);
-        // Safety floor so a mostly-flat mesh doesn't lose the signal.
         float floor = T_PRINCIPAL * (1f / meshExtent);
         ridgeT = Math.max(ridgeT, floor);
         valleyT = Math.max(valleyT, floor);
         Set<Long> principalFeatureEdges = principalCurvatureFeatureEdges(
                 ed, kappa1, kappa2, ridgeT, valleyT);
 
-        // PATCH-11: crest-line detection via Yoshizawa-style NMS along the
-        // principal direction eigenvector. Produces continuous polylines
-        // along real ridges (nose rim, eye-socket rim, tooth gaps) that the
-        // magnitude-only principalFeatureEdges test was missing.
         CrestLineDetector.CrestLines crest = CrestLineDetector.detect(mesh, ed, pdf);
 
-        // PATCH-13: saddle-point separator detection. At inter-tooth saddles
-        // where κ₁ > 0 and κ₂ < 0 with both magnitudes above p90, emit a
-        // short cut across the valley along dirMax. Yoshizawa tracing walks
-        // valleys in the dirMin direction (along the gum line) and so
-        // cannot produce these perpendicular cuts on its own.
         SaddlePointDetector.SaddleSeparators saddle = SaddlePointDetector.detect(mesh, ed, pdf);
 
-        // PATCH-11: adaptive dihedral threshold — use the p85 of the per-mesh
-        // dihedral distribution instead of a hard-coded 0.20 rad. Safety-floored
-        // at T_FEATURE_RAD so a near-flat mesh doesn't completely eliminate the
-        // dihedral signal.
         float adaptiveFeatureRad = Math.max(T_FEATURE_RAD, percentileDihedral(ed, DIHEDRAL_FEATURE_PERCENTILE));
 
-        // Collect the dihedral feature-edge set for diagnostics.
         Set<Long> dihedralFeatureEdges = new HashSet<>();
         for (Map.Entry<Long, Float> e : ed.dihedralByEdge().entrySet()) {
             if (e.getValue() > adaptiveFeatureRad) dihedralFeatureEdges.add(e.getKey());
         }
 
-        // PATCH-14 agreement filter. Empirically, dihedral-only and crest-only
-        // edges are noise (visible as blue/red scatter in the STAGES overlay)
-        // and fragment region-growing into spurious cuts (horizontal strips
-        // through teeth). An edge is promoted into the cut-set iff:
-        //   (a) it is a saddle separator — topology-directed, always trusted
-        //       (PATCH-13 spec), OR
-        //   (b) it appears in ≥2 of {dihedral, principal, crest} — agreement
-        //       across independent detectors.
-        // All four source sets remain in DecompositionDiagnostics so the
-        // STAGES overlay keeps showing the raw per-source signal for
-        // diagnosis; only the cut-set fed into region-growing is filtered.
         Set<Long> allFeatureEdges = new HashSet<>(saddle.separatorEdges);
         Set<Long> candidates = new HashSet<>(principalFeatureEdges);
         candidates.addAll(crest.crestEdges);
@@ -244,36 +175,19 @@ public final class SemanticPatchDecomposer {
             if (sources >= 2) allFeatureEdges.add(key);
         }
 
-        // Saddle separators must survive the small-patch merge pass 2 just
-        // like crest edges — without this, adjacent teeth would be merged
-        // back together across the short separator bars.
         Set<Long> highConfidenceEdges = new HashSet<>(crest.crestEdges);
         highConfidenceEdges.addAll(saddle.separatorEdges);
 
-        // Face adjacency (full + feature-cut variants). Pass +infinity as the
-        // dihedral threshold because PATCH-14 already gates dihedral-only
-        // edges out of allFeatureEdges — letting featureCutAdjacency cut on
-        // raw dihedral would resurrect the noise we just filtered.
         int[][] adj = buildFaceAdjacency(faceIdx, faceCount, ed);
         int[][] adjCut = featureCutAdjacency(adj, faceIdx, ed, Float.POSITIVE_INFINITY, allFeatureEdges);
-        // High-confidence-only cut adjacency: crest edges + saddle separators
-        // (PATCH-13) are the only signals severed. Used by the small-patch
-        // merge pass 2 so tiny fragments can absorb into neighbors across
-        // the over-permissive principal/dihedral signals (which flag ~34%
-        // of edges on the skull) but cannot cross high-confidence crest
-        // edges or inter-tooth saddle cuts, preserving anatomical
-        // boundaries like orbital rims and individual teeth.
         int[][] adjCrestOnly = featureCutAdjacency(
                 adj, faceIdx, ed, Float.POSITIVE_INFINITY, highConfidenceEdges);
 
-        // Face → skeleton bucket (majority vote over the 3 vertices).
         int[] faceBranches = new int[faceCount];
         for (int f = 0; f < faceCount; f++) {
             faceBranches[f] = faceBranch(f, faceIdx, vertexBranchId);
         }
 
-        // Step 3: concavity carve-out. Lifts sockets/cavities into their own
-        // patches before the region-growing pass runs.
         int[] facePatchId = new int[faceCount];
         Arrays.fill(facePatchId, -1);
         int nextPatchId = 0;
@@ -281,7 +195,6 @@ public final class SemanticPatchDecomposer {
         float[] angleDefect = computeAngleDefect(mesh, positions, faceIdx);
         int[] concavityVertexCC = concavityVertexComponents(
                 angleDefect, mesh, faceIdx, faceCount, nv, adj);
-        // concavityVertexCC[v] = component id (size ≥ MIN_CONCAVITY_VERTS) or -1.
         int[] concavityFaceCC = expandConcavityToFaces(
                 concavityVertexCC, faceIdx, faceCount, adj, CONCAVITY_RING_EXPAND);
         Map<Integer, Integer> ccToPatch = new HashMap<>();
@@ -296,8 +209,6 @@ public final class SemanticPatchDecomposer {
             facePatchId[f] = pid;
         }
 
-        // Step 4+5: feature-edge-aware connected components over the
-        // remaining faces, restricted to the starting face's skeleton bucket.
         int[] compId = new int[faceCount];
         Arrays.fill(compId, -1);
         for (int f = 0; f < faceCount; f++) {
@@ -325,21 +236,12 @@ public final class SemanticPatchDecomposer {
             }
         }
 
-        // Step 6: small-component merge. Two passes: first try to merge via
-        // adjCut (non-feature-crossing) neighbours only — preserves feature-
-        // isolated components like individual teeth, which would otherwise be
-        // swallowed by the surrounding mandible across their high-curvature
-        // gap edges. Remaining still-small components merge via the full adj
-        // as a second pass so truly orphan islands find a home.
         int[] patchFaceCount = new int[nextPatchId];
         for (int f = 0; f < faceCount; f++) patchFaceCount[facePatchId[f]]++;
 
         int[] remap = UnionFind.singletons(nextPatchId);
 
         for (int pass = 0; pass < 2; pass++) {
-            // Pass 0: absolutely no feature crossings. Pass 1: allow crossing
-            // over-permissive dihedral/principal signals to clean up orphan
-            // fragments, but still not across high-confidence crest edges.
             int[][] walkAdj = pass == 0 ? adjCut : adjCrestOnly;
             for (int pid = 0; pid < nextPatchId; pid++) {
                 if (UnionFind.find(remap, pid) != pid) continue;  // already merged
@@ -369,7 +271,6 @@ public final class SemanticPatchDecomposer {
             }
         }
 
-        // Apply remap and compact ids.
         int[] finalId = new int[nextPatchId];
         Arrays.fill(finalId, -1);
         int compacted = 0;
@@ -382,21 +283,8 @@ public final class SemanticPatchDecomposer {
         int[] compactedFacePatch = new int[faceCount];
         for (int f = 0; f < faceCount; f++) compactedFacePatch[f] = finalId[facePatchId[f]];
 
-        // Compute per-vertex curvature once, shared between split-quality
-        // scoring and the final Patch records.
         float[] vertexCurvature = vertexCurvatureFrom(ed, nv);
 
-        // PATCH-6 quality-based split: keep patches that are flat enough AND
-        // have ≈4 sides AND aren't too elongated. Split the rest with k
-        // chosen from whichever metric deviated most. The cranial vault is
-        // smooth (low curvature variance) but has many boundary sides where
-        // it meets face/temporal/occipital — the side-count metric forces it
-        // to split into left/right parietal etc.
-        // PATCH-19: recursive split. splitByQuality only runs once per call
-        // — a patch that fails Coons gets k-split into sub-patches that may
-        // themselves still fail. Loop until no additional splits happen or
-        // we hit the safety cap. In practice 3-5 passes converge for a
-        // skull; the cap prevents pathological infinite recursion.
         final int MAX_SPLIT_PASSES = 6;
         int[] splitPatchId = compactedFacePatch;
         int currentPatchCount = compacted;
@@ -412,14 +300,8 @@ public final class SemanticPatchDecomposer {
         }
         int newCompacted = currentPatchCount;
 
-        // Welsh-Powell 4-coloring over the patch-adjacency graph. Neighboring
-        // patches always get different palette indices, so the human render
-        // never merges two touching patches into one visual blob. The palette
-        // still has 20 colours; Welsh-Powell typically uses 4-6 of them on a
-        // planar patch arrangement.
         int[] colorIdx = welshPowellColoring(splitPatchId, adj, faceCount, newCompacted);
 
-        // Step 7: assemble Patch records.
         List<List<Integer>> facesByPatch = new ArrayList<>();
         for (int i = 0; i < newCompacted; i++) facesByPatch.add(new ArrayList<>());
         for (int f = 0; f < faceCount; f++) {
@@ -476,13 +358,6 @@ public final class SemanticPatchDecomposer {
 
         PatchDecomposition decomposition = new PatchDecomposition(mesh.vertexCount(), out);
 
-        // Patch-boundary edges: any edge whose two adjacent faces end up in
-        // different final patches. Compared against the three feature-edge
-        // sources, this is what lets a diagnostic caller see which signals
-        // were honored and which were overridden by downstream stages
-        // (concavity carve-out, skeleton bucketing, small-patch merge, PATCH-6
-        // quality split, Welsh-Powell coloring is cosmetic and doesn't affect
-        // this).
         Set<Long> patchBoundaryEdges = new HashSet<>();
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             int[] faces = e.getValue();
@@ -492,11 +367,6 @@ public final class SemanticPatchDecomposer {
             if (p0 != p1) patchBoundaryEdges.add(e.getKey());
         }
 
-        // PATCH-16: compute per-vertex Coons reconstruction error across
-        // the final patch layout. For each patch that has 4 boundary
-        // sides, fit cubic Bezier edges + build a Coons grid + measure
-        // nearest-grid-point distance per vertex. Vertices in non-4-sided
-        // patches stay at 0 (no error metric defined for them).
         float[] coonsError = new float[nv];
         List<List<Integer>> finalFacesByPatch = new ArrayList<>();
         for (int i = 0; i < newCompacted; i++) finalFacesByPatch.add(new ArrayList<>());
@@ -516,10 +386,6 @@ public final class SemanticPatchDecomposer {
         }
         float coonsThreshold = T_COONS_ERROR_FRAC * meshExtent;
 
-        // PATCH-22 Phase A: compute Morse-Smale critical points + arcs
-        // on the already-computed mean-curvature field for diagnostic
-        // overlay. Does NOT affect the decomposition itself (Phase B
-        // will build a parallel pipeline that does).
         MorseSmaleComplex.Result mscResult = MorseSmaleComplex.compute(
                 mesh, meanH, gaussK, ed, MORSE_SMALE_PERSISTENCE_THRESHOLD);
 
@@ -537,7 +403,6 @@ public final class SemanticPatchDecomposer {
                 mscResult);
     }
 
-    // ---------- Step 1: nearest-branch vertex assignment ----------
 
     private static int[] assignByNearestBranch(MeshTopology mesh, SkeletonResult skel) {
         int[] out = new int[mesh.vertexIdBound()];
@@ -765,7 +630,6 @@ public final class SemanticPatchDecomposer {
         return vertexCurvatureFrom(computeEdgeDihedrals(mesh), mesh.vertexIdBound());
     }
 
-    // ---------- Step 3: concavity detection ----------
 
     /**
      * Per-vertex Gaussian curvature approximation: the angle defect.
@@ -898,12 +762,10 @@ public final class SemanticPatchDecomposer {
     private static int[] concavityVertexComponents(
             float[] defect, MeshTopology mesh, int[] faceIdx, int faceCount,
             int vertexCount, int[][] faceAdj) {
-        // Build vertex → vertex adjacency (undirected) from triangle edges.
         boolean[] isSeed = new boolean[vertexCount];
         for (int v = 0; v < vertexCount; v++) {
             if (defect[v] < T_CONCAVE_RAD) isSeed[v] = true;
         }
-        // Compressed vertex-neighbour CSR.
         int[] degree = new int[vertexCount];
         for (int f = 0; f < faceCount; f++) {
             int a = faceIdx[f * 3];
@@ -953,7 +815,6 @@ public final class SemanticPatchDecomposer {
             }
             ccSize[cc] = size;
         }
-        // Drop CCs smaller than the minimum.
         for (int v = 0; v < vertexCount; v++) {
             int l = labels[v];
             if (l != -1 && ccSize[l] < MIN_CONCAVITY_VERTS) labels[v] = -1;
@@ -1010,7 +871,6 @@ public final class SemanticPatchDecomposer {
             int[] snapshot = faceCC.clone();
             for (int f = 0; f < faceCount; f++) {
                 if (snapshot[f] != -1) continue;
-                // Inherit a neighbour's cc id if any neighbour is tagged.
                 for (int nb : adj[f]) {
                     if (nb < 0) continue;
                     if (snapshot[nb] != -1) {
@@ -1023,7 +883,6 @@ public final class SemanticPatchDecomposer {
         return faceCC;
     }
 
-    // ---------- Step 4: face adjacency ----------
 
     /**
      * Full face-face adjacency: each face has up to three neighbours (one per
@@ -1101,7 +960,6 @@ public final class SemanticPatchDecomposer {
         return out;
     }
 
-    // ---------- shared helpers ----------
 
     static long edgeKey(int u, int v) {
         return EdgeKey.undirected(u, v);
@@ -1183,7 +1041,6 @@ public final class SemanticPatchDecomposer {
             int[] facePatch, int patchCount, int[] faceIdx, int faceCount,
             float[] positions, float[] vertexCurvature, int[][] adj,
             int[][] adjCrestOnly, float meshExtent) {
-        // 1. Group faces + vertices by patch id.
         List<BitSet> vertsByPatch = new ArrayList<>();
         List<List<Integer>> facesByPatch = new ArrayList<>();
         for (int i = 0; i < patchCount; i++) {
@@ -1211,12 +1068,6 @@ public final class SemanticPatchDecomposer {
             int sides = boundarySideCount(faces, facePatch, pid, faceIdx, adj, positions);
             float isoRatio = isoperimetricRatio(faces, facePatch, pid, faceIdx, adj, positions);
 
-            // PATCH-16: direct Coons reconstruction-error base case. The
-            // walker picks the 4 strongest corners regardless of the raw
-            // side count, so we try the Coons fit on anything whose
-            // boundary is a simple manifold ring of ≥4 vertices. For
-            // non-simply-connected boundaries the fit returns fourSided
-            // = false and we keep shape-proxy-only behavior.
             float coonsP95 = 0f;
             boolean coonsOk = true;
             int meshVertCount = positions.length / 3;
@@ -1228,39 +1079,23 @@ public final class SemanticPatchDecomposer {
                 coonsOk = coonsP95 <= T_COONS_ERROR_FRAC * meshExtent;
             }
 
-            // Pass criteria: when a Coons fit exists and passes, accept
-            // the patch immediately — shape proxies (sides, iso ratio,
-            // flatness) are SUBORDINATE to the direct reconstruction
-            // question per PATCH-16's design. They still act as belt-and-
-            // braces when Coons isn't applicable (e.g. boundary too
-            // broken to walk).
             boolean flat       = curvStddev <= T_FLAT;
             boolean goodSides  = sides >= 3 && sides <= MAX_SIDES_BEFORE_SPLIT;
             boolean compact    = isoRatio >= T_ISO_RATIO;
             boolean withinSize = vertCount <= HARD_MAX_PATCH_VERTS;
 
             if (err.fourSided()) {
-                // Coons metric available → it's authoritative. Still enforce
-                // the absolute vertex-count ceiling so a huge patch with
-                // low error doesn't balloon memory downstream.
                 if (coonsOk && withinSize) continue;
             } else {
-                // Fall back to the classical shape-proxy stack.
                 if (flat && goodSides && compact && withinSize) continue;
             }
 
-            // Split. k is picked from whichever metric is loudest, then
-            // capped at MAX_K_PER_SPLIT so a pathological patch can't
-            // balloon into 20 sub-patches in one pass.
             int kBySides = sides > MAX_SIDES_BEFORE_SPLIT
                     ? (int) Math.ceil(sides / (double) IDEAL_SIDES)
                     : 2;
             int kBySize  = vertCount > HARD_MAX_PATCH_VERTS
                     ? (int) Math.ceil(vertCount / SPLIT_VERT_BATCH_SIZE)
                     : 2;
-            // PATCH-16: Coons error drives k when shape-proxies pass but
-            // the patch can't be Coons-fit. Ratio of p95 error to the
-            // acceptable threshold = how many bands over budget we are.
             int kByCoons = 2;
             if (!coonsOk && meshExtent > MIN_MESH_EXTENT) {
                 float ratio = coonsP95 / (T_COONS_ERROR_FRAC * meshExtent);
@@ -1270,7 +1105,6 @@ public final class SemanticPatchDecomposer {
             k = Math.min(k, MAX_K_PER_SPLIT);
             if (k < 2) continue;
 
-            // Collect face centroids.
             int n = faces.size();
             float[] centroids = new float[n * 3];
             float[] faceError = new float[n];  // PATCH-19: per-face max-vertex error
@@ -1287,21 +1121,6 @@ public final class SemanticPatchDecomposer {
                 }
             }
 
-            // PATCH-19 + PATCH-21: when the split is Coons-triggered, seed
-            // at the k highest-error face centroids (with spatial stride to
-            // avoid clustering seeds in one bright spot), then region-grow
-            // by BFS across `adjCrestOnly` — the feature-cut adjacency
-            // that severs saddle + crest edges. Sub-patches therefore
-            // respect anatomical boundaries by construction: saddle-
-            // separated tooth gaps, orbital rims, nose aperture rings all
-            // stop the growth. Orphans (faces unreachable from any seed
-            // because every path crosses a crest/saddle) fall back to
-            // nearest-seed-by-Euclidean so they still get assigned.
-            //
-            // When Coons didn't trigger (or fit wasn't possible for this
-            // patch), fall back to the positional k-means++ path — the
-            // patch's badness is shape-proxy driven and feature edges may
-            // not be informative.
             int[] labels;
             if (!coonsOk && err.fourSided()) {
                 Integer[] sortedIdx = new Integer[n];
@@ -1359,8 +1178,6 @@ public final class SemanticPatchDecomposer {
     private static int boundarySideCount(
             List<Integer> faces, int[] facePatch, int patchId,
             int[] faceIdx, int[][] adj, float[] positions) {
-        // For each vertex that lies on the patch boundary, remember its two
-        // boundary-edge endpoints (the other vertex of each boundary edge).
         Map<Integer, int[]> neighbours = new HashMap<>();
         for (int f : faces) {
             for (int e = 0; e < 3; e++) {
@@ -1381,10 +1198,6 @@ public final class SemanticPatchDecomposer {
             float[] db = unitDir(positions, at, nbs[1]);
             float dot = da[0] * db[0] + da[1] * db[1] + da[2] * db[2];
             dot = Math.max(-1f, Math.min(1f, dot));
-            // nbs[0]↔at↔nbs[1] goes STRAIGHT through "at" when dot ≈ -1 (the
-            // two outgoing directions are opposite). A corner turn bends the
-            // path — when the outgoing directions deviate from opposite by
-            // more than T_CORNER_RAD, we score a corner.
             float straightDeviation = (float) Math.acos(dot) - (float) Math.PI;
             if (Math.abs(straightDeviation) > T_CORNER_RAD) corners++;
         }
@@ -1398,8 +1211,6 @@ public final class SemanticPatchDecomposer {
         } else if (pair[1] == -1 && pair[0] != other) {
             pair[1] = other;
         }
-        // (ignore 3rd+ — treat degenerate boundary junctions as corners implicitly
-        // via their neighbours)
     }
 
     private static float[] unitDir(float[] positions, int from, int to) {
@@ -1491,10 +1302,6 @@ public final class SemanticPatchDecomposer {
             }
         }
 
-        // Orphan fallback — faces enclosed by saddle/crest walls in every
-        // direction. Assign to the nearest seed by Euclidean distance of
-        // centroid so we don't lose them; they may still sit inside one
-        // of the seed regions once Welsh-Powell coloring happens.
         for (int i = 0; i < n; i++) {
             if (labels[i] >= 0) continue;
             int bestSeed = 0;
@@ -1660,7 +1467,6 @@ public final class SemanticPatchDecomposer {
              */
             MorseSmaleComplex.Result morseSmale) {}
 
-    // ---------- Step 2: edge dihedrals + vertex curvature ----------
 
     /**
      * Edge dihedrals, incident triangles and triangle normals over the mesh's

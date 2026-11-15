@@ -110,7 +110,6 @@ public final class RingTool extends Tool {
 
     public static final String ANCHOR_DOTS = "ring-anchors";
 
-    // Above every other layer: an anchor shows over another layer's dot on the same vertex.
     public static final int ANCHOR_DOTS_ORDER = 10;
 
     public static final int COORDINATES_PER_POINT = 3;
@@ -464,7 +463,6 @@ public final class RingTool extends Tool {
     public void activate() {
         active = true;
         lastError = "";
-        // Another tool may have drawn its own anchors over the draft's since this one uploaded.
         overlayStale = true;
         activeSubTool.activate();
     }
@@ -593,7 +591,6 @@ public final class RingTool extends Tool {
             }
             if (reopenRing(index) && fitDraftToGeodesic() && confirmDraft()) {
                 fitted += stretches ? 0 : 1;
-                // Confirming leaves here a bisector that could not follow the fitted ring.
                 if (!lastError.isEmpty()) {
                     kept.add(lastError);
                 }
@@ -881,8 +878,6 @@ public final class RingTool extends Tool {
         }
         activeSubTool.perFrame();
         if (pendingClick) {
-            // The click against the fresh pick: on a draft it selects the authored anchor under
-            // the cursor; anything else is the active sub-tool's.
             pendingClick = false;
             lastError = "";
             if (!hitValid) {
@@ -936,7 +931,6 @@ public final class RingTool extends Tool {
         RingToolState stateBefore = new RingToolState(this);
         System.arraycopy(reopened.baseNormal, 0, draftBaseNormal, 0, COORDINATES_PER_POINT);
         draftMode = reopened.mode;
-        // A confirmed ring with end walls is a bisector, and re-opens as the bisector's draft.
         bisector.draftEnds = reopened.bisectorEnds;
         bisector.draftStretch = reopened.bisectorStretch;
         for (RingSubTool kind : new RingSubTool[] { closedRing, bisector }) {
@@ -1293,16 +1287,12 @@ public final class RingTool extends Tool {
             if (changed) {
                 edited.spline = draft;
             }
-            // An end dragged onto another wall moves the bisector's end wall with it; a save and
-            // a reload re-attach each end to the wall named here.
             edited.bisectorEnds = bisectorEnds;
             edited.bisectorStretch = bisectorStretch;
             edited.authoredVertexId = draftAuthoredVertexId;
             edited.baseNormal = normal;
             edited.mode = draftMode;
             edited.unsaved |= changed;
-            // The bisectors ending on an edited ring follow it: each end re-attaches to the ring's
-            // nearest vertex, as the bisector's statement does on reload.
             for (int other = 0; changed && other < confirmedRings.size(); other++) {
                 ConfirmedRing follower = confirmedRings.get(other);
                 int[] ends = follower.bisectorEnds;
@@ -1632,8 +1622,6 @@ public final class RingTool extends Tool {
                 if (!held.unsaved && !deleting) {
                     continue;
                 }
-                // A ring the file holds under another statement, such as an exact edge loop, is
-                // removed with it, or rewritten in its place as a spline ring.
                 String sourceLabel = held.sourceLabel;
                 PythonParser.ParsedNode owner = null;
                 if (savedId[ring] == null && sourceLabel != null) {
@@ -1652,7 +1640,6 @@ public final class RingTool extends Tool {
                 float[] authoredXyz = SurfaceWaypoints.resolvingPoints(
                         geodesics.metric.nearestVertex, authored, authored.length);
                 if (held.isBisector()) {
-                    // Written below, after every wall.
                     savedId[ring] = owner != null ? owner.id : savedId[ring];
                     continue;
                 }
@@ -1675,10 +1662,6 @@ public final class RingTool extends Tool {
                 }
                 source = RingDslWriter.withMode(source, savedId[ring], held.mode);
             }
-            // A bisector names its walls by label, resolved only now, and reads them from the
-            // chain, so it must follow them. Once any bisector or a wall one ends on changed,
-            // every live bisector is written again at the end, each after the bisectors it ends
-            // on, under the id it already had.
             List<Integer> pending = new ArrayList<>();
             boolean bisectorsChanged = false;
             for (int ring = 0; ring < confirmedRings.size(); ring++) {
@@ -1736,8 +1719,6 @@ public final class RingTool extends Tool {
                             + "written after its walls");
                 }
             }
-            // A statement written for a ring the tool no longer holds, such as one whose confirm
-            // was undone after a save, goes too, so the file matches the rings in memory.
             for (PythonParser.ParsedNode statement : PythonParser.parse(source)) {
                 if (orphaned.contains(statement.id)) {
                     source = RingDslWriter.remove(source, statement.id);
@@ -1750,8 +1731,6 @@ public final class RingTool extends Tool {
             Platforms.get().log(LOG_PREFIX + lastError);
             return false;
         }
-        // The graph's marks still hold the labels the file gave up; drop them so they do not draw
-        // again, and drop the deleted rings, whose statements are gone.
         for (int ring = confirmedRings.size() - 1; ring >= 0; ring--) {
             ConfirmedRing held = confirmedRings.get(ring);
             String sourceLabel = held.sourceLabel;
@@ -1828,7 +1807,6 @@ public final class RingTool extends Tool {
             ConfirmedRing held = confirmedRings.get(ring);
             if (held.sourceLabel != null && !held.unsaved && !held.deleted) {
                 knownRingStatementIds.remove(held.statementId);
-                // Its label is adopted again under the same serial, so bisectors keep their walls.
                 retiredSerialByLabel.put(held.sourceLabel, held.serial);
                 confirmedRings.remove(ring);
             }
@@ -1868,8 +1846,6 @@ public final class RingTool extends Tool {
             if (ringOfSourceLabel(label) >= 0 || convertedGraphLabels.contains(label)) {
                 continue;
             }
-            // The spline the graph traced for the label, when it is the one whose marks are shown
-            // and lies on this surface, is adopted as it is rather than traced a second time.
             SurfaceSpline graphSpline = graphOutput == null ? null
                     : SurfaceSpline.inBundle(graphOutput, label);
             graphSpline = graphSpline != null && graphSpline.mesh == surface
@@ -1882,8 +1858,6 @@ public final class RingTool extends Tool {
                 }
             }
             if (statement != null && SplineCutNode.NODE_ID.equals(statement.type)) {
-                // A bisector attaches to walls adopted before it, which in graph order are its
-                // walls; from here on it names them by serial, not by label.
                 float[] points = SurfaceWaypoints.parse(
                         String.valueOf(statement.inputSources.get(SplineCutNode.POINTS.name)));
                 String[] endLabels = EdgeMarks.parseLabels(String.valueOf(
@@ -1935,7 +1909,6 @@ public final class RingTool extends Tool {
             if (spline) {
                 float[] points = SurfaceWaypoints.parse(
                         String.valueOf(statement.inputSources.get(SplineRingNode.POINTS.name)));
-                // A statement may leave the normal out, which is no normal, not the text "null".
                 Object normalArgument = statement.inputSources.get(SplineRingNode.NORMAL.name);
                 float[] written = SurfaceWaypoints.parse(
                         normalArgument instanceof String text ? text : null);
@@ -1958,7 +1931,6 @@ public final class RingTool extends Tool {
             }
             SurfaceSpline traced = graphSpline;
             if (traced != null && normal == null) {
-                // The plane a statement without a normal was traced in, which a save writes.
                 anchored.fitPlane(surface, anchors, anchors.length, null);
             }
             if (traced == null && (anchors.length == 0 || !anchored.trace(anchors,
@@ -2013,8 +1985,6 @@ public final class RingTool extends Tool {
             lastError = name + " is not one closed edge loop";
             return new int[0];
         }
-        // A loop too short for the fit to start on, such as a three-edge pinch, is anchored at
-        // every one of its vertices.
         int[] anchors = loop.clone();
         if (loop.length >= SplineAnchorFit.STARTING_ANCHORS) {
             if (!ring.fit.fit(loopPositionsOf(loop), loop.length, loop, 0)) {
@@ -2059,8 +2029,6 @@ public final class RingTool extends Tool {
             lastError = "the regions of these rings are not built yet";
             return 0;
         }
-        // The regions' rings by label; only a confirmed closed ring keeps or drops a lens, and a
-        // confirmed bisector names its walls by ring index, so it can move off a dropped one.
         String[] labels = regions.ringLabels;
         int[] confirmedOfRing = new int[labels.length];
         int[][] anchors = new int[labels.length][];
@@ -2109,16 +2077,12 @@ public final class RingTool extends Tool {
         int removed = collapse.collapse(regions, anchors, splineAnchors, modes, closed,
                 wallsOfBisector, stretchOfBisector);
         RingToolState stateBefore = new RingToolState(this);
-        // Every new bisector is a confirmed bisector like the bisector tool's, its walls named by
-        // serial; serials come first, since one may end on another.
         int newBisectors = collapse.bisectorSplines.size();
         int[] serialOfWall = new int[labels.length + newBisectors];
         for (int wall = 0; wall < serialOfWall.length; wall++) {
             serialOfWall[wall] = wall >= labels.length ? nextRingSerial++
                     : confirmedOfRing[wall] < 0 ? -1 : confirmedRings.get(confirmedOfRing[wall]).serial;
         }
-        // A ring stretch runs on its ring's anchors whatever the ring's mode, so it is written
-        // without one.
         for (int bisectorIndex = 0; bisectorIndex < newBisectors; bisectorIndex++) {
             int[] walls = collapse.bisectorWalls.get(bisectorIndex);
             confirmedRings.add(new ConfirmedRing(collapse.bisectorSplines.get(bisectorIndex),
@@ -2140,7 +2104,6 @@ public final class RingTool extends Tool {
                 dropped.add(labels[index]);
             }
         }
-        // A bisector that ended on a dropped ring now ends on the new wall nearest that end.
         int movedEnds = 0;
         for (int index = 0; index < labels.length; index++) {
             int[] walls = collapse.movedWalls[index];
@@ -2205,8 +2168,6 @@ public final class RingTool extends Tool {
             lastError = what + ": " + anchored.failure;
             return -1;
         }
-        // A save must name every anchor by a point; one on a vertex repair_mesh split, which no
-        // point tells from its copies, steps along the loop to the nearest vertex a point names.
         NearestVertex grid = geodesics.metric.nearestVertex;
         int[] held = anchored.authoredVertexId.clone();
         try {
@@ -2338,7 +2299,6 @@ public final class RingTool extends Tool {
      */
     public void uploadOverlay() {
         if (uploadedPalette != scene.palette) {
-            // A palette swap re-colours every ring, draft, anchor and number.
             ringsStale = true;
             overlayStale = true;
         }
@@ -2373,10 +2333,6 @@ public final class RingTool extends Tool {
         System.arraycopy(ringSegmentStart, 0, groupStart, 0, rings + 1);
         Color[] groupColor = new Color[rings + (drawingEditing ? 1 : 0)];
         System.arraycopy(drawnRingColors, 0, groupColor, 0, rings);
-        // The preview, the draft and the ring a click would re-open or convert are drawn in the
-        // colour of the mode the draft runs in: red geodesic, purple crease, or black while the
-        // sub-tool drawing it calls it invalid. Every sub-tool the tool holds is a ring sub-tool,
-        // the draft's owner whenever a draft is open.
         RingSubTool drawing = (RingSubTool) activeSubTool;
         Palette palette = scene.palette;
         Color creaseDraft = palette.categories[DRAFT_CREASE];
@@ -2415,11 +2371,7 @@ public final class RingTool extends Tool {
         ringNumbers = numbers;
         ringNumbersPlacedView.zero();
         numbersPlacedWidth = 0;
-        // Only the draft shows its anchors, as fixed-pixel discs: supporting smallest and white,
-        // authored larger and cyan, the selected one largest and yellow. Smaller classes go
-        // first so a larger disc wins where two overlap.
         int anchors = draft == null ? 0 : draft.anchorCount;
-        // Then the vertices the active sub-tool marks, such as a bisector's waiting end.
         int[] bisectorEnds = drawing.markedVertices();
         MeshTopology surface = overlay.surfaceMesh;
         SurfaceDots anchorDots = new SurfaceDots();
@@ -2452,7 +2404,6 @@ public final class RingTool extends Tool {
         int width = Platforms.get().getFrameBufferWidth();
         int height = Platforms.get().getFrameBufferHeight();
         boolean placed = numbersPlacedWidth > 0;
-        // While the camera moves each number keeps its loop point and is only reprojected.
         if (ringNumbers.isEmpty() || placed && !scene.cameraStill
                 || camera.view.equals(ringNumbersPlacedView) && width == numbersPlacedWidth
                         && height == numbersPlacedHeight) {
@@ -2479,8 +2430,6 @@ public final class RingTool extends Tool {
             for (int segment = 0; segment < segments; segment++) {
                 int base = (first + segment) * stride;
                 float[] vertex = ringLines.vertices;
-                // Both faces beside the point must face the camera: from inside the body one face of a
-                // crease the ring follows can turn toward the eye.
                 boolean facing = true;
                 for (int side = 1; side <= 2; side++) {
                     int normal = base + side * COORDINATES_PER_POINT;
@@ -2493,7 +2442,6 @@ public final class RingTool extends Tool {
                                 ? Math.hypot(numberPixel[0] - centreX, numberPixel[1] - centreY)
                                 : Double.POSITIVE_INFINITY;
             }
-            // Each hiding test reads the depth buffer, so only the few points nearest the centre try.
             for (int attempt = 0; attempt < NUMBER_PLACEMENT_TRIES && !number.shown; attempt++) {
                 int nearest = -1;
                 for (int segment = 0; segment < segments; segment++) {

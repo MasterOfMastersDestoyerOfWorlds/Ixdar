@@ -16,7 +16,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 @MeshNodeAnnotation(id = "sphere", category = NodeCategory.PRIMITIVES)
 public class QuadSphereMeshNode implements MeshNode {
     public static final InputPort SIZE = new InputPort("size", PortType.FLOAT, 1.0f, 0.001f, 100f);
-    // Defines how many quads make up the circumference of the sphere
     public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 16, (float) 3, (float) 128);
     public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);
 
@@ -52,11 +51,8 @@ public class QuadSphereMeshNode implements MeshNode {
         Number resInput = ctx.getInput(RESOLUTION.name, Number.class);
         int resolution = resInput == null ? 16 : resInput.intValue();
 
-        // Since 4 cube faces wrap around the sphere's great circle,
-        // we divide the resolution by 4 to get the subdivisions per face.
         int divisions = Math.max(1, resolution / 4);
 
-        // Define the 6 faces of a cube by their normal, right, and up vectors
         float[][][] faces = {
                 { { 0, 0, 1 }, { 1, 0, 0 }, { 0, 1, 0 } },
                 { { 0, 0, -1 }, { -1, 0, 0 }, { 0, 1, 0 } },
@@ -110,7 +106,6 @@ public class QuadSphereMeshNode implements MeshNode {
         long key = ((long) (lattice[0] + divisions) * span + lattice[1] + divisions) * span + lattice[2]
                 + divisions;
         return vertexAt.computeIfAbsent(key, unused -> {
-            // Spherize the cube point by normalizing it and scaling by the radius.
             float x = lattice[0];
             float y = lattice[1];
             float z = lattice[2];

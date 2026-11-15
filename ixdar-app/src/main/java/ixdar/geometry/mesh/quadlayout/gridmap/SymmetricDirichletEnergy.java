@@ -234,13 +234,6 @@ public final class SymmetricDirichletEnergy {
      */
     private double row(double[] gradientOperator, int jacobianRow, double[] target) {
         int base = jacobianRow * HalfEdgeMesh.TRIANGLE_CORNERS;
-        // The operator's first entry is minus the other two, so this is the same value
-        // as
-        // summing all three products — but the corner differences are taken first,
-        // which is
-        // exact for nearby doubles. Summing instead cancels a grid offset of hundreds
-        // against
-        // a triangle spanning 1e-11 and leaves nothing.
         return gradientOperator[base + 1] * (target[1] - target[0])
                 + gradientOperator[base + 2] * (target[2] - target[0]);
     }

@@ -36,7 +36,6 @@ class CrossFieldConnectionTest {
 
     private static final double CURVATURE_BIAS = -1.0;
 
-    // Float positions and a float kappa: the extrinsic rotation is good to a few float ulps.
     private static final double KAPPA_TOLERANCE = 1.0e-5;
 
     private static final double SPOKE_TOLERANCE = 1.0e-5;

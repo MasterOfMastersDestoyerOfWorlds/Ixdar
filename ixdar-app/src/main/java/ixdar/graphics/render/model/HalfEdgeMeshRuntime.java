@@ -221,8 +221,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         uploadCompiledMesh(Platforms.gl().STATIC_DRAW());
         uploadEdgeData(bundle.mesh());
 
-        // One base-color texture per material, plus a trailing null entry for the faces that name
-        // no material.
         MaterialData[] materials = MaterialSet.materialsOf(bundle);
         materialTextures = new Texture[materials.length + 1];
         for (int index = 0; index < materials.length; index++) {
@@ -254,16 +252,12 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         if (uv == null) {
             return;
         }
-        // The compiled buffer holds one vertex per active vertex in active order, so its triangles
-        // index the welded vertices the split copies from; per-corner UVs need one triangle a face.
         MeshTopology mesh = bundle.mesh();
         int[] triangleCorners = compiledMesh.indices;
         if (uv.faceCount() != mesh.faceCount()
                 || triangleCorners.length != mesh.faceCount() * CornerUvField.CORNERS_PER_FACE) {
             return;
         }
-        // Group the faces by the material they name, so each material's faces form one contiguous
-        // index range. Faces naming no material land in the trailing range, drawn in solid colour.
         int faceCount = mesh.faceCount();
         int rangeCount = Math.max(materialTextures.length, 1);
         int noMaterial = rangeCount - 1;
@@ -442,8 +436,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
 
         updateProjection(camera);
 
-        // The program is shared with other runtimes, so every draw sets the whole look. A field
-        // or texture look with nothing uploaded to show draws the surface colour meanwhile.
         ShaderProgram active = meshShader;
         active.use();
         SurfaceLook.Colour colour = look == null ? SurfaceLook.Colour.SURFACE : look.colour;
@@ -470,8 +462,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         active.setVec4(SOLIDCOLOR, solidColor);
 
         boolean sampleTexture = colour == SurfaceLook.Colour.TEXTURE;
-        // The light points along the view direction (into the scene; the shader uses -lightDir),
-        // read from the view matrix so it always matches what is drawn.
         camera.view.positiveZ(lightDir).negate();
         active.setVec3("lightDir", lightDir);
         active.setBool(USE_TEXTURE_UNIFORM, sampleTexture);
@@ -479,9 +469,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         active.setFloat("emissiveStrength", EMISSIVE_STRENGTH);
         active.setFloat("rimStrength", RIM_STRENGTH);
         if (sampleTexture) {
-            // The textured draw has its own UV-split vertices, so it ignores the welded mesh's tag
-            // ranges: the texture is what colours the surface. One draw per material, since each
-            // carries its own image; faces naming no material fall back to the solid colour.
             Platforms.gl().bindVertexArray(textured.vao);
             for (int range = 0; range < materialRangeCount.length; range++) {
                 if (materialRangeCount[range] == 0) {
@@ -507,15 +494,12 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         Platforms.gl().bindVertexArray(surface.vao);
 
         if (tagRanges.isEmpty()) {
-            // Untagged mesh — one draw call with the current solidColor.
             Platforms.gl().drawElements(
                     Platforms.gl().TRIANGLES(),
                     compiledMesh.indices.length,
                     Platforms.gl().UNSIGNED_INT(),
                     0);
         } else {
-            // Per-tag draws: set solidColor and any tag offset per range, issue glDrawElements
-            // with a byte offset into the EBO.
             for (TagRange range : tagRanges) {
                 active.setVec4(SOLIDCOLOR, range.color);
                 Vector3f offset = tagOffsets.get(range.tagName);
@@ -746,8 +730,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
             triangleStart[index + 1] = triangleStart[index] + (hidden[index] ? 0
                     : Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2));
         }
-        // Interleaved per corner: position, then the face's id as a colour. Each face fills its
-        // own span, so blocks of faces fill in parallel.
         int floatsPerTriangle = FACE_PICK_LAYOUT.floatsPerVertex * 3;
         float[] corners = new float[floatsPerTriangle * triangleStart[faceCount]];
         pickFaceCount = faceCount;
@@ -816,9 +798,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
             return -1;
         }
         updateProjection(camera);
-        // The id pass rasterizes one pixel: the viewport is that pixel and the projection is
-        // scaled and shifted so the cursor's direction fills it, which keeps the pass off the
-        // fragment cost of a full-screen draw of a scan-scale mesh.
         int bottomY = height - 1 - framebufferY;
         float cursorNdcX = 2f * (framebufferX + 0.5f) / width - 1f;
         float cursorNdcY = 2f * (bottomY + 0.5f) / height - 1f;
@@ -846,7 +825,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     private int[] faceIndices(Camera3D camera, Matrix4f projection, int left, int bottom, int width,
             int height) {
         GL gl = Platforms.gl();
-        // Transparent black reads back as id 0, no face: the decode below keeps only rgb.
         gl.clearColor(Color.TRANSPARENT);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         gl.viewport(left, bottom, width, height);
@@ -887,8 +865,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
             float[] pixelDest) {
         int width = Platforms.get().getFrameBufferWidth();
         int height = Platforms.get().getFrameBufferHeight();
-        // Depths read back through the planes the surface was drawn with, so the depth a pixel
-        // holds turns back into that surface's true eye distance.
         updateProjection(camera);
         inverseProjection.set(camera.projection).invert();
         liftedPoint.set(x, y, z);
@@ -901,8 +877,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         if (!inFront || pixelX < 0 || pixelX >= width || pixelFromBottom < 0 || pixelFromBottom >= height) {
             return false;
         }
-        // One read of the whole depth buffer per drawn frame serves every point asked about in it:
-        // a read is a GPU stall, and a frame asks hundreds.
         if (!depthSnapshotTaken || depthSnapshot.length != width * height) {
             depthSnapshot = Platforms.gl().readDepths(0, 0, width, height);
             depthSnapshotTaken = true;
@@ -911,8 +885,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         inverseProjection.transform(surfaceAtPixel);
         pointInView.set(liftedPoint, 1f);
         camera.view.transform(pointInView);
-        // The point is the surface drawn there: no nearer fragment, and none so much farther that
-        // the pixel shows background or another sheet past a silhouette the point sits on.
         float surfaceDistance = -surfaceAtPixel.z / surfaceAtPixel.w;
         return -pointInView.z <= surfaceDistance + DEPTH_LIFT_TIE * depthLift
                 && -pointInView.z >= surfaceDistance - ON_SURFACE_LIFTS * depthLift;
@@ -1095,7 +1067,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         int[] originalIndices = compiledMesh.indices;
         int triCount = originalIndices.length / 3;
         int vertexCount = compiledMesh.vertexCount;
-        // Validate masks and sort tag names for deterministic priority.
         List<String> tagNames = new ArrayList<>(tags.keySet());
         tagNames.sort((a, b) -> {
             int ha = stableHash(a);
@@ -1109,8 +1080,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
             if (mask == null || mask.length < vertexCount) continue;
             maskByTag.put(name, mask);
         }
-        // Assign each triangle to its winning tag (first in sorted order
-        // where all three vertices are members). Untagged triangles sort last.
         String[] triTag = new String[triCount];
         for (int t = 0; t < triCount; t++) {
             int v0 = originalIndices[t * 3];
@@ -1125,8 +1094,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
                 }
             }
         }
-        // Bucket triangle indices by winning tag, then build a new EBO array
-        // in tag order (untagged last) and record per-tag ranges.
         Map<String, List<Integer>> trisByTag = new HashMap<>();
         List<Integer> untagged = new ArrayList<>();
         for (int t = 0; t < triCount; t++) {
@@ -1152,8 +1119,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
             int count = cursor - start;
             ranges.add(new TagRange(name, resolveColor(name), start, count));
         }
-        // Untagged triangles go at the end — rendered with the global
-        // solidColor in a trailing untagged range (name "" marks it).
         if (!untagged.isEmpty()) {
             int start = cursor;
             for (int t : untagged) {
@@ -1224,8 +1189,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         List<TagRange> ranges = new ArrayList<>();
         for (int group = 0; group < groups; group++) {
             int count = groupIndexStart[group + 1] - groupIndexStart[group];
-            // With every face hidden the one empty range left keeps render from taking the mesh
-            // for untagged and drawing all of it.
             if (count > 0 || group == groups - 1 && ranges.isEmpty()) {
                 ranges.add(new TagRange(tagByGroup[group], new Vector4f(colourByGroup[group]),
                         groupIndexStart[group], count));

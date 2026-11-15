@@ -84,7 +84,6 @@ public class CoonsPatchNode implements MeshNode {
             return;
         }
 
-        // OOM guard, output under 600k faces: a quad emits n² faces, an N-sided face N·n² triangles.
         int inputFaces = mesh.faceCount();
         long faceWeight = IntStream.range(0, inputFaces).map(fi -> mesh.faceVertexCount(mesh.faceIdAt(fi)))
                 .mapToLong(vpf -> vpf == 4 ? 1 : vpf).sum();
@@ -102,10 +101,6 @@ public class CoonsPatchNode implements MeshNode {
         float[] hStart = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
         float[] hEnd = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
 
-        // Grow-able output buffers. A typical subdivided voyage cage fits in
-        // the default ArrayList capacity; non-quad n-gons produce triangles
-        // rather than quads so the output mesh is mixed-vpf (handled via
-        // HalfEdgeMeshOps.bulkAllocateMixed).
         ArrayList<Float> positionsList = new ArrayList<>();
         ArrayList<Integer> faceIndicesList = new ArrayList<>();
         ArrayList<Integer> faceVertexCountsList = new ArrayList<>();
@@ -138,7 +133,6 @@ public class CoonsPatchNode implements MeshNode {
             int fid = mesh.faceIdAt(fi);
             int vpf = mesh.faceVertexCount(fid);
             if (vpf == 4) {
-                // === Quad path: bilinear Coons patch, emitted as n² quads ===
                 int e0 = mesh.faceEdgeAt(fid, 0);
                 int e1 = mesh.faceEdgeAt(fid, 1);
                 int e2 = mesh.faceEdgeAt(fid, 2);
@@ -193,11 +187,9 @@ public class CoonsPatchNode implements MeshNode {
                     }
                 }
             } else if (vpf >= 3) {
-                // === N-sided path: Charrot-Gregory patch, emitted as N·n² tris ===
                 emitGregoryFan(mesh, hStart, hEnd, fid, vpf, n,
                         positionsList, faceIndicesList, faceVertexCountsList, vertCountBox);
             }
-            // vpf < 3 is malformed; ignore.
         }
 
         int vertCount = vertCountBox[0];
@@ -265,8 +257,6 @@ public class CoonsPatchNode implements MeshNode {
                                        ArrayList<Integer> faceIndicesList,
                                        ArrayList<Integer> faceVertexCountsList,
                                        int[] vertCountBox) {
-        // Build N boundary bezier curves oriented face-CCW: each curve goes
-        // from face corner k to face corner (k+1) % N.
         Vector3f[][] curves = new Vector3f[N][];
         for (int k = 0; k < N; k++) {
             int eid = mesh.faceEdgeAt(fid, k);
@@ -275,8 +265,6 @@ public class CoonsPatchNode implements MeshNode {
             curves[k] = extractOrientedBezier(mesh, hStart, hEnd, eid, startVid, endVid);
         }
 
-        // Canonical n-gon vertices: on the unit circle at angles
-        // (i + 0.5) · 2π/N + π — matches CharrotGregoryPatch.
         float twoPi = (float) (2.0 * Math.PI);
         float pi = (float) Math.PI;
         float[] vertsU = new float[N];
@@ -291,18 +279,12 @@ public class CoonsPatchNode implements MeshNode {
         int centroidIdx = baseIdx;
         Vector3f sampled = new Vector3f();
 
-        // Centroid (domain origin).
         CharrotGregoryPatch.evaluate(curves, 0f, 0f, sampled);
         positionsList.add(sampled.x);
         positionsList.add(sampled.y);
         positionsList.add(sampled.z);
         vertCountBox[0]++;
 
-        // Concentric rings: ring r is the domain polygon scaled by 1 - sqrt(1 - r / n) with r
-        // samples per edge, so ring n is the boundary at step / n. The patch's smoothstep blend
-        // crowds evenly spaced rings against the boundary into folded slivers; the square root
-        // spreads them back out. ringStart[r] is the flat index of ring r's first sample, the one at
-        // corner 0; ring 0 is the centroid alone.
         int[] ringStart = new int[n + 1];
         ringStart[0] = centroidIdx;
         for (int ring = 1; ring <= n; ring++) {
@@ -325,8 +307,6 @@ public class CoonsPatchNode implements MeshNode {
             }
         }
 
-        // Strips between consecutive rings, wound as the centroid fan was: inner, then outer in
-        // boundary order.
         for (int ring = 1; ring <= n; ring++) {
             int outerCount = N * ring;
             int innerCount = Math.max(1, N * (ring - 1));
@@ -372,8 +352,6 @@ public class CoonsPatchNode implements MeshNode {
             offEnd.set(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
         }
 
-        // Canonical handle direction is ca → cb. If we want startVid → endVid
-        // and startVid is cb (reversed), swap the offsets.
         Vector3f p1 = new Vector3f(p0);
         Vector3f p2 = new Vector3f(p3);
         if (startVid == ca) {
@@ -418,13 +396,11 @@ public class CoonsPatchNode implements MeshNode {
         handle(hStart, o, offStart);
         handle(hEnd, o, offEnd);
 
-        // Always canonical direction: ca → cb
         p0.set(posCa);
         p1.set(posCa).add(offStart);
         p2.set(posCb).add(offEnd);
         p3.set(posCb);
 
-        // Flip parameter when face winding reverses edge direction
         float evalT = (expectedStartVertex == cb) ? 1f - t : t;
         cubicBezier(p0, p1, p2, p3, evalT, dest);
     }

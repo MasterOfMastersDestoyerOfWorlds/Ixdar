@@ -69,14 +69,12 @@ class SliverCollapseToolTest {
 
     private static final double WORLD_PER_PIXEL = 0.002;
 
-    // ring_01 dips across the equator as ring_02 dips across ring_01, on the far side.
     private static final float SLOPE = 0.2f;
 
     private static final float OFFSET = 0.12f;
 
     private static final int[] ANCHORS = { 32, 16, 4 };
 
-    // Where the meridian crosses the zipper's run, among its lenses.
     private static final double MERIDIAN_DEGREES = 20.0;
 
     private Platform suitePlatform;
@@ -125,7 +123,6 @@ class SliverCollapseToolTest {
         assertTrue(tool.saveRings(), tool.lastError);
         String saved = new String(Files.readAllBytes(folder.resolve(WORKING_DSL)),
                 StandardCharsets.UTF_8);
-        // The save may hand a dropped ring's freed id to a bisector, never keep its spline_ring.
         int rings = 0;
         int bisectors = 0;
         for (PythonParser.ParsedNode statement : PythonParser.parse(saved)) {
@@ -194,7 +191,6 @@ class SliverCollapseToolTest {
         for (Tool active : scene.tools) {
             scene.switchTool(active);
             String name = active.toolName();
-            // A is one of the scene's rows, which a tool that replaces the view hides; ctrl+Z is not.
             if (active.replacesView()) {
                 tool.collapseSlivers();
             } else {
@@ -220,8 +216,6 @@ class SliverCollapseToolTest {
 
     @Test
     void aRunAThirdRingCrossesIsStillCollapsed() throws Exception {
-        // ring_01 zips along the equator over +-10 degrees of longitude, and a meridian crosses
-        // both inside that run, pinching slivers of three rings there.
         double[][] zipperLatLon = { { 0, -10 }, { 0, 0 }, { 0, 10 }, { 1, 30 }, { 60, 90 },
             { 70, 180 }, { 60, 270 }, { 1, -30 } };
         float cosine = (float) Math.cos(Math.toRadians(MERIDIAN_DEGREES));
@@ -414,7 +408,6 @@ class SliverCollapseToolTest {
             lowest = height < bottom ? vertexId : lowest;
             bottom = Math.min(bottom, height);
         }
-        // Over the south pole, so it reaches the lowest vertex from the side away from the lens.
         int[] anchors = { highest, metric.nearestVertex.find(0f, -1f, 0f), lowest };
         int[] ends = { middle.serial, middle.serial };
         SurfaceSpline traced = tool.bisector.traced(anchors, ends, RingSegmentMode.GEODESIC, null);

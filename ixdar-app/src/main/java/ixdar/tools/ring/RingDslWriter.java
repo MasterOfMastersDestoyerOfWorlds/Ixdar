@@ -65,7 +65,6 @@ public final class RingDslWriter {
     public static final Set<String> METRIC_RING_NODES =
             Set.of(SPLINE_RING_NODE, SplineCutNode.NODE_ID);
 
-    // A label rides the ring chain's mesh untouched, so rings written after one keep their metric.
     public static final Set<String> MESH_PRESERVING_RING_NODES =
             Set.of(SPLINE_RING_NODE, SplineCutNode.NODE_ID, "loop_through_points",
                     AddLabelNode.NODE_ID);
@@ -353,8 +352,6 @@ public final class RingDslWriter {
             }
         }
         List<String> lines = new ArrayList<>(List.of(dslSource.split(LINE_BREAK, -1)));
-        // Only rings pass the measured mesh through untouched, so a metric reaches a statement
-        // only along an unbroken chain of rings reading geometry from geometry.
         Map<String, String> metricIdByStatement = new HashMap<>();
         for (PythonParser.ParsedNode statement : statements) {
             if (SURFACE_METRIC_NODE.equals(statement.type)) {
@@ -460,8 +457,6 @@ public final class RingDslWriter {
             line = withoutArgument(line, opening,
                     line.indexOf('"', opening + MODE_ARGUMENT.length()) + 1);
         }
-        // A geodesic ring reads no creases, so a ring T fitted as geodesic drops its creases input;
-        // the surface_creases statement stays for the crease rings still wired to it.
         String creasesArgument = SplineRingNode.CREASES.name + "=";
         int creases = mode == RingSegmentMode.GEODESIC ? tokenIndex(line, creasesArgument, 0) : -1;
         if (creases >= 0) {

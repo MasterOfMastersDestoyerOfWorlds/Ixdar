@@ -87,8 +87,6 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
         if (!(viewer instanceof RingScene scene)) {
             return result;
         }
-        // The crease strength the crease mode and the flatness read: the face corners' mean
-        // valley strength, a crease from SurfaceCreases.CREASE_STRENGTH up.
         if (scene.ringTool.readyCreases(surface)) {
             float[] strength = scene.ringTool.creases.valleyStrength;
             int corners = surface.faceVertexCount(picker.faceId);

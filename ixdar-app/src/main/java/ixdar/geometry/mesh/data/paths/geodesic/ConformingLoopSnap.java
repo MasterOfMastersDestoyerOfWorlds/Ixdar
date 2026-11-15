@@ -83,9 +83,6 @@ public final class ConformingLoopSnap {
         if (!path.closed) {
             return marks;
         }
-        // A walk whose next walk turns back along its last edge leaves a dead-end spur: across a
-        // polygon, or where consecutive traced points snap to vertices A, B, A on a fine triangle
-        // mesh. A closed ring never needs one, so unmark them down to the loop.
         int[] markedDegree = new int[vertexIdBound];
         for (int edgeId = 0; edgeId < marks.length; edgeId++) {
             if (marks[edgeId]) {
@@ -117,9 +114,6 @@ public final class ConformingLoopSnap {
                 }
             }
         }
-        // A walk that crosses a polygon round two of its sides and back can close a small loop that
-        // hangs off the ring at one vertex. Each loop leaving a junction and returning to it through
-        // plain ring vertices is a side loop; the shortest go until the junction is plain again.
         boolean[] walked = new boolean[marks.length];
         int[] sideLoop = new int[0];
         for (int junction = 0; junction < markedDegree.length; junction++) {

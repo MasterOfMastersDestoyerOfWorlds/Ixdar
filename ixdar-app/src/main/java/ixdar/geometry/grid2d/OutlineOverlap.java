@@ -46,8 +46,6 @@ public final class OutlineOverlap {
             either += trace[pixel] || shape[pixel] ? 1 : 0;
             shortPixels += trace[pixel] && !shape[pixel] ? 1 : 0;
             overPixels += !trace[pixel] && shape[pixel] ? 1 : 0;
-            // A boundary pixel is one whose 3x3 neighbourhood holds both sides (the morphological
-            // gradient), a band two pixels wide straddling the edge.
             int x = pixel % width;
             int y = pixel / width;
             Arrays.fill(seen, false);

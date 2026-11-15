@@ -125,8 +125,6 @@ public final class SurfaceFaceLocator {
                         continue;
                     }
                     float planeDistance = Math.abs(toPoint.dot(normal)) / doubleArea;
-                    // Barycentric weights of the midpoint's projection onto the triangle's plane,
-                    // with a slack of the on-surface distance measured across the triangle.
                     float bb = edgeB.dot(edgeB);
                     float bc = edgeB.dot(edgeC);
                     float cc = edgeC.dot(edgeC);

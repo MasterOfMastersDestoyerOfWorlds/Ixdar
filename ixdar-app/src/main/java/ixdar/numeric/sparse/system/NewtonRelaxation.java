@@ -160,8 +160,6 @@ public final class NewtonRelaxation {
                         valueSources, factorValues);
             }
             double[] delta = new double[size];
-            // The step holds every frozen variable at zero, so the frozen columns fold nothing
-            // into the right-hand side and DirectSolver.solveCompact's fold pass is skipped.
             if (handle.freeCount() > 0) {
                 int[] perm = handle.perm();
                 int[] fullOf = handle.fullOf();

@@ -18,13 +18,6 @@ import ixdar.numeric.sparse.ordering.OrderingMethod;
  * A multi-level implicit surface F = 0 through oriented points, positive outside, with exact derivatives
  * to third order (OBS04 section 2).
  */
-// Each level clusters the points on a lattice half the previous one's step and adds a partition of
-// unity of local quadratic approximations of what the levels so far leave, plus compactly supported
-// Wendland functions whose regularised weights pin the zero set to the cluster centres (Ohtake,
-// Belyaev and Seidel, "A multi-scale approach to 3D scattered data interpolation with compactly
-// supported basis functions", SMI 2003). OBS04 blends local linear approximations instead; a partition
-// of unity of planes leaves a Hessian error the size of the curvature itself at every level, which
-// the curvature derivatives ridges are found from do not survive, so the quadratics of SMI 2003 stay.
 public final class ImplicitFit {
 
     public static final double SUPPORT_IN_CELLS = 3.0;
@@ -53,7 +46,6 @@ public final class ImplicitFit {
 
     public static final int THIRD_START = 13;
 
-    // Per centre: its local approximation's value, gradient and Hessian at the centre.
     public static final int LOCAL_LENGTH = 13;
 
     public static final int NEIGHBOUR_CELLS = 27;
@@ -62,11 +54,8 @@ public final class ImplicitFit {
 
     public static final long LATTICE_MASK = (1L << LATTICE_BITS) - 1;
 
-    // A local height fit's unknowns: u^2, uv, v^2, u, v and a constant.
     public static final int HEIGHT_UNKNOWNS = 6;
 
-    // Wendland's phi_{3,2}(r) = (1 - r)^6 (35 r^2 + 18 r + 3), divided by 3 so phi(0) = 1, with
-    // phi'/r = -56 (5 r + 1)(1 - r)^5, (phi'/r)'/r = 1680 (1 - r)^4 and ((phi'/r)'/r)' = -6720 (1 - r)^3.
     public static final double WENDLAND_SQUARE = 35.0;
 
     public static final double WENDLAND_LINEAR = 18.0;
@@ -87,12 +76,10 @@ public final class ImplicitFit {
 
     public static final int DERIVATIVES_START = 8;
 
-    // Each thread's evaluation scratch: basis, numerator, weights and blend jets, a step and a slope.
     private static final ThreadLocal<double[][]> SCRATCH = ThreadLocal.withInitial(() -> new double[][] {
         new double[JET_LENGTH], new double[JET_LENGTH], new double[JET_LENGTH], new double[JET_LENGTH], new double[3],
         new double[3] });
 
-    // Each thread's candidate list, kept at the longest a lookup has needed.
     private static final ThreadLocal<int[]> NEAR = ThreadLocal.withInitial(() -> new int[NEIGHBOUR_CELLS]);
 
     /** The levels, coarsest first. */
@@ -246,7 +233,6 @@ public final class ImplicitFit {
             Map<Long, Integer> clusterByCell = new HashMap<>();
             List<double[]> sums = new ArrayList<>();
             for (int point = 0; point * 3 < pointXyz.length; point++) {
-                // A degenerate fan's normal is not a number; its point says nothing about orientation.
                 if (!Double.isFinite(normalXyz[point * 3] + normalXyz[point * 3 + 1] + normalXyz[point * 3 + 2])) {
                     continue;
                 }
@@ -323,9 +309,6 @@ public final class ImplicitFit {
             Buckets points = new Buckets(pointXyz, level.support, low, reach);
             int count = level.weight.length;
             int fitted = levelIndex;
-            // Each centre's local approximation of what the levels so far leave: the signed distance to
-            // a quadratic height field over its tangent plane, fitted to the points within its support
-            // facing its way and weighted by the basis, less the levels so far to second order.
             IntStream.range(0, count).parallel().forEach(centre -> {
                 double[] normal = Arrays.copyOfRange(level.centreNormalXyz, centre * 3, centre * 3 + 3);
                 double[] first = Math.abs(normal[0]) < 0.5 ? new double[] { 0.0, -normal[2], normal[1] }
@@ -353,7 +336,6 @@ public final class ImplicitFit {
                     if (weight <= 0.0 || !(facing > 0.0)) {
                         continue;
                     }
-                    // Tangent coordinates over the support, so the normal equations stay well conditioned.
                     double u = (step[0] * first[0] + step[1] * first[1] + step[2] * first[2]) / level.support;
                     double v = (step[0] * second[0] + step[1] * second[1] + step[2] * second[2]) / level.support;
                     double height = (step[0] * normal[0] + step[1] * normal[1] + step[2] * normal[2]) / level.support;
@@ -368,10 +350,6 @@ public final class ImplicitFit {
                 }
                 float[] height = used >= HEIGHT_UNKNOWNS ? DenseLinearSystem.solve(matrix, rightSide,
                         HEIGHT_UNKNOWNS) : new float[HEIGHT_UNKNOWNS];
-                // The centre moves onto its quadratic, h(0, 0) along the normal: a cluster's mean sits
-                // inside a curved patch by an amount that varies cell to cell, and pinning the zero set
-                // there would ripple the third derivatives. There D(s) = n.s - (h(e1.s, e2.s) - h(0, 0)),
-                // with h's coefficients back in world units.
                 double[] at = new double[LOCAL_LENGTH];
                 double curvatureScale = 1.0 / level.support;
                 for (int axis = 0; axis < 3; axis++) {
@@ -393,7 +371,6 @@ public final class ImplicitFit {
             });
             level.centres = new Buckets(level.centreXyz, level.support, low, reach);
             levels.add(level);
-            // Weights pinning the zero set to the centres: (Phi + lambda I) c = -(levels so far + locals).
             double[] rightSide = new double[count];
             long[][] keysByRow = new long[count][];
             double[][] valuesByRow = new double[count][];
@@ -481,7 +458,6 @@ public final class ImplicitFit {
         }
         double[] second = { normal[1] * first[2] - normal[2] * first[1], normal[2] * first[0] - normal[0] * first[2],
             normal[0] * first[1] - normal[1] * first[0] };
-        // The shape operator in the tangent basis: [[s0, s1], [s1, s2]] = e_a^T H e_b / |grad F|.
         double[] shape = new double[3];
         for (int entry = 0; entry < 3; entry++) {
             double[] left = entry == 2 ? second : first;
@@ -497,7 +473,6 @@ public final class ImplicitFit {
         double spread = Math.hypot((shape[0] - shape[2]) / 2.0, shape[1]);
         out[0] = mean + spread;
         out[1] = mean - spread;
-        // The larger curvature's direction, from whichever row of S - k I is longer.
         double alongFirst = shape[1];
         double alongSecond = out[0] - shape[0];
         if (Math.abs(out[0] - shape[2]) > Math.abs(alongSecond)) {
@@ -515,8 +490,6 @@ public final class ImplicitFit {
                 out[at + axis] = kind == 0 ? (alongFirst * first[axis] + alongSecond * second[axis]) / length
                         : (-alongSecond * first[axis] + alongFirst * second[axis]) / length;
             }
-            // dk/ds = (F_ijl t t t - 3 k F_ij t n) / |grad F|: OBS04 prints +3k, but with k = t H t / |grad F|
-            // the normal's turn and |grad F|'s change both subtract, as a finite difference confirms.
             double third = 0.0;
             double mixed = 0.0;
             for (int a = 0; a < 3; a++) {
@@ -570,7 +543,6 @@ public final class ImplicitFit {
                 if (r >= 1.0) {
                     continue;
                 }
-                // Powers of 1 - r by multiplication: Math.pow here was a seventh of a stroke key's time.
                 double rest = 1.0 - r;
                 double rest3 = rest * rest * rest;
                 double rest4 = rest3 * rest;
@@ -581,8 +553,6 @@ public final class ImplicitFit {
                 double radial2 = WENDLAND_SECOND * rest4 / WENDLAND_CONSTANT / (support2 * support2);
                 double radial3 = r < SMALLEST ? 0.0
                         : WENDLAND_THIRD * rest3 / WENDLAND_CONSTANT / (r * support2 * support2 * support2);
-                // Derivatives are symmetric in their indices: only a <= b <= c are computed, every
-                // term below reads only such entries, and the rest are mirrored at the end.
                 for (int a = 0; a < 3 && order > VALUE; a++) {
                     basis[GRADIENT_START + a] = radial1 * step[a];
                     for (int b = a; b < 3 && order >= SECOND; b++) {
@@ -593,7 +563,6 @@ public final class ImplicitFit {
                         }
                     }
                 }
-                // The local quadratic g(s) = g0 + g.s + s H s / 2, its gradient g + H s, its Hessian H.
                 int at = centre * LOCAL_LENGTH;
                 double[] local = level.local;
                 double value = local[at];
@@ -604,7 +573,6 @@ public final class ImplicitFit {
                     }
                     value += (local[at + GRADIENT_START + a] + slope[a]) * step[a] / 2.0;
                 }
-                // N = g phi, by the product rule; g's third derivatives vanish.
                 numerator[0] += value * basis[0];
                 for (int a = 0; a < 3 && order > VALUE; a++) {
                     numerator[GRADIENT_START + a] += value * basis[GRADIENT_START + a] + slope[a] * basis[0];
@@ -630,7 +598,6 @@ public final class ImplicitFit {
             if (weights[0] < SMALLEST) {
                 continue;
             }
-            // h = N / W: from N = h W, h_a = (N_a - h W_a) / W, and likewise up to third order.
             double total = weights[0];
             blend[0] = numerator[0] / total;
             for (int a = 0; a < 3 && order > VALUE; a++) {

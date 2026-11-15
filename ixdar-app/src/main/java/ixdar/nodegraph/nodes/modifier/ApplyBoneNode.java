@@ -90,13 +90,11 @@ public class ApplyBoneNode implements MeshNode {
             return;
         }
 
-        // Skip if rotation is effectively zero
         if (Math.abs(rot.x) < ROTATION_EPSILON && Math.abs(rot.y) < ROTATION_EPSILON && Math.abs(rot.z) < ROTATION_EPSILON) {
             ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
-        // Check if any vertex actually has weight > 0
         int n = mesh.vertexCount();
         boolean anyWeighted = false;
         for (int i = 0; i < n && !anyWeighted; i++) {
@@ -108,7 +106,6 @@ public class ApplyBoneNode implements MeshNode {
             return;
         }
 
-        // Build rotation matrix: translate to pivot → rotate XYZ → translate back
         Matrix4f boneMat = new Matrix4f()
                 .translation(pivot)
                 .rotateXYZ(rot.x, rot.y, rot.z)
@@ -117,7 +114,6 @@ public class ApplyBoneNode implements MeshNode {
         Vector3f pos = new Vector3f();
         Vector3f transformed = new Vector3f();
 
-        // Clone mesh with modified positions
         HalfEdgeMesh out = new HalfEdgeMesh(n, 0, mesh.faceCount(), mesh.faceCount() * 4 * 2);
         HashMap<Integer, Integer> idMap = new HashMap<>(n * 2);
 

@@ -353,11 +353,6 @@ public final class ConnectionTool extends Tool {
             }
             scene.errorToasts.show(TOOL_NAME, lastError);
         }
-        // Draw the connection over the surface, the path yellow and the neck green, and
-        // the picks
-        // as the ring tool's anchor discs: cyan, the one under the cursor or dragged
-        // yellow and
-        // larger, drawn last so it wins an overlap.
         Palette palette = scene.palette;
         if (!overlayStale && hoveredPick == uploadedHoveredPick && palette == uploadedPalette
                 || !(runtime instanceof MeshOverlayRuntime overlay)) {
@@ -394,8 +389,6 @@ public final class ConnectionTool extends Tool {
         }
         int emphasised = draggingPick >= 0 ? draggingPick : hoveredPick;
         int picked = pickVertexId[1] >= 0 ? PICKS : 1;
-        // The emphasised pick last, so it shows over the other where the two discs
-        // overlap.
         SurfaceDots pickDots = new SurfaceDots();
         for (int pick = 0; overlay.surfaceMesh != null && pick < picked; pick++) {
             if (pick != emphasised) {
@@ -580,8 +573,6 @@ public final class ConnectionTool extends Tool {
         }
         runtime.clearTagColors();
         runtime.setTagColor(FILL_TAG, scene.palette.warning.toVector4f());
-        // The fills draw as face-group colours, as the regions do, so they show in that
-        // look.
         scene.looks.override(RingScene.REGIONS_LOOK);
         runtime.setTags(Map.of(FILL_TAG, mask));
         lastRow = fills + " repair_mesh fill faces coloured";

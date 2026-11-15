@@ -175,8 +175,6 @@ public class Camera2D implements Camera {
         rangeY = Math.abs(maxY - minY);
         height = Height * ScaleFactor;
         width = Width * ScaleFactor;
-        // Unrounded: a whole-pixel offset moves the point a zoom holds under the cursor by up to a
-        // pixel a step, and a pinch's many steps walk it away.
         offsetX = PanX;
         offsetY = PanY;
 
@@ -446,7 +444,6 @@ public class Camera2D implements Camera {
         return pointTransformX((float) x);
     }
 
-    // transform from point space to screen space
     /**
      * Map a point-space x to screen-space using the current pan and scale.
      *
@@ -458,7 +455,6 @@ public class Camera2D implements Camera {
         return ((((x - minX) * width) / rangeX) + offsetX);
     }
 
-    // transform from point space to screen space
     /**
      * Variant of {@link #pointTransformX(float)} that uses the supplied scale
      * instead of the current zoom (used during scale animations).
@@ -471,7 +467,6 @@ public class Camera2D implements Camera {
         return ((((x - minX) * (Width * scale)) / rangeX) + offsetX);
     }
 
-    // transform from screen space to point space
     /**
      * Inverse of {@link #pointTransformX(float)}: map a screen-space x back
      * to point space.
@@ -494,7 +489,6 @@ public class Camera2D implements Camera {
         return pointTransformY((float) y);
     }
 
-    // transform from point space to screen space
     /**
      * Map a point-space y to screen-space using the current pan and scale.
      *
@@ -506,7 +500,6 @@ public class Camera2D implements Camera {
         return ((((y - minY) * height) / rangeY) + offsetY);
     }
 
-    // transform from point space to screen space
     /**
      * Variant of {@link #pointTransformY(float)} that uses the supplied scale
      * instead of the current zoom.
@@ -519,7 +512,6 @@ public class Camera2D implements Camera {
         return ((((y - minY) * (Height * scale)) / rangeY) + offsetY);
     }
 
-    // transform from screen space to point space
     /**
      * Inverse of {@link #pointTransformY(float)}: map a screen-space y back
      * to point space.
@@ -752,9 +744,6 @@ public class Camera2D implements Camera {
      */
     @Override
     public float getNormalizePosX(float xPos) {
-        // Mouse coordinates are already in canvas space (0 to canvas.width/height)
-        // Normalize to frame buffer coordinates (0 to
-        // frameBufferWidth/frameBufferHeight)
         if (Platforms.get().getWindowWidth() > 0 && Platforms.get().getFrameBufferWidth() > 0) {
             return (xPos / Platforms.get().getWindowWidth()) * Platforms.get().getFrameBufferWidth();
         }
@@ -770,8 +759,6 @@ public class Camera2D implements Camera {
      */
     @Override
     public float getNormalizePosY(float yPos) {
-        // Mouse coordinates are already in canvas space (0 to canvas.width/height)
-        // Flip Y coordinate and normalize to frame buffer coordinates
         if (Platforms.get().getWindowHeight() > 0 && Platforms.get().getFrameBufferHeight() > 0) {
             return (1.0f - (yPos / Platforms.get().getWindowHeight())) * Platforms.get().getFrameBufferHeight();
         }

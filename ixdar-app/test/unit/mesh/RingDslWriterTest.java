@@ -27,7 +27,6 @@ class RingDslWriterTest {
 
     private static final String CARRIER = "carrier = load_mesh(path=\"x.off\")\n";
 
-    // A statement whose id spells "rings" without being a ring.
     private static final String RINGS_ID = "rings";
 
     private static final String RINGS_GRAPH = CARRIER + RINGS_ID

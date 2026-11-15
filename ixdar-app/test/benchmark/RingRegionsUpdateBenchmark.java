@@ -80,7 +80,6 @@ public final class RingRegionsUpdateBenchmark {
             withoutMask.remove(ring);
             timeAndCheck(regions, "delete " + labels.get(ring), withoutRing, withoutMask);
             timeAndCheck(regions, "add " + labels.get(ring), labels, masks);
-            // Move: the ring takes the next ring's loop, which is gone from the set meanwhile.
             List<String> withoutNext = new ArrayList<>(labels);
             List<boolean[]> withoutNextMask = new ArrayList<>(masks);
             withoutNext.remove(ring + 1);

@@ -491,7 +491,6 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             JsonObject ringTool = toolState(regionLayer.scene.ringTool);
             ringTool.addProperty(ACTIVE_TOOL, regionLayer.scene.activeTool.toolName());
             root.add("ringTool", ringTool);
-            // The confirmed rings, by the number drawn beside each as their items are labelled.
             RingTool rings = regionLayer.scene.ringTool;
             JsonArray ringRows = new JsonArray();
             for (int index = 0; index < rings.confirmedRings.size(); index++) {
@@ -534,8 +533,6 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 root.add("connection", joined);
             }
             root.add(ERROR_TOASTS, toastRows(regionLayer.scene.errorToasts));
-            // While the regions are building for the surface and rings as they stand, they are
-            // reported as building, never read stale.
             boolean building = regionLayer.building();
             RingRegions built = building ? null : regionLayer.regions;
             JsonObject regions = new JsonObject();
@@ -544,8 +541,6 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             regions.addProperty("visible", regionLayer.scene.regionLookPicked());
             regions.addProperty("hiddenRingCount", regionLayer.hiddenRingLabels.size());
             regions.addProperty("summary", regionLayer.summary);
-            // Each region by its number, as its item's tag names it: area, bounding rings with
-            // the side the region lies on, part label and flatness.
             JsonArray regionRows = new JsonArray();
             for (int region = 0; built != null && region < built.regionCount; region++) {
                 JsonObject row = new JsonObject();
@@ -583,7 +578,6 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 regionRows.add(row);
             }
             regions.add("rows", regionRows);
-            // Each ring that splits nothing, by label, with a point on the handle it cannot cut.
             JsonArray joined = new JsonArray();
             for (int ring = 0; built != null && ring < built.ringLabels.length; ring++) {
                 if (!built.ringSplitsNothing[ring]) {
@@ -659,7 +653,6 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             if (!box.bounds.id.equals(MenuBox.VIEW_MENU_ITEMS)) {
                 continue;
             }
-            // The main menu's rows: each row's words sit on its button's rectangle.
             menuShown = true;
             List<String> labels = box.text.plainLines();
             for (int row = 0; row < labels.size(); row++) {

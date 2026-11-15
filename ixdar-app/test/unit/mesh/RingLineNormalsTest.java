@@ -71,7 +71,6 @@ class RingLineNormalsTest {
                         && lines.vertices[base + NORMAL_OFFSET + 2] == 0f) {
                     unknownSurface++;
                 }
-                // A zero-length segment at the endpoint finds a face only if the point is on one.
                 for (int coordinate = 0; coordinate < endpoint.length; coordinate++) {
                     endpoint[coordinate] = lines.vertices[base
                             + coordinate % SurfaceSpline.COORDINATES_PER_POINT];

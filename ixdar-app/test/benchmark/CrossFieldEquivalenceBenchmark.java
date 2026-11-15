@@ -55,8 +55,6 @@ public final class CrossFieldEquivalenceBenchmark {
         for (int activeVertex = 0; activeVertex < field.mesh.vertexCount(); activeVertex++) {
             int vertexId = field.mesh.vertexIdAt(activeVertex);
             field.mesh.vertexPosition(vertexId, position);
-            // Measured from the vertex's first outgoing half-edge, so the reference half-edge the
-            // solve's frame starts at drops out.
             int outgoing = field.mesh.vertexOutgoingHalfEdgeAt(vertexId, 0);
             int edgeId = field.mesh.halfEdgeEdge(outgoing);
             int metricHalfEdge = field.edgeIdToActive[edgeId] << 1

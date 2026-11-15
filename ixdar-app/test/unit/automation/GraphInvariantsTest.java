@@ -26,8 +26,6 @@ class GraphInvariantsTest {
 
     @Test
     void subdividingAQuadCylinderKeepsItsTopologyAndQuadruplesItsFaces() {
-        // Catmull-Clark: each level splits a quad into four and a boundary edge into two, and keeps
-        // the Euler characteristic.
         NodeGraphRuntime graph = NodeGraphRuntime.executeResource("dsl/quad_cylinder_test.dsl", Map.of());
         MeshTopology cylinder = ((GeometryBundle) graph.getNodeOutput("cyl", GEOMETRY)).mesh();
         MeshTopology smooth = ((GeometryBundle) graph.lastOutput(GEOMETRY)).mesh();
@@ -41,8 +39,6 @@ class GraphInvariantsTest {
     @Test
     @Tag("heavy")
     void theSpheresQuadLayoutIsAClosedQuadMeshOverASphereShapedTMesh() {
-        // sphere_base is genus zero: the quad mesh and the T-mesh's patch network both have Euler
-        // characteristic 2, the quad mesh is closed and every face is a quad.
         JsonObject outputs = Fingerprint.graphFingerprint(NodeGraphRuntime.executeResource(
                 "test/resources/dsl/quad_layout_sphere.dsl", Map.of())).getAsJsonObject("outputs");
         JsonObject quads = outputs.getAsJsonObject(GEOMETRY);

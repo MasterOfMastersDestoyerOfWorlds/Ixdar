@@ -117,14 +117,12 @@ public class SilhouetteHullNode implements MeshNode {
                 FieldBroadcast.getInputOrDefault(ctx, MISSES.name, MISSES.defaultValue), 1));
         float rounding = Math.max(0f, FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, ROUNDING.name, ROUNDING.defaultValue), DEFAULT_ROUNDING));
-        // Outline curves win over an svg: each is seen through its cell's camera.
         StrokeSketch sketch = placed != null ? placed : StrokeSketch.load(source, NODE_ID);
         float[][] cells = placed != null ? placed.cellOutlines((CurveGeometry) outlines.slots().get(CurveGeometry.SLOT))
                 : sketch.cellOutlines();
         source = placed != null ? NODE_ID + " " + OUTLINES.name : source;
         int width = sketch.cellWidth;
         int height = sketch.cellHeight;
-        // Views: every cell holding an outline, its camera, projection and outline mask by pixel centre.
         List<Integer> viewCells = new ArrayList<>();
         for (int cell = 0; cell < cells.length; cell++) {
             if (cells[cell].length / 2 >= MINIMUM_OUTLINE_POINTS) {
@@ -151,9 +149,6 @@ public class SilhouetteHullNode implements MeshNode {
             masks[view] = PolygonScan.covered(cells[viewCells.get(view)], 0f, 0f, 1f, width, height);
             depths[view] = DistanceTransform.signed(masks[view], width, height);
         }
-        // Carve twice: over the cube the cells frame, to find the hull's box, then over that box. A
-        // lattice point is kept when all but `misses` views see it inside their outline, never fewer
-        // than three: with only front, side and top, one miss would let two refill the third's notch.
         float frameHalf = sketch.distance * (float) Math.tan(Math.toRadians(sketch.fieldOfViewDegrees) / 2.0)
                 * Math.max(1f, width / (float) height);
         float[] lower = { sketch.center[0] - frameHalf, sketch.center[1] - frameHalf, sketch.center[2] - frameHalf };
@@ -177,8 +172,6 @@ public class SilhouetteHullNode implements MeshNode {
             float[] found = { max, max, max, -max, -max, -max };
             for (int index = 0; index < hull.length; index++) {
                 grid.position(index, point);
-                // Score: the required-th deepest signed depth inside the outlines, positive exactly when
-                // enough views vote; mirrored, its mirror image's is added.
                 float score = 0f;
                 for (int side = 0; side < (mirrored ? 2 : 1); side++) {
                     float x = side == 0 ? point.x : 2f * sketch.center[0] - point.x;
@@ -207,9 +200,6 @@ public class SilhouetteHullNode implements MeshNode {
                 upper[axis] = found[axis + VoxelGrid.AXES] + spacing;
             }
         }
-        // Pins: every outline's rays, one per lattice step across the picture, pin the middle of their
-        // longest run of kept points, so each ray still meets the rounded surface (after Kolev and
-        // Cremers' silhouette constraint, PAMI 2011, as a pinned point instead of a sum along the ray).
         float[] floor = new float[hull.length];
         float[] ceiling = new float[hull.length];
         float[] indicator = new float[hull.length];
@@ -237,16 +227,9 @@ public class SilhouetteHullNode implements MeshNode {
             }
         }
 
-        // Rounding: total-variation denoising of the hull's indicator, held at 0 off the hull and 1 on
-        // the pins, fidelity 3 / rounding so a ball smaller than that radius is smoothed away. A pure
-        // minimal surface (no fidelity) shrink-wraps onto the pins and creases along them.
         float[] rounded = rounding > 0f ? grid.totalVariation(indicator, MINIMUM_BALL_FACTOR / rounding, floor,
                 ceiling, ROUNDING_ITERATIONS) : indicator;
 
-        // The solid u > 1/2 as a signed distance, smoothed (16 passes at resolution 64, growing with the
-        // square of the resolution so the same length of the shape is smoothed) to iron out voxel steps;
-        // every point off the hull stays at least half a step outside, so the surface never leaves an
-        // outline.
         boolean[] solid = new boolean[hull.length];
         for (int index = 0; index < hull.length; index++) {
             solid[index] = rounded[index] > SOLID_LEVEL;

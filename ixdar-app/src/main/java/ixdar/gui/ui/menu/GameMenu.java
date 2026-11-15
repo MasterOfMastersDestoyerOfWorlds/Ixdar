@@ -49,7 +49,6 @@ public class GameMenu implements Menu {
      */
     @Override
     public void back() {
-        // Return to debug menu
         MenuBox.load(debugMenu);
     }
 }

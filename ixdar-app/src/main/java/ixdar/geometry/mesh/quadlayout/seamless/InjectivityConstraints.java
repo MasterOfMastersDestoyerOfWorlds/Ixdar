@@ -381,7 +381,6 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
             double midY = (start[1] + end[1]) / 2.0;
             double edgeX = end[0] - start[0];
             double edgeY = end[1] - start[1];
-            // The outward normal of edge (i+1, i+2) in a ccw triangle is the cw perp.
             apex[corner] = new double[] {
                     midX + EQUILATERAL_HEIGHT * edgeY,
                     midY - EQUILATERAL_HEIGHT * edgeX };

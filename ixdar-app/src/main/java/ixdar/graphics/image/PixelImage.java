@@ -185,9 +185,6 @@ public final class PixelImage {
      */
     public List<int[]> outlines(int background, int colourTolerance, float simplifyPixels, int minimumArea) {
         int count = width * height;
-        // NEIGHBOUR_X and NEIGHBOUR_Y run clockwise on screen (y down) from west; DIRECTION_BY_OFFSET
-        // maps an offset back to that index at (dy + 1) * 3 + dx + 1.
-        // 0 background, -1 foreground not yet reached, otherwise the blob's number.
         int[] blob = new int[count];
         for (int index = 0; index < count; index++) {
             int difference = 0;
@@ -225,8 +222,6 @@ public final class PixelImage {
             if (area < minimumArea) {
                 continue;
             }
-            // The first pixel in raster order has no blob pixel to its west, which starts the
-            // backtrack; each step searches clockwise from the backtrack for the next boundary pixel.
             int[] boundary = new int[2 * MINIMUM_BOUNDARY_CAPACITY];
             int length = 0;
             boundary[length++] = start % width;

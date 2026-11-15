@@ -77,9 +77,6 @@ public final class GltfMeshWriter {
         if (geometry.triangleCount() == 0) {
             throw new IOException("glTF export needs at least one triangle");
         }
-        // Binary chunk: the attribute and index streams in accessor order (positions, normals,
-        // texture coordinates, weld keys, indices). Every stream is a whole number of four-byte
-        // words, so each accessor lands on its component's alignment with no padding between views.
         int vectorFloats = geometry.vertexCount() * MeshExport.FLOATS_PER_VERTEX;
         int uvFloats = geometry.vertexUv == null ? 0
                 : geometry.vertexCount() * MeshExport.UV_COMPONENTS;
@@ -102,8 +99,6 @@ public final class GltfMeshWriter {
         buffer.asIntBuffer().put(geometry.triangleIndices, 0, geometry.triangleIndices.length);
         byte[] binary = buffer.array();
 
-        // JSON chunk: one mesh of one primitive, every object's keys sorted so the text depends
-        // on the geometry alone.
         int vectorBytes = vectorFloats * GltfMeshParser.BYTES_PER_WORD;
         int uvBytes = uvFloats * GltfMeshParser.BYTES_PER_WORD;
         int keyBytes = keyFloats * GltfMeshParser.BYTES_PER_WORD;
@@ -174,8 +169,6 @@ public final class GltfMeshWriter {
                 "scenes", array(List.of(object(GltfMeshParser.NODES, array(List.of(number(0)))))));
         byte[] json = document.getBytes(StandardCharsets.UTF_8);
 
-        // Container: header, then the JSON chunk space-padded to GLB's four-byte alignment, then
-        // the binary chunk, already a whole number of words.
         int jsonPadding = (GLB_CHUNK_ALIGNMENT_BYTES - json.length % GLB_CHUNK_ALIGNMENT_BYTES)
                 % GLB_CHUNK_ALIGNMENT_BYTES;
         int total = GltfMeshParser.GLB_HEADER_BYTES + 2 * GltfMeshParser.GLB_CHUNK_HEADER_BYTES

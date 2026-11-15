@@ -32,7 +32,6 @@ public final class KnownTwinsBuildTest {
         for (int row = 0; row + 1 < GRID; row++) {
             for (int column = 0; column + 1 < GRID; column++) {
                 int corner = row * GRID + column;
-                // Alternate diagonals, so vertices have uneven fans.
                 if ((row + column) % 2 == 0) {
                     faces[next++] = corner;
                     faces[next++] = corner + 1;

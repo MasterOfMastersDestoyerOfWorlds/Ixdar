@@ -114,8 +114,6 @@ public class Economy {
                 if (!loop.passesBase || loop.fuelDeficit > 0 || company.bankrupt) {
                     continue;
                 }
-                // One tankful loads at each base per lap and every wagon burns the whole loop, so a long loop
-                // through many bases pays its length once per wagon rather than gaining a tank per base squared.
                 int capacityCargo = Math.max(0, company.wagonCapacity * baseVisits - loop.burn * loop.wagons);
                 int remaining = Math.min(capacityCargo, Math.max(0, production - loop.burn * loop.wagons));
                 markets.sort((x, y) -> Double.compare(contested(y, company) ? 0 : y.ceiling,

@@ -28,11 +28,6 @@ public final class GridToMesh2D {
      * @return a fresh {@link HalfEdgeMesh} with positions, quad indices, and computed normals
      */
     public static HalfEdgeMesh emit(int width, int height, CellType[] cells, float cellSize) {
-        // Each visible boundary emits TWO quads (inward + outward winding) so the dungeon is
-        // visible both when the camera is inside a room and when it's flying over from above.
-        // Doubles vertex/face count but keeps the renderer happy without touching shaders or
-        // backface-cull state. countFaces returns the count of boundary FACES; we multiply by 2
-        // for the two windings.
         int faces = countFaces(width, height, cells) * 2;
         float[] positions = new float[faces * 4 * 3];
         int[] quads = new int[faces * 4];
@@ -54,34 +49,28 @@ public final class GridToMesh2D {
                 float minY = 0f;
                 float maxY = cellSize;
 
-                // Floor (-Y face, inward normal +Y)
                 writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                         minX, minY, maxZ,  maxX, minY, maxZ,  maxX, minY, minZ,  minX, minY, minZ);
                 vIdx += 8; qIdx += 8;
-                // Ceiling (+Y face, inward normal -Y)
                 writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                         maxX, maxY, minZ,  maxX, maxY, maxZ,  minX, maxY, maxZ,  minX, maxY, minZ);
                 vIdx += 8; qIdx += 8;
 
-                // -X wall (inward normal +X)
                 if (x == 0 || cells[y * width + x - 1] == CellType.EMPTY) {
                     writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                             minX, maxY, minZ,  minX, maxY, maxZ,  minX, minY, maxZ,  minX, minY, minZ);
                     vIdx += 8; qIdx += 8;
                 }
-                // +X wall (inward normal -X)
                 if (x == width - 1 || cells[y * width + x + 1] == CellType.EMPTY) {
                     writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                             maxX, minY, maxZ,  maxX, maxY, maxZ,  maxX, maxY, minZ,  maxX, minY, minZ);
                     vIdx += 8; qIdx += 8;
                 }
-                // -Z wall (inward normal +Z)
                 if (y == 0 || cells[(y - 1) * width + x] == CellType.EMPTY) {
                     writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                             maxX, minY, minZ,  maxX, maxY, minZ,  minX, maxY, minZ,  minX, minY, minZ);
                     vIdx += 8; qIdx += 8;
                 }
-                // +Z wall (inward normal -Z)
                 if (y == height - 1 || cells[(y + 1) * width + x] == CellType.EMPTY) {
                     writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                             minX, maxY, maxZ,  maxX, maxY, maxZ,  maxX, minY, maxZ,  minX, minY, maxZ);
@@ -117,7 +106,6 @@ public final class GridToMesh2D {
                                  float bx, float by, float bz,
                                  float cx, float cy, float cz,
                                  float dx, float dy, float dz) {
-        // Inward face (a, b, c, d).
         positions[p++] = ax; positions[p++] = ay; positions[p++] = az;
         positions[p++] = bx; positions[p++] = by; positions[p++] = bz;
         positions[p++] = cx; positions[p++] = cy; positions[p++] = cz;
@@ -126,7 +114,6 @@ public final class GridToMesh2D {
         quads[q + 1] = vBase + 1;
         quads[q + 2] = vBase + 2;
         quads[q + 3] = vBase + 3;
-        // Outward face (reversed: a, d, c, b).
         positions[p++] = ax; positions[p++] = ay; positions[p++] = az;
         positions[p++] = dx; positions[p++] = dy; positions[p++] = dz;
         positions[p++] = cx; positions[p++] = cy; positions[p++] = cz;

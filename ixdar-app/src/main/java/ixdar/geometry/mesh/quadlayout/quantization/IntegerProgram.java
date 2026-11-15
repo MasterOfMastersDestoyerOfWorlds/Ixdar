@@ -78,8 +78,6 @@ public final class IntegerProgram {
     public IntegerProgram solve() {
         int variableTotal = weights.length;
 
-        // Cover dominance: a cover containing a kept cover is implied by it. Kept covers are
-        // bucketed by their first variable so a candidate only meets kept covers it could contain.
         List<int[]> coversByLength = new ArrayList<>(coverRows);
         coversByLength.sort((first, second) -> Integer.compare(first.length, second.length));
         List<int[]> keptCovers = new ArrayList<>();
@@ -124,8 +122,6 @@ public final class IntegerProgram {
             keptCovers.add(cover);
         }
 
-        // Sparse rows (ascending variables, non-zero integer coefficients) with a per-variable
-        // list of the rows that may contain it; entries go stale when a row drops the variable.
         int equalityTotal = equalityLeftSides.size();
         int rowCapacity = equalityTotal + keptCovers.size();
         int[][] rowVariables = new int[rowCapacity][];
@@ -173,8 +169,6 @@ public final class IntegerProgram {
             }
         }
 
-        // Substitute out x = Σ c·y (c > 0, integer) wherever an equality has a ±1 variable whose
-        // sign no other entry shares: x stays integer and its bound x ≥ 0 is implied.
         double[] presolvedWeights = weights.clone();
         boolean[] eliminated = new boolean[variableTotal];
         boolean[] rowRemoved = new boolean[rowCapacity];
@@ -362,7 +356,6 @@ public final class IntegerProgram {
         List<Double> openRelaxations = new ArrayList<>();
         PriorityQueue<Integer> frontier = new PriorityQueue<>((first, second) -> {
             int byBound = Double.compare(openRelaxations.get(first), openRelaxations.get(second));
-            // Newest first among equal bounds: a plateau of tied relaxations is dived, not swept.
             return byBound != 0 ? byBound : Integer.compare(second, first);
         });
         double[] basicValues = new double[rowTotal];
@@ -385,8 +378,6 @@ public final class IntegerProgram {
             openRelaxations.add(rootRelaxation);
             frontier.add(0);
         }
-        // Ties are possible only in a node pruned within the tie tolerance of the optimum, or at
-        // the optimal node itself when a free nonbasic slot has a near-zero reduced cost.
         double smallestPrunedRelaxation = Double.POSITIVE_INFINITY;
         double incumbentSmallestReducedCost = Double.POSITIVE_INFINITY;
         while (!frontier.isEmpty()) {
@@ -478,10 +469,6 @@ public final class IntegerProgram {
         double tieTolerance = TIE_TOLERANCE * (1.0 + Math.abs(incumbentBound));
         if (smallestPrunedRelaxation <= incumbentBound + tieTolerance
                 || incumbentSmallestReducedCost <= tieTolerance) {
-            // Tie-break over the tied set T = {feasible integer x : w·x <= optimum + tolerance}:
-            // fewest non-zero variables, then the lexicographically smallest vector. The program
-            // lives in the presolved columns plus one row per substituted variable, the objective
-            // ceiling, and an indicator column y >= x / bound for each variable that can exceed 1.
             double objectiveCeiling = incumbentBound + tieTolerance;
             boolean[] inEquality = new boolean[variableTotal];
             for (int equality = 0; equality < equalityTotal; equality++) {
@@ -527,10 +514,6 @@ public final class IntegerProgram {
                 }
             }
 
-            // A variable off every equality can drop from any value above 1 to 1 without breaking
-            // a row or losing ground on the tie-break, so 1 bounds it on the winner. One on an
-            // equality is bounded by the ceiling over its weight; with zero weight it keeps the
-            // first optimum's value (NaN bound), which quantization never produces.
             double[] fixedValue = new double[variableTotal];
             double[] valueBound = new double[variableTotal];
             int[] indicatorOfVariable = new int[variableTotal];
@@ -608,8 +591,6 @@ public final class IntegerProgram {
                     tieBounds[tieColumns + indicatorRow] = -valueBound[variable];
                 }
             }
-            // Reduced-cost fixing at the root: w·x = root + Σ d·(slot − its bound), so on T a
-            // nonbasic slot whose |d| exceeds the root gap cannot leave its integer bound.
             double rootGap = objectiveCeiling - rootRelaxation;
             for (int column = 0; column < columns; column++) {
                 int slot = rootBasis[rowTotal + column];
@@ -622,13 +603,7 @@ public final class IntegerProgram {
             }
             double[] rootTieBounds = tieBounds;
 
-            // Independent components: columns joined by a row through free columns. Root slots left
-            // free with d > 0 are the only ones that trade weight under the ceiling, so they join
-            // one component; any other component's weight is constant over T. The lexicographic
-            // minimum of a product is the product of the components' minima.
             int[] componentOfColumn = UnionFind.singletons(tieColumns);
-            // Row tieRows stands for the ceiling's coupled set: the free columns of every root
-            // nonbasic slot left free with d > 0 (a row slot contributes its row's columns).
             boolean[] ceilingCoupled = new boolean[tieColumns];
             for (int column = 0; column < columns; column++) {
                 int slot = rootBasis[rowTotal + column];
@@ -660,8 +635,6 @@ public final class IntegerProgram {
                     UnionFind.union(componentOfColumn, anchor, column);
                 }
             }
-            // Group the free variables by component in ascending index: a variable whose columns
-            // are all fixed, or whose value is fixed outright, is decided already.
             for (int column = 0; column < tieColumns; column++) {
                 componentOfColumn[column] = UnionFind.find(componentOfColumn, column);
             }
@@ -694,10 +667,6 @@ public final class IntegerProgram {
                 }
             }
 
-            // Per component: a best-first search over the count Σ y + Σ binary x (never above the
-            // true count at an integer point, since y = [x > 0] stays feasible) for the fewest
-            // non-zeros; then, variable by variable in index order, lower the witness's value
-            // while a solution with that count still exists, and fix it.
             double[] witness = firstValues;
             List<double[]> searchBounds = new ArrayList<>();
             List<Double> searchRelaxations = new ArrayList<>();
@@ -729,9 +698,6 @@ public final class IntegerProgram {
                 if (start == end) {
                     continue;
                 }
-                // The component's own program: its free columns and its rows. Every other column
-                // of those rows is fixed, or in the ceiling row constant over T, so it moves into
-                // the row's bounds at its first-optimum value.
                 int localColumns = 0;
                 for (int column = 0; column < tieColumns; column++) {
                     localColumnOf[column] = componentOfColumn[column] == component ? localColumns++ : -1;
@@ -769,9 +735,6 @@ public final class IntegerProgram {
                     lexBounds[localColumns + local] = rootTieBounds[tieColumns + row] - constant;
                     lexBounds[localSlots + localColumns + local] = rootTieBounds[tieSlots + tieColumns + row] - constant;
                 }
-                // Bound propagation over the component's rows, then each indicator row x − U·y
-                // takes U from x's propagated maximum instead of the ceiling over its weight: the
-                // loose U left the count relaxation near zero and the search exponential.
                 boolean tightened = true;
                 for (int pass = 0; pass < PROPAGATION_PASSES && tightened; pass++) {
                     tightened = false;
@@ -819,7 +782,6 @@ public final class IntegerProgram {
                         continue;
                     }
                     int row = localRowOf[indicatorRowStart + indicatorOfVariable[variable]];
-                    // The row's upper bound is minus the fixed columns' share of x.
                     double valueMaximum = -lexBounds[localSlots + localColumns + row];
                     for (int column = 0; column < localColumns; column++) {
                         double coefficient = localTableau[row * localColumns + column];
@@ -900,8 +862,6 @@ public final class IntegerProgram {
                             continue;
                         }
                         System.arraycopy(nodeTieBounds, 0, localBounds, 0, localBounds.length);
-                        // Each nonbasic slot moves to the bound its reduced cost favours, which
-                        // keeps the basis dual feasible: every bound that changes here is finite.
                         for (int column = 0; column < localColumns; column++) {
                             int slot = localBasis[localRows + column];
                             double reducedCost = localTableau[localRows * localColumns + column];
@@ -985,7 +945,6 @@ public final class IntegerProgram {
                     if (lexVariable < 0) {
                         position++;
                     } else if (!found) {
-                        // No smaller value keeps the count: the next pass fixes the witness's.
                         lexBounds[memberSlot[position - start]] = witness[lexVariable];
                     }
                 }

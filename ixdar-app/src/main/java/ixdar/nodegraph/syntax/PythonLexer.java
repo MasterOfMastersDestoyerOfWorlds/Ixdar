@@ -64,7 +64,6 @@ public class PythonLexer {
         case ':':
             return new Token(TokenType.COLON, ":", tokenLine);
         default:
-            // Skip unknown characters instead of crashing — LLMs may emit stray symbols
             return nextToken();
         }
     }

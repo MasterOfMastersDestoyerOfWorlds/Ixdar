@@ -229,8 +229,6 @@ public class AutomationRuntime implements AutomationBackend {
         payload.addProperty(MODS, mods);
         payload.addProperty(XPX, x);
         payload.addProperty(YPX, y);
-        // payload.addProperty("xNorm", normalizeX(x));
-        // payload.addProperty("yNorm", normalizeY(y));
         recorder.recordRaw(MOUSE_BUTTON, payload);
     }
 
@@ -245,8 +243,6 @@ public class AutomationRuntime implements AutomationBackend {
         JsonObject payload = new JsonObject();
         payload.addProperty(XPX, x);
         payload.addProperty(YPX, y);
-        // payload.addProperty("xNorm", normalizeX(x));
-        // payload.addProperty("yNorm", normalizeY(y));
         recorder.recordRaw(MOUSE_MOVE, payload);
     }
 
@@ -385,17 +381,9 @@ public class AutomationRuntime implements AutomationBackend {
             float yNorm = payload.has(YNORM)
                     ? payload.get(YNORM).getAsFloat()
                     : payload.get("yNormalized").getAsFloat();
-            // injectClick(xNorm, yNorm, true, payload.get("button").getAsInt());
         } else if (TYPE.equals(type)) {
-            // injectType(payload.get("text").getAsString());
         } else if (SCROLL.equals(type)) {
-            // injectScroll(payload.get("delta").getAsDouble());
         } else if (KEY.equals(type)) {
-            // InjectKey.endpointHandler(
-            // payload.get("key").getAsInt(),
-            // payload.get("action").getAsInt(),
-            // payload.get("mods").getAsInt(),
-            // payload.get("scancode").getAsInt());
         }
     }
 
@@ -428,8 +416,6 @@ public class AutomationRuntime implements AutomationBackend {
         if (renderThreadId == -1) {
             renderThreadId = Thread.currentThread().getId();
         }
-        // Only the actions queued before this pass: one submitted while it runs waits for the
-        // next frame, so a read that follows a camera change sees that change drawn.
         for (int queued = pendingMainThreadActions.size(); queued > 0; queued--) {
             PendingMainThreadAction pending = pendingMainThreadActions.poll();
             try {

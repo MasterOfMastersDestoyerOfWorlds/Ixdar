@@ -84,14 +84,10 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 float xPos = target != null ? target.get(X).getAsFloat() : normalized ? denormalizeX(x) : x;
                 float yPos = target != null ? target.get(Y).getAsFloat() : normalized ? denormalizeY(y) : y;
                 mouse.automationInputInProgress = true;
-                // The modifiers go down on the key handler as held keys do, so a tool reading the
-                // pressed keys and one reading the button's mask both see them.
                 for (int modifierKey : modifierKeys) {
                     keys.keyCallback(0L, modifierKey, 0, ACTION_PRESS, mask);
                 }
                 try {
-                    // A pinned hover follows the cursor to the click, as a real cursor stays where
-                    // it clicked; left behind, it would pull a tool's next-frame pick back to it.
                     if (mouse.automationHoverLocked) {
                         mouse.setAutomationHoverLock(xPos, yPos);
                     }

@@ -101,8 +101,6 @@ public final class NearestVertex {
         for (int axis = 0; axis < 3 && vertexCount > 0; axis++) {
             largestExtent = Math.max(largestExtent, maximum[axis] - index.origin[axis]);
         }
-        // A flat or empty box would give zero volume; floor every extent at a sliver of the
-        // largest so the cube root stays finite and the grid stays near one cell per vertex.
         double volume = 1.0;
         for (int axis = 0; axis < 3; axis++) {
             volume *= vertexCount == 0 ? 1.0
@@ -116,7 +114,6 @@ public final class NearestVertex {
                     : 1 + (int) ((maximum[axis] - index.origin[axis]) / index.cellSize);
             cellCount *= index.cellsPerAxis[axis];
         }
-        // Every indexed coordinate is at or above the origin, so truncation is the floor here.
         int[] cellOf = new int[vertexCount];
         for (int coordinate = 0; coordinate < xyz.length; coordinate++) {
             int axis = coordinate % 3;
@@ -278,8 +275,6 @@ public final class NearestVertex {
         double bestSquared = Double.POSITIVE_INFINITY;
         double secondSquared = Double.POSITIVE_INFINITY;
         int bestEntry = -1;
-        // Shell by shell outward: before shell r every unvisited vertex lies at least r - 1 whole
-        // cells away, so the search ends once that bound passes the second-best distance.
         for (int radius = 0; radius <= widestAxis; radius++) {
             double unvisitedBound = ((radius - 1) * (double) cellSize) * (1.0 - CELL_BOUND_SLACK);
             if (radius > 1 && unvisitedBound * unvisitedBound > secondSquared) {
@@ -302,8 +297,6 @@ public final class NearestVertex {
                             double dy = entryXyz[3 * entry + 1] - y;
                             double dz = entryXyz[3 * entry + 2] - z;
                             double squared = dx * dx + dy * dy + dz * dz;
-                            // A copy at the best entry's very position is the same pick, settled
-                            // below by its faces, so it is not a second candidate.
                             if (bestEntry >= 0 && samePosition(entry, bestEntry)) {
                                 continue;
                             }
@@ -341,9 +334,6 @@ public final class NearestVertex {
         if (copyCount == 1) {
             return new int[] { entryVertexId[bestEntry] };
         }
-        // Coincident copies, such as repair_mesh's split of a non-manifold vertex, share one
-        // position: the point names the copies whose own faces it lies on, and only when it lies
-        // clearly off the shared position.
         double sheetReach = SHEET_TOLERANCE * bestDistance;
         int[] sheetVertex = new int[copyCount];
         int sheetCount = 0;
@@ -373,9 +363,6 @@ public final class NearestVertex {
                     mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 1]), corner);
                     mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 2]),
                             nextCorner);
-                    // A face with two corners at one position, such as a hole fill joining two
-                    // copies, is the segment between its distinct corners; JOML's triangle test
-                    // divides by its zero-length edge and returns NaN, which no copy passes.
                     Vector3f far = corner.equals(position) ? nextCorner : corner;
                     if (far.equals(position)) {
                         closest.set(position);
@@ -455,8 +442,6 @@ public final class NearestVertex {
                     + "on top of each other, and the surface from the neighbouring points "
                     + "reaches none of them");
         }
-        // Copies reached equally soon, through vertices they share, go to the one whose faces
-        // point most toward the sources: the sum over source positions of its best face's cosine.
         Vector3f toSource = new Vector3f();
         Vector3f toFace = new Vector3f();
         Vector3f corner = new Vector3f();

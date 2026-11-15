@@ -274,9 +274,6 @@ public class SDFLine extends ShaderDrawable {
     public void calculateQuad() {
         culled = false;
         if (culling) {
-            // Clip to the viewport grown by the stroke's reach (the same margin the quad below adds), so a
-            // moved end and its cap land off screen; clipping at the screen edge itself left a thick line's
-            // rounded end visible wherever it crossed the edge at an angle.
             float reach = lineWidth * 2;
             float low = -reach;
             float width = camera.getWidth() + reach;
@@ -284,7 +281,6 @@ public class SDFLine extends ShaderDrawable {
             boolean containsA = pA.x >= low && pA.x <= width && pA.y >= low && pA.y <= height;
             boolean containsB = pB.x >= low && pB.x <= width && pB.y >= low && pB.y <= height;
             if (!containsA || !containsB) {
-                // Test square intersection
                 Vector2f botLeft = new Vector2f(low, low);
                 Vector2f topLeft = new Vector2f(low, height);
                 Vector2f topRight = new Vector2f(width, height);

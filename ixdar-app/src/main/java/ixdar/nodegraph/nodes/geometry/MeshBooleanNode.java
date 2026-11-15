@@ -96,8 +96,6 @@ public class MeshBooleanNode implements MeshNode {
                 new QuadTriangulation(bundleB.mesh()).build(CornerUvField.of(bundleB)),
                 operation);
 
-        // The kernel interpolates the UVs across cut faces itself; every other slot follows the
-        // face provenance the backend recorded on the mesh, so each face keeps its own material.
         GeometryBundle output = GeometryBundle.ofMesh(result.mesh);
         if (result.cornerU != null) {
             output = output.withSlot(CornerUvField.SLOT,

@@ -82,7 +82,6 @@ public class OutlineCompare extends AutomationEndpoint implements AutomationRout
         int cellWidth = template.cellWidth;
         int cellHeight = template.cellHeight;
 
-        // Capture through the template's camera, the viewer in its projection.
         boolean[] wasOrthographic = new boolean[1];
         JsonObject projected = runtime.runOnMainThread(() -> {
             if (!(runtime.canvas instanceof MeshNodeViewerScene viewer)) {
@@ -124,7 +123,6 @@ public class OutlineCompare extends AutomationEndpoint implements AutomationRout
         double templateScale = 2.0 * template.distance * Math.tan(half) / cellHeight;
         double captureScale = 2.0 * capturedDistance * Math.tan(Math.toRadians(capturedFieldOfView) / 2.0) / captureHeight;
 
-        // The overlay in the paper palette: agreement muted, short in its error, over in its accent.
         Palette paper = Palettes.PAPER;
         int[] overlayPixels = new int[NEITHER + 1];
         Color[] roles = { paper.mutedText, paper.error, paper.accent, paper.background };

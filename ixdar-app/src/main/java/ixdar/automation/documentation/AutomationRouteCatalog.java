@@ -101,8 +101,6 @@ public final class AutomationRouteCatalog {
         root.put(GENERATED_FROM, "ixdar-app/src/main/java/"
                 + AutomationRouteCatalog.class.getName().replace('.', '/') + ".java");
         root.put(ROUTES, routes);
-        // The multiview grid's cells and their orbit angles, so a client can write a template that
-        // reads like one multiview --svg writes without a scene running.
         List<Map<String, Object>> cells = new ArrayList<>();
         for (int cell = 0; cell < MultiviewScreenshot.VIEW_LABELS.length; cell++) {
             Map<String, Object> entry = new LinkedHashMap<>();

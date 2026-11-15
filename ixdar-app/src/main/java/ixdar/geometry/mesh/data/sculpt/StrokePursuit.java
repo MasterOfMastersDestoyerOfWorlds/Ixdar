@@ -131,7 +131,6 @@ public final class StrokePursuit {
         }
         float finestEdge = Math.max(FINEST_EDGE_FLOOR, (float) meanEdge / (1 << StrokeRefinement.MAXIMUM_ROUNDS));
         depthPerSquaredRadius = 1f / (StrokeSculptNode.STEEPNESS_LIMIT * finestEdge);
-        // One triangle tree for every worker's sum: they only read it.
         TriangleBvh tree = TriangleBvh.over(surface, new int[surface.triangleCount()]);
         sums = ThreadLocal.withInitial(() -> new DisplacementSum(surface, true, 0f, 1, tree));
         activeOfSurface = new int[surface.vertexIdBound()];
@@ -349,8 +348,6 @@ public final class StrokePursuit {
         float[] depths = new float[count];
         float[] correlation = new float[count];
         parallel(count, index -> correlation[index] = chosen[index] ? 0f : correlate(atoms.get(index)));
-        // Choosing a stroke changes the residual only where its atom reaches, so only the candidates
-        // whose atoms share one of those vertices correlate differently next round.
         int[] candidateStart = new int[residual.length + 1];
         for (float[] atom : atoms) {
             for (int pair = 0; pair < atom.length; pair += 2) {
@@ -387,8 +384,6 @@ public final class StrokePursuit {
                 break;
             }
             if (!foldsMeasured[best]) {
-                // Gains not yet fold-limited bound the true ones from above: measure the few
-                // unmeasured contenders with the highest bounds together, on the pursuit's workers.
                 List<Integer> contenders = IntStream.range(0, gains.length)
                         .filter(index -> !foldsMeasured[index] && gains[index] > 0f).boxed()
                         .sorted((left, right) -> Float.compare(gains[right], gains[left])).limit(WORKERS).toList();
@@ -468,8 +463,6 @@ public final class StrokePursuit {
             int best = -1;
             float bestDepth = 0f;
             float bestGain = keptGain * (1f + REPLACE_MARGIN);
-            // A variant's gain at its terrace limit bounds its gain at its fold limit from above, so
-            // only the variants that bound could still win have their folds measured, best first.
             float[] bound = new float[variants.size()];
             for (int variant = 0; variant < variants.size(); variant++) {
                 float norm = norm(variantAtoms[variant]);

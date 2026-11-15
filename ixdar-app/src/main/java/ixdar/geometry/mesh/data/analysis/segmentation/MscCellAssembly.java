@@ -59,15 +59,10 @@ public final class MscCellAssembly {
         int nv = mesh.vertexIdBound();
         float[] positions = SemanticPatchDecomposer.positionsById(mesh);
 
-        // Build vertex → max-id label by walking steepest-ascent from
-        // every vertex once. Faces then aggregate from their three
-        // vertex labels (majority-vote with bias toward the highest-
-        // scalar vertex's choice in case of three-way ties).
         int[][] ring = TriangleSoup.oneRings(faceIdx, nv);
         int[] vertexLabel = new int[nv];
         Arrays.fill(vertexLabel, -1);
 
-        // Map from max-vertex-id → max-index for compact ids.
         Map<Integer, Integer> maxIndex = new HashMap<>();
         List<Integer> maxVerts = new ArrayList<>();
         boolean[] isMax = new boolean[nv];
@@ -79,13 +74,10 @@ public final class MscCellAssembly {
             }
         }
         if (maxVerts.isEmpty()) {
-            // No retained maxima → everything in one cell. Fallback so
-            // downstream code isn't surprised by an all-(-1) labels array.
             int[] all = new int[faceCount];
             return all;
         }
 
-        // Vertex pass: walk each vertex to a max.
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int v = mesh.vertexIdAt(activeVertex);
             if (vertexLabel[v] >= 0) continue;
@@ -94,16 +86,11 @@ public final class MscCellAssembly {
             if (reached >= 0) {
                 label = maxIndex.get(reached);
             } else {
-                // Fallback: nearest max by Euclidean distance.
                 label = nearestMaxByPosition(v, positions, maxVerts);
             }
-            // Path compression — relabel all vertices on the walk path.
-            // (Simpler alt: just label v. Path compression is cheaper
-            // overall since adjacent vertices share most of their walk.)
             vertexLabel[v] = label;
         }
 
-        // Face pass: majority vote of the three vertex labels.
         int[] faceLabels = new int[faceCount];
         for (int f = 0; f < faceCount; f++) {
             int a = vertexLabel[faceIdx[f * 3]];
@@ -175,15 +162,12 @@ public final class MscCellAssembly {
         return new PatchDecomposition(mesh.vertexCount(), patches);
     }
 
-    // ---- internals ----
 
     private static int walkUphill(int from, float[] scalar, int[][] ring, boolean[] isMax,
                                    Set<Long> highConfidenceEdges) {
         int cur = from;
         for (int step = 0; step < MAX_WALK_STEPS; step++) {
             if (isMax[cur]) return cur;
-            // Two passes: prefer non-crossing uphill neighbours; fall
-            // back to a crossing one if we can't ascend without crossing.
             int bestNonCross = -1;
             float bestNonCrossVal = scalar[cur];
             int bestCross = -1;
@@ -240,9 +224,6 @@ public final class MscCellAssembly {
         if (a == b) return a;
         if (a == c) return a;
         if (b == c) return b;
-        // Three different labels — pick the vertex with the highest
-        // scalar value, on the assumption it walked the shortest path
-        // and is most reliable.
         int va = faceIdx[faceId * 3];
         int vb = faceIdx[faceId * 3 + 1];
         int vc = faceIdx[faceId * 3 + 2];

@@ -279,8 +279,6 @@ public final class ZeroArcCollapseOperator {
             for (int later = fanCursor; later < size && lastLiveArc; later++) {
                 lastLiveArc = !tmesh.arcs.get(fan.get(oscillatingFanIndex(later))).alive;
             }
-            // The zero arc keeps the arrivals from the fan's two ends apart until the last
-            // drag, which may then use the edges it frees.
             if (lastLiveArc) {
                 tmesh.setPath(collapsingArcId, List.of(targetVertex));
             }
@@ -311,18 +309,12 @@ public final class ZeroArcCollapseOperator {
         tmesh.setPath(collapsingArcId, List.of(targetVertex));
         tmesh.mergeNodeInto(survivingNodeId, movedNodeId);
         tmesh.removeCollapsedArc(collapsingArcId, survivingNodeId != movedNodeId);
-        // A fan arc whose far node was the survivor is now a loop embedded on a point; it
-        // separates nothing, so it is retired and its flanks merge before the covers are
-        // re-read — leaving it alive would let the twin flanks share one cell unlabeled.
         for (int incidentArcId : fan) {
             EmbeddedArc incidentArc = tmesh.arcs.get(incidentArcId);
             if (incidentArc.alive && incidentArc.path.copyVertexPath.size() == 1) {
                 tmesh.retirePointEmbeddedArc(incidentArcId);
             }
         }
-        // The drags never relabel — mid-collapse cells are transient merges no label fits —
-        // so every cover this collapse moved is re-read here, once the arrangement is whole.
-        // Touched ids aliased into one surviving patch re-read it once.
         for (int index = 0; index < touchedPatchCount; index++) {
             touchedPatches[index] = tmesh.topology.resolvePatch(touchedPatches[index]);
             boolean floodedAlready = false;
@@ -399,12 +391,9 @@ public final class ZeroArcCollapseOperator {
             throw new IllegalStateException("arc " + arcId + " path does not end at the moved"
                     + " node's vertex " + movedCopyVertex);
         }
-        // Both ends land on the surviving vertex, so the merge closes the arc into a loop
-        // (LCBK19 Appendix A.3); it may shrink to that point only when it then separates nothing.
         int farVertex = oldPath.get(0);
         if (farVertex == targetCopyVertex && pointEmbedsCleanly(arc)) {
             tmesh.setPath(arcId, List.of(targetCopyVertex));
-            // Its spoke may have bounded the arrivals; the next held spoke outward takes over.
             if (frontArrivalSpoke != ArcNetwork.NONE && !spokeHeld(frontArrivalSpoke)) {
                 frontArrivalSpoke = nextClaimedSpoke(frontArrivalSpoke, false);
             }
@@ -437,8 +426,6 @@ public final class ZeroArcCollapseOperator {
             admitFacesBetween(targetCopyVertex, fromFront ? besideSpoke : farSpoke,
                     fromFront ? farSpoke : besideSpoke, true);
         }
-        // Once the zero arc lies on the point this is the last arc on the moving node, whose
-        // vertex is then an ordinary one the route may cross.
         boolean movedVertexVacated = collapsingArcId == ArcNetwork.NONE
                 || tmesh.arcs.get(collapsingArcId).path.copyVertexPath.size() == 1;
         boolean routed;

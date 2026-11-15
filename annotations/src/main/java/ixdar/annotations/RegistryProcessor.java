@@ -215,8 +215,6 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                     }
                 }
                 if (hostSimpleName != null) {
-                    // The host is the parameter of the one public one-argument constructor, which
-                    // the generated factory calls; the first host fixes the hosts' common supertype.
                     Types types = processingEnv.getTypeUtils();
                     TypeMirror host = null;
                     int hostConstructorCount = 0;

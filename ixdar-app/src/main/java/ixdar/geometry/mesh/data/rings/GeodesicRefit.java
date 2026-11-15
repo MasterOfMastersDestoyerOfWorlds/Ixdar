@@ -16,10 +16,8 @@ public final class GeodesicRefit {
 
     public static final int COORDINATES_PER_POINT = 3;
 
-    // Anchors the refit may add before it gives up on reaching the tolerance.
     public static final int MAXIMUM_ADDED_ANCHORS = 64;
 
-    // Sweeps of the drop pass; one usually settles it, a second catches anchors a drop freed.
     public static final int DROP_SWEEPS = 2;
 
     /** Traces a geodesic spline through anchors for the refit to measure. */
@@ -79,8 +77,6 @@ public final class GeodesicRefit {
         closed = closedCurve;
         tolerance = Math.max(SplineAnchorFit.DEFAULT_RADIUS_FRACTION
                 * SplineAnchorFit.meanRadiusOf(curveXyz, referencePoints), meanEdgeLength);
-        // Each anchor by its point on the curve; the first, and for an open curve the last, are
-        // held where they are, as the ring's lead anchor and the bisector's wall ends.
         int[] points = new int[startAnchors.length];
         int count = 0;
         for (int anchor = 0; anchor < startAnchors.length; anchor++) {
@@ -105,8 +101,6 @@ public final class GeodesicRefit {
         for (int added = 0; measured > tolerance && added < MAXIMUM_ADDED_ANCHORS; added++) {
             int insertAt = Arrays.binarySearch(at, worstReferencePoint);
             if (insertAt >= 0) {
-                // The spline strays beside an anchor it already has: halve the wider of the two
-                // stretches of curve that anchor ends, the one the spline has most room to stray in.
                 int last = at.length - 1;
                 int before = insertAt > 0 ? at[insertAt] - at[insertAt - 1]
                         : closed ? at[0] + referencePoints - at[last] : 0;
@@ -202,8 +196,6 @@ public final class GeodesicRefit {
             }
         }
         if (worstOut > worst) {
-            // The spline strays out where no curve point is far from it: the anchor goes at the
-            // curve point nearest that stray.
             int base = COORDINATES_PER_POINT * worstOutPoint;
             double nearest = Double.POSITIVE_INFINITY;
             for (int point = 0; point < referencePoints; point++) {

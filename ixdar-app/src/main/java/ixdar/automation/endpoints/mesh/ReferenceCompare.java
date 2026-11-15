@@ -84,7 +84,6 @@ public class ReferenceCompare extends AutomationEndpoint implements AutomationRo
             if (sculpt == null || subject == null) {
                 return failure("no subject stands out in " + (sculpt == null ? "cell " + cell : picturePath));
             }
-            // Picture pixels per cell pixel, matching the subjects' heights, their box centres together.
             float scale = subject.box[3] / (float) sculpt.box[3];
             float cellCentreX = sculpt.box[0] + sculpt.box[2] / 2f;
             float cellCentreY = sculpt.box[1] + sculpt.box[3] / 2f;

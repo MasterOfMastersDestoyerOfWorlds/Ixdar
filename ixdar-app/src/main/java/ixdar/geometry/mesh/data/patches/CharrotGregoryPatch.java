@@ -35,8 +35,6 @@ public final class CharrotGregoryPatch {
             throw new IllegalArgumentException("Charrot-Gregory requires n >= 3 sides, got " + n);
         }
 
-        // Pass B: accumulate the Wachspress normalisation sum.
-        // sumW = Σ 1 / (D_i · D_{i+1}) over all edges.
         float sumW = 0f;
         for (int i = 0; i < n; i++) {
             float d0 = Math.max(domainEdgeDistance(i, n, u, v), EPS);
@@ -44,7 +42,6 @@ public final class CharrotGregoryPatch {
             sumW += 1f / (d0 * d1);
         }
 
-        // Pass C: for each side, compute the ribbon R_i and blend by B_i(d_i).
         Vector3f sumS = new Vector3f();
         float sumB = 0f;
         Vector3f tmp = new Vector3f();
@@ -75,9 +72,6 @@ public final class CharrotGregoryPatch {
             Vector3f[] cIm2 = boundaryCurves[im2];
             Vector3f[] cIp2 = boundaryCurves[ip2];
 
-            // Opposite curve: reconstructed cubic bezier using tangents of
-            // C_{i+2}(0) and C_{i-2}(1). The Blender impl uses the "1/3 of
-            // derivative" form, which equals (P1 - P0) for a cubic bezier.
             Vector3f tanIp2 = new Vector3f(cIp2[1]).sub(cIp2[0]);
             Vector3f tanIm2 = new Vector3f(cIm2[3]).sub(cIm2[2]);
             Vector3f p0Opp = new Vector3f(cIp1[3]);           // = V_{i+2}
@@ -85,19 +79,11 @@ public final class CharrotGregoryPatch {
             Vector3f p1Opp = new Vector3f(p0Opp).add(tanIp2);
             Vector3f p2Opp = new Vector3f(p3Opp).sub(tanIm2);
 
-            // Ribbon terms:
-            //   termA = C_i(s_i)            · (1 - d_i)
-            //   termB = C_opp(1 - s_i)      · d_i
-            //   termC = C_{i-1}(1 - d_i)    · (1 - s_i)
-            //   termD = C_{i+1}(d_i)        · s_i
-            //   bilinear = interpolation of the 4 cage corners
-            //   R_i     = termA + termB + termC + termD - bilinear
             Vector3f termA = bezierEval(cI[0], cI[1], cI[2], cI[3], sI, new Vector3f()).mul(1f - dI);
             Vector3f termB = bezierEval(p0Opp, p1Opp, p2Opp, p3Opp, 1f - sI, new Vector3f()).mul(dI);
             Vector3f termC = bezierEval(cIm1[0], cIm1[1], cIm1[2], cIm1[3], 1f - dI, new Vector3f()).mul(1f - sI);
             Vector3f termD = bezierEval(cIp1[0], cIp1[1], cIp1[2], cIp1[3], dI, new Vector3f()).mul(sI);
 
-            // bilinear corner interpolation
             Vector3f l0 = new Vector3f(cI[0]).mul(1f - dI).add(new Vector3f(cIm1[0]).mul(dI));
             Vector3f l1 = new Vector3f(cI[3]).mul(1f - dI).add(new Vector3f(cIp1[3]).mul(dI));
             Vector3f bilinear = new Vector3f(l0).mul(1f - sI).add(l1.mul(sI));
@@ -139,7 +125,6 @@ public final class CharrotGregoryPatch {
      * @return signed perpendicular distance (positive inside)
      */
     static float domainEdgeDistance(int edgeIndex, int n, float u, float v) {
-        // Edge goes from vertex edgeIndex to vertex edgeIndex + 1.
         float angleStep = TWO_PI / n;
         float theta0 = (edgeIndex + 0.5f) * angleStep + PI;
         float theta1 = (edgeIndex + 1.5f) * angleStep + PI;
@@ -148,11 +133,6 @@ public final class CharrotGregoryPatch {
         float v1x = (float) Math.cos(theta1);
         float v1y = (float) Math.sin(theta1);
 
-        // Signed perpendicular distance from p to the directed edge (v0 → v1).
-        // For a CCW polygon traversed v0 → v1 on the outside, the left-hand
-        // normal (90° CCW of edge direction) points into the polygon.
-        //   edgeDir = (v1 - v0); leftNormal = (-dy, dx)
-        //   signed distance = ((p - v0) · leftNormal) / |edgeDir|
         float ex = v1x - v0x;
         float ey = v1y - v0y;
         float edgeLen = (float) Math.sqrt(ex * ex + ey * ey);

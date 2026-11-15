@@ -41,9 +41,6 @@ public class EMeansPlaygroundScene extends Scene {
     public static final int DEFAULT_CLUSTERS = 500;
     public static final int DEFAULT_EPOCHS = 5;
     public static final int DEFAULT_LLOYD_EPOCHS = 25;
-    // Each 2D primitive takes the next ortho depth step and a frame has ORTHO_FAR / ORTHO_Z_INCREMENT
-    // of them (10000): two panels of sample points, up to 700 cells' edges and centroids each, and
-    // the chart and text must fit.
     public static final int DRAWN_POINTS = 1500;
     public static final int MAX_CELLS_DRAWN = 700;
     public static final int TEST_POINTS_PER_TRAIN_POINT = 10;
@@ -186,7 +183,6 @@ public class EMeansPlaygroundScene extends Scene {
             restart();
             training = true;
         }));
-        // A shifted row goes first: an unshifted row on the same key also matches with Shift held.
         controls.add(new ControlHint("fewer-points", Keys.N, false, true, "halve the points",
                 () -> resize(() -> pointCount = Math.max(MIN_POINTS, pointCount / 2))));
         controls.add(new ControlHint("more-points", Keys.N, "double the points",
@@ -268,7 +264,6 @@ public class EMeansPlaygroundScene extends Scene {
         line.setStroke(Math.max(MIN_LINE_PIXELS, CELL_WIDTH * pixelsPerUnit), false);
         for (int side = 0; side < sides.length; side++) {
             for (int point = 0; point < drawnPoints; point++) {
-                // Every spiral point is drawn independently, so the first few are a fair sample.
                 dot.draw(from.set(canvas.pointTransformX(centres[side] + trainPoints[2 * point]),
                         canvas.pointTransformY(trainPoints[2 * point + 1])), pointRadius, shown.text, canvas);
             }

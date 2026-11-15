@@ -73,8 +73,6 @@ public class CircleCurveNode implements MeshNode {
             cz = v.z();
         }
 
-        // Generate points evenly spaced on a circle in the XZ plane
-        // x = cx + radius * cos(theta), y = cy, z = cz + radius * sin(theta)
         float[] positions = new float[resolution * 3];
         float twoPi = 2.0f * (float) Math.PI;
 

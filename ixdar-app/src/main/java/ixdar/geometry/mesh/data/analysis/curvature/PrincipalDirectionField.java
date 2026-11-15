@@ -123,7 +123,6 @@ public final class PrincipalDirectionField {
             int[] triangles, float[] faceN, int[][] ring) {
         int vertexIdBound = mesh.vertexIdBound();
 
-        // Per-vertex normal: average of the incident fan triangles' normals, triangle by triangle.
         float[] vertexNormals = SemanticPatchDecomposer.vertexNormals(triangles, faceN,
                 vertexIdBound);
 
@@ -132,8 +131,6 @@ public final class PrincipalDirectionField {
         float[] dirMax = new float[vertexIdBound * 3];
         float[] dirMin = new float[vertexIdBound * 3];
 
-        // Each vertex reads only its own 1-ring and writes only its own slots, so blocks of
-        // vertices run in parallel and give the serial result.
         int vertexCount = mesh.vertexCount();
         IntStream.range(0, (vertexCount + VERTICES_PER_TASK - 1) / VERTICES_PER_TASK).parallel()
                 .forEach(task -> {
@@ -152,10 +149,6 @@ public final class PrincipalDirectionField {
                 nv_[2] = vertexNormals[vertexId * 3 + 2];
                 buildTangentBasis(nv_, t1, t2);
 
-                // Accumulate the 2x2 tangent-plane shape operator:
-                //   II(u, u) ≈ (n_u - n_v) · edge_dir / |edge_dir|
-                // Build a weighted sum over the 1-ring of II(edge_dir, edge_dir)
-                // projected into (t1, t2). Gives a 2x2 symmetric matrix.
                 float m00 = 0, m01 = 0, m11 = 0;
                 float wTotal = 0;
                 for (int neighbourId : neighbours) {
@@ -164,7 +157,6 @@ public final class PrincipalDirectionField {
                     float ez = positions[neighbourId * 3 + 2] - positions[vertexId * 3 + 2];
                     float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
                     if (elen < MIN_WEIGHT_EPSILON) continue;
-                    // Tangential part of the edge (remove normal component).
                     float edn = ex * nv_[0] + ey * nv_[1] + ez * nv_[2];
                     float tx = ex - edn * nv_[0];
                     float ty = ey - edn * nv_[1];
@@ -176,15 +168,11 @@ public final class PrincipalDirectionField {
                     float nux = vertexNormals[neighbourId * 3]     - nv_[0];
                     float nuy = vertexNormals[neighbourId * 3 + 1] - nv_[1];
                     float nuz = vertexNormals[neighbourId * 3 + 2] - nv_[2];
-                    // Normal curvature along this edge ≈ -(Δn · t) / elen.
                     float kEdge = -(nux * tx + nuy * ty + nuz * tz) / elen;
 
-                    // Project t into (t1, t2) basis.
                     float a = tx * t1[0] + ty * t1[1] + tz * t1[2];
                     float b = tx * t2[0] + ty * t2[1] + tz * t2[2];
 
-                    // Accumulate the outer product a[a; b] * kEdge weighted by
-                    // edge length (longer edges sample the surface more).
                     float w = elen;
                     m00 += w * a * a * kEdge;
                     m01 += w * a * b * kEdge;
@@ -196,30 +184,25 @@ public final class PrincipalDirectionField {
                 m01 /= wTotal;
                 m11 /= wTotal;
 
-                // Closed-form 2x2 symmetric eigendecomposition.
                 float trace = m00 + m11;
                 float diff = m00 - m11;
                 float disc = (float) Math.sqrt(diff * diff + 4f * m01 * m01);
                 float kA = 0.5f * (trace + disc);
                 float kB = 0.5f * (trace - disc);
-                // Eigenvector of λ=kA: proportional to (m01, kA - m00) unless m01 ≈ 0.
                 float eaX, eaY;
                 if (Math.abs(m01) > MIN_WEIGHT_EPSILON) {
                     eaX = m01;
                     eaY = kA - m00;
                 } else {
-                    // Diagonal; pick axis-aligned eigenvector.
                     eaX = kA >= m11 ? 1f : 0f;
                     eaY = kA >= m11 ? 0f : 1f;
                 }
                 float elen = (float) Math.sqrt(eaX * eaX + eaY * eaY);
                 if (elen < ZERO_VECTOR_EPSILON) { eaX = 1; eaY = 0; elen = 1; }
                 eaX /= elen; eaY /= elen;
-                // Orthogonal eigenvector in 2D.
                 float ebX = -eaY;
                 float ebY = eaX;
 
-                // κMax ≥ κMin; swap if needed.
                 float kmax, kmin, maxAx, maxAy, minAx, minAy;
                 if (kA >= kB) {
                     kmax = kA; kmin = kB;
@@ -233,7 +216,6 @@ public final class PrincipalDirectionField {
                 kappaMax[vertexId] = kmax;
                 kappaMin[vertexId] = kmin;
 
-                // Lift eigenvectors from (t1, t2) basis back to 3D.
                 dirMax[vertexId * 3]     = maxAx * t1[0] + maxAy * t2[0];
                 dirMax[vertexId * 3 + 1] = maxAx * t1[1] + maxAy * t2[1];
                 dirMax[vertexId * 3 + 2] = maxAx * t1[2] + maxAy * t2[2];
@@ -261,14 +243,12 @@ public final class PrincipalDirectionField {
         if (ax < ay && ax < az) { helperX = 1; helperY = 0; helperZ = 0; }
         else if (ay < az)        { helperX = 0; helperY = 1; helperZ = 0; }
         else                     { helperX = 0; helperY = 0; helperZ = 1; }
-        // t1 = normalize(helper × n)
         t1[0] = helperY * n[2] - helperZ * n[1];
         t1[1] = helperZ * n[0] - helperX * n[2];
         t1[2] = helperX * n[1] - helperY * n[0];
         float l1 = (float) Math.sqrt(t1[0] * t1[0] + t1[1] * t1[1] + t1[2] * t1[2]);
         if (l1 < ZERO_VECTOR_EPSILON) { t1[0] = 1; t1[1] = 0; t1[2] = 0; l1 = 1; }
         t1[0] /= l1; t1[1] /= l1; t1[2] /= l1;
-        // t2 = n × t1 (already unit)
         t2[0] = n[1] * t1[2] - n[2] * t1[1];
         t2[1] = n[2] * t1[0] - n[0] * t1[2];
         t2[2] = n[0] * t1[1] - n[1] * t1[0];

@@ -61,7 +61,6 @@ public class SurfaceRidgesRoute extends AutomationEndpoint implements Automation
             Path meshPath = existingFile("--mesh", body.has(MESH) ? body.get(MESH).getAsString() : "");
             Path templatePath = existingFile("--template", body.has(TEMPLATE) ? body.get(TEMPLATE).getAsString() : "");
             Path out = Path.of(body.has(OUT) ? body.get(OUT).getAsString() : "").toAbsolutePath().normalize();
-            // Loaded as the viewer loads it, so the lines sit where the template's capture shows the mesh.
             NodeGraphRuntime graph = NodeGraphRuntime.fromSource("mesh = load_mesh(path=\"" + meshPath + "\")\n");
             MeshTopology mesh = ((GeometryBundle) graph.executeGraphResult(graph.lastId(), "geometry")).mesh();
             StrokeSketch template = StrokeSketch.parse(new String(Files.readAllBytes(templatePath), StandardCharsets.UTF_8),

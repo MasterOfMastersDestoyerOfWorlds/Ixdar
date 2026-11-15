@@ -40,7 +40,6 @@ public class WebGL implements GL {
     public static final int GREEN_SHIFT = 8;
     private static int staticId = 0;
 
-    // Cache a single WebGL context per canvas to support multiple canvases reliably
     private static final Map<String, WebGLRenderingContext> CONTEXT_CACHE = new HashMap<>();
     private int id;
     private final WebGLRenderingContext gl;
@@ -396,7 +395,6 @@ public class WebGL implements GL {
         Uint8Array arr = Uint8Array.create(data.remaining());
         for (int i = 0, j = data.position(); j < data.limit(); i++, j++)
             arr.set(i, data.get(j));
-        // Ensure textures uploaded match typical OpenGL origin expectations
         setUnpackFlipY(gl, true);
         gl.texImage2D(target, level, internalFormat, width, height, border, format, type, arr);
         setUnpackFlipY(gl, false);
@@ -818,7 +816,6 @@ public class WebGL implements GL {
     public int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int size) {
         Uint8Array fb = Uint8Array.create(width * height * BYTES_PER_PIXEL);
         gl.readPixels(i, j, width, height, rgba, unsigned_BYTE, fb);
-        // Convert Uint8Array to byte[]
         int[] pixels = new int[width * height];
         for (int k = 0; k < pixels.length; k++) {
             int bindex = k * BYTES_PER_PIXEL;
@@ -919,7 +916,6 @@ public class WebGL implements GL {
         gl.clearColor(c4.x, c4.y, c4.z, c4.w);
     }
 
-    // Minimal VAO emulation placeholder
     private static final class VAOExtension {
         private final WebGLRenderingContext gl;
         private int nextId = 1;

@@ -126,7 +126,6 @@ public class LoopThroughPointsNode implements MeshNode {
             ring = SurfaceRing.through(mesh, points, waypointCount, closed,
                     pin ? waypointCount : 0, iterations);
         } catch (IllegalStateException unresolved) {
-            // Passing the surface on unmarked lets every later ring report its own points too.
             ctx.reportFailure("loop_through_points " + label + ":\n" + unresolved.getMessage());
             ctx.setOutput(GEOMETRY.name, bundle);
             ctx.setOutput(SELECTION.name, false);

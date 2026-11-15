@@ -79,7 +79,6 @@ public class SubdivisionMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        // Accept geometry bundle (with crease weights) or plain mesh
         GeometryBundle bundle = ctx.getInput(GEOMETRY_IN.name, GeometryBundle.class);
         MeshTopology mesh = GeometryBundles.meshPart(bundle);
         if (mesh == null) {
@@ -96,7 +95,6 @@ public class SubdivisionMeshNode implements MeshNode {
             return;
         }
 
-        // Keep the output under MAX_FACE_COUNT faces: every level quadruples them.
         long estimated = mesh.faceCount();
         for (int level = 0; level < levels; level++) {
             estimated *= 4;
@@ -111,8 +109,6 @@ public class SubdivisionMeshNode implements MeshNode {
             return;
         }
 
-        // Crease weights are indexed by edge id; each level leaves the next level's in
-        // levelCreaseWeights, indexed by the edge ids of the mesh it returns.
         float[] creaseWeights = bundle != null && !linear
                 ? EdgeMarks.floats(bundle, MarkEdgesNode.CREASE_LABEL)
                 : null;
@@ -158,7 +154,6 @@ public class SubdivisionMeshNode implements MeshNode {
             cornerCount += mesh.faceVertexCount(mesh.faceIdAt(activeFace));
         }
 
-        // --- Face centers, and each edge's first and second face in order of appearance ---
         int[] faceStart = new int[nf + 1];
         int[] cornerVertex = new int[cornerCount];
         int[] cornerEdge = new int[cornerCount];
@@ -207,7 +202,6 @@ public class SubdivisionMeshNode implements MeshNode {
         }
         faceStart[nf] = corner;
 
-        // --- Edge points (crease-aware); per-vertex edge sums accumulate in appearance order ---
         float[] edgePos = new float[ne * 3];
         boolean[] boundary = new boolean[nv];
         int[] creasedEdgeCount = new int[nv];
@@ -230,19 +224,16 @@ public class SubdivisionMeshNode implements MeshNode {
             int eo = i * 3;
 
             if (w >= 1.0f) {
-                // Creased edge: use simple midpoint
                 edgePos[eo] = (x1 + x2) * 0.5f;
                 edgePos[eo + 1] = (y1 + y2) * 0.5f;
                 edgePos[eo + 2] = (z1 + z2) * 0.5f;
             } else if (f2 != MeshTopology.NONE) {
-                // Interior smooth edge: 4-point average
                 int fc1 = f1 * 3, fc2 = f2 * 3;
                 float sx = (x1 + x2 + faceCenter[fc1] + faceCenter[fc2]) * 0.25f;
                 float sy = (y1 + y2 + faceCenter[fc1 + 1] + faceCenter[fc2 + 1]) * 0.25f;
                 float sz = (z1 + z2 + faceCenter[fc1 + 2] + faceCenter[fc2 + 2]) * 0.25f;
 
                 if (w > 0f) {
-                    // Semi-sharp: blend between smooth and crease
                     float mx = (x1 + x2) * 0.5f;
                     float my = (y1 + y2) * 0.5f;
                     float mz = (z1 + z2) * 0.5f;
@@ -255,7 +246,6 @@ public class SubdivisionMeshNode implements MeshNode {
                     edgePos[eo + 2] = sz;
                 }
             } else {
-                // Boundary edge: midpoint
                 edgePos[eo] = (x1 + x2) * 0.5f;
                 edgePos[eo + 1] = (y1 + y2) * 0.5f;
                 edgePos[eo + 2] = (z1 + z2) * 0.5f;
@@ -284,7 +274,6 @@ public class SubdivisionMeshNode implements MeshNode {
             }
         }
 
-        // --- Vertex points (crease-aware); face sums accumulate in active-face order ---
         int[] facesAtVertex = new int[nv];
         float[] faceSum = new float[nv * 3];
         for (int activeFace = 0; activeFace < nf; activeFace++) {
@@ -303,14 +292,12 @@ public class SubdivisionMeshNode implements MeshNode {
             float ox = positions[vo], oy = positions[vo + 1], oz = positions[vo + 2];
             int n = facesAtVertex[i];
             if (linear || boundary[i] || n == 0 || creasedEdgeCount[i] >= 3) {
-                // Linear, boundary, isolated, or corner (3+ creased edges): keep original position
                 vtxPos[vo] = ox;
                 vtxPos[vo + 1] = oy;
                 vtxPos[vo + 2] = oz;
                 continue;
             }
 
-            // Smooth CC vertex position
             float invN = 1.0f / n;
             float fx = faceSum[vo] * invN;
             float fy = faceSum[vo + 1] * invN;
@@ -324,7 +311,6 @@ public class SubdivisionMeshNode implements MeshNode {
             float smoothZ = (fz + 2f * rz + (n - 3) * oz) * invN;
 
             if (creasedEdgeCount[i] == 2) {
-                // Crease vertex rule: (e1 + 6*P + e2) / 8, blended toward smooth by the weight
                 float creaseX = (creaseNeighbourSum[vo] + 6f * ox) * 0.125f;
                 float creaseY = (creaseNeighbourSum[vo + 1] + 6f * oy) * 0.125f;
                 float creaseZ = (creaseNeighbourSum[vo + 2] + 6f * oz) * 0.125f;
@@ -333,14 +319,12 @@ public class SubdivisionMeshNode implements MeshNode {
                 vtxPos[vo + 1] = smoothY + (creaseY - smoothY) * blendW;
                 vtxPos[vo + 2] = smoothZ + (creaseZ - smoothZ) * blendW;
             } else {
-                // Smooth vertex (0-1 creased edges)
                 vtxPos[vo] = smoothX;
                 vtxPos[vo + 1] = smoothY;
                 vtxPos[vo + 2] = smoothZ;
             }
         }
 
-        // --- Build output topology: each n-gon produces n quads ---
         float[] newPositions = new float[(nf + ne + nv) * 3];
         System.arraycopy(faceCenter, 0, newPositions, 0, nf * 3);
         System.arraycopy(edgePos, 0, newPositions, nf * 3, ne * 3);
@@ -361,9 +345,6 @@ public class SubdivisionMeshNode implements MeshNode {
             }
         }
 
-        // --- Propagate crease weights (decrement by 1) ---
-        // A child edge joins a parent's edge point, nf + appearance, to a vertex point, at or
-        // past nf + ne, and inherits max(0, parent_weight - 1).
         HalfEdgeMesh subdivided = HalfEdgeMeshOps.bulkAllocate(newPositions, newQuads, 4);
         float[] newCreaseWeights = null;
         if (creaseWeights != null) {

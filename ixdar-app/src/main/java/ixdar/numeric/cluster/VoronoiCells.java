@@ -55,7 +55,6 @@ public final class VoronoiCells {
                 if (distance[other] > 2 * reach) {
                     break;
                 }
-                // Keep the side of the bisector nearer this cell's centroid: (p - mid) . (other - site) <= 0.
                 double normalX = centroids[2 * other] - siteX;
                 double normalY = centroids[2 * other + 1] - siteY;
                 double midX = (centroids[2 * other] + siteX) / 2;

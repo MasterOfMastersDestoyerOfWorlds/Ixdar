@@ -303,8 +303,6 @@ public final class RegionLayer {
         if (stale && drawnBefore) {
             rebuild();
         } else if (!stale && resolvedPalette != scene.palette) {
-            // A palette swap: its part cycle may differ in length, and every colour is re-read.
-            // The label points still name the regions they did, so they are not resolved again.
             resolvedPalette = scene.palette;
             if (regions != null && partLabels.labelByRegion.length == regions.regionCount) {
                 partLabels.recolour(resolvedPalette.categories);
@@ -350,15 +348,12 @@ public final class RegionLayer {
         boolean fresh = regions == null || regions.mesh != surface;
         if (!fresh && Arrays.equals(rings.keySet().toArray(), regions.ringLabels)
                 && Arrays.equals(rings.values().toArray(), regions.ringMarksByEdgeId)) {
-            // An edit that left every live mask as it was, such as a step of a re-opened
-            // bisector's drag (its draft walls nothing until confirmed), leaves the regions be.
             builtRingRevision = scene.ringTool.ringRevision;
             return;
         }
         if (fresh) {
             builtRingRevision = -1;
             regions = new RingRegions(surface, new String[0], new boolean[0][]);
-            // A new surface is a model the graph just ran: its labels are the ones it saved.
             partLabels = new MeshLabels(MeshLabels.inBundle(scene.getGeometryBundle()));
             labelsUnsaved = false;
             hiddenByActiveFace = new boolean[0];
@@ -377,9 +372,7 @@ public final class RegionLayer {
         revision++;
         explosion.measure(surface, regions.regionByActiveFace, regions.regionCount);
         hiddenRingLabels = regions.hiddenRingLabels(hiddenByActiveFace);
-        // Points name regions, not region numbers, so every rebuild resolves them again.
         resolveLabels();
-        // Current only now that their labels are resolved too, so no reader sees them half built.
         builtRingRevision = scene.ringTool.ringRevision;
         if (shown) {
             markRings();
@@ -413,8 +406,6 @@ public final class RegionLayer {
         RingRegionTool tool = scene.regionTool;
         boolean dimming = scene.activeTool == tool && tool.selectedCount() > 0
                 && tool.selectedRegions.length == regions.regionCount;
-        // By part, a labelled region takes its part's colour, touching parts apart, and every
-        // unlabelled one the same dark grey, so what is left to name stands out.
         Palette palette = scene.palette;
         Vector4f dimmed = palette.mutedText.toVector4f();
         Vector4f unlabelled = palette.surface.toVector4f();

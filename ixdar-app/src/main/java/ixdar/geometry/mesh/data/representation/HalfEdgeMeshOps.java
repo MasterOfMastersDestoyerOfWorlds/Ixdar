@@ -617,9 +617,6 @@ public class HalfEdgeMeshOps {
                 continue;
             }
 
-            // The fan from the first corner sums to the polygon's vector area, so a quad folded
-            // across its first diagonal is weighed by both halves, not by the first alone. The
-            // first cross seeds the sum, keeping a triangle's bit for bit (0 + -0 would be +0).
             mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
             for (int corner = 1; corner + 1 < mesh.faceVertexCount(faceId); corner++) {
                 mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), p1);
@@ -692,8 +689,6 @@ public class HalfEdgeMeshOps {
         }
         HalfEdgeMesh mesh = cornerTwin != null ? triangleBuildWithTwins(positions, faceIndices, cornerTwin)
                 : packedBuild(positions, uniformFaceStarts(faceIndices.length, 3), faceIndices, null);
-        // A packed build numbers faces and vertices by index, so the normals are read straight off
-        // the flat arrays, in computeNormals' order and arithmetic.
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
         Vector3f p2 = new Vector3f();
@@ -882,8 +877,6 @@ public class HalfEdgeMeshOps {
         int[] faceEdgeIds = new int[cornerCount];
         int[] faceStarts = new int[faceCount + 1];
         int[] outgoingStart = new int[vertexCount + 1];
-        // Sides are numbered in the order of the corners that open them; an opener always comes
-        // before the corner that pairs with it, so a pairing corner finds its side numbered.
         int forward = 0;
         for (int faceId = 0; faceId < faceCount; faceId++) {
             int first = faceId * 3;
@@ -1001,8 +994,6 @@ public class HalfEdgeMeshOps {
         int faceCount = faceStarts.length - 1;
         int cornerCount = faceIndices.length;
 
-        // Large meshes run each pass on every thread. Every bucket a thread fills is sorted back
-        // into ascending order afterwards, so the result matches the serial walk id for id.
         boolean parallel = cornerCount >= PARALLEL_BUILD_CORNERS;
         int[] cornerEnd = new int[cornerCount];
         for (int faceId = 0; faceId < faceCount; faceId++) {
@@ -1032,7 +1023,6 @@ public class HalfEdgeMeshOps {
         if (cornerTwin == null) {
             edgeCount = pairByLowVertex(faceIndices, cornerEnd, vertexCount, parallel, firstCornerOfEdge);
         } else {
-            // A side opens at its lower corner, as the walk in corner order would open it.
             for (int corner = 0; corner < cornerCount; corner++) {
                 int twin = cornerTwin[corner];
                 firstCornerOfEdge[corner] = twin != MeshTopology.NONE && twin < corner ? twin : corner;
@@ -1045,8 +1035,6 @@ public class HalfEdgeMeshOps {
         int[] halfEdgeFace = new int[halfEdgeCount];
         int[] halfEdgeNext = new int[halfEdgeCount];
         int[] halfEdgePrev = new int[halfEdgeCount];
-        // Edges are numbered in the order of the corners that open them, in one serial walk: an
-        // opener always comes before the corners that pair with it.
         int forward = 0;
         for (int corner = 0; corner < cornerCount; corner++) {
             if (firstCornerOfEdge[corner] != corner) {

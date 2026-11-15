@@ -217,9 +217,6 @@ public final class Trace {
                 theirLength, ourAxis, ourSign, otherAxis, otherSign, ourVisitId, otherVisitId);
         metOtherTraces.add(meeting);
         if (other == this) {
-            // A trace crossing its own earlier path must be noded (recorded
-            // above) but is not a meeting with a nearby singularity, so it does
-            // not count toward Lyon's two-sided α stop.
             return;
         }
         if (!sawFirstSectorCollision && isSectorMeeting(meeting)) {

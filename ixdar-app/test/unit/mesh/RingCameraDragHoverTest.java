@@ -235,8 +235,6 @@ class RingCameraDragHoverTest {
 
     @Test
     void anAnchorDragIsTheToolsAndNeverPausesTheHover() {
-        // A draft ring around the tube through four authored anchors, the cursor on the first as
-        // the hover pick leaves it, so the next press grabs that anchor.
         MeshTopology tube = scene.halfEdgeSurface();
         float[] xyz = new float[XYZ * QUARTERS];
         for (int quarter = 0; quarter < QUARTERS; quarter++) {

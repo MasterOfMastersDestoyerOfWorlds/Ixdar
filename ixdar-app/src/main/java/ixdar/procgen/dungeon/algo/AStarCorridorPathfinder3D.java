@@ -49,7 +49,6 @@ public final class AStarCorridorPathfinder3D {
         int total = gridW * gridH * gridD;
         CellType[] cells = new CellType[total];
         Arrays.fill(cells, CellType.EMPTY);
-        // Paint rooms.
         int n = rooms.vertexCount();
         Vector3f p = new Vector3f();
         for (int i = 0; i < n; i++) {
@@ -68,7 +67,6 @@ public final class AStarCorridorPathfinder3D {
                 }
             }
         }
-        // Carve corridors per edge.
         Vector3f pa = new Vector3f();
         Vector3f pb = new Vector3f();
         for (int i = 0; i < edgePairs.length; i += 2) {
@@ -113,7 +111,6 @@ public final class AStarCorridorPathfinder3D {
             int rest = cur / gridW;
             int cz = rest % gridD;
             int cy = rest / gridD;
-            // Horizontal cardinal moves.
             for (int d = 0; d < 4; d++) {
                 int nx = cx + DX[d];
                 int nz = cz + DZ[d];
@@ -122,7 +119,6 @@ public final class AStarCorridorPathfinder3D {
                 double step = enterCost(cells[nIdx], hallwayReuseCost, emptyCellCost, throughRoomCost);
                 relax(walk, kindIn, cur, nIdx, step, 0, nx, cy, nz, tx, ty, tz, hUnit);
             }
-            // Stair moves: up one floor, two cells horizontal.
             for (int d = 0; d < 4; d++) {
                 int dx = DX[d], dz = DZ[d];
                 if (cy + 1 < gridH) trySairStep(cells, gridW, gridH, gridD, walk, kindIn, cur,
@@ -134,7 +130,6 @@ public final class AStarCorridorPathfinder3D {
             }
         }
         if (!walk.isReached(target)) return null;
-        // Reconstruct path: list of (x, y, z, kind) where kind=1 means destination of stair.
         int[][] tmp = new int[total][];
         int len = 0;
         int node = target;
@@ -156,7 +151,6 @@ public final class AStarCorridorPathfinder3D {
             double hallwayReuseCost, double emptyCellCost, double throughRoomCost,
             int cx, int cy, int cz, int dx, int dz, int dy,
             int tx, int ty, int tz, double hUnit) {
-        // Intermediate cells: lower at (cx+dx, cy, cz+dz), upper at (cx+dx, cy+dy, cz+dz).
         int mx = cx + dx, mz = cz + dz;
         int destX = cx + 2 * dx, destZ = cz + 2 * dz;
         int destY = cy + dy;
@@ -164,10 +158,8 @@ public final class AStarCorridorPathfinder3D {
         if (mx < 0 || mx >= gridW || mz < 0 || mz >= gridD) return;
         int lowerIdx = idx(mx, cy, mz, gridW, gridD);
         int upperIdx = idx(mx, destY, mz, gridW, gridD);
-        // Both intermediates must be currently EMPTY or already a STAIR (allow reuse).
         if (!stairBuildable(cells[lowerIdx]) || !stairBuildable(cells[upperIdx])) return;
         int destIdx = idx(destX, destY, destZ, gridW, gridD);
-        // Cost: sum of entering both intermediates + dest + premium.
         double step = enterCost(cells[lowerIdx], hallwayReuseCost, emptyCellCost, throughRoomCost)
                     + enterCost(cells[upperIdx], hallwayReuseCost, emptyCellCost, throughRoomCost)
                     + enterCost(cells[destIdx], hallwayReuseCost, emptyCellCost, throughRoomCost)
@@ -192,7 +184,6 @@ public final class AStarCorridorPathfinder3D {
             int x = path[i][0], y = path[i][1], z = path[i][2], kind = path[i][3];
             int dIdx = idx(x, y, z, gridW, gridD);
             if (kind == 1 && i > 0) {
-                // Stair destination — derive intermediates from the previous step.
                 int px = path[i - 1][0], py = path[i - 1][1], pz = path[i - 1][2];
                 int dx = (x - px) / 2;
                 int dz = (z - pz) / 2;
@@ -216,8 +207,6 @@ public final class AStarCorridorPathfinder3D {
     }
 
     private static double heuristic(int ax, int ay, int az, int bx, int by, int bz, double perStep) {
-        // Manhattan in 3D; vertical moves cost a single step (stairs span 2 horizontal + 1 vertical
-        // in a single A* hop, so this remains an admissible lower bound).
         return (Math.abs(ax - bx) + Math.abs(ay - by) + Math.abs(az - bz)) * perStep;
     }
 

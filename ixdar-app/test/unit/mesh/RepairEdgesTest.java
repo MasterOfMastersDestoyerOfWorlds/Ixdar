@@ -83,7 +83,6 @@ public final class RepairEdgesTest {
                 edges.removeFace(face);
                 alive[face] = false;
             } else {
-                // Re-added faces may come back turned over, as the orientation stage turns them.
                 if (random.nextBoolean()) {
                     int swap = corners[face * 3 + 1];
                     corners[face * 3 + 1] = corners[face * 3 + 2];

@@ -195,7 +195,6 @@ public class PointerDispatcher {
             boolean click = trap.heldPressPosition != null && trap.heldPressPosition.distance(trap.lastX,
                     trap.lastY) <= MouseTrap.CLICK_DRAG_THRESHOLD_PX;
             if (tool.onRelease(trap.normalizedPosX, trap.normalizedPosY, click)) {
-                // The click was the tool's: the trap ends its press without clicking overlay links.
                 trap.trackPress(button, action);
                 trap.mouseReleased();
                 return;
@@ -263,7 +262,6 @@ public class PointerDispatcher {
             if (claimer != null) {
                 double deltaY = trap.queuedScrollDelta;
                 trap.queuedScrollDelta = 0;
-                // The wheel carries no modifiers of its own: the held ones are the key handler's.
                 KeyGuy keys = trap.canvas == null ? null : trap.canvas.keys;
                 int mods = keys == null ? 0
                         : (keys.shiftMask ? KeyNames.MOD_SHIFT : 0) | (keys.controlMask ? KeyNames.MOD_CONTROL : 0);

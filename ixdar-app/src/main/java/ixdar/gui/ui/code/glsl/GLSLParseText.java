@@ -17,7 +17,6 @@ public class GLSLParseText extends ColorText<Vector4f> {
     public static final int VECTOR_Y = 1;
     public static final int VECTOR_Z = 2;
     public static final int VECTOR_W = 3;
-    // Its one word is empty, so it carries no visible colour and needs no palette at class load.
     public static final GLSLParseText BLANK = new GLSLParseText("", Color.TRANSPARENT, new Vector4f(), -1,
             "BLANK");
     private static final String COMPONENT_LETTERS = "xyzw";

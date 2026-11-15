@@ -285,14 +285,10 @@ public final class TriangleBvh {
     public int nearestHitAvoiding(float[] origin, float[] direction, double maxParameter, int[] markByCorner,
             int mark, int[] stack, double[] hitOut) {
         int nearestTriangle = -1;
-        // The search keeps its nearest parameter local and only publishes it at the end, so threads
-        // that share the tree and read only the returned triangle do not race.
         double nearest = maxParameter;
         double inverseX = 1.0 / direction[0];
         double inverseY = 1.0 / direction[1];
         double inverseZ = 1.0 / direction[2];
-        // A bounded ray's own box rejects most of a leaf's triangles before the exact test: a short
-        // ray along an edge meets few of the many a leaf holds.
         boolean bounded = !Double.isInfinite(maxParameter);
         double endX = origin[0] + direction[0] * maxParameter;
         double endY = origin[1] + direction[1] * maxParameter;
@@ -601,7 +597,6 @@ public final class TriangleBvh {
         if (enter > exit) {
             return Double.POSITIVE_INFINITY;
         }
-        // A ray in a box face's plane gives 0 * infinity; walk such a box rather than lose it.
         return Double.isNaN(enter) ? MINIMUM_RAY_PARAMETER : enter;
     }
 
@@ -865,9 +860,6 @@ public final class TriangleBvh {
 
     /** Lays out the boxes and corners the ray walks read, from the tree and {@link #positions}. */
     private void pack() {
-        // What the ray walks read is laid out so a node's two children and a leaf's triangles
-        // each sit together in memory: every node's box as six floats, and every filed
-        // triangle's corners as nine floats in triangleOrder order, the values the test reads.
         nodeBoxes = new float[nodeCount * BOX_FLOATS];
         int filed = filedTriangles;
         packedCorners = new float[filed * TRIANGLE_CORNERS * TriangleGeometry.COMPONENTS];
@@ -923,8 +915,6 @@ public final class TriangleBvh {
             splitBelow(root, 0);
             return;
         }
-        // Split the top serially, then build each remaining subtree on its own over its own run
-        // of triangleOrder and graft its nodes in.
         int[] frontier = splitBelow(root, Math.max(leafTriangles, inTree / BUILD_SUBTREES));
         TriangleBvh[] parts = new TriangleBvh[frontier.length];
         IntStream.range(0, frontier.length).parallel().forEach(index -> {
@@ -1036,7 +1026,6 @@ public final class TriangleBvh {
      * {@link #build()} and as exact, though a tree whose triangles moved far gets slower to query.
      */
     public void refit() {
-        // Children are always added after their parent, so walking back up refits them first.
         for (int node = nodeCount - 1; node >= 0; node--) {
             int box = node * TriangleGeometry.COMPONENTS;
             int left = nodeLeftChild[node];
@@ -1103,7 +1092,6 @@ public final class TriangleBvh {
         columnsAcrossOf = new int[TriangleGeometry.COMPONENTS];
         columnStart = new int[TriangleGeometry.COMPONENTS][];
         columnMembers = new int[TriangleGeometry.COMPONENTS][];
-        // Each axis's grid is filed on its own and writes only its own entries.
         IntStream.range(0, TriangleGeometry.COMPONENTS).parallel()
                 .forEach(axis -> fileAxisColumns(axis, cell, high));
     }
@@ -1131,8 +1119,6 @@ public final class TriangleBvh {
         columnsAcrossOf[axis] = columnsAcross;
         columnsAlongOf[axis] = columnsAlong;
         int[] start = new int[columns + 1];
-        // Counted and then filed in two loops of their own, so neither switches what it does
-        // part way through.
         for (int triangle = 0; triangle < triangleCount; triangle++) {
             if (triangleGroup != null && triangleGroup[triangle] < 0) {
                 continue;
@@ -1188,7 +1174,6 @@ public final class TriangleBvh {
         exposedSide = new int[triangleCount];
         crowded = crowdMargin > 0 ? new boolean[triangleCount] : null;
         lineCells = recordLineCells ? new int[triangleCount] : null;
-        // Each triangle reads only the shared columns and writes only its own entries.
         IntStream.range(0, (triangleCount + FACING_TASK - 1) / FACING_TASK).parallel()
                 .forEach(task -> faceRange(asked, facing, task * FACING_TASK,
                         Math.min(triangleCount, (task + 1) * FACING_TASK)));
@@ -1259,7 +1244,6 @@ public final class TriangleBvh {
                     member++) {
                 int other = columnMembers[axis][member];
                 int box = other * BOX_FLOATS;
-                // The same span test the crossing test opens with, read off the cached box.
                 if (centre[across] < columnBounds[box + across]
                         || centre[across] > columnBounds[box + TriangleGeometry.COMPONENTS + across]
                         || centre[along] < columnBounds[box + along]
@@ -1291,7 +1275,6 @@ public final class TriangleBvh {
             facing[triangle] = line % 2 == 0 ? FACING_UNDECIDED
                     : (ahead % 2 == 0) == (normal[axis] > 0) ? FACING_OUT_OF_VOLUME
                             : FACING_INTO_VOLUME;
-            // An even line leaves the soup through a hole, which may be the side found clear.
             int seen = line + capLine;
             int front = normal[axis] > 0 ? ahead + capAhead : seen - ahead - capAhead;
             exposedSide[triangle] = seen % 2 == 0 || (front == 0) == (seen == front)
@@ -1376,7 +1359,6 @@ public final class TriangleBvh {
                 }
             }
         }
-        // Sorted and deduplicated in place: a stream's distinct boxes every cell.
         Arrays.sort(cells, 0, count);
         int distinct = 0;
         for (int index = 0; index < count; index++) {

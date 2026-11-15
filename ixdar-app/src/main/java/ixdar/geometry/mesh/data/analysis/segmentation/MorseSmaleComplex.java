@@ -65,13 +65,6 @@ public final class MorseSmaleComplex {
         int nv = mesh.vertexIdBound();
         int[][] ring = TriangleSoup.oneRings(ed.triangles(), nv);
 
-        // Laplacian-smooth the scalar field before classification. A raw
-        // per-vertex curvature on a real mesh has triangulation noise at
-        // every vertex that looks like a local extremum; heavy smoothing
-        // merges noise bumps back into their parent macroscopic feature.
-        // 25 iterations empirically balances "removes triangulation
-        // noise" vs "doesn't destroy anatomical features on a ~25k-vert
-        // skull" — real features persist because they're broad-support.
         float[] scalar = smoothScalar(scalarIn, ring, SCALAR_SMOOTH_ITERATIONS);
         float[] gaussK = smoothScalar(gaussKIn, ring, GAUSS_SMOOTH_ITERATIONS);
 
@@ -80,7 +73,6 @@ public final class MorseSmaleComplex {
             return computeB1(mesh, scalar, ring, orderedRing, prominenceFrac);
         }
 
-        // Scalar stats for the prominence filter, over the live vertices.
         int liveCount = mesh.vertexCount();
         float[] sortedScalar = new float[liveCount];
         float[] sortedK = new float[liveCount];
@@ -97,15 +89,9 @@ public final class MorseSmaleComplex {
         float span = Math.max(p95 - p5, EPSILON);
         float maxThreshold = meanVal + prominenceFrac * span;
         float minThreshold = meanVal - prominenceFrac * span;
-        // Gaussian curvature threshold for saddle. A saddle requires
-        // genuinely negative K (saddle shape). Use the p10 of the K
-        // distribution — only the most strongly saddle-shaped 10% of
-        // vertices qualify. Tune down (toward p5) if too few saddles,
-        // up (toward p25) if too many.
         Arrays.sort(sortedK);
         float saddleGaussT = sortedK[Math.max(0, (int) (liveCount * P10_FRACTION))];
 
-        // Pass 1: raw classification via 1-ring comparison + Gaussian.
         CriticalType[] label = new CriticalType[nv];
         for (int v = 0; v < nv; v++) {
             int[] nbs = ring[v];
@@ -125,13 +111,6 @@ public final class MorseSmaleComplex {
             }
         }
 
-        // Pass 2: suppress extrema within a 2-ring radius of a stronger
-        // extremum of the same type. 1-ring is too small for a noisy
-        // mesh: adjacent shoulders of a real peak still both classify
-        // as "local max" because neither has each other as a neighbour.
-        // 2-ring (neighbour-of-neighbour) dramatically reduces that
-        // clumping. Also dedupes saddles that fire on every face of a
-        // densely-triangulated valley.
         label = suppressWithin2Ring(label, scalar, ring, CriticalType.MAX, true);
         label = suppressWithin2Ring(label, scalar, ring, CriticalType.MIN, false);
         label = suppressWithin2Ring(label, gaussK, ring, CriticalType.SADDLE, false);  // deepest (most negative) saddle wins
@@ -151,14 +130,6 @@ public final class MorseSmaleComplex {
             }
         }
 
-        // Trace two ascending + two descending arcs from each saddle.
-        // "Two" comes from the saddle-local 1-ring split into higher
-        // and lower neighbours: we pick the highest ascending neighbour
-        // as seed #1, then the second-highest on the opposite side of
-        // the 1-ring (if we could order it, we'd pick symmetrically;
-        // lacking that, we fall back to "other highest not adjacent to
-        // seed #1"). For Phase A this approximation is fine — real MSC
-        // tracing will come in Phase B.
         List<Arc> arcs = new ArrayList<>();
         boolean[] isMax = new boolean[nv];
         boolean[] isMin = new boolean[nv];
@@ -210,10 +181,6 @@ public final class MorseSmaleComplex {
             }
         }
         if (best < 0) return new int[]{-1, -1};
-        // Second seed: among opposite-side candidates that are on the
-        // other "arm", take the one most anti-parallel to best's edge.
-        // Without a full 1-ring order we approximate using the signed
-        // scalar-difference rank and skip anything too close to `best`.
         int second = -1;
         float secondVal = ascending ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
         for (int u : ring) {
@@ -377,8 +344,6 @@ public final class MorseSmaleComplex {
         int nv = mesh.vertexIdBound();
         int liveCount = mesh.vertexCount();
 
-        // Statistics for the prominence post-filter — used after the
-        // structural classifier to drop flat-plateau false positives.
         float[] sortedScalar = new float[liveCount];
         for (int activeVertex = 0; activeVertex < liveCount; activeVertex++) {
             sortedScalar[activeVertex] = scalar[mesh.vertexIdAt(activeVertex)];
@@ -403,12 +368,8 @@ public final class MorseSmaleComplex {
                 label[v] = CriticalType.SADDLE;
                 saddleMultiplicity[v] = lowerComponents - 1;  // 1 for ordinary 1-saddle
             }
-            // else regular (lower=1, upper=1) — leave unlabeled
         }
 
-        // Prominence filter: drop extrema whose scalar value is too
-        // close to the mesh median. Real anatomical bumps stick out;
-        // plateau noise extrema sit near the median.
         float median = sortedScalar[liveCount / 2];
         for (int v = 0; v < nv; v++) {
             if (label[v] == CriticalType.MAX
@@ -420,11 +381,6 @@ public final class MorseSmaleComplex {
             }
         }
 
-        // Heuristic persistence: walk steepest-ascent from each saddle
-        // to the first MAX it reaches; persistence = scalar(max) -
-        // scalar(saddle). Drop pairs below threshold by also unlabeling
-        // the max IF that's its only short-persistence partner. Same
-        // dually for saddle-to-min.
         boolean[] isMax = new boolean[nv];
         boolean[] isMin = new boolean[nv];
         for (int v = 0; v < nv; v++) {
@@ -443,7 +399,6 @@ public final class MorseSmaleComplex {
             }
         }
 
-        // Collect surviving critical set.
         List<CriticalPoint> critical = new ArrayList<>();
         List<Integer> saddles = new ArrayList<>();
         Arrays.fill(isMax, false);
@@ -456,10 +411,6 @@ public final class MorseSmaleComplex {
             else if (label[v] == CriticalType.SADDLE) saddles.add(v);
         }
 
-        // Trace arcs from each saddle via steepest ascent / descent,
-        // terminating only at retained critical points. Each saddle
-        // emits up to 4 arcs (2 ascending + 2 descending) using the
-        // ordered link's component split.
         List<Arc> arcs = new ArrayList<>();
         for (int saddle : saddles) {
             int[] ord = orderedRing[saddle];
@@ -510,8 +461,6 @@ public final class MorseSmaleComplex {
             if (inSet[i] && !inRun) { comp++; inRun = true; }
             else if (!inSet[i]) inRun = false;
         }
-        // Cyclic merge: if the ring starts and ends in the set, those
-        // two runs are actually the same component.
         if (comp >= 2 && inSet[0] && inSet[n - 1]) comp--;
         return comp;
     }
@@ -537,12 +486,10 @@ public final class MorseSmaleComplex {
             if (fu == fv) inSet[i] = upper ? (ord[i] > saddle) : (ord[i] < saddle);
             else inSet[i] = upper ? (fu > fv) : (fu < fv);
         }
-        // Walk the cycle, identifying runs and the best vertex in each.
         int[] seeds = new int[]{-1, -1, -1, -1};
         int slot = 0;
         int bestInRun = -1;
         float bestVal = upper ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
-        // Start scan such that we don't split a run that wraps the seam.
         int start = 0;
         if (inSet[0] && inSet[n - 1]) {
             for (int i = 1; i < n; i++) {
@@ -565,7 +512,6 @@ public final class MorseSmaleComplex {
                 bestVal = upper ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
             }
         }
-        // Tail run if we ended inside the set.
         if (bestInRun >= 0 && slot < seeds.length) seeds[slot++] = bestInRun;
         return seeds;
     }
@@ -619,7 +565,6 @@ public final class MorseSmaleComplex {
         int[] faceIdx = ed.triangles();
         int faceCount = faceIdx.length / 3;
 
-        // Vertex → list of (faceId, vPositionInFace) inverse index.
         List<int[]>[] vertFaces = new List[nv];
         for (int i = 0; i < nv; i++) vertFaces[i] = new ArrayList<>(6);
         for (int f = 0; f < faceCount; f++) {
@@ -634,9 +579,6 @@ public final class MorseSmaleComplex {
         for (int v = 0; v < nv; v++) {
             List<int[]> incident = vertFaces[v];
             if (incident.isEmpty()) { out[v] = null; continue; }
-            // Start at any incident face; orient: v at position p, "left"
-            // is at (p+2)%3, "right" is at (p+1)%3 (assuming consistent
-            // counter-clockwise face winding). Chain via the right edge.
             int[] startFp = incident.get(0);
             int curFace = startFp[0];
             int curPos = startFp[1];
@@ -660,8 +602,6 @@ public final class MorseSmaleComplex {
                 int nextFace = (adj[0] == curFace) ? adj[1] : adj[0];
                 if (nextFace < 0) { out[v] = null; break; }
                 if (nextFace == startFp[0]) {
-                    // Closed ring; the rightV we just added equals the
-                    // first neighbour in the chain, drop the duplicate.
                     if (!ringList.isEmpty()
                             && ringList.get(ringList.size() - 1) == firstNeighbour) {
                         ringList.remove(ringList.size() - 1);
@@ -671,7 +611,6 @@ public final class MorseSmaleComplex {
                     out[v] = arr;
                     break;
                 }
-                // Find v's position in next face.
                 int nextPos = -1;
                 for (int p = 0; p < 3; p++) {
                     if (faceIdx[nextFace * 3 + p] == v) { nextPos = p; break; }
@@ -681,7 +620,6 @@ public final class MorseSmaleComplex {
                 curPos = nextPos;
             }
             if (out[v] == null && ringList.size() >= 3) {
-                // Open fan or non-manifold; emit unclosed ring as best-effort.
                 int[] arr = new int[ringList.size()];
                 for (int i = 0; i < ringList.size(); i++) arr[i] = ringList.get(i);
                 out[v] = arr;

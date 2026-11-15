@@ -31,10 +31,8 @@ class EmbeddedTMeshPipelineTest {
             "test/resources/quadlayout/figure_7/sphere_base_in_tri.off";
     private static final double ALPHA_RADIANS = Math.toRadians(15.0);
 
-    // LCK21a: a UV triangle below this fraction of the mean |area| counts as degenerate.
     private static final double DEGENERATE_UV_AREA_FRACTION = 1.0e-6;
 
-    // LCK21a §5.2: the quantization stays within this many variables per trace.
     private static final double VARIABLES_PER_TRACE_BOUND = 1.5;
 
     @Test

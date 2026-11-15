@@ -70,13 +70,11 @@ public final class ValidateDsl {
         String skillDir,
         String exportPath
     ) {
-        // Groups from a user folder (optional — validation works without it)
         Map<String, PythonParser.FunctionDef> funcDefs = new HashMap<>();
         if (skillDir != null && !skillDir.isEmpty()) {
             try {
                 funcDefs.putAll(GroupLibrary.loadDirectory(Path.of(skillDir)));
             } catch (IOException | RuntimeException e) {
-                // Group folder unreadable — continue without it
             }
         }
 
@@ -282,11 +280,9 @@ public final class ValidateDsl {
             return probe;
         }
 
-        // Always report execution time for observability
         long executionMs = runtime.root.elapsedMs();
         probe.put("executionMs", executionMs);
 
-        // Performance gate: reject DSLs that take too long to evaluate
         final long MAX_EXECUTION_MS = 1000;
         if (executionMs > MAX_EXECUTION_MS) {
             probe.put(OK, false);
@@ -303,7 +299,6 @@ public final class ValidateDsl {
             return probe;
         }
 
-        // Reject meshes over 1M faces
         final int MAX_FACE_COUNT = 1_000_000;
         if (mesh.faceCount() > MAX_FACE_COUNT) {
             probe.put(OK, false);
@@ -425,10 +420,6 @@ public final class ValidateDsl {
         for (Map.Entry<String, boolean[]> e : tags.entrySet()) {
             boolean[] mask = e.getValue();
             if (mask.length != vertexCount) {
-                // Skip tags whose per-vertex mask doesn't match the final mesh. This
-                // happens when a tag set before a vertex-count-changing op (e.g.
-                // coons_patch's subdivision) is carried forward; the indices would
-                // be meaningless or misleading in the sidecar.
                 System.err.println(
                     "[ValidateDsl] skipping tag '" +
                         e.getKey() +

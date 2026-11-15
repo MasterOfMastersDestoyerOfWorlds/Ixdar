@@ -38,14 +38,10 @@ class CoincidentAnchorSaveTest {
             + "max_hole_edges=0, min_shell_faces=1)\n"
             + "surface = surface_metric(geometry=repaired.geometry)\n";
 
-    // A unit sphere inside a radius-two one, touching it at their top poles, where the two
-    // fans lie almost on top of each other.
     private static final String NESTED = "outer_base = icosphere(radius=2.0, subdivisions=2)\n"
             + "inner_base = icosphere(radius=1.0, subdivisions=2)\n"
             + "inner = transform_geometry(geometry=inner_base.mesh, translation=<0.0, 1.0, 0.0>)\n"
             + "nested = join_geometry(a=outer_base.mesh, b=inner.geometry)\n"
-            // Faceted, the inner sphere's pole fan pokes through the outer one, which pruning
-            // would cut away along with the overlap this test holds rings on.
             + "repaired = repair_mesh(geometry=nested.geometry, weld_epsilon=0.0001, "
             + "max_hole_edges=0, min_shell_faces=1, prune_exposed=false)\n"
             + "surface = surface_metric(geometry=repaired.geometry)\n";
@@ -62,7 +58,6 @@ class CoincidentAnchorSaveTest {
 
     private static final float[] MERIDIAN_NORMAL = { 0f, 0f, 1f };
 
-    // Two poles the neighbours share, then two equator points clear of every tie.
     private static final float[] POLES = { 0f, 1f, 0f, 0f, -1f, 0f };
 
     private static final float[] EQUATOR = { 0.98f, 0.01f, 0.03f, -0.98f, 0.01f, 0.03f };
@@ -167,8 +162,6 @@ class CoincidentAnchorSaveTest {
                 + OTHER_RING + " = spline_ring(geometry=" + RING + ".geometry, "
                 + "metric=surface.metric, points=\"" + onPoles + "\", normal=\"" + normal
                 + "\", label=\"" + OTHER_RING + "\")\n";
-        // The same rings at the top level and inside a group call: a failure deferred in a group
-        // body still fails the run.
         String[][] sourceAndOutput = {
             { SPHERES + rings, OTHER_RING },
             { "def rings(geometry: GEOMETRY_BUNDLE) -> GEOMETRY_BUNDLE:\n"
@@ -245,7 +238,6 @@ class CoincidentAnchorSaveTest {
             if (mesh.vertexPosition(vertexId, position).distance(0f, 2f, 0f) > WELD) {
                 continue;
             }
-            // The fan's far corners are icosphere vertices, exactly on their own sphere.
             int faceId = mesh.vertexFaceAt(vertexId, 0);
             double offSphere = 0.0;
             for (int at = 0; at < mesh.faceVertexCount(faceId); at++) {

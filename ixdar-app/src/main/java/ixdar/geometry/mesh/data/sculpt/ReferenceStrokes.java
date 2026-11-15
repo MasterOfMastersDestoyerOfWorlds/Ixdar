@@ -168,7 +168,6 @@ public final class ReferenceStrokes {
         strokes.valleysByView = new int[views];
         strokes.fillsByView = new int[views];
         String[] groupByView = new String[views];
-        // Axis pictures place their marks first; a 3/4 picture then adds what they left uncovered.
         for (int view : IntStream.range(0, views).boxed().sorted(Comparator.comparing(
                 (Integer each) -> traced.measuredByView[each] == null)).mapToInt(Integer::intValue).toArray()) {
             ShadingEdges marks = shading[view];
@@ -176,7 +175,6 @@ public final class ReferenceStrokes {
             int cell = strokes.templateCellByView[view];
             StringBuilder group = new StringBuilder();
             StringBuilder[] onPicture = { new StringBuilder(), new StringBuilder(), new StringBuilder() };
-            // Strongest first, so a weaker line beside it merges into it; faint ones only crumple.
             for (int line : IntStream.range(0, marks.lines.size()).boxed().sorted((first, second) -> Float.compare(
                     Math.abs(marks.contrastByLine[second]), Math.abs(marks.contrastByLine[first])))
                     .mapToInt(Integer::intValue).toArray()) {
@@ -185,7 +183,6 @@ public final class ReferenceStrokes {
                 }
                 float radius = Math.max(MINIMUM_RADIUS, Math.min(MAXIMUM_RADIUS,
                         RADIUS_PER_WIDTH * marks.widthByLine[line] * worldPerPixel));
-                // The step across the edge as the flanks' turn, 2 atan(s) for slope s = 1.54 depth / radius.
                 float turn = Math.min(MAXIMUM_TURN, Math.abs(marks.contrastByLine[line]) * (float) Math.PI / 2f);
                 float depth = Math.min(radius * (float) Math.tan(turn / 2f) / SculptStroke.FALLOFF_STEEPEST_SLOPE,
                         LIMIT_SHARE * SculptStroke.steepestDepth(radius, SculptStroke.FALLOFF_STEEPEST_SLOPE, finest));
@@ -197,7 +194,6 @@ public final class ReferenceStrokes {
                 onPicture[ridge ? 0 : 1].append(strokes.unplacedTag(StrokeSketch.POLYLINE, attributes,
                         marks.lines.get(line)));
                 for (float[] piece : strokes.place(view, marks.lines.get(line), false, radius)) {
-                    // A piece shorter than its own width is a dimple, not a line: it crumples the surface.
                     double length = 0.0;
                     for (int point = PLACED_FIELDS; point < piece.length; point += PLACED_FIELDS) {
                         length += Math.hypot(piece[point + 2] - piece[point + 2 - PLACED_FIELDS],
@@ -218,13 +214,9 @@ public final class ReferenceStrokes {
                 for (int point = 0; point + 3 < outline.length; point += 2) {
                     perimeter += Math.hypot(outline[point + 2] - outline[point], outline[point + 3] - outline[point + 1]);
                 }
-                // A dark region is a cavity about as deep as it is wide when black: 2 area / perimeter
-                // is its inset, how far its middle lies from its rim.
                 float inset = (float) (2.0 * marks.areaByRegion[region] / Math.max(1.0, perimeter)) * worldPerPixel;
-                // Under the sample spacing a fill's samples do not overlap and it stipples into dots.
                 float radius = Math.max(StrokeSketch.DEFAULT_SPACING * SAMPLES_PER_FILL_RADIUS, Math.min(MAXIMUM_RADIUS,
                         FILL_RADIUS_PER_INSET * inset));
-                // The bowl's floor rises over the inset its lift measures, its deepest fill sample's.
                 float deepestSample = 0f;
                 for (float distance : PolygonScan.outlineDistances(outline, PolygonScan.coveredPoints(outline,
                         Math.max(StrokeSketch.MINIMUM_FILL_STEP_PIXELS, StrokeSketch.DEFAULT_SPACING / worldPerPixel)))) {
@@ -232,8 +224,6 @@ public final class ReferenceStrokes {
                 }
                 inset = Math.min(inset, deepestSample);
                 float slope = FillStroke.rimSlope(StrokeSketch.DEFAULT_SPACING / radius);
-                // A round, dark hollow (an eye socket, a nasal opening) is about as deep as its mouth is
-                // wide; a long thin band is the shadow along a crease, and a faint one a shallow dip.
                 float roundness = (float) Math.min(1.0, 4.0 * Math.PI * marks.areaByRegion[region]
                         / Math.max(1.0, perimeter * perimeter) / ROUND_HOLLOW);
                 float darkness = Math.max(0f, Math.min(1f, (marks.darknessByRegion[region] - FAINT_DARKNESS)
@@ -241,8 +231,6 @@ public final class ReferenceStrokes {
                 float depth = Math.min(CAVITY_DEPTH_PER_INSET * inset * roundness * darkness, LIMIT_SHARE * Math.min(
                         SculptStroke.steepestDepth(radius, slope, finest),
                         SculptStroke.steepestDepth(inset, SculptStroke.BOWL_RIM_SLOPE, finest)));
-                // An outline that lost points to another picture or off the base would cut a chord
-                // across what it encloses: only a nearly whole one is a fill here.
                 String attributes = String.format(Locale.ROOT, "data-depth=\"%.5f\" data-radius=\"%.4f\" "
                         + "data-profile=\"bowl\" fill=\"none\" stroke=\"%s\" stroke-width=\"2\"", -depth, radius,
                         FILL_COLOUR);
@@ -266,8 +254,6 @@ public final class ReferenceStrokes {
             strokes.pendingPoints = 0;
             int width = marks.width;
             int height = marks.height;
-            // strokes_overlay.py reads world units per pixel from the cell height, distance and field
-            // of view: this picture's own scale, through a 90 degree view of the picture's height.
             strokes.pictureSvgByView[view] = String.format(Locale.ROOT, "<svg xmlns=\"http://www.w3.org/2000/svg\" "
                     + "width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\" data-cell-height=\"%d\" data-distance=\"%.6f\" "
                     + "data-fov=\"90\">%n<!-- reference-strokes: the strokes computed from this picture, in its own "
@@ -296,7 +282,6 @@ public final class ReferenceStrokes {
      */
     public List<float[]> place(int view, float[] sparse, boolean closed, float radius) {
         int ownStart = pendingPoints;
-        // Points no further apart than RESAMPLE_PIXELS, so no earlier mark hides between two of them.
         float[] picture = new float[0];
         int filled = 0;
         for (int point = 0; point < sparse.length / 2; point++) {
@@ -345,9 +330,6 @@ public final class ReferenceStrokes {
                 base.faceNormal(faceOfTriangle[triangle], normal).normalize();
                 kept = normal.dot(back[0], back[1], back[2]) >= PLACE_COSINE && template.cellPixel(camera, hit, pixel)
                         && pixel[0] >= 0f && pixel[1] >= 0f && pixel[0] < template.cellWidth && pixel[1] < template.cellHeight;
-                // No edge counted twice: a point an earlier picture's mark already covers is dropped,
-                // and so is a line's point beside a stronger line of the same picture (lines come
-                // strongest first), so parallel creases merge into one.
                 for (int earlier = 0; earlier < coveredPoints + (closed ? 0 : ownStart) && kept; earlier++) {
                     float[] from = earlier < coveredPoints ? covered : pending;
                     int at = (earlier < coveredPoints ? earlier : earlier - coveredPoints) * COVERED_FIELDS;

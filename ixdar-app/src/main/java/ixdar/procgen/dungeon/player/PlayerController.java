@@ -114,12 +114,6 @@ public class PlayerController {
      * @param cameraYawDegrees camera's yaw in degrees (matches Camera3D.yaw)
      */
     public void update(float dt, Set<Integer> pressedKeys, float cameraYawDegrees) {
-        // Horizontal direction relative to camera yaw. yaw=-90 (Camera3D default looking -Z)
-        // gives forward = (0, 0, -1). yaw 0 => forward = (1, 0, 0). The right vector is
-        // cross(forward, worldUp=+Y) which matches Camera3D.updateCameraVectors:
-        //   forward = (cos yaw, 0, sin yaw)
-        //   right   = (-sin yaw, 0, cos yaw)
-        // The previous formula had right's sign flipped, so D moved the player to the left.
         double yawRad = Math.toRadians(cameraYawDegrees);
         float fwdX = (float) Math.cos(yawRad);
         float fwdZ = (float) Math.sin(yawRad);
@@ -131,7 +125,6 @@ public class PlayerController {
         if (pressedKeys.contains(Keys.S.keyCode)) { horizX -= fwdX;   horizZ -= fwdZ; }
         if (pressedKeys.contains(Keys.D.keyCode)) { horizX += rightX; horizZ += rightZ; }
         if (pressedKeys.contains(Keys.A.keyCode)) { horizX -= rightX; horizZ -= rightZ; }
-        // Normalize so diagonal movement isn't faster.
         float horizLen = (float) Math.sqrt(horizX * horizX + horizZ * horizZ);
         if (horizLen > MOVE_EPSILON) {
             float invLen = 1f / horizLen;
@@ -139,7 +132,6 @@ public class PlayerController {
             float dirZ = horizZ * invLen;
             horizX = dirX * moveSpeed;
             horizZ = dirZ * moveSpeed;
-            // Dark Souls turning: rotate facing toward the movement direction at a bounded rate.
             float targetYaw = (float) Math.toDegrees(Math.atan2(dirZ, dirX));
             float diff = wrapAngle180(targetYaw - facingYawDegrees);
             float maxStep = TURN_RATE_DEG_PER_SEC * dt;
@@ -147,7 +139,6 @@ public class PlayerController {
             facingYawDegrees = wrapAngle180(facingYawDegrees + clamped);
         }
 
-        // Vertical velocity: gravity each frame, jump on press while grounded.
         float vy = velocity.y() - gravity * dt;
         if (grounded && pressedKeys.contains(Keys.SPACE.keyCode)) {
             vy = jumpSpeed;
@@ -155,20 +146,16 @@ public class PlayerController {
 
         velocity = new Vector3f(horizX, vy, horizZ);
 
-        // Integrate.
         Vector3f delta = velocity.mul(dt);
         CapsuleShape capsule = new CapsuleShape(
                 position.x(), position.y(), position.z(), halfHeight, radius);
         Vector3f newPos = CapsuleMover.moveAndSlide(capsule, delta, cells, gridW, gridH, gridD, cellSize);
 
-        // Grounded detection: we wanted to fall (delta.y < 0) but actually moved up relative to
-        // the requested motion -> the floor pushed us. Threshold accounts for sub-step rounding.
         Vector3f actualMotion = newPos.sub(position);
         boolean wasFalling = delta.y() < 0f;
         boolean blockedDownward = actualMotion.y() > delta.y() + GROUNDED_THRESHOLD;
         boolean newlyGrounded = wasFalling && blockedDownward;
         if (newlyGrounded) {
-            // Zero downward velocity so gravity doesn't accumulate while standing still.
             velocity = new Vector3f(velocity.x(), 0f, velocity.z());
         }
         grounded = newlyGrounded;

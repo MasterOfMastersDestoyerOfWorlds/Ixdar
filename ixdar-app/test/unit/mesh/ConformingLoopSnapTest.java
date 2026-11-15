@@ -26,7 +26,6 @@ class ConformingLoopSnapTest {
         MeshTopology cylinder = RingRegionsTest.cappedCylinder();
         int around = RingRegionsTest.SEGMENTS_AROUND;
         int junction = ROW * around;
-        // Round the ring's row, but from its first vertex up the triangle above it and back.
         int[] detour = { junction, junction + around, junction + around + 1 };
         int[] vertexIds = new int[detour.length + around];
         for (int index = 0; index < detour.length; index++) {

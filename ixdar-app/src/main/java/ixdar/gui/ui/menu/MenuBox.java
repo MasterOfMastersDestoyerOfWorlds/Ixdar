@@ -74,11 +74,9 @@ public class MenuBox implements PointerRegion {
         this.owner = owner;
         logo = new SDFTexture("decal_sdf.png", true);
         boundingBox = new ColorBox();
-        // Create both menus and link them
         debugMenu = new Menu.MainMenu();
         gameMenu = new GameMenu(debugMenu);
 
-        // Select active menu based on GameMode toggle
         if (Toggle.GameMode.value) {
             activeMenu = gameMenu;
         } else {

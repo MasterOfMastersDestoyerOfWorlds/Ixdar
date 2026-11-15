@@ -35,7 +35,6 @@ class PatchColoursTest {
 
     private static final double MINIMUM_BRIGHT_DISTANCE = 0.15;
 
-    // A wheel: hub 0 joined to every rim node 1..5, the rim a cycle.
     private static final int[][] WHEEL = { { 1, 2, 3, 4, 5 }, { 0, 2, 5 }, { 0, 1, 3 },
         { 0, 2, 4 }, { 0, 3, 5 }, { 0, 4, 1 } };
 
@@ -74,7 +73,6 @@ class PatchColoursTest {
                 assertNotEquals(colouring.colourByNode[node], colouring.colourByNode[neighbour]);
             }
         }
-        // Reversing the node order with every node kept carries each colour to its new index.
         int[][] reversed = new int[WHEEL.length][];
         int[] former = new int[WHEEL.length];
         boolean[] kept = new boolean[WHEEL.length];

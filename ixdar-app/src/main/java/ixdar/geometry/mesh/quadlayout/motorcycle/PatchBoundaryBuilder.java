@@ -140,10 +140,6 @@ public final class PatchBoundaryBuilder {
                     }
                     PatchPort arrival = nodePorts.get(arrivalIndex);
                     PatchPort departure = nodePorts.get((arrivalIndex + 1) % nodePorts.size());
-                    // The in-port points back along the arrival, so the incoming travel is its
-                    // negation. LCBK19 §4: a flat halfarc keeps that direction, a corner rotates
-                    // it counter-clockwise by π/2. A singularity is always a corner, and the cone
-                    // angle there is not π/2, so the law is only meaningful away from one.
                     int incomingU = -arrival.directionU;
                     int incomingV = -arrival.directionV;
                     boolean atSingularity = graph.nodes.get(headNodeId).vertexId >= 0;

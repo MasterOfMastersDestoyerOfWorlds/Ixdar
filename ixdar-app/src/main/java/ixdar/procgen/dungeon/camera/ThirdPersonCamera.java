@@ -126,7 +126,6 @@ public final class ThirdPersonCamera implements CameraController {
         float sinE = (float) Math.sin(elevation);
         float cosA = (float) Math.cos(azimuth);
         float sinA = (float) Math.sin(azimuth);
-        // The camera sits opposite the look direction, Camera3D's front for this yaw and pitch.
         float fx = cosA * cosE;
         float fy = sinE;
         float fz = sinA * cosE;

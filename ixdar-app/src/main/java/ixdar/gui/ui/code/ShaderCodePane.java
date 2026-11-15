@@ -33,7 +33,6 @@ public class ShaderCodePane implements PointerRegion {
     public static final float CROSSHAIR_LINE_WIDTH = 2f;
     public static final float CROSSHAIR_SIZE_PX = 20f;
 
-    // private ExpressionParser expressionParser;
 
     public static final String DEFAULT_VIEW_RIGHT = "RIGHT_CODE";
 
@@ -169,7 +168,6 @@ public class ShaderCodePane implements PointerRegion {
                     }
                     return dyn;
                 }, palette.text,
-                        // hover: only set highlight for assignments
                         () -> {
                             if (isAssignment)
                                 hoverLineIndex = idx;
@@ -178,9 +176,7 @@ public class ShaderCodePane implements PointerRegion {
                             if (hoverLineIndex == idx)
                                 hoverLineIndex = -1;
                         },
-                        // click: only inject for assignments
                         isAssignment ? () -> onLineClicked(idx) : null);
-                // click targets for this line: gap and suffix, only if assignment
                 if (isAssignment) {
                     codeText.addWord("  ", palette.text, () -> {
                         hoverLineIndex = idx;
@@ -204,11 +200,9 @@ public class ShaderCodePane implements PointerRegion {
                 gIndex++;
             }
             codeText.wrap();
-            // Initialize cache to correct size
             for (int i = 0; i < displayedLines.size(); i++) {
                 cachedSuffixes.add(GLSLParseText.BLANK);
             }
-            // Force recompute on first draw
             lastMouseX = Float.NaN;
             lastMouseY = Float.NaN;
             loaded = true;
@@ -258,17 +252,14 @@ public class ShaderCodePane implements PointerRegion {
             GLSLParseText.put(env, "scaledTextureCoord", Math.clamp(u * q.widthToHeightRatio, 0, q.texWidth),
                     Math.clamp(v, 0, q.texHeight));
         }
-        // Ensure cache size matches displayed lines
         if (cachedSuffixes.size() != displayedLines.size()) {
             cachedSuffixes.clear();
             for (int i = 0; i < displayedLines.size(); i++)
                 cachedSuffixes.add(GLSLParseText.BLANK);
         }
         for (int i = 0; i < displayedLines.size(); i++) {
-            // placeholder sync to maintain size; actual suffixes will be set below
             cachedSuffixes.set(i, GLSLParseText.BLANK);
         }
-        // Delegate line-by-line evaluation with control flow to the parser
         GLSLExpressionParser.evaluateAndAssign(displayedLines, env, cachedSuffixes);
         lastMouseX = mx;
         lastMouseY = my;

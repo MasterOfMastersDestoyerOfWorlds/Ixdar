@@ -96,9 +96,6 @@ public final class FillStroke extends SculptStroke {
         sum.ensureSources(vertexCount);
         boolean[] taken = new boolean[sum.mesh.vertexIdBound()];
         Vector3f position = new Vector3f();
-        // Only vertices within the spacing of a sample seed from it, so each sample asks the pass's
-        // vertex grid for those, visited in dense order as a scan of every vertex would; a lone
-        // sample has no spacing and every vertex is within it.
         float margin = (float) Math.sqrt(spacingSquared);
         NearestVertex index = Float.isFinite(margin) ? sum.chain.nearestVertex(sum.mesh) : null;
         int count = 0;
@@ -130,7 +127,6 @@ public final class FillStroke extends SculptStroke {
                     sum.sources[count++] = vertexId;
                 }
             }
-            // No vertex within the spacing of this sample: it still takes its nearest, wherever it lies.
             for (int activeVertex = 0; activeVertex < vertexCount && nearestDistance > spacingSquared;
                     activeVertex++) {
                 int vertexId = sum.mesh.vertexIdAt(activeVertex);
@@ -165,7 +161,6 @@ public final class FillStroke extends SculptStroke {
         float uncovered = 1f;
         float weightedBumps = 0f;
         float bumps = 0f;
-        // Only samples whose bump reaches the vertex add to the union; the grid lists them in order.
         StrokeElementGrid grid = elementGrid(direction);
         int cell = grid == null ? 0 : grid.cellOf(vertex.x, vertex.y, vertex.z);
         int samples = grid == null ? pointWeight.length : cell < 0 ? 0 : grid.first(cell + 1) - grid.first(cell);

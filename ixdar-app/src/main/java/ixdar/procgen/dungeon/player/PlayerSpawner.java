@@ -40,17 +40,14 @@ public final class PlayerSpawner {
             throw new IllegalArgumentException("cannot spawn into an empty room list");
         }
         Vector3f start = rooms.vertexPosition(rooms.vertexIdAt(0), new Vector3f());
-        // World offsets — must mirror GridToMesh3D's centering.
         float offsetX = -gridW * cellSize * 0.5f;
         float offsetY = -gridH * cellSize * 0.5f;
         float offsetZ = -gridD * cellSize * 0.5f;
-        // Room center in grid units -> world.
         float wx = offsetX + start.x * cellSize;
         float wz = offsetZ + start.z * cellSize;
         float floorY = offsetY + (start.y - halfExtents.getY(0)) * cellSize;
         float wy = floorY + (halfHeight + radius);
 
-        // Yaw toward room[1] if there is one, otherwise face +X (yaw = 0).
         float yawDeg = 0f;
         if (rooms.vertexCount() >= 2) {
             Vector3f target = rooms.vertexPosition(rooms.vertexIdAt(1), new Vector3f());
@@ -58,7 +55,6 @@ public final class PlayerSpawner {
             float tz = offsetZ + target.z * cellSize;
             float dx = tx - wx;
             float dz = tz - wz;
-            // Camera3D yaw convention: forward = (cos yaw, _, sin yaw). atan2(dz, dx) gives yaw in radians.
             yawDeg = (float) Math.toDegrees(Math.atan2(dz, dx));
         }
         return new SpawnPoint(new Vector3f(wx, wy, wz), yawDeg, 0f);

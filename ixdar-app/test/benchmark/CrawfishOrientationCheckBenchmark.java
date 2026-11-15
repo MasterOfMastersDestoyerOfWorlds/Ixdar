@@ -89,7 +89,6 @@ public final class CrawfishOrientationCheckBenchmark {
             ThreadLocal<int[]> stacks = ThreadLocal.withInitial(() -> new int[Math.max(1, bvh.nodeCount)]);
             int[] verdicts = IntStream.range(0, bvh.triangleCount).parallel()
                     .map(triangle -> verdict(bvh, triangle, stacks.get())).toArray();
-            // back-out, back-out fill, flaps, flap fill, back seen
             int[] counts = new int[5];
             for (int triangle = 0; triangle < bvh.triangleCount; triangle++) {
                 int verdict = verdicts[triangle];

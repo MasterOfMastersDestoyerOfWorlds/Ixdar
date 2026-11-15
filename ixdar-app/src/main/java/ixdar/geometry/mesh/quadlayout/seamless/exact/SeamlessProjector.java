@@ -84,9 +84,6 @@ public final class SeamlessProjector {
     public void project() {
         int chartVertexCount = cutGraph.chartVertexCount;
 
-        // Initial per-chart-vertex (u, v) from the parametrization's corner arrays.
-        // Every corner mapped to the same chart vertex carries the same value after
-        // the BZK09 solve.
         double[] chartU = new double[chartVertexCount];
         double[] chartV = new double[chartVertexCount];
         int totalCorners = seamless.uv.faceCount * CORNERS_PER_FACE;
@@ -98,15 +95,10 @@ public final class SeamlessProjector {
         double[] chartUInitial = chartU.clone();
         double[] chartVInitial = chartV.clone();
 
-        // Phase 0: MC19 §5.1 Eq. (5) alignment rows. Every one is x_p|k − x_q|k = 0
-        // over two chart vertices of one face, so their transitive closure is an
-        // equivalence on (chart vertex, component) slots.
         computeAlignmentEdges();
         boolean[] alignedSlot = new boolean[COMPONENTS_PER_CHART_VERTEX * chartVertexCount];
         int[] alignClassParent = buildAlignmentClasses(alignedSlot);
 
-        // Phase 1: walk every branch, collecting (edges, plus-chartVertex sequence,
-        // minus-chartVertex sequence, rotation, start/end nodes).
         Set<Integer> singularityVertexIds = crossField.singularVertexIds();
         boolean[] walkedCutEdge = new boolean[seamless.uv.edgeCount];
         List<int[]> branchPlusChart = new ArrayList<>();
@@ -124,7 +116,6 @@ public final class SeamlessProjector {
         }
         int branchCount = branchPlusChart.size();
 
-        // Phase 2: assign a column index for each (node chart vertex, component) pair.
         Map<Integer, Integer> chartVertexToColumn = new HashMap<>();
         for (int b = 0; b < branchCount; b++) {
             int[] plus = branchPlusChart.get(b);
@@ -139,11 +130,6 @@ public final class SeamlessProjector {
         int reducedVariableCount = COMPONENTS_PER_CHART_VERTEX * nodeChartVertexCount;
         int reducedRowCount = COMPONENTS_PER_CHART_VERTEX * branchCount;
 
-        // Phase 2b: MC19 §5.3's 1_k alignment block. Its rows carry unit
-        // coefficients on exactly two node-sector variables, so eliminating them is
-        // an identification of those two columns rather than a matrix operation,
-        // and the alignment equation then holds by construction instead of to
-        // within the evaluator's exactness.
         int[] columnOfNodeSlot = mergeAlignedColumns(chartVertexToColumn, alignClassParent,
                 reducedVariableCount);
         int reducedColumnCount = 0;
@@ -151,7 +137,6 @@ public final class SeamlessProjector {
             reducedColumnCount = Math.max(reducedColumnCount, column + 1);
         }
 
-        // Phase 3: build the reduced constraint matrix C̄.
         BigInteger[][] reducedMatrix = new BigInteger[reducedRowCount][reducedColumnCount];
         for (int r = 0; r < reducedRowCount; r++) {
             for (int c = 0; c < reducedColumnCount; c++) {
@@ -172,7 +157,6 @@ public final class SeamlessProjector {
                     plus[0], plus[endPos], minus[0], minus[endPos], rotation);
         }
 
-        // Phase 4: run §4 on C̄ to get exact node values.
         IrrefResult result = ExactArithmetic.reduceToIrref(reducedMatrix, reducedRhs);
         double[] nodeXBar = new double[reducedColumnCount];
         int[] mergedSlotCount = new int[reducedColumnCount];
@@ -199,7 +183,6 @@ public final class SeamlessProjector {
                 + " %d node sectors over %d columns%n", branchCount, alignmentRowCount(),
                 nodeChartVertexCount, reducedColumnCount);
 
-        // Phase 5: scatter exact node values into chartU/V.
         for (Map.Entry<Integer, Integer> entry : chartVertexToColumn.entrySet()) {
             int chartVertex = entry.getKey();
             int slotBase = COMPONENTS_PER_CHART_VERTEX * entry.getValue();
@@ -207,7 +190,6 @@ public final class SeamlessProjector {
             chartV[chartVertex] = nodeXExact[columnOfNodeSlot[slotBase + V_COMPONENT]];
         }
 
-        // Phase 6: walk each branch forward, filling non-node sector chart vertices.
         for (int b = 0; b < branchCount; b++) {
             int[] plus = branchPlusChart.get(b);
             int[] minus = branchMinusChart.get(b);
@@ -216,24 +198,13 @@ public final class SeamlessProjector {
                     chartUInitial, chartVInitial, scale);
         }
 
-        // Phase 6b: every remaining slot of an alignment class takes its class's one
-        // value, so each alignment row holds bit-exactly and an aligned crease has
-        // the same iso level in both flanking faces.
         assignAlignedIsoLevels(alignClassParent, alignedSlot, chartVertexToColumn,
                 chartU, chartV, chartUInitial, chartVInitial, scale);
 
-        // Phase 7: MC19 §5.4 injectivity repair. §5.3's exact-equality projection
-        // makes no inequality guarantee — small adjustments can introduce local
-        // foldovers. MC19 §5.4: for each inverted face, move one of its
-        // interior, non-cut chart vertices into the kernel of its 1-ring (the
-        // intersection of half-planes spanned by link edges). Repeat until
-        // either no flips remain or a pass makes no progress.
         repairFlipsInChartSpace(chartU, chartV);
 
-        // Phase 8: overflow check — every projected value must still be in F_d.
         verifyFdRangeContained(chartU, chartV, scale);
 
-        // Phase 9: writeback to per-corner arrays and recompute (s, t) translations.
         for (int cornerIdx = 0; cornerIdx < totalCorners; cornerIdx++) {
             int chartVertex = cutGraph.cornerToChartVertex[cornerIdx];
             seamless.uv.uCorner[cornerIdx] = chartU[chartVertex];
@@ -431,7 +402,6 @@ public final class SeamlessProjector {
         int[] seedEndpoints = edgeEndpointsActive(seedEdge);
         int activeVertexA = seedEndpoints[0];
 
-        // Walk backward from one endpoint to find the start node (or detect a loop).
         int backwardSeedEdge = seedEdge;
         int backwardSeedVertex = activeVertexA;
         while (!isNode(backwardSeedVertex, singularityVertexIds)) {
@@ -451,7 +421,6 @@ public final class SeamlessProjector {
         int startNodeActiveVertex = backwardSeedVertex;
         int firstActiveEdge = backwardSeedEdge;
 
-        // Walk forward from the start node along the first edge, recording chain.
         int currentActiveVertex = startNodeActiveVertex;
         int currentActiveEdge = firstActiveEdge;
         int currentPlusActiveFace = seamless.uv.edgeFaceA[firstActiveEdge];
@@ -558,7 +527,6 @@ public final class SeamlessProjector {
         int colMinusStartV = nodeColumn(chartVertexToColumn, columnOfNodeSlot, minusStart, V_COMPONENT);
         int colMinusEndV = nodeColumn(chartVertexToColumn, columnOfNodeSlot, minusEnd, V_COMPONENT);
 
-        // U-component: cos·(u^+_0 − u^+_m) − sin·(v^+_0 − v^+_m) − (u^-_0 − u^-_m) = 0
         reducedMatrix[rowU][colPlusStartU] = reducedMatrix[rowU][colPlusStartU].add(cos);
         reducedMatrix[rowU][colPlusEndU] = reducedMatrix[rowU][colPlusEndU].add(negCos);
         reducedMatrix[rowU][colPlusStartV] = reducedMatrix[rowU][colPlusStartV].add(negSin);
@@ -566,7 +534,6 @@ public final class SeamlessProjector {
         reducedMatrix[rowU][colMinusStartU] = reducedMatrix[rowU][colMinusStartU].subtract(BigInteger.ONE);
         reducedMatrix[rowU][colMinusEndU] = reducedMatrix[rowU][colMinusEndU].add(BigInteger.ONE);
 
-        // V-component: sin·(u^+_0 − u^+_m) + cos·(v^+_0 − v^+_m) − (v^-_0 − v^-_m) = 0
         int rowV = rowU + 1;
         reducedMatrix[rowV][colPlusStartU] = reducedMatrix[rowV][colPlusStartU].add(sin);
         reducedMatrix[rowV][colPlusEndU] = reducedMatrix[rowV][colPlusEndU].add(negSin);
@@ -971,9 +938,6 @@ public final class SeamlessProjector {
             chartU[chartVertex] = kernelPoint[0];
             chartV[chartVertex] = kernelPoint[1];
             if (isFaceFlippedOrDegenerate(activeFace, chartU, chartV)) {
-                // Move didn't actually un-flip — kernel computation produced a
-                // point that doesn't satisfy this face's constraint. Roll back
-                // and try the next corner so we don't oscillate.
                 Platforms.log(
                         "[seamless] §5.4 repair: face %d corner=%d cv=%d v=%d move rolled back"
                                 + " (cornersCollapsed=%s; cv0=%d cv1=%d cv2=%d):"
@@ -1030,8 +994,6 @@ public final class SeamlessProjector {
             }
             int linkACorner = (cornerCv + 1) % CORNERS_PER_FACE;
             int linkBCorner = (cornerCv + 2) % CORNERS_PER_FACE;
-            // For CCW-oriented face (cv, A, B), the link edge is A→B; chart
-            // vertex moves to the LEFT of A→B keep the face CCW.
             linkAChart[i] = cutGraph.cornerToChartVertex[base + linkACorner];
             linkBChart[i] = cutGraph.cornerToChartVertex[base + linkBCorner];
         }

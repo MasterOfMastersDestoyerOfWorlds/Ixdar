@@ -13,11 +13,8 @@ import org.junit.jupiter.api.Test;
  */
 class RingFitBenchTest {
 
-    // One cross-section of the fixtures' tori, in degrees: anchors stand on vertices.
     private static final double SECTION = 2.25;
 
-    // The one-groove fixtures' rings are drawn at +z, a quarter of the torus from the groove at +x,
-    // and at about 166.5 degrees, nearly opposite it.
     private static final double QUARTER_TURN = 90.0;
 
     private static final double NEARLY_OPPOSITE = 166.5;

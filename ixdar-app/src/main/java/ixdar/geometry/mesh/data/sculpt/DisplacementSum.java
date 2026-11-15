@@ -210,8 +210,6 @@ public final class DisplacementSum {
         if (!displace || count == 0) {
             return;
         }
-        // One direction for the whole stroke, its seeds' mean normal, and a falloff measured across
-        // it: per-vertex normals over an earlier pass's walls point sideways.
         Vector3f direction = new Vector3f();
         Vector3f normal = new Vector3f();
         for (int seed = 0; seed < count; seed++) {
@@ -219,8 +217,6 @@ public final class DisplacementSum {
             direction.add(normal.set(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]).normalize());
         }
         direction.normalize();
-        // The edge search only gathers; chains and fills measure their falloff straight to the drawn
-        // stroke, since edge paths over mixed-density faces zigzag into the mesh's staircase.
         falloff.expand(mesh, sources, count, stroke.gatherReach(), -1, stroke.refines() || stroke.smooth
                 ? direction : null);
         boolean seeing = stroke.seesThroughCamera() && bvh != null;
@@ -249,8 +245,6 @@ public final class DisplacementSum {
                 kernel *= visibility(stroke, activeVertex, normal.set(normalXyz[at], normalXyz[at + 1],
                         normalXyz[at + 2]), 1f) * Math.min(1f, shadow.distance(vertexId)
                                 / (stroke.radius * SHADOW_FEATHER));
-                // A camera sees a surface turning edge-on ever worse: the move fades out as the
-                // surface turns from facing it to grazing, the lift's own cut-off.
                 float[] eye = stroke.eyeForward;
                 mesh.vertexPosition(vertexId, position).sub(eye[0], eye[1], eye[2]).normalize();
                 float facing = -normal.dot(position) / Math.max(SculptStroke.MINIMUM_NORMAL_LENGTH, normal.length());
@@ -307,8 +301,6 @@ public final class DisplacementSum {
      */
     public MeshTopology sculpted(float tangentialRelax) {
         finishStroke();
-        // Each vertex took the drag of its nearest contour vertex, a field with seams between
-        // neighbours that pulled different ways; blurring it keeps those seams from folding.
         int[][] rings = mesh.oneRings();
         for (int pass = 0; pass < DRAG_SMOOTHING_PASSES; pass++) {
             float[] smoothed = new float[dragByActiveVertexXyz.length];
@@ -333,8 +325,6 @@ public final class DisplacementSum {
         if (!relaxing) {
             return sculpted;
         }
-        // Relax what moved tangentially, which evens out stretched quads without shrinking the
-        // bumps, and smooth fully where smooth strokes asked for it.
         int[] sculptedActiveById = new int[sculpted.vertexIdBound()];
         float[] relaxed = sculpted.packedPositions(sculptedActiveById);
         Vector3f laplacian = new Vector3f();
@@ -378,8 +368,6 @@ public final class DisplacementSum {
      */
     public float visibility(SculptStroke stroke, int activeVertex, Vector3f normal, float slackEdges) {
         if (stroke.visibilityByActiveVertex == null || stroke.visibilityByActiveVertex.length != mesh.vertexCount()) {
-            // What a camera sees of this surface is the same for every stroke drawn through it, so
-            // strokes share it; a silhouette also asks about contours and keeps its own.
             float[] fresh = new float[mesh.vertexCount()];
             Arrays.fill(fresh, Float.NaN);
             stroke.visibilityByActiveVertex = stroke instanceof SilhouetteStroke ? fresh
@@ -403,8 +391,6 @@ public final class DisplacementSum {
                     ? 0f : seen;
         }
         if (seen > 0f && bvh != null && normal == null) {
-            // A seen contour is on the outline when the view ray just past it, outward across the
-            // view, meets nothing; otherwise it is an inner contour in front of more surface.
             Vector3f outward = mesh.vertexNormal(vertexId, new Vector3f());
             Vector3f along = new Vector3f(toVertex[0], toVertex[1], toVertex[2]).div(distance);
             outward.fma(-outward.dot(along), along);

@@ -98,8 +98,6 @@ public final class SlotCarry {
             return;
         }
 
-        // Edge provenance asks the inputs for their edges, which an indexed input builds whole
-        // on first use; only edge-domain slots read it.
         edgeSource = new int[traceEdges ? mesh.edgeIdBound() : 0];
         edgeOperand = new int[edgeSource.length];
         edgeDirected = new boolean[edgeSource.length];
@@ -141,8 +139,6 @@ public final class SlotCarry {
                 }
                 cornerSource[cornerStart[activeFace] + corner] = match;
             }
-            // A face side whose two corners both resolved names its input edge exactly, even
-            // where a weld left the side's ends with sources from different input faces.
             for (int corner = 0; corner < corners && traceEdges; corner++) {
                 int from = cornerSource[cornerStart[activeFace] + corner];
                 int to = cornerSource[cornerStart[activeFace] + (corner + 1) % corners];
@@ -228,7 +224,6 @@ public final class SlotCarry {
         MeshTopology mesh = output.mesh();
         Map<String, Object> slots = new HashMap<>(output.slots());
 
-        // One material over every input stays whole-bundle; inputs that disagree get a per-face index.
         Set<MaterialData> singleMaterials = new LinkedHashSet<>();
         boolean anySet = false;
         boolean anyUntextured = false;
@@ -288,8 +283,6 @@ public final class SlotCarry {
                         target[vertexId] = trace.tagAt(tag, trace.vertexOperand[vertexId],
                                 trace.sourceVertex[vertexId]);
                     }
-                    // A weld lands several input vertices on one output vertex: a tag on any of
-                    // them, reached through the corners of the faces they shared, holds there.
                     for (int activeFace = 0; trace.cornerSource != null
                             && activeFace < mesh.faceCount(); activeFace++) {
                         int faceId = mesh.faceIdAt(activeFace);
@@ -442,7 +435,6 @@ public final class SlotCarry {
                 if (trace.faceOperand[faceId] == MeshTopology.NONE) {
                     continue;
                 }
-                // A face whose source face is unknown still lies on its operand's surface.
                 GeometryBundle input = inputs.get(trace.faceOperand[faceId]);
                 MaterialSet set = MaterialSet.of(input);
                 IntField sourceIndex = MaterialSet.faceMaterialOf(input);

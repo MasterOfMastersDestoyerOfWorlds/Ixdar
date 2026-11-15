@@ -33,7 +33,6 @@ class QuadPipelineSeamTest {
             "test/resources/quadlayout/figure_7/sphere_base_in_tri.off";
     private static final double ALPHA_RADIANS = Math.toRadians(15.0);
 
-    // Poincaré-Hopf for cross fields: quarter-index units per unit of Euler characteristic.
     private static final int QUARTER_INDICES_PER_EULER = 4;
 
     @Test

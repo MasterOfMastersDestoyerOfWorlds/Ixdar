@@ -142,7 +142,6 @@ public final class PatchDecomposerCLI {
         JsonObject out = new JsonObject();
         out.addProperty(OK, true);
         out.addProperty(VERTEX_COUNT, d.vertexCount());
-        // Patches sharing a vertex neighbour each other, so their flat colours always differ.
         List<Patch> patchList = d.patches();
         List<List<Integer>> patchesByVertex = new ArrayList<>();
         for (int vertex = 0; vertex < d.vertexCount(); vertex++) {
@@ -229,7 +228,6 @@ public final class PatchDecomposerCLI {
             pct.addProperty(P + p, ds[Math.min(n - 1, (int) (n * (p / PERCENT_SCALE)))]);
         }
         res.add("dihedral_percentiles_rad", pct);
-        // Angle-defect: approximate per-vertex Gaussian curvature, 2 pi minus each corner angle.
         float[] defectByVertexId = new float[mesh.vertexIdBound()];
         float[] positionByVertexId = new float[3 * mesh.vertexIdBound()];
         Vector3f position = new Vector3f();
@@ -305,7 +303,6 @@ public final class PatchDecomposerCLI {
             w.write("# ridge polylines: " + crest.ridgePolylines.size()
                     + "  valley polylines: " + crest.valleyPolylines.size() + N);
             w.write("# object 'ridges' then 'valleys'\n");
-            // Every active vertex in active order; the polylines' vertex ids map to these 1-based rows.
             int[] objIndexByVertexId = new int[mesh.vertexIdBound()];
             Vector3f position = new Vector3f();
             for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {

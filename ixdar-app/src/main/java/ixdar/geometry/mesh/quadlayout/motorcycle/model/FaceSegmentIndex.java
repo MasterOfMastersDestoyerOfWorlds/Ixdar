@@ -310,9 +310,6 @@ public final class FaceSegmentIndex {
         }
         double isoA = axisA.holdsUConstant() ? a0u : a0v;
         double isoB = axisB.holdsUConstant() ? b0u : b0v;
-        // For perpendicular axis-aligned chords, the intersection sits at the
-        // u-constant of whichever trace holds u constant, and the v-constant of
-        // whichever trace holds v constant.
         double iu;
         double iv;
         if (axisA == TraceAxis.U) {

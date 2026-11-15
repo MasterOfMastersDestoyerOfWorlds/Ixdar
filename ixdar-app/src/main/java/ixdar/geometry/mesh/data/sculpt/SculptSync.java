@@ -150,8 +150,6 @@ public final class SculptSync {
         for (int index = 0; index < shapes.size(); index++) {
             String shape = shapes.get(index);
             String id = attribute(shape, ID_ATTRIBUTE);
-            // A shape with no data-pts is a fresh drawing, under its own data-id when it names one: a
-            // script regenerating the drawing keeps each stroke's id by writing it.
             if (id == null || attribute(shape, POINT_INDEX_ATTRIBUTE) == null) {
                 added.add(shape);
                 addedLayers.add(layerByShape.get(index));
@@ -223,9 +221,6 @@ public final class SculptSync {
             if (stroke.silhouette()) {
                 stroke.pixels = pixels;
             } else {
-                // A new shape is lifted onto the base exactly as stroke_sculpt lifts an SVG with no
-                // sidecar, whatever the last sculpt did to the surface under it: cast onto that
-                // sculpt, a stroke drawn over an earlier pit lands on the pit's floor or through it.
                 StrokeSketch single = StrokeSketch.parse(sketch.text, stroke.id);
                 single.shapes = new ArrayList<>(List.of(shape));
                 try {
@@ -324,8 +319,6 @@ public final class SculptSync {
                     boolean inFront = drawing.cellPixel(camera, position, pixel);
                     pixels[point * 2] = pixel[0];
                     pixels[point * 2 + 1] = pixel[1];
-                    // Hidden when the sculpt lies between the point and the eye, past a sliver of slack
-                    // for the point's own faces.
                     Vector3f toEye = drawing.orthographic ? new Vector3f(camera.position).sub(camera.target)
                             : new Vector3f(camera.position).sub(position);
                     float[] origin = { position.x, position.y, position.z };
@@ -418,8 +411,6 @@ public final class SculptSync {
             camera.rayThroughPixel(new Matrix4f(), pixels[point * 2], pixels[point * 2 + 1], sketch.cellWidth,
                     sketch.cellHeight, origin, direction);
             if (surface.nearestHit(origin, direction, Double.POSITIVE_INFINITY, surfaceStack) < 0) {
-                // The SVG holds whole-sheet coordinates in its own units, which is what the author
-                // searches for; the cell pixel is what the camera casts.
                 refusals.add(String.format(Locale.ROOT, "%s in cell %d: point %s in the SVG (cell pixel %.1f,%.1f) "
                         + "misses the surface; move it onto the surface", what, cell, sketch.gridPoints(cell,
                                 new float[] { pixels[point * 2], pixels[point * 2 + 1] }, 1), pixels[point * 2],

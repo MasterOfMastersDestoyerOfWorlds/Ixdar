@@ -104,8 +104,6 @@ public class Font {
                 this.sdfTexture = new SDFTexture(this.texture);
                 this.sdfTexture.setSharpCorners(true);
                 this.sdfTexture.setPxRange(distanceRange);
-                // The atlas's 32 px outer padding keeps mipmap levels up to this one inside each
-                // glyph's cell; FontAtlasPaddingTest holds the atlas to it.
                 this.sdfTexture.setMedianMaxMipLevel(MEDIAN_MAX_MIP_LEVEL);
             });
             this.maxTextWidth = DEFAULT_MAX_TEXT_WIDTH;
@@ -308,8 +306,6 @@ public class Font {
                 .flatMap(part -> part.text.stream())
                 .anyMatch(ch -> keyGlyphs.glyphs.containsKey(ch.c) && !glyphs.containsKey(ch.c));
         if (anyKeyGlyph) {
-            // The key glyphs sample their own texture: end the caller's pass, draw them in one of
-            // their own, and set the caller's up again for it to clean up.
             sdfTexture.cleanup(camera);
             keyGlyphs.sdfTexture.setup(camera);
             drawLayers(keyGlyphs, parts, layers, height, camera);
@@ -385,8 +381,6 @@ public class Font {
         if (root.glyphs == null)
             return map;
         for (FontAtlasDTO.GlyphEntry ge : root.glyphs) {
-            // msdf-atlas-gen leaves a blank glyph such as the space without atlas bounds: it only
-            // advances the pen, and draws nothing.
             if (ge.atlasBounds == null) {
                 map.put((char) ge.unicode, new Glyph(0, 0, 0, 0, (float) ge.advance, 0f, 0f, 0f, 0f));
                 continue;

@@ -91,7 +91,6 @@ class CurveGeometryTest {
 
         assertTrue(resampled.closed[0]);
         assertEquals(SQUARE_SAMPLES, resampled.pointCount(0));
-        // Perimeter 4 in eight steps: the last sample is halfway along the closing edge.
         assertArrayEquals(new float[] { 0f, 0f, 0.5f }, sample(resampled, SQUARE_SAMPLES - 1), EPSILON);
         assertEquals(1.5f, resampled.pointAttributes.get(WIDTH)[SQUARE_SAMPLES - 1], EPSILON,
                 "halfway between the last corner's width 3 and the first's 0");

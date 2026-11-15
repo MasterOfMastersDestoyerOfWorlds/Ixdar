@@ -30,10 +30,8 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
  */
 class PatchGridSeamTest {
 
-    // The grids are built from the same floats, so seam points agree to this.
     private static final float TOLERANCE = 1e-6f;
 
-    // Sized so every arc carries interior points and the seam check sees more than its ends.
     private static final int QUADS_ON_SHORTEST_ARC = 3;
 
     /**

@@ -40,7 +40,6 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                 ? body.get(TARGET).getAsString()
                 : "";
         try {
-            // First call: set orbit (runs at end of frame N)
             runtime.runOnMainThread(() -> {
                 if (!(runtime.canvas instanceof ModelScene modelScene)) {
                     return failure("no ModelScene is active");
@@ -62,7 +61,6 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                 orbit.setOrbit(azimuth, elevation, distance);
                 return null;
             });
-            // Second call: just returns after the next frame renders with the new orbit
             return runtime.runOnMainThread(() -> {
                 JsonObject result = success();
                 result.addProperty(AZIMUTH, azimuth);

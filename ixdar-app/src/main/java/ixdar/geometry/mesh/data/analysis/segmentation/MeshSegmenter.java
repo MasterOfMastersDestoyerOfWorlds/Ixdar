@@ -133,7 +133,6 @@ public final class MeshSegmenter {
         return out;
     }
 
-    // ---------- private helpers (lifted from the old SemanticPatchDecomposer) ----------
 
     /**
      * The mesh's live vertex ids in active order.

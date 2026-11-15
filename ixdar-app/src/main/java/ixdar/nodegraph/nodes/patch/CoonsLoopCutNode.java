@@ -110,7 +110,6 @@ public class CoonsLoopCutNode implements MeshNode {
         float[] hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
         float[] hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
 
-        // --- Phase 1: classify edges ---
         int maxEid = CoonsHandleBuilder.maxEdgeId(mesh);
         boolean[] edgeSplit = new boolean[maxEid + 1];
         Vector3f tmpA = new Vector3f(), tmpB = new Vector3f(), edgeDir = new Vector3f();
@@ -129,7 +128,6 @@ public class CoonsLoopCutNode implements MeshNode {
             }
         }
 
-        // --- Phase 2: collect original vertices, map IDs ---
         int origCount = mesh.vertexCount();
         float[] origPos = new float[origCount * 3];
         Map<Integer, Integer> oldToNew = new HashMap<>();
@@ -142,14 +140,10 @@ public class CoonsLoopCutNode implements MeshNode {
             origPos[i * 3 + 2] = tmpA.z;
         }
 
-        // --- Phase 3: de Casteljau split each split-edge ---
-        // splitMids[eid] = int[cuts] of new vertex indices in canonical (ca→cb) order
         Map<Integer, int[]> splitMids = new HashMap<>();
         ArrayList<Float> extraPos = new ArrayList<>();
-        // Directed handle map: dirPack(fromNewVid, toNewVid) → float[3]
         Map<Long, float[]> dh = new HashMap<>();
 
-        // Copy handles for unsplit edges
         for (int ei = 0; ei < mesh.edgeCount(); ei++) {
             int eid = mesh.edgeIdAt(ei);
             if (edgeSplit[eid]) continue;
@@ -172,7 +166,6 @@ public class CoonsLoopCutNode implements MeshNode {
             int nCa = oldToNew.get(ca), nCb = oldToNew.get(cb);
             int o = eid * 3;
 
-            // Bezier control points in canonical direction ca→cb
             mesh.vertexPosition(ca, tmpA);
             mesh.vertexPosition(cb, tmpB);
             Vector3f rP0 = new Vector3f(tmpA);
@@ -186,7 +179,6 @@ public class CoonsLoopCutNode implements MeshNode {
             for (int k = 0; k < cuts; k++) {
                 float t = 1f / (cuts + 1 - k);
 
-                // de Casteljau split at t
                 CoonsHandleBuilder.SplitResult sr = CoonsHandleBuilder.split(rP0, rP1, rP2, rP3, t);
 
                 int sv = nextVid++;
@@ -195,28 +187,23 @@ public class CoonsLoopCutNode implements MeshNode {
                 extraPos.add(sr.splitPoint.y);
                 extraPos.add(sr.splitPoint.z);
 
-                // Left sub-curve handles: rP0, leftCp1, leftCp2, splitPoint
                 dh.put(CoonsHandleBuilder.dirPack(prevVid, sv),
                         new float[]{sr.leftCp1.x - rP0.x, sr.leftCp1.y - rP0.y, sr.leftCp1.z - rP0.z});
                 dh.put(CoonsHandleBuilder.dirPack(sv, prevVid),
                         new float[]{sr.leftCp2.x - sr.splitPoint.x, sr.leftCp2.y - sr.splitPoint.y, sr.leftCp2.z - sr.splitPoint.z});
 
-                // Advance: right sub-curve becomes current. rightCp1 = E, rightCp2 = C.
                 rP0.set(sr.splitPoint);
                 rP1.set(sr.rightCp1);
                 rP2.set(sr.rightCp2);
-                // rP3 unchanged
                 prevVid = sv;
             }
 
-            // Final sub-curve: rP0→rP3 (last split → cb)
             dh.put(CoonsHandleBuilder.dirPack(prevVid, nCb), new float[]{rP1.x - rP0.x, rP1.y - rP0.y, rP1.z - rP0.z});
             dh.put(CoonsHandleBuilder.dirPack(nCb, prevVid), new float[]{rP2.x - rP3.x, rP2.y - rP3.y, rP2.z - rP3.z});
 
             splitMids.put(eid, mids);
         }
 
-        // --- Phase 4: reconstruct faces, compute cross-edge handles ---
         ArrayList<int[]> outFaces = new ArrayList<>();
 
         for (int fi = 0; fi < mesh.faceCount(); fi++) {
@@ -246,8 +233,6 @@ public class CoonsLoopCutNode implements MeshNode {
             int nv2 = oldToNew.get(v2), nv3 = oldToNew.get(v3);
 
             if (s0 && s2 && !s1 && !s3) {
-                // Pair A: split edges 0 (v0→v1) and 2 (v2→v3)
-                // botMids: v0 → v1; topMids: v3 → v2 (parallel direction)
                 int[] botMids = getMidsInDirection(mesh, e0, v0, splitMids);
                 int[] topMids = getMidsInDirection(mesh, e2, v3, splitMids);
 
@@ -259,14 +244,11 @@ public class CoonsLoopCutNode implements MeshNode {
                     outFaces.add(new int[]{bl, br, tr, tl});
                 }
 
-                // Cross-edge handles: botMids[k] → topMids[k]
                 computeCrossHandles(mesh, hStart, hEnd, e3, v0, v3, e1, v1, v2,
                         e0, v0, v1, e2, v3, v2,
                         botMids, topMids, cuts, origCount, origPos, extraPos, dh);
 
             } else if (!s0 && !s2 && s1 && s3) {
-                // Pair B: split edges 1 (v1→v2) and 3 (v3→v0)
-                // rightMids: v1 → v2; leftMids: v0 → v3 (parallel direction)
                 int[] rightMids = getMidsInDirection(mesh, e1, v1, splitMids);
                 int[] leftMids = getMidsInDirection(mesh, e3, v0, splitMids);
 
@@ -278,18 +260,15 @@ public class CoonsLoopCutNode implements MeshNode {
                     outFaces.add(new int[]{bl, br, tr, tl});
                 }
 
-                // Cross-edge handles: leftMids[k] → rightMids[k]
                 computeCrossHandles(mesh, hStart, hEnd, e0, v0, v1, e2, v3, v2,
                         e3, v0, v3, e1, v1, v2,
                         leftMids, rightMids, cuts, origCount, origPos, extraPos, dh);
 
             } else {
-                // No split or unsupported: pass through
                 outFaces.add(new int[]{nv0, nv1, nv2, nv3});
             }
         }
 
-        // --- Phase 5: build output mesh ---
         int totalVerts = origCount + extraPos.size() / 3;
         float[] positions = new float[totalVerts * 3];
         System.arraycopy(origPos, 0, positions, 0, origPos.length);
@@ -308,7 +287,6 @@ public class CoonsLoopCutNode implements MeshNode {
 
         HalfEdgeMesh outMesh = HalfEdgeMesh.bulkAllocate(positions, faceIdx, 4);
 
-        // --- Phase 6: build handle arrays from directed map ---
         float[][] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
 
         outMesh.computeNormals();
@@ -319,7 +297,6 @@ public class CoonsLoopCutNode implements MeshNode {
         return new GeometryBundle(outMesh, Map.copyOf(nextSlots));
     }
 
-    // ---- helpers ----
 
     /**
      * Returns split mid vertices for an edge going in the direction starting from
@@ -338,7 +315,6 @@ public class CoonsLoopCutNode implements MeshNode {
         int he = mesh.edgeHalfEdge(eid);
         int ca = mesh.halfEdgeVertex(he);
         if (fromVid == ca) return mids;
-        // Reverse
         int[] rev = new int[mids.length];
         for (int i = 0; i < mids.length; i++)
             rev[i] = mids[mids.length - 1 - i];
@@ -382,11 +358,9 @@ public class CoonsLoopCutNode implements MeshNode {
             int cuts, int origCount, float[] origPos, ArrayList<Float> extraPos,
             Map<Long, float[]> dh) {
 
-        // Get control points for the perpendicular bezier edges
         Vector3f[] perpCp0 = getEdgeCp(mesh, hStart, hEnd, perpEid0, perpFrom0);
         Vector3f[] perpCp1 = getEdgeCp(mesh, hStart, hEnd, perpEid1, perpFrom1);
 
-        // Corner positions (endpoints of split edges)
         Vector3f splitStart0 = getPos(mesh, splitFrom0);
         Vector3f splitEnd0 = getPos(mesh, splitTo0);
         Vector3f splitStart1 = getPos(mesh, splitFrom1);
@@ -398,13 +372,9 @@ public class CoonsLoopCutNode implements MeshNode {
             Vector3f m0 = getNewPos(mids0[k], origCount, origPos, extraPos);
             Vector3f m1 = getNewPos(mids1[k], origCount, origPos, extraPos);
 
-            // Coons correction vectors
             Vector3f c0 = new Vector3f(m0).sub(new Vector3f(splitStart0).lerp(splitEnd0, t));
             Vector3f c1 = new Vector3f(m1).sub(new Vector3f(splitStart1).lerp(splitEnd1, t));
 
-            // Cross control points:
-            // C1 = lerp(perp0.P1, perp1.P1, t) + c0*(2/3) + c1*(1/3)
-            // C2 = lerp(perp0.P2, perp1.P2, t) + c0*(1/3) + c1*(2/3)
             Vector3f crossP1 = new Vector3f(perpCp0[1]).lerp(perpCp1[1], t)
                     .add(new Vector3f(c0).mul(2f / 3f))
                     .add(new Vector3f(c1).mul(1f / 3f));
@@ -412,7 +382,6 @@ public class CoonsLoopCutNode implements MeshNode {
                     .add(new Vector3f(c0).mul(1f / 3f))
                     .add(new Vector3f(c1).mul(2f / 3f));
 
-            // Handle offsets
             float[] hs = {crossP1.x - m0.x, crossP1.y - m0.y, crossP1.z - m0.z};
             float[] he = {crossP2.x - m1.x, crossP2.y - m1.y, crossP2.z - m1.z};
             dh.put(CoonsHandleBuilder.dirPack(mids0[k], mids1[k]), hs);

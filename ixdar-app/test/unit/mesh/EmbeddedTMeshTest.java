@@ -113,8 +113,6 @@ class EmbeddedTMeshTest {
         assertEquals(EXPECTED_ARCS, tmesh.arcs.size(), "arcs");
         assertEquals(EXPECTED_PATCHES, tmesh.patches.size(), "patches");
 
-        // Throws unless V - E + F equals the torus's characteristic, unless every patch
-        // closes, and unless every patch's opposite sides carry equal quantized length.
         tmesh.validate();
     }
 
@@ -318,17 +316,8 @@ class EmbeddedTMeshTest {
         assertEquals(leftPatch, tmesh.arcs.get(halves[0]).leftPatchId, "halves inherit the patches");
         assertEquals(rightPatch, tmesh.arcs.get(halves[1]).rightPatchId, "on both sides");
 
-        // A node and an arc are both gained, so the characteristic is unmoved: the split
-        // refines the complex without changing the surface it decomposes.
         tmesh.validate();
 
-        // Degree two, not three. A freshly split node carries only the two halves of the
-        // arc it was cut from, so it is flat on BOTH of the patches that share that arc —
-        // a pure subdivision point, not yet a T-junction. It becomes one only when the arc
-        // that motivated the split lands on it and gives it a third end. This is why a
-        // T-junction cannot be defined as "a node of degree three": that would catch a
-        // valence-3 singularity, which is a corner of every patch around it, and miss this
-        // node, which is a corner of none.
         assertEquals(2, tmesh.degree(splitNode),
                 "a node inserted by a split is flat on both sides until something lands on it");
     }
@@ -435,7 +424,6 @@ class EmbeddedTMeshTest {
             addNode(major, LOOP_TOP);
         }
 
-        // The two lower loops carry a node at major 2, where the stub vertical stops.
         int bottom02 = horizontalArc(LOOP_BOTTOM, 0, 2, 1);
         int bottom24 = horizontalArc(LOOP_BOTTOM, 2, 4, 1);
         int bottom48 = horizontalArc(LOOP_BOTTOM, 4, 8, WIDE_COLUMN);
@@ -453,7 +441,6 @@ class EmbeddedTMeshTest {
         int bottomRow4 = verticalArc(4, LOOP_BOTTOM, LOOP_MIDDLE, BOTTOM_ROW_HEIGHT);
         int bottomRow8 = verticalArc(8, LOOP_BOTTOM, LOOP_MIDDLE, BOTTOM_ROW_HEIGHT);
 
-        // The zero row: these three are what the collapse operators consume.
         int zeroRow0 = verticalArc(0, LOOP_MIDDLE, LOOP_TOP, ZERO_ROW_HEIGHT);
         int zeroRow4 = verticalArc(4, LOOP_MIDDLE, LOOP_TOP, ZERO_ROW_HEIGHT);
         int zeroRow8 = verticalArc(8, LOOP_MIDDLE, LOOP_TOP, ZERO_ROW_HEIGHT);
@@ -471,7 +458,6 @@ class EmbeddedTMeshTest {
         addPatch(0, LOOP_BOTTOM, List.of(bottom80), List.of(bottomRow8), List.of(middle80),
                 List.of(bottomRow0));
 
-        // The non-simple zero-patch: two arcs along its bottom, one along its top.
         addPatch(4, LOOP_MIDDLE, List.of(middle24, middle02), List.of(zeroRow0), List.of(top04),
                 List.of(zeroRow4));
         addPatch(8, LOOP_MIDDLE, List.of(middle48), List.of(zeroRow4), List.of(top48),

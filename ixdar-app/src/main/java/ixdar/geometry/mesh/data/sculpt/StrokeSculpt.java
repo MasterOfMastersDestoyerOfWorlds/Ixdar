@@ -135,8 +135,6 @@ public final class StrokeSculpt {
         refined = refinement.refine(mesh, copies, displace, EdgeMarks.floats(base, CREASE_LABEL));
         refinedVertices = refined.vertexCount();
         DisplacementSum sum = new DisplacementSum(refined, displace, creaseScale, strokeTexts.length);
-        // Strokes are summed independently, so workers each sum a share of them over the same
-        // surface and their sums merge: moves add, and drags, smoothing and creases keep the largest.
         int workers = Math.min(SUM_WORKERS, strokeTexts.length);
         DisplacementSum[] parts = new DisplacementSum[workers];
         MeshTopology surface = refined;
@@ -184,8 +182,6 @@ public final class StrokeSculpt {
             float[] stepXyz = sculpted.packedPositions(null);
             int[] twins = refinement.twinByActiveVertex;
             if (symmetryAxis >= 0) {
-                // Each vertex's displacement becomes the mean of its own and its mirror twin's
-                // reflected displacement, so the pass leaves a symmetric input symmetric.
                 float[] moved = stepXyz.clone();
                 for (int activeVertex = 0; activeVertex < twins.length; activeVertex++) {
                     int twin = twins[activeVertex];
@@ -199,9 +195,6 @@ public final class StrokeSculpt {
                     }
                 }
             }
-            // The pass must not turn the mesh inside out: each vertex's step stops short of the
-            // surface it would cross, and is pulled back where it would still fold a face. The sum's
-            // tree is over the unmoved refined surface, which is what the limiter starts from.
             int[] every = new int[refined.vertexCount()];
             Arrays.setAll(every, index -> index);
             MeshFolds folds = new MeshFolds(refined, sum.activeVertexById, unmoved);
@@ -221,7 +214,6 @@ public final class StrokeSculpt {
             float crease = Math.max(sum.strokeCreaseByEdgeId[edgeId],
                     existingCreases != null && edgeId < existingCreases.length ? existingCreases[edgeId] : 0f);
             if (crease > 0f && refined.hasEdge(edgeId)) {
-                // The vertex offset keeps vertex order but not ids, so find the edge by its ends.
                 int halfEdge = refined.edgeHalfEdge(edgeId);
                 int sculptedEdge = sculpted == refined ? edgeId : sculpted.edgeBetween(
                         sculpted.vertexIdAt(sum.activeVertexById[refined.halfEdgeVertex(halfEdge)]),

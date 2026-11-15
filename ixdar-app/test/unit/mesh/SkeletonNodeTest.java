@@ -26,13 +26,10 @@ class SkeletonNodeTest {
             + ", height=" + HEIGHT + ", segments=24, rings=12, cap_rings=2)\n"
             + "bones = skeleton(geometry=tube.geometry, resolution=32)\n";
 
-    // Fraction of the height the axis branch must span, the caps' rounding allowed for.
     private static final float SPAN_FRACTION = 0.6f;
 
-    // Relative slack on a barrel joint's radius, a few voxels of the 32-cell grid.
     private static final float RADIUS_SLACK = 0.3f;
 
-    // A branch along the axis leans off it by less than this cosine's angle.
     private static final float ALONG_AXIS = 0.95f;
 
     @Test

@@ -363,9 +363,6 @@ public final class SurfaceSplineTracer {
             mesh.vertexPosition(anchorVertexId[Math.floorMod(anchor - 1, anchorCount)],
                     previousPosition);
             mesh.vertexPosition(anchorVertexId[(anchor + 1) % anchorCount], nextPosition);
-            // An open spline's end has one chord, which its tangent follows: the anchor stands in
-            // for the missing neighbour, so that side weighs nothing. A lead vertex is that
-            // neighbour, so the end turns as the closed ring it was cut from did.
             if (open && anchor == 0) {
                 previousPosition.set(anchorPosition);
                 if (leadInVertexId >= 0) {

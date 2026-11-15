@@ -36,25 +36,15 @@ class SilhouetteHullNodeTest {
     private static final String GEOMETRY = "geometry";
     private static final String MESH = "mesh";
     private static final int MINIMUM_OUTLINE_POINTS = 3;
-    // The hull's silhouette may part from an outline by the lattice's rounding: half a step on
-    // either side of the outline on average, and at a concave corner one step plus smoothing's pull.
     private static final float HULL_MEAN_STEPS = 1f;
     private static final float HULL_MAXIMUM_STEPS = 2f;
-    // Strict (misses 0): every kept lattice point lies inside every outline, and the extracted
-    // surface may cut a cell's corner past it by under one step.
     private static final float STRICT_OUTSIDE_STEPS = 1f;
-    // As traced the front bulges 0.15 past its mirror image, several lattice steps; mirrored, a
-    // vertex's mirror image lies on the surface to within interpolation error.
-    // vertex's mirror image lies on the surface to within trilinear interpolation and rounding,
-    // under a step, since the lattice itself need not be symmetric about the plane.
     private static final float LOPSIDED_TRACED_STEPS = 1.5f;
     private static final float LOPSIDED_MIRRORED_STEPS = 1f;
     private static final String WOUND_OUTWARD = "volume_to_mesh winds its faces outward";
     private static final String WOUND_AS_INPUT = "the faces keep their input's winding";
     private static final int[] SKULL_RESOLUTIONS = { 32, 40, 48, 64, 96 };
     private static final float SPHERE_RADIUS = 1f;
-    // Taubin smoothing (lambda 0.5, mu -0.53) is volume preserving to second order: 20 passes over
-    // an icosphere of 642 vertices move its mean radius by well under one percent.
     private static final float SMOOTHED_RADIUS_FRACTION = 0.01f;
     private static final int SPHERE_EULER_CHARACTERISTIC = 2;
     private static final String VIEW_ERROR = "%s cell %d: mean %.2f, max %.2f steps; ";
@@ -92,8 +82,6 @@ class SilhouetteHullNodeTest {
 
     @Test
     void symmetryXEvensOutALopsidedTrace() {
-        // MESH-80: mirrored, the hull keeps a point by the mean of its own and its mirror image's depth
-        // inside the outlines, so each surface vertex's mirror image lies on the surface too.
         float traced = mirrorDeviation(NodeGraphRuntime.executeResource(FIXTURES + "lopsided.dsl",
                 Map.of("hull.symmetry", "none")));
         float mirrored = mirrorDeviation(NodeGraphRuntime.executeResource(FIXTURES + "lopsided.dsl", Map.of()));
@@ -116,8 +104,6 @@ class SilhouetteHullNodeTest {
     @Test
     @Tag("heavy")
     void skullHullHasNoFoldedFaces() {
-        // MESH-77 / PATCH-127: pleats of sliver faces folded back against the surface broke the quad
-        // layout at some resolutions; none may come out at any of them.
         StringBuilder report = new StringBuilder();
         int total = 0;
         for (int run = 0; run < SKULL_RESOLUTIONS.length * 2; run++) {
@@ -139,7 +125,6 @@ class SilhouetteHullNodeTest {
         MeshTopology sphere = mesh(hull.lastOutput(GEOMETRY));
         float spacing = ((VoxelGrid) hull.getNodeOutput(HULL, VOLUME)).spacing;
         assertTrue(assertClosedAndUnfolded(sphere) > 0f, WOUND_OUTWARD);
-        // The hull of three circles is a sphere's to within a lattice step.
         assertTrue(Math.abs(meanRadius(sphere) - SPHERE_RADIUS) <= spacing, "radius " + meanRadius(sphere)
                 + ", lattice step " + spacing);
     }
@@ -291,7 +276,6 @@ class SilhouetteHullNodeTest {
         float[] triangle = new float[6];
         for (int index = 0; index < faceOfTriangle.length; index++) {
             for (int corner = 0; corner < 3; corner++) {
-                // Pixel centres at whole numbers, as the outline's points are.
                 surface.vertexPosition(corners[index * 3 + corner], position);
                 projection.transform(clip.set(position, 1f));
                 triangle[corner * 2] = (clip.x / clip.w + 1f) / 2f * width - 0.5f;

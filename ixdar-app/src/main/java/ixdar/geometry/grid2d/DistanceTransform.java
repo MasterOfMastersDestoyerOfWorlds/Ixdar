@@ -20,7 +20,6 @@ public final class DistanceTransform {
      *         a feature
      */
     public static float[] toFeature(boolean[] feature, int width, int height) {
-        // Far must stay small enough that adding a squared offset to it keeps its precision.
         double far = 2.0 * ((double) width * width + (double) height * height) + 1.0;
         double[] squared = new double[width * height];
         for (int pixel = 0; pixel < squared.length; pixel++) {

@@ -58,7 +58,6 @@ public class DungeonViewerScene extends ModelScene {
 
     private MeshTopology mesh;
 
-    // Player mode state — populated once a graph whose tiles are a 3D lattice has run.
     private CellType[] playerCells;
     private int playerGridW;
     private int playerGridH;
@@ -155,7 +154,6 @@ public class DungeonViewerScene extends ModelScene {
             this.playerCells = DungeonGrids.latticeCells(tiles, dims[0], dims[1], dims[2]);
             Number cellSize = mesher.getInput(DungeonGridToMeshNode.CELL_SIZE.name, Number.class);
             this.playerCellSize = cellSize == null ? 1.0f : cellSize.floatValue();
-            // The rooms graph the corridors were carved over carries the room centres and extents.
             GeometryBundle rooms = tilesSource.getInput(AStarCorridorsNode.GEOMETRY.name,
                     GeometryBundle.class);
             this.playerRooms = rooms.mesh();
@@ -241,7 +239,6 @@ public class DungeonViewerScene extends ModelScene {
         playerMode = !playerMode;
         Platforms.get().log("[dungeon-viewer] mode -> " + (playerMode ? PLAYER : FLY_CAM));
         applyCursorModeForCurrentMode();
-        // Default back to first-person on (re-)entering player mode; fly-cam flies either way.
         viewMode = ViewMode.FIRST_PERSON;
         mouse.controller = flyController;
         if (playerMode) {
@@ -257,7 +254,6 @@ public class DungeonViewerScene extends ModelScene {
             viewMode = ViewMode.THIRD_PERSON;
             mouse.controller = thirdPersonCamera;
         } else {
-            // Camera yaw/pitch are the third-person follow angles, so 1P is smooth.
             viewMode = ViewMode.FIRST_PERSON;
             mouse.controller = flyController;
         }
@@ -315,8 +311,6 @@ public class DungeonViewerScene extends ModelScene {
         if (playerMode && player != null) {
             float dt = (float) Math.min(MAX_FRAME_DT, Clock.deltaTime()); // clamp to avoid huge dt on stalls
             if (viewMode == ViewMode.THIRD_PERSON) {
-                // Update camera FIRST so player.update sees the new yaw and WASD direction
-                // remains screen-relative.
                 thirdPersonCamera.update(player, playerCells, playerGridW, playerGridH, playerGridD);
                 player.update(dt, keys.pressedKeys, camera.yaw);
             } else {
@@ -366,12 +360,10 @@ public class DungeonViewerScene extends ModelScene {
             capsuleRuntime.dispose();
             capsuleRuntime = null;
         }
-        // Release the cursor so the user can interact with the OS again.
         Platforms.get().setCursorMode(Platform.CursorMode.NORMAL);
         super.shutdown();
     }
 
-    // --- Accessors for tests / automation ------------------------------------
 
     /**
      * Vertex count of the currently-loaded dungeon mesh.

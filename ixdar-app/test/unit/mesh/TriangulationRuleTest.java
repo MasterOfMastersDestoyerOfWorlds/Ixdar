@@ -42,7 +42,6 @@ class TriangulationRuleTest {
 
     @Test
     void theBooleanSplitsQuadsThroughTheMeshTriangulation() {
-        // A kite whose 1-3 diagonal is the shorter, and apart from it a square, a tie.
         float[] positions = { 0f, 0f, 0f, 2f, -1f, 0f, 4f, 0f, 0f, 2f, 1f, 0f,
             10f, 0f, 0f, 12f, 0f, 0f, 12f, 2f, 0f, 10f, 2f, 0f };
         int[] quads = { 0, 1, 2, 3, 4, 5, 6, 7 };

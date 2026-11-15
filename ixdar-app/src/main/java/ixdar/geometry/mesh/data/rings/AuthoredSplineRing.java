@@ -26,32 +26,22 @@ public final class AuthoredSplineRing {
 
     public static final int COORDINATES_PER_POINT = 3;
 
-    // One bisection below the confirmed depth, so a hover or a drag fits inside a frame; a
-    // confirmed ring is re-traced at the full depth after.
     public static final int SUPPORTING_FIT_DEPTH = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH - 1;
 
-    // Three clicks rarely lie in a girdling plane, so the plane of three or more anchors leans on
-    // the base normal by this fraction of their spread and the spline bends through them off it.
     public static final double BASE_NORMAL_PULL_OF_SPREAD = 0.25;
 
     public static final int JACOBI_ROTATION_SWEEPS = 24;
 
     public static final int PLANE_FIT_MATRIX_ENTRIES = 9;
 
-    // Up to this many anchors have one cyclic order whatever is clicked, so the plane's loop can
-    // shape the ring; past it the order is the ring's own and geodesics shape each span.
     public static final int PLANE_STARTED_ANCHORS = 3;
 
     public static final double FOLD_ARC_OF_SPAN = 0.25;
 
-    // The fold test's arc never goes under a few edges, so snapping its ends to vertices cannot
-    // bring them together, and it calls a fold only when they come back within half the arc.
     public static final double FOLD_ARC_EDGES = 3.0;
 
     public static final double FOLD_GAP_OF_ARC = 0.5;
 
-    // A crease ring's search keeps to a slab this many plane-loop radii either side of the plane,
-    // so it stays on the part the anchors girdle.
     public static final double CREASE_BAND_OF_RADIUS = 1.0;
 
     public static final int SHEETS = 2;
@@ -170,10 +160,6 @@ public final class AuthoredSplineRing {
                 return loopPoints > 0
                         && fitAndTrace(mesh, cut.path.positions, loopPoints, finalDepth);
             }
-            // Geodesic spans when they make a simple ring that passes through every anchor.
-            // Where the anchors leave a stretch of the girdle uncovered a geodesic cuts back the
-            // short way, so the plane's loop shapes the ring instead, provided it keeps the
-            // anchors' order; the geodesic ring stands otherwise.
             int cyclePoints = geodesicCycleReference(mesh);
             if (cyclePoints < 0 || !fitAndTrace(mesh, cycleXyz, cyclePoints, finalDepth)) {
                 return false;
@@ -203,13 +189,6 @@ public final class AuthoredSplineRing {
             geodesicCycleReference(mesh);
             return fitAndTrace(mesh, cycleXyz, cyclePoints, finalDepth);
         }
-        // The crease ring: the cheapest closed crease path through the anchors in their order,
-        // once round the part, is the reference the spline fits. Once round is tested on a double
-        // cover of a slab about the plane: a half-plane from the plane loop's centre through the
-        // first anchor is a seam, crossing it swaps sheets, and the closed path must end on the
-        // other sheet. Each span is one Dijkstra from its anchor over both sheets and takes its
-        // cheaper sheet; when the swaps come out even, the span losing least by its other sheet
-        // takes that one.
         int loopPoints = planeLoopReference(mesh);
         if (loopPoints < 0) {
             return false;
@@ -229,8 +208,6 @@ public final class AuthoredSplineRing {
                     + planeNormal[1] * (position.y - centre[1])
                     + planeNormal[2] * (position.z - centre[2])));
         }
-        // The seam runs from the centre along the first anchor's direction in the plane, and the
-        // across axis completes the plane's frame.
         mesh.vertexPosition(distinct[0], position);
         double[] seam = { position.x - centre[0], position.y - centre[1], position.z - centre[2] };
         double off = seam[0] * planeNormal[0] + seam[1] * planeNormal[1] + seam[2] * planeNormal[2];
@@ -260,17 +237,10 @@ public final class AuthoredSplineRing {
         }
         double[] spanCost = new double[SHEETS * distinctCount];
         int[][] spanPath = new int[SHEETS * distinctCount][];
-        // One anchor's span closes on itself, and swapping the sheets maps the double cover onto
-        // itself, so the search from the anchor's other sheet is this one's mirror image. The ring
-        // is found where this search meets its own mirror, from both ends at once: it stops at
-        // half the ring's cost, the meeting edge leading from closingFrom to the mirror of
-        // closingTo.
         boolean closing = distinctCount == 1;
         double closingCost = Double.POSITIVE_INFINITY;
         int closingFrom = -1;
         int closingTo = -1;
-        // States are dense metric vertex indices, two per vertex, walked over the metric's flat
-        // half-edge arrays rather than the mesh's per-vertex lists.
         SurfaceMetric metric = tracer.geodesics.metric;
         for (int anchor = 0; anchor < distinctCount; anchor++) {
             int source = SHEETS * metric.vertexIndexByVertexId[distinct[anchor]];
@@ -294,8 +264,6 @@ public final class AuthoredSplineRing {
                 double hereAcross = (position.x - centre[0]) * across[0]
                         + (position.y - centre[1]) * across[1]
                         + (position.z - centre[2]) * across[2];
-                // Counter-clockwise round the fan from the reference half-edge, which a boundary
-                // vertex's fan starts at, so its last spoke is the exterior one.
                 int reference = metric.vertexReferenceHalfEdge[activeVertex];
                 int halfEdge = reference;
                 while (halfEdge >= 0) {
@@ -318,17 +286,12 @@ public final class AuthoredSplineRing {
                     }
                     double thereAlong = dx * seam[0] + dy * seam[1] + dz * seam[2];
                     double thereAcross = dx * across[0] + dy * across[1] + dz * across[2];
-                    // The edge crosses the seam where it changes side of the across axis on the
-                    // seam's own half, not on the half behind the centre.
                     boolean crosses = (hereAcross < 0.0) != (thereAcross < 0.0)
                             && hereAlong + (thereAlong - hereAlong) * hereAcross
                                     / (hereAcross - thereAcross) > 0.0;
                     int next = SHEETS * otherActive + (crosses ? 1 - sheet : sheet);
                     double relaxed = hereDistance + creases.edgeCost[edgeId];
                     int mirror = next + 1 - 2 * (next % SHEETS);
-                    // Both halves of a closing ring come out of this one search tree, so they
-                    // must leave the anchor by different first vertices: halves sharing a branch
-                    // run out and back along a common stem, a spur that crosses itself.
                     int outwardFirst = state == source ? otherActive
                             : sheetBranch[state] / SHEETS;
                     int inwardFirst = mirror == source ? activeVertex
@@ -345,8 +308,6 @@ public final class AuthoredSplineRing {
                 }
             }
             for (int sheet = 0; sheet < SHEETS; sheet++) {
-                // A closing ring runs out along the tree to closingFrom, then back down the
-                // mirror of closingTo's branch to the anchor.
                 boolean met = closing && sheet == 1;
                 int end = met ? closingFrom : target + sheet;
                 boolean reached = met ? closingFrom >= 0 : sheetSearch.isReached(end);
@@ -407,10 +368,6 @@ public final class AuthoredSplineRing {
         if (cycleXyz.length < COORDINATES_PER_POINT * points) {
             cycleXyz = new double[COORDINATES_PER_POINT * points];
         }
-        // The paths lie on two sheets, so the walk may come back to a vertex it passed on the
-        // other sheet; the loop between the two visits is erased as the walk is laid down, unless
-        // an authored anchor lies on it. Each vertex's first sheet state holds its point in the
-        // walk under a fresh stamp.
         layStamp++;
         points = 0;
         int lastAnchorPoint = 0;
@@ -482,11 +439,6 @@ public final class AuthoredSplineRing {
                 points++;
             }
         }
-        // The path doubles back at an anchor when the points a short arc before and after it come
-        // within half that arc over the surface: a path running straight through puts them twice
-        // the arc apart, one that turned back on itself puts them together. The arc is a quarter
-        // of the shorter neighbouring span, and the surface distance is what tells going round a
-        // thin edge, straight on the surface, from turning back.
         cycleDoublesBack = false;
         referencePoints = points;
         for (int anchor = 0; anchor < distinct.length && !cycleDoublesBack; anchor++) {
@@ -713,9 +665,6 @@ public final class AuthoredSplineRing {
             spanLabel = new int[geodesics.metric.vertexIdBound];
             Arrays.fill(spanLabel, -1);
         }
-        // Label every vertex the ring's path runs through or beside with the span it lies on,
-        // from just past one authored anchor to the next; the anchors themselves stay unlabelled
-        // so a click beside one is placed by the side it is on.
         int[] labelled = new int[0];
         int labels = 0;
         int span = -1;

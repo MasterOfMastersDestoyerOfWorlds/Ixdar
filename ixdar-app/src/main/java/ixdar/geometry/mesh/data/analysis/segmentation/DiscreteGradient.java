@@ -40,7 +40,6 @@ public final class DiscreteGradient {
         int faceCount = faceIdx.length / 3;
         int nv = mesh.vertexIdBound();
 
-        // ----- Enumerate edges + build connectivity -----
         Map<Long, Integer> edgeIdByKey = new HashMap<>();
         List<int[]> edgeEndpointsList = new ArrayList<>();
         List<List<Integer>> trianglesByEdgeList = new ArrayList<>();
@@ -82,7 +81,6 @@ public final class DiscreteGradient {
             trianglesByEdge[i] = arr;
         }
 
-        // Per-vertex: incident edges + incident triangles.
         int[] edgeCountPerV = new int[nv];
         for (int[] e : edgeEndpoints) { edgeCountPerV[e[0]]++; edgeCountPerV[e[1]]++; }
         int[][] edgesByVertex = new int[nv][];
@@ -114,8 +112,6 @@ public final class DiscreteGradient {
         for (int i = nv; i < nv + ne; i++) dim[i] = 1;
         for (int i = nv + ne; i < totalCells; i++) dim[i] = 2;
 
-        // ----- Process each vertex's lower star -----
-        // Stable scalar comparator (vertex idx tie-breaker).
         for (int v = 0; v < nv; v++) {
             processLowerStar(v, scalar, edgesByVertex, trianglesByVertex,
                     edgeEndpoints, triangleVerts, triangleEdges, trianglesByEdge,
@@ -140,18 +136,15 @@ public final class DiscreteGradient {
                                           int[][] triangleEdges,
                                           int[][] trianglesByEdge,
                                           int nv, int ne, int[] pair) {
-        // Lower-star edges: edges (v, u) with simplexLess(u, v) = true.
         List<Integer> lowerEdges = new ArrayList<>();
         for (int eid : edgesByVertex[v]) {
             int u = edgeEndpoints[eid][0] == v ? edgeEndpoints[eid][1] : edgeEndpoints[eid][0];
             if (vertexLess(u, v, scalar)) lowerEdges.add(eid);
         }
         if (lowerEdges.isEmpty()) {
-            // v is a critical 0-cell (local minimum). Already pair[v] = -1.
             return;
         }
 
-        // Lower-star triangles: triangles (v, u, w) with both u, w lower than v.
         List<Integer> lowerTris = new ArrayList<>();
         for (int tid : trianglesByVertex[v]) {
             int[] tv = triangleVerts[tid];
@@ -167,8 +160,6 @@ public final class DiscreteGradient {
             }
         }
 
-        // Find delta = lowest-value edge in lower star (sort by simplex value).
-        // Edge value = the OTHER endpoint's scalar (since v is the high one).
         Integer deltaEid = null;
         float deltaOtherVal = Float.POSITIVE_INFINITY;
         int deltaOtherV = -1;
@@ -183,21 +174,15 @@ public final class DiscreteGradient {
                 deltaOtherV = u;
             }
         }
-        // Pair v ↔ delta.
         int deltaCellId = nv + deltaEid;
         pair[v] = deltaCellId;
         pair[deltaCellId] = v;
 
-        // PQone: lower-star cells with unpaired-face count == 1 (saddle candidates).
-        // PQzero: lower-star cells with unpaired-face count == 0 (always pair-candidates).
-        // Both ordered by simplex-value ascending so we process the lowest first.
-        // We use lambda priority queues based on ascending lex value.
         PriorityQueue<Integer> pqZero = new PriorityQueue<>(
                 (x, y) -> compareSimplexValue(x, y, scalar, edgeEndpoints, triangleVerts, nv));
         PriorityQueue<Integer> pqOne = new PriorityQueue<>(
                 (x, y) -> compareSimplexValue(x, y, scalar, edgeEndpoints, triangleVerts, nv));
 
-        // Add cofacets (triangles) of delta in L(v) to PQzero/PQone classification.
         for (int tid : lowerTris) {
             if (containsEdge(triangleEdges[tid], deltaEid)) {
                 int unpaired = countUnpairedFacesInLowerStar(tid, v, scalar, triangleEdges,
@@ -206,7 +191,6 @@ public final class DiscreteGradient {
             }
         }
 
-        // Add other lower-star edges (not delta) to PQone.
         for (int eid : lowerEdges) {
             if (eid == deltaEid) continue;
             pqOne.add(nv + eid);
@@ -222,12 +206,10 @@ public final class DiscreteGradient {
                 if (pair[alpha] >= 0) continue;
                 int alphaDim = alpha < nv ? 0 : (alpha < nv + ne ? 1 : 2);
                 if (alphaDim == 1) continue; // shouldn't happen for edges in PQzero usually
-                // alphaDim == 2 (triangle). Find the unique unpaired face (edge) in L(v).
                 int tid = alpha - nv - ne;
                 int freeEdgeId = findFreeFaceInLowerStar(tid, v, scalar, triangleEdges,
                         edgeEndpoints, pair, nv);
                 if (freeEdgeId < 0) {
-                    // No free face — leave on stack; will become critical if never paired.
                     continue;
                 }
                 int freeEdgeCell = nv + freeEdgeId;
@@ -235,7 +217,6 @@ public final class DiscreteGradient {
                 pair[freeEdgeCell] = alpha;
                 processedTris.add(tid);
                 processedEdges.add(freeEdgeId);
-                // Cofacets of freeEdge in L(v) may now have unpaired-count==1.
                 for (int otherTid : lowerTris) {
                     if (otherTid == tid || processedTris.contains(otherTid)) continue;
                     if (!containsEdge(triangleEdges[otherTid], freeEdgeId)) continue;
@@ -244,16 +225,13 @@ public final class DiscreteGradient {
                     if (unpaired == 1) pqZero.add(nv + ne + otherTid);
                 }
             }
-            // Pop from PQone — these become critical (saddles or remaining lower-star cells).
             if (!pqOne.isEmpty()) {
                 int gamma = pqOne.poll();
                 if (pair[gamma] >= 0) continue;
-                // Mark critical (already pair[gamma] = -1).
                 int gammaDim = gamma < nv ? 0 : (gamma < nv + ne ? 1 : 2);
                 if (gammaDim == 1) {
                     int eid = gamma - nv;
                     processedEdges.add(eid);
-                    // Add cofacets that may now have unpaired-count == 1.
                     for (int tid : lowerTris) {
                         if (processedTris.contains(tid)) continue;
                         if (!containsEdge(triangleEdges[tid], eid)) continue;
@@ -264,12 +242,9 @@ public final class DiscreteGradient {
                 }
             }
         }
-        // Any unprocessed lower-star triangles whose all faces are critical
-        // become critical themselves (maxima).
         for (int tid : lowerTris) {
             if (processedTris.contains(tid)) continue;
             if (pair[nv + ne + tid] < 0) {
-                // already critical (no pair). Nothing to do; counts as max.
             }
         }
     }
@@ -293,7 +268,6 @@ public final class DiscreteGradient {
         int count = 0;
         for (int eid : triangleEdges[tid]) {
             int[] ep = edgeEndpoints[eid];
-            // Only edges in lower star of v contain v AND have other endpoint < v.
             if (ep[0] != v && ep[1] != v) continue;
             int u = ep[0] == v ? ep[1] : ep[0];
             if (!vertexLess(u, v, scalar)) continue;

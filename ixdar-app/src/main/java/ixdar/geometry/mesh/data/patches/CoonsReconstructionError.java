@@ -44,17 +44,6 @@ public final class CoonsReconstructionError {
             return new PatchError(false, errors, 0f, 0f);
         }
 
-        // Build Beziers. Order matters for the Coons corner convention:
-        //   side0 (u0) from corner₀ → corner₁
-        //   side1 (v1) from corner₁ → corner₂
-        //   side2 (u1-reversed) from corner₂ → corner₃  (Coons wants u=0→1 at v=1)
-        //   side3 (v0-reversed) from corner₃ → corner₀
-        // Concretely: if the walker's sides are s0..s3 in ring order
-        // (corner0→1, 1→2, 2→3, 3→0), then feed the CoonsEvaluator:
-        //   sideU0 = s0
-        //   sideV1 = s1
-        //   sideU1 = reverse(s2)
-        //   sideV0 = reverse(s3)
         int[] s0 = bs.sides().get(0);
         int[] s1 = bs.sides().get(1);
         int[] s2 = bs.sides().get(2);
@@ -66,7 +55,6 @@ public final class CoonsReconstructionError {
 
         float[] grid = CoonsEvaluator.sampleGrid(bezU0, bezU1, bezV0, bezV1, uvSamples);
 
-        // Walk the patch's vertices, compute distance-to-grid for each.
         BitSet touched = new BitSet(vertexCount);
         float p95 = 0f;
         float max = 0f;

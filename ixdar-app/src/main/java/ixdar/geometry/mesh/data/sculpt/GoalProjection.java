@@ -69,8 +69,6 @@ public final class GoalProjection {
         MeshProjection hits = MeshProjection.along(originXyz, normalXyz, goal);
         offset = hits.offset;
         reachable = new boolean[vertexCount];
-        // A goal wound inside out (its signed volume negative) has every face normal reversed, so a
-        // hit faces the vertex's way when its face normal points against the vertex normal.
         float facingSign = goal.signedVolume() < 0.0 ? -1f : 1f;
         FaceAnchors nearest = new FaceAnchors(goal);
         float[] anchor = new float[FaceAnchors.FIELDS];
@@ -82,8 +80,6 @@ public final class GoalProjection {
             reachable[activeVertex] = face >= 0 && facingSign * goal.faceNormal(face, faceNormal).dot(
                     normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]) > 0f;
             if (!reachable[activeVertex]) {
-                // Without a nearest goal point either there is nothing to measure; a back face's
-                // distance would sculpt toward the wrong side.
                 offset[activeVertex] = 0f;
                 if (nearest.anchor(originXyz[at], originXyz[at + 1], originXyz[at + 2], anchor, 0) >= 0) {
                     FaceAnchors.position(goal, anchor, 0, point).sub(originXyz[at], originXyz[at + 1],

@@ -96,8 +96,6 @@ public final class RingRegionExtractionBenchmark {
             }
         }
 
-        // Fertility's limbs are handles, so a limb is a tube two rings bound; the body, the largest
-        // region, is left out, and the neighbour is the smallest region sharing a ring with it.
         int body = 0;
         for (int region = 0; region < regions.regionCount; region++) {
             body = regions.regionArea[region] > regions.regionArea[body] ? region : body;

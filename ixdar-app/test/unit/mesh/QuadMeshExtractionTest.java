@@ -40,7 +40,6 @@ class QuadMeshExtractionTest {
 
     private static final int TORUS_EULER_CHARACTERISTIC = 0;
 
-    // Sized so arcs carry interior grid points.
     private static final int QUADS_ON_SHORTEST_ARC = 3;
 
     /**

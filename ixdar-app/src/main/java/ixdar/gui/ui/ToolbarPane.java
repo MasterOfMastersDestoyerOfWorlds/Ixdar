@@ -49,7 +49,6 @@ public class ToolbarPane extends Pane {
                 : ": " + tool.activeSubTool.displayName());
         bar.addWord(title.toUpperCase(Locale.ROOT), palette.highlight);
         for (ControlHint hint : scene.controls.get(Scene.TOOL_SECTION)) {
-            // A key drawn as glyphs needs no colon to set it off from what it does.
             String label = hint.glyphLabel();
             HyperWord key = bar.addWord(ControlHint.KEY_DESCRIPTION_GAP + label
                     + (label.equals(hint.keyLabel()) ? ":" : ""), palette.linkText);

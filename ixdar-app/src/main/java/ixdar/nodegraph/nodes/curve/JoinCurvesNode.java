@@ -81,7 +81,6 @@ public class JoinCurvesNode implements MeshNode {
         Object dedupObj = FieldBroadcast.getInputOrDefault(ctx, DEDUPLICATE.name, DEDUPLICATE.defaultValue);
         if (dedupObj instanceof Boolean b) dedup = b;
 
-        // Extract first polyline from each
         float[] posA = cgA.positions;
         int offA0 = cgA.firstPoint(0);
         int nA = cgA.pointCount(0);
@@ -90,7 +89,6 @@ public class JoinCurvesNode implements MeshNode {
         int offB0 = cgB.firstPoint(0);
         int nB = cgB.pointCount(0);
 
-        // Check if endpoint of A matches startpoint of B
         int skipB = 0;
         if (dedup && nA > 0 && nB > 0) {
             int lastA = 3 * (offA0 + nA - 1);
@@ -106,16 +104,13 @@ public class JoinCurvesNode implements MeshNode {
         int totalPoints = nA + nB - skipB;
         float[] combined = new float[totalPoints * 3];
 
-        // Copy A points
         System.arraycopy(posA, offA0 * 3, combined, 0, nA * 3);
 
-        // Copy B points (skipping first if dedup matched)
         int srcOffset = (offB0 + skipB) * 3;
         int dstOffset = nA * 3;
         int copyCount = (nB - skipB) * 3;
         System.arraycopy(posB, srcOffset, combined, dstOffset, copyCount);
 
-        // An attribute only one side carries reads 0 on the other side's points.
         Map<String, float[]> pointAttributes = new TreeMap<>();
         Map<String, float[]> curveAttributes = new TreeMap<>();
         Set<String> pointNames = new TreeSet<>(cgA.pointAttributes.keySet());

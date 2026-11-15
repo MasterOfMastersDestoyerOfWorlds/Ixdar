@@ -67,8 +67,6 @@ public final class MarchingTetrahedra {
                 if (insideCount == 0 || outsideCount == 0) {
                     continue;
                 }
-                // The crossing edges in cyclic order: a fan of three around a lone corner, or the
-                // quad between two inside and two outside corners.
                 int ringSize = insideCount == 2 ? 4 : 3;
                 for (int index = 0; index < ringSize; index++) {
                     int inner = insideCount == 1 ? inside[0] : insideCount == 3 ? inside[index] : inside[index / 2];
@@ -91,7 +89,6 @@ public final class MarchingTetrahedra {
                     }
                     ring[index] = known;
                 }
-                // Outward: from the inside corners' centre toward the outside corners'.
                 outward.zero();
                 for (int index = 0; index < TETRAHEDRON_CORNERS; index++) {
                     boolean isInside = index < insideCount;

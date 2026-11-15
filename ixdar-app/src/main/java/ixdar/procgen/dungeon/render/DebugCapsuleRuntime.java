@@ -84,11 +84,6 @@ public final class DebugCapsuleRuntime {
     }
 
     private static HalfEdgeMesh buildCapsuleMesh(float r, float h) {
-        // Vertex layout:
-        //   0                          : top pole         (0, h+r, 0)
-        //   1 .. LAT*LON               : top hemisphere rings 1..LAT, each LON verts
-        //   1+LAT*LON .. 2*LAT*LON     : bottom hemisphere rings 0..LAT-1, each LON verts
-        //   1+2*LAT*LON                : bottom pole      (0, -h-r, 0)
         int vertCount = 2 + 2 * LAT * LON;
         float[] positions = new float[vertCount * 3];
 
@@ -104,7 +99,6 @@ public final class DebugCapsuleRuntime {
         positions[bottomPole * 3 + 1] = -h - r;
         positions[bottomPole * 3 + 2] = 0f;
 
-        // Top hemisphere rings: theta from PI/(2*LAT) (just below pole) to PI/2 (cylinder top, inclusive).
         for (int i = 1; i <= LAT; i++) {
             float theta = (float) (i * Math.PI / (2.0 * LAT));
             float ringR = r * (float) Math.sin(theta);
@@ -118,7 +112,6 @@ public final class DebugCapsuleRuntime {
                 positions[v * 3 + 2] = ringR * (float) Math.sin(phi);
             }
         }
-        // Bottom hemisphere rings: phi from 0 (cylinder bottom) up to (LAT-1)*PI/(2*LAT) (one before pole).
         for (int i = 0; i < LAT; i++) {
             float phiLat = (float) (i * Math.PI / (2.0 * LAT));
             float ringR = r * (float) Math.cos(phiLat);
@@ -133,18 +126,10 @@ public final class DebugCapsuleRuntime {
             }
         }
 
-        // Triangles, CCW seen from outside.
-        // Counts:
-        //   top cap (pole + ring1)              : LON
-        //   top hemisphere body (rings i..i+1)  : (LAT-1) * 2 * LON
-        //   cylinder body (top LAT to bot 0)    : 2 * LON
-        //   bottom hemisphere body              : (LAT-1) * 2 * LON
-        //   bottom cap (ring LAT-1 + pole)      : LON
         int triCount = LON + (LAT - 1) * 2 * LON + 2 * LON + (LAT - 1) * 2 * LON + LON;
         int[] indices = new int[triCount * 3];
         int cursor = 0;
 
-        // Top cap: pole, ring1[j], ring1[j+1]
         int topRing1 = topRingBase;
         for (int j = 0; j < LON; j++) {
             int j1 = (j + 1) % LON;
@@ -153,13 +138,11 @@ public final class DebugCapsuleRuntime {
             indices[cursor++] = topRing1 + j1;
         }
 
-        // Top hemisphere body: between ring i and ring i+1 (i in 1..LAT-1).
         for (int i = 1; i < LAT; i++) {
             int ringA = topRingBase + (i - 1) * LON;
             int ringB = topRingBase + i * LON;
             for (int j = 0; j < LON; j++) {
                 int j1 = (j + 1) % LON;
-                // quad (a0, a1, b1, b0) -> tris (a0, b0, b1) and (a0, b1, a1) for outward CCW.
                 indices[cursor++] = ringA + j;
                 indices[cursor++] = ringB + j;
                 indices[cursor++] = ringB + j1;
@@ -169,7 +152,6 @@ public final class DebugCapsuleRuntime {
             }
         }
 
-        // Cylinder body: top ring LAT to bottom ring 0.
         int topCylRing = topRingBase + (LAT - 1) * LON;
         int botCylRing = bottomRingBase;
         for (int j = 0; j < LON; j++) {
@@ -182,7 +164,6 @@ public final class DebugCapsuleRuntime {
             indices[cursor++] = topCylRing + j1;
         }
 
-        // Bottom hemisphere body: between ring i and ring i+1 (i in 0..LAT-2).
         for (int i = 0; i < LAT - 1; i++) {
             int ringA = bottomRingBase + i * LON;
             int ringB = bottomRingBase + (i + 1) * LON;
@@ -197,7 +178,6 @@ public final class DebugCapsuleRuntime {
             }
         }
 
-        // Bottom cap: pole, ring(LAT-1)[j+1], ring(LAT-1)[j]  (note swapped winding for outward).
         int botLastRing = bottomRingBase + (LAT - 1) * LON;
         for (int j = 0; j < LON; j++) {
             int j1 = (j + 1) % LON;

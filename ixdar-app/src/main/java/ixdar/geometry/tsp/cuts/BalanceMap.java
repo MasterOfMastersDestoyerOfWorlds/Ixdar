@@ -139,19 +139,6 @@ public class BalanceMap {
                 externalGroupCount.put(groupId, 2);
             }
         }
-        // not sure what this was supposed to do
-        // if (superKnot != null) {
-        // for (Knot sVP : superKnot.knotPointsFlattened) {
-        // if (!knot.contains(sVP)) {
-        // if (externalGroups.containsKey(sVP.id)
-        // && (!externalBalance.containsKey(sVP.id) || externalBalance.get(sVP.id) < 2))
-        // {
-        // groupId = externalGroups.get(sVP.id);
-        // externalGroups.put(vp.id, groupId);
-        // }
-        // }
-        // }
-        // }
         if (groupId == -1) {
             if (vpHasGrouping && !externalHasGrouping) {
                 groupId = externalGroups.get(vp.id);
@@ -206,7 +193,6 @@ public class BalanceMap {
             int newBalance = balance.get(vp1.id) - 1;
             int newBalance2 = balance.get(vp2.id) - 1;
             if (newBalance < 0 || newBalance2 < 0) {
-                // throw new BalancerException(vp1, vp2, sbe);
             }
             cuts.add(newCut);
             balance.put(vp1.id, newBalance);
@@ -478,7 +464,6 @@ public class BalanceMap {
             return false;
         }
 
-        // checking if kp1 is good
         int externalsKp1 = (externalBalance.get(kp1.id) + 1);
         if (externalMatches.contains(matchSegment1)) {
             externalsKp1--;
@@ -611,7 +596,6 @@ public class BalanceMap {
             return false;
         }
 
-        // checking if cp1 is good
 
         int externalsKp2 = (externalBalance.get(kp2.id) + 1);
         int currMatchesKp2 = externalsKp2;

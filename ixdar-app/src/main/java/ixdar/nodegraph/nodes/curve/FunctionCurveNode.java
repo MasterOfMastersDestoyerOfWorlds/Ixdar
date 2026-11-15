@@ -79,7 +79,6 @@ public class FunctionCurveNode implements MeshNode {
                 ys[i] = (float) y;
             }
         } catch (IllegalArgumentException e) {
-            // Malformed expression — fall back to identity curve
             xs = new float[]{0f, 1f};
             ys = new float[]{0f, 1f};
         }

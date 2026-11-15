@@ -54,7 +54,6 @@ public class SpherizeMeshNode implements MeshNode {
         MeshTopology inputMesh = GeometryBundles.meshPart(input);
         Number factorInput = ctx.getInput(FACTOR.name, Number.class);
 
-        // Clamp the factor strictly between 0.0 and 1.0
         float factor = factorInput == null ? 1.0f : Math.max(0.0f, Math.min(1.0f, factorInput.floatValue()));
 
         if (inputMesh == null || inputMesh.vertexCount() == 0) {
@@ -62,7 +61,6 @@ public class SpherizeMeshNode implements MeshNode {
             return;
         }
 
-        // 1. Calculate Center and Target Radius (Average Distance)
         Vector3f center = inputMesh.center(new Vector3f());
         float totalDistance = 0f;
 
@@ -74,7 +72,6 @@ public class SpherizeMeshNode implements MeshNode {
 
         float targetRadius = totalDistance / inputMesh.vertexCount();
 
-        // 2. Clone Topology and Modify Vertex Positions
         HalfEdgeMesh newMesh = new HalfEdgeMesh();
         Map<Integer, Integer> vertexMap = new HashMap<>(); // Maps Old ID -> New ID
 
@@ -85,17 +82,13 @@ public class SpherizeMeshNode implements MeshNode {
             Vector3f newPos = new Vector3f(originalPos);
 
             if (factor > 0f) {
-                // Get direction from center to vertex
                 Vector3f dir = new Vector3f(originalPos).sub(center);
                 float dist = dir.length();
 
-                // Prevent division by zero if a vertex is exactly at the center
                 if (dist > MIN_CENTER_DISTANCE) {
                     dir.normalize();
-                    // Calculate where this vertex would sit on a perfect sphere
                     Vector3f sphericalPos = new Vector3f(center).add(dir.mul(targetRadius));
 
-                    // Linearly interpolate between the original shape and the sphere
                     newPos.lerp(sphericalPos, factor);
                 }
             }
@@ -104,7 +97,6 @@ public class SpherizeMeshNode implements MeshNode {
             vertexMap.put(oldVId, newVId);
         }
 
-        // 3. Rebuild Faces using the new Vertex IDs
         for (int i = 0; i < inputMesh.faceCount(); i++) {
             int fId = inputMesh.faceIdAt(i);
             int vCount = inputMesh.faceVertexCount(fId);

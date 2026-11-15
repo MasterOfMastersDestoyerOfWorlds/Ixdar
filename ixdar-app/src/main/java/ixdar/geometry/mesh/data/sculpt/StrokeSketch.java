@@ -136,7 +136,6 @@ public final class StrokeSketch {
 
     public static final Pattern VIEWBOX_ATTRIBUTE = Pattern.compile("\\bviewBox\\s*=\\s*\"([^\"]*)\"");
 
-    // Sketch points are world points: the model matrix they project through is the identity.
     private static final Matrix4f WORLD = new Matrix4f();
 
     /** Point the camera orbits, the multiview capture's centre. */
@@ -308,8 +307,6 @@ public final class StrokeSketch {
                 sketch.svgScaleY = rows * sketch.cellHeight / Float.parseFloat(box[3]);
             }
         }
-        // A commented-out tag is not a stroke: the template's own instructions show one, and
-        // commenting a stroke out is how a pass takes it back.
         Matcher tag = SHAPE_TAG.matcher(COMMENT.matcher(svg).replaceAll(""));
         while (tag.find()) {
             sketch.shapes.add(tag.group());
@@ -331,7 +328,6 @@ public final class StrokeSketch {
         if (!camera.projectToPixels(WORLD, point.x, point.y, point.z, cellWidth, cellHeight, dest)) {
             return false;
         }
-        // projectToPixels puts a pixel's centre half a pixel past its whole number.
         dest[0] -= 0.5f;
         dest[1] -= 0.5f;
         return true;
@@ -646,19 +642,12 @@ public final class StrokeSketch {
                 pixels[index + 1] -= view / columns * cellHeight;
             }
             float centerWorldPerPixel = (float) camera.worldPerPixel(target.x, target.y, target.z, cellHeight);
-            // Every stroke carries its cell's eye and axis, so the sculpt touches only what this
-            // camera sees.
             Vector3f forward = new Vector3f(camera.target).sub(camera.position).normalize();
             String eyeFlag = String.format(Locale.ROOT, " %s%.5f/%.5f/%.5f/%.5f/%.5f/%.5f", StrokeSculpt.EYE_PREFIX,
                     camera.position.x, camera.position.y, camera.position.z, forward.x, forward.y, forward.z);
-            // A silhouette lifts to one view ray per point, the sculpt finding the contour against the
-            // stroke and dragging it all the way on; a polyline to surface points, a polygon to fill
-            // samples, which a bowl weights t(2 - t) by their distance in from the outline over the
-            // deepest one's, so the cavity's floor curves up to its rim.
             float stepPixels = Math.max(MINIMUM_FILL_STEP_PIXELS, spacing / centerWorldPerPixel);
             float[] samples = fill ? PolygonScan.coveredPoints(pixels, stepPixels) : pixels;
             sampleSpacingByShape[stroke] = fill ? stepPixels * centerWorldPerPixel : 0f;
-            // A chain its sidecar holds on the base takes those points as they are, whatever this cell sees.
             float[] anchored = stroke < anchoredXyzByShape.length && !fill && !silhouette ? anchoredXyzByShape[stroke] : null;
             int pointBound = Math.max(samples.length / 2, anchored == null ? 0 : anchored.length / 3);
             float[] lifted = new float[pointBound * 3];

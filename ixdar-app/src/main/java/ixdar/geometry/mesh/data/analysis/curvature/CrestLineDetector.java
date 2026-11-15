@@ -24,14 +24,9 @@ public final class CrestLineDetector {
     public static final float EPSILON = 1e-12f;
     public static final float MIN_FORWARD_PROGRESS = 0.1f;
 
-    // Adaptive threshold: a vertex is a ridge candidate when its
-    // |kappaMax| is at least this multiple of the mesh median.
     private static final float T_RIDGE_SCALE = 1.4f;
     private static final float T_VALLEY_SCALE = 1.4f;
-    // Moreton-Sequin-lite: reject near-umbilical points where the principal
-    // curvatures are too close together (eigenvectors unstable there).
     private static final float T_MVS_SQUARED = 0.08f;
-    // Cap traced polyline length to avoid infinite loops on pathological meshes.
     private static final int MAX_TRACE_STEPS = 512;
 
     private CrestLineDetector() {}
@@ -50,10 +45,8 @@ public final class CrestLineDetector {
         int vertexIdBound = mesh.vertexIdBound();
         float[] positions = ed.positions();
 
-        // 1-ring neighbourhoods.
         int[][] ring = TriangleSoup.oneRings(ed.triangles(), vertexIdBound);
 
-        // --- Candidate selection (adaptive thresholds) ---
         float ridgeT = thresholdFromMedian(mesh, pdf, /*ridge=*/true) * T_RIDGE_SCALE;
         float valleyT = thresholdFromMedian(mesh, pdf, /*ridge=*/false) * T_VALLEY_SCALE;
 
@@ -71,7 +64,6 @@ public final class CrestLineDetector {
             }
         }
 
-        // --- Non-maximum suppression along the eigenvector ---
         boolean[] isRidgePoint = new boolean[vertexIdBound];
         boolean[] isValleyPoint = new boolean[vertexIdBound];
         float[] dir = new float[3];
@@ -91,7 +83,6 @@ public final class CrestLineDetector {
             }
         }
 
-        // --- Trace polylines + collect edges ---
         List<int[]> ridgeLines = tracePolylines(mesh, isRidgePoint, ring, pdf, positions, /*forRidge=*/true);
         List<int[]> valleyLines = tracePolylines(mesh, isValleyPoint, ring, pdf, positions, /*forRidge=*/false);
 
@@ -157,10 +148,8 @@ public final class CrestLineDetector {
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int seed = mesh.vertexIdAt(activeVertex);
             if (!isPoint[seed] || visited[seed]) continue;
-            // Trace in both directions from seed.
             List<Integer> forward = traceOneDirection(seed, +1, isPoint, ring, pdf, positions, visited, dir, forRidge);
             List<Integer> backward = traceOneDirection(seed, -1, isPoint, ring, pdf, positions, visited, dir, forRidge);
-            // Combine reversed-backward + forward (seed appears once).
             List<Integer> full = new ArrayList<>(backward.size() + forward.size());
             for (int i = backward.size() - 1; i >= 0; i--) full.add(backward.get(i));
             full.add(seed);
@@ -186,8 +175,6 @@ public final class CrestLineDetector {
         for (int step = 0; step < MAX_TRACE_STEPS; step++) {
             if (forRidge) pdf.dirMin(v, dir);  // ridge runs along min-curvature dir
             else          pdf.dirMax(v, dir);  // valley runs along max-curvature dir
-            // Orient dir to stay consistent with previous step (eigenvectors
-            // have sign ambiguity; pick the direction that matches momentum).
             if (havePrevStep) {
                 float d = dir[0] * prevStepX + dir[1] * prevStepY + dir[2] * prevStepZ;
                 if ((sign > 0 && d < 0) || (sign < 0 && d > 0)) {
@@ -196,8 +183,6 @@ public final class CrestLineDetector {
             } else if (sign < 0) {
                 dir[0] = -dir[0]; dir[1] = -dir[1]; dir[2] = -dir[2];
             }
-            // Find the best 1-ring neighbour: a ridge/valley point whose edge
-            // direction is most aligned with `dir`.
             int bestU = -1;
             float bestDot = MIN_FORWARD_PROGRESS;  // require some forward progress
             float bestEx = 0, bestEy = 0, bestEz = 0;

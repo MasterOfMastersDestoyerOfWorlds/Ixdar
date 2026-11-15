@@ -89,7 +89,6 @@ public class SelectCommand extends TerminalCommand {
         RingScene scene = layer.scene;
         RingRegionTool tool = scene.regionTool;
         scene.switchTool(tool);
-        // The layer builds the regions on its frame; running it now lets one line select them.
         layer.perFrame();
         RingRegions regions = layer.regions;
         MeshTopology surface = scene.halfEdgeSurface();

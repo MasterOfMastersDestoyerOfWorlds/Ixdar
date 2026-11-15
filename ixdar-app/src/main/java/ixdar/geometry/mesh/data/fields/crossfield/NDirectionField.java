@@ -35,9 +35,7 @@ import ixdar.platform.Platforms;
  */
 public class NDirectionField {
 
-    // paper Sec. 7
     public static final double DEFAULT_SHIFT = 1e-8;
-    // paper Sec. 7
     public static final int DEFAULT_POWER_ITERATIONS = 20;
 
     public static final double NANOS_PER_SECOND = 1.0e9;
@@ -75,7 +73,6 @@ public class NDirectionField {
      */
     public SurfaceMetric metric;
 
-    // Solution: per-vertex n-th power coefficient u = uRe + i*uIm.
     /** The canonical solve state: the raw DOF vector of the last field solve. */
     public DofSystem system;
 
@@ -189,8 +186,6 @@ public class NDirectionField {
         cf.faceIdToActive = activeIndexById(buildMesh.faceCount(), buildMesh::faceIdAt);
         cf.edgeIdToActive = activeIndexById(buildMesh.edgeCount(), buildMesh::edgeIdAt);
 
-        // The metric's dense vertex and edge indices are the mesh's active indices, its
-        // half-edge 2e the edge's own half-edge and 2e + 1 the twin; split diagonals come after.
         long sectionStart = System.nanoTime();
         for (int halfEdge = 0; halfEdge < 2 * cf.edgeCount; halfEdge++) {
             int edgeHalfEdge = buildMesh.edgeHalfEdge(metric.sourceEdgeId[halfEdge >> 1]);
@@ -210,8 +205,6 @@ public class NDirectionField {
         for (int activeEdge = 0; activeEdge < cf.edgeCount && !openMesh; activeEdge++) {
             openMesh = buildMesh.isBoundaryEdge(buildMesh.edgeIdAt(activeEdge));
         }
-        // Frames, transport, alignment edges and the curvature load are read only from the solve
-        // on, and none reads the matrices, so they are built while the matrices are assembled.
         CompletableFuture<Void> framesAndTransport =
                 CompletableFuture.runAsync(this::buildFramesAndTransport);
         pendingLoadVector = useCurvatureAlignment
@@ -414,7 +407,6 @@ public class NDirectionField {
         long sectionStart = System.nanoTime();
         boolean hasAlignmentEdges = cf.hasAlignmentEdges();
         if (useCurvatureAlignment || hasAlignmentEdges) {
-            // The energy matrix factors while the guidance below is built; neither reads the other.
             if (!(openMesh && curvatureBias != 0.0)) {
                 NormalMatrix energy = energyMatrix;
                 boolean[] frozen = system.frozen.clone();
@@ -593,7 +585,6 @@ public class NDirectionField {
         }
         Platforms.log("[hopf]    load norm=%.6e%n", Math.sqrt(loadNormSquared));
 
-        // M q = loadVector. PCG takes its RHS from matrix.rightHandSide.
         System.arraycopy(loadVector, 0, massSystemMatrix.rightHandSide, 0, N);
 
         this.hopfField = new double[N]; // warm start 0; mutated in place into q
@@ -609,7 +600,6 @@ public class NDirectionField {
         for (int v = 0; v < vertexCount; v++) {
             double realCurvature = hopfField[2 * v];
             double imaginaryCurvature = hopfField[2 * v + 1];
-            // (qRe + i*qIm)^2 = (qRe^2 - qIm^2) + i*(2*qRe*qIm)
             crossFieldGuidance[2 * v] = realCurvature * realCurvature - imaginaryCurvature * imaginaryCurvature;
             crossFieldGuidance[2 * v + 1] = 2.0 * realCurvature * imaginaryCurvature;
         }
@@ -664,7 +654,6 @@ public class NDirectionField {
             }
         }
 
-        // One slot per distinct neighbour, so parallel edges share an entry as the keyed map did.
         int[] neighborStart = new int[vertexCount + 1];
         int[] neighbor = new int[incidentEdge.length];
         int[] slotInLowRow = new int[edgeCount];
@@ -694,8 +683,6 @@ public class NDirectionField {
         }
         neighborStart[vertexCount] = slotCount;
 
-        // Realified rows 2v (real DOF) and 2v + 1 (imaginary DOF) each hold the real and
-        // imaginary DOF of every neighbour slot of v, in slot order.
         int dofCount = 2 * vertexCount;
         int[] rowStart = new int[dofCount + 1];
         int[] rowColumn = new int[4 * slotCount];
@@ -715,8 +702,6 @@ public class NDirectionField {
         }
         rowStart[dofCount] = 4 * slotCount;
 
-        // The fill-reducing ordering reads the pattern alone, so it runs while the values are
-        // integrated below; solveAligned factors with it, the same permutation factorize finds.
         if (!(openMesh && curvatureBias != 0.0)) {
             boolean[] frozen = system.frozen.clone();
             NormalMatrix pattern = new NormalMatrix(dofCount, rowStart, rowColumn,
@@ -741,8 +726,6 @@ public class NDirectionField {
         double[] massReal = new double[slotCount];
         double[] massImaginary = new double[slotCount];
 
-        // Each triangle's terms are integrated in parallel into per-corner rows, then summed into
-        // the matrices in face and corner order, so every sum adds in the sequential order.
         int faceCount = mesh.faceCount();
         double[] faceArea = new double[faceCount];
         int[] cornerActive = new int[3 * faceCount];
@@ -776,7 +759,6 @@ public class NDirectionField {
                     mesh.vertexPosition(vertexId[corner], position[corner]);
                 }
 
-                // Transport angle on each CCW directed edge, and the triangle holonomy.
                 for (int corner = 0; corner < 3; corner++) {
                     int twin = mesh.halfEdgeTwin(halfEdge[corner]);
                     double angle = n * (getAngle(vertexId[(corner + 1) % 3], twin)
@@ -796,8 +778,6 @@ public class NDirectionField {
                     continue;
                 }
 
-                // Diagonal: full stiffness (with the holonomy correction) minus the curvature
-                // term.
                 for (int corner = 0; corner < 3; corner++) {
                     Vector3f toNext = edge0.set(position[(corner + 1) % 3]).sub(position[corner]);
                     Vector3f toPrev = edge1.set(position[(corner + 2) % 3]).sub(position[corner]);
@@ -808,9 +788,6 @@ public class NDirectionField {
                             - curvatureBias * holonomy / 6.0;
                 }
 
-                // Off-diagonal: one per edge, from the two edges at the opposite vertex. Each
-                // directed entry H[from][to] lands in from's row and its conjugate in to's row.
-                // The series depend on the holonomy alone, so one evaluation serves all three.
                 double[] massOff = SectionIntegrals.massOffDiagonal(holonomy);
                 SectionIntegrals.stiffnessSeries(holonomy, stiffnessSeries);
                 for (int corner = 0; corner < 3; corner++) {
@@ -825,12 +802,10 @@ public class NDirectionField {
                             oppToFrom.lengthSquared(), oppToFrom.dot(oppToTo),
                             oppToTo.lengthSquared(), stiff);
 
-                    // entry before transport = stiffness/area - bias*(holonomy*mass - i/2)
                     double entryRe = stiff[0] / area - curvatureBias * holonomy * massOff[0];
                     double entryIm = stiff[1] / area
                             - curvatureBias * (holonomy * massOff[1] - 0.5);
 
-                    // multiply by the conjugate transport, e^(-i * transportAngle)
                     int row = 3 * f + corner;
                     double cosRho = transportCosine[row];
                     double sinRho = transportSine[row];
@@ -845,7 +820,6 @@ public class NDirectionField {
 
                     double massRe0 = area * massOff[0];
                     double massIm0 = area * massOff[1];
-                    // * conjugate transport
                     cornerMassReal[row] = massRe0 * cosRho + massIm0 * sinRho;
                     cornerMassImaginary[row] = massIm0 * cosRho - massRe0 * sinRho;
                 }
@@ -951,12 +925,10 @@ public class NDirectionField {
     private void solveAligned(double t) {
         int N = 2 * vertexCount;
 
-        // (A - tM). With t = 0 this is just A.
         NormalMatrix shifted = (t == 0.0)
                 ? energyMatrix
                 : energyMatrix.subtract(massSystemMatrix.scale(t));
 
-        // The factor reads the energy matrix, so it completes before its right-hand side is written.
         DirectSolver.CholeskyHandle handle = null;
         CompletableFuture<DirectSolver.CholeskyHandle> factoring = pendingFactorization;
         pendingFactorization = null;
@@ -975,7 +947,6 @@ public class NDirectionField {
             }
         }
 
-        // RHS = M g (+ dual-form feature load).
         for (int i = 0; i < N; i++) {
             shifted.rightHandSide[i] = massSystemMatrix.rowDot(i, crossFieldGuidance);
         }
@@ -987,8 +958,6 @@ public class NDirectionField {
 
         double[] x = system.solution;
         Arrays.fill(x, 0.0);
-        // The bias term's boundary integral (the i/2 entries that cancel across interior edges)
-        // leaves A indefinite on an open mesh, where Cholesky refuses it; CG is kept there.
         if (openMesh && curvatureBias != 0.0) {
             AdaptiveSolver.preconditionedConjugateGradient(shifted, x, null, jacobi(shifted),
                     ALIGNED_CONJUGATE_GRADIENT_ITERATIONS, ALIGNED_CONJUGATE_GRADIENT_TOLERANCE);
@@ -1055,8 +1024,6 @@ public class NDirectionField {
                     int b = activeOfVertexId[bId];
                     double rho = n * (getAngle(bId, twin) - getAngle(aId, he));
                     rhoProd += rho;
-                    // omega_ab : u_b = e^{i omega} r_ab u_a -> omega = arg(u_b / (r_ab u_a))
-                    // Assemble already took the cosine and sine of this corner's angle.
                     boolean cached = corners == 3 && transportAngle != null
                             && transportAngle[3 * f + c] == rho;
                     double raRe = cached ? transportCosine[3 * f + c] : Math.cos(rho);
@@ -1116,7 +1083,6 @@ public class NDirectionField {
     }
 
     private static double principal(double a) {
-        // The remainder of a value already inside (-2pi, 2pi) is that value, exactly.
         double r = a > -2.0 * Math.PI && a < 2.0 * Math.PI ? a : a % (2.0 * Math.PI);
         if (r <= -Math.PI)
             r += 2.0 * Math.PI;
@@ -1138,15 +1104,6 @@ public class NDirectionField {
     public void populate() {
         int[] vIdToActive = activeOfVertexId;
 
-        // Per-face angle as the complex mean of the corners' n-power
-        // directions in the face frame (KCP13's u interpolated to the face),
-        // each carried from its vertex frame by the metric's corner transport.
-        // The mean is reliable wherever the field has no zero; inside a
-        // singular triangle it cancels and its atan2 is arbitrary, which used
-        // to let the rounded period jumps split that face's ±1 winding into a
-        // phantom dipole among the face's own vertices. Singular faces (by the
-        // raw triangle index, KCP13 §6.1.3) therefore get their cf.theta re-set
-        // below by exact transport from their most reliable neighbor.
         double[] faceMeanMagnitude = new double[cf.faceCount];
         IntStream.range(0, (cf.faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK).parallel()
                 .forEach(task -> {
@@ -1194,15 +1151,9 @@ public class NDirectionField {
         }
         int singularityCount = cf.singularityCount();
         int eulerCharacteristic = vertexCount - cf.edgeCount + cf.faceCount;
-        // Discrete Poincaré–Hopf (KCP13 App. B): on a closed mesh the quarter
-        // indices must sum to 4χ; boundary vertices are excluded from the walk,
-        // so meshes with boundary will legitimately differ.
         Platforms.log("[n-field] singularities=%d indexSum4=%d fourChi=%d%n",
                 singularityCount, indexSum4, 4 * eulerCharacteristic);
 
-        // KCP13 §6.1.3 ground truth: the raw field's per-triangle indices. The
-        // converted cf.theta/cf.periodJump representation must reproduce them; a
-        // count mismatch means the conversion minted or lost cf.singularities.
         int triangleNonzero = 0;
         int triangleSum = 0;
         for (int face = 0; face < triangleIndex.length; face++) {
@@ -1284,9 +1235,6 @@ public class NDirectionField {
             if (bestNeighbor < 0) {
                 continue;
             }
-            // cf.periodJump rounds cf.theta[j] − cf.theta[i] − cf.kappa with i the
-            // canonical half-edge's face; zero-jump transport solves for this
-            // face's cf.theta accordingly.
             cf.theta[fAi] = (float) (bestCanonicalIntoFace
                     ? cf.theta[bestNeighbor] + cf.kappa[bestEdgeActive]
                     : cf.theta[bestNeighbor] - cf.kappa[bestEdgeActive]);

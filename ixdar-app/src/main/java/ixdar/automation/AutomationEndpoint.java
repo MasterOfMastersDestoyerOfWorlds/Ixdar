@@ -123,8 +123,6 @@ public class AutomationEndpoint {
         return result.toString();
     }
 
-    // ==================== Patch decomposition + segmentation (annotation-driven)
-    // ====================
 
     /**
      * Resolve a path a CLI flag names as every path resolves ({@link MeshLoader#resolve}: the

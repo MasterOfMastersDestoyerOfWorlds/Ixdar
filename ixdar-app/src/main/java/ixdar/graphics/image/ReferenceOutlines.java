@@ -297,7 +297,6 @@ public final class ReferenceOutlines {
             String key = viewName(labels[cell]);
             boolean named = split > 0 ? labels[cell].equalsIgnoreCase(name) || String.valueOf(cell).equals(name)
                     : words.equals(key) || words.endsWith(WORD_JOIN + key);
-            // The longest view name the file name ends in: front_right is not right.
             if (named && key.length() > bestLength) {
                 best = cell;
                 bestLength = key.length();

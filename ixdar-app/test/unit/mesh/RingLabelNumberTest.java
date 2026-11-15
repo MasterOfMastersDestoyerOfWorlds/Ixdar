@@ -19,12 +19,10 @@ import ixdar.tools.ring.RingTool;
  */
 class RingLabelNumberTest {
 
-    // Enough graph rings to cross the zero-padding boundary.
     private static final int ROWS = 12;
 
     private static final int CONFIRMED = 2;
 
-    // The label spline_ring leaves when a statement names none.
     private static final String SPLINE_RING = "spline_ring";
 
     @Test

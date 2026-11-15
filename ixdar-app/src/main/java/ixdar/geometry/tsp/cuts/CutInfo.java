@@ -119,7 +119,6 @@ public class CutInfo {
         this.sbe = new SegmentBalanceException(shell, null, this);
     }
 
-    // 12%
     /**
      * Build a cut descriptor by deriving each external match segment as the
      * closest segment from its knot point to the supplied external hint, and
@@ -145,12 +144,10 @@ public class CutInfo {
             Knot upperKnotPoint, Knot upperCutPoint, Segment upperCutSegment,
             Knot upperExternal,
             Knot superKnot, BalanceMap balanceMap, boolean knotPointsConnected) throws BalancerException {
-        // 2.38%
         Segment s51 = lowerKnotPoint.getClosestSegment(lowerExternal, null);
         Segment s52 = upperKnotPoint.getClosestSegment(upperExternal, s51);
         Knot externalPoint51 = s51.getOther(lowerKnotPoint);
         Knot externalPoint52 = s52.getOther(upperKnotPoint);
-        // 0%
         cutID = ++numCuts;
         this.shell = shell;
         this.knot = superKnot;

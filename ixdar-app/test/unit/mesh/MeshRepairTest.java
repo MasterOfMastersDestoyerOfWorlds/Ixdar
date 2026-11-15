@@ -519,7 +519,6 @@ class MeshRepairTest {
                         boolean patch = top && across >= PATCH_FIRST
                                 && across < PATCH_FIRST + PATCH_CELLS && along >= PATCH_FIRST
                                 && along < PATCH_FIRST + PATCH_CELLS;
-                        // The skin triangles on the sheet's two ends give their edge to the sheet.
                         boolean sheetEnd = across == PATCH_FIRST + PATCH_CELLS && axis == 2
                                 && (along == SHEET_ROW
                                         || high == 0 && along == SHEET_ROW + 1);
@@ -563,8 +562,6 @@ class MeshRepairTest {
             faceCount = appendFace(faces, faceCount, railA[step], railB[step], railB[step + 1]);
             faceCount = appendFace(faces, faceCount, railA[step], railB[step + 1], railA[step + 1]);
         }
-        // The sheet's foot fans over a second edge of the bottom, so the skin holds it more firmly
-        // than the patch does.
         int footC = vertexOfLattice[((sheetX + 1) * side + SHEET_ROW + 2) * side];
         faceCount = appendFace(faces, faceCount, railB[CUBE_GRID - 1], footC, railB[CUBE_GRID]);
         return GeometryBundle.ofMesh(new ArrayMesh(Arrays.copyOf(positions,
@@ -592,8 +589,6 @@ class MeshRepairTest {
                 CUBE_GRID, CUBE_GRID, -1);
         soup.add(new float[] { -1, -1, -1 }, new float[] { 2, 0, 0 }, new float[] { 0, 0, 2 },
                 CUBE_GRID, CUBE_GRID, -1);
-        // The tube's walls and the chamber's sides wind into the air they hold, so the chamber's
-        // floor, below the cube's bottom, faces up into the chamber.
         float pit = PIT_HALF_WIDTH;
         float tubeHeight = 1 - CHAMBER_ROOF;
         soup.add(new float[] { pit, -pit, CHAMBER_ROOF }, new float[] { 0, 0, tubeHeight },

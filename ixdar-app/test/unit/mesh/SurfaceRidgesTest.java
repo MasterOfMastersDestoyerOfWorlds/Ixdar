@@ -32,7 +32,6 @@ class SurfaceRidgesTest {
 
     private static final int SAMPLES = 20000;
 
-    // A sphere's curvature is the same everywhere, so far fewer samples pin it.
     private static final int SPHERE_SAMPLES = 4000;
 
     private static final int LEVELS = 4;
@@ -43,7 +42,6 @@ class SurfaceRidgesTest {
 
     private static final double STEP = 0.005;
 
-    // The fit is read-only once built, so the tests on the ellipsoid share one.
     private static final ImplicitFit ELLIPSOID_FIT;
 
     static {
@@ -92,7 +90,6 @@ class SurfaceRidgesTest {
                 back[axis] -= step;
                 fit.evaluate(fit.levels.size(), ahead, 0, ImplicitFit.THIRD, plus);
                 fit.evaluate(fit.levels.size(), back, 0, ImplicitFit.THIRD, minus);
-                // Each order's derivative along this axis against the next order's analytic entries.
                 assertEquals((plus[0] - minus[0]) / (2 * step), jet[ImplicitFit.GRADIENT_START + axis], 1e-5,
                         "gradient " + axis);
                 for (int a = 0; a < 3; a++) {
@@ -164,8 +161,6 @@ class SurfaceRidgesTest {
                 .with(MergeByDistanceNode.GEOMETRY, ball.output(QuadSphereMeshNode.MESH, GeometryBundle.class))
                 .with(MergeByDistanceNode.DISTANCE, 1e-4f).eval()
                 .output(MergeByDistanceNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
-        // Split once so the edges are short enough for every level asked; the stretch below puts the new
-        // vertices on the ellipsoid too.
         boolean[] every = new boolean[merged.faceIdBound()];
         Arrays.fill(every, true);
         MeshTopology sphere = new MidpointSplit().split(merged, every);

@@ -46,9 +46,6 @@ public final class LimbAxis {
             buildMillis = 0.0;
             return;
         }
-        // A mesh of one face size is read in place, each face fanned from its first corner; a
-        // mixed polygon mesh goes in split along each quad's shorter diagonal, its vertices in
-        // active order, so the split's vertex ids are the surface's active indices.
         boolean uniform = true;
         int corners = mesh.faceVertexCount(mesh.faceIdAt(0));
         for (int activeFace = 1; uniform && activeFace < mesh.faceCount(); activeFace++) {

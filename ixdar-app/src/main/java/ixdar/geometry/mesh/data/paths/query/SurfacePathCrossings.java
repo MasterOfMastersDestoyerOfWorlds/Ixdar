@@ -45,8 +45,6 @@ public final class SurfacePathCrossings {
         crossings = 0;
         revisitedVertices = 0;
         boolean closed = path.closed;
-        // Cancel every stretch the path runs out along and straight back over the same vertices,
-        // across the seam too; what is left is the curve the path draws.
         int[] order = new int[path.pointCount];
         int points = 0;
         for (int point = 0; point < path.pointCount; point++) {
@@ -100,8 +98,6 @@ public final class SurfacePathCrossings {
         if (faceSpans.length < MOST_SHARED_FACES * points) {
             faceSpans = new long[MOST_SHARED_FACES * points];
         }
-        // A span lies in every face its two ends share: one across a face, two along an edge,
-        // none across a gap in the path. An open path has no span back to its start.
         for (int span = 0; span < (closed ? points : points - 1); span++) {
             int from = order[span];
             int to = order[(span + 1) % points];
@@ -131,8 +127,6 @@ public final class SurfacePathCrossings {
             while (last < entries && (int) (faceSpans[last] >>> FACE_SHIFT) == faceId) {
                 last++;
             }
-            // Two spans properly cross in the plane that drops the face's dominant normal axis;
-            // spans that only touch at an end do not count.
             int dominantAxis = mesh.faceDominantAxis(faceId);
             int firstAxis = (dominantAxis + 1) % COORDINATES_PER_POINT;
             int secondAxis = (dominantAxis + 2) % COORDINATES_PER_POINT;

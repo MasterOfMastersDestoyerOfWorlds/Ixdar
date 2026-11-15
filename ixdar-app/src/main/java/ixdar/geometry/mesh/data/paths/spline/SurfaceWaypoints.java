@@ -152,11 +152,6 @@ public final class SurfaceWaypoints {
             int vertexId = vertexIds[anchor];
             mesh.vertexPosition(vertexId, position);
             boolean placed = false;
-            // Candidate -1 is the vertex itself; candidate k moves it toward the centroid of its
-            // k-th face. The first point naming this vertex alone wins; failing that, the first
-            // naming it among overlapping copies is left for the neighbouring anchors to settle.
-            // Each face is tried at every step, the shorter steps for faces so thin that halfway
-            // in lands nearer another vertex.
             int faceCount = mesh.vertexFaceCount(vertexId);
             for (int candidate = -1; !placed && candidate < FACE_STEPS.length * faceCount;
                     candidate++) {

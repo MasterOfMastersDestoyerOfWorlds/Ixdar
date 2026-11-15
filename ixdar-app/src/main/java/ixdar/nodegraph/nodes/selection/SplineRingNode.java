@@ -149,7 +149,6 @@ public class SplineRingNode implements MeshNode {
         try {
             anchorVertexIds = SurfaceWaypoints.snap(metric.nearestVertex, points, anchorCount);
         } catch (IllegalStateException unresolved) {
-            // Passing the surface on unmarked lets every later ring report its own points too.
             ctx.reportFailure("spline_ring " + label + ":\n" + unresolved.getMessage());
             ctx.setOutput(GEOMETRY.name, bundle);
             ctx.setOutput(SELECTION.name, false);

@@ -44,7 +44,6 @@ public final class SkeletonSensitivityAnalyzer {
     private static final float MIN_EPSILON = 1e-3f;
     private static final float DAMPING_LAMBDA = 0.1f;
 
-    // ─── Jacobian computation ───
 
     /**
      * Compute the sensitivity matrix (Jacobian) of skeleton joint positions
@@ -66,7 +65,6 @@ public final class SkeletonSensitivityAnalyzer {
 
         if (epsilon <= 0) epsilon = DEFAULT_EPSILON_RELATIVE;
 
-        // 1. Discover parameters (input nodes + literal arguments)
         List<OptimizableParameter> params = collectAllParameters(parsed);
 
         if (params.isEmpty()) {
@@ -74,17 +72,14 @@ public final class SkeletonSensitivityAnalyzer {
                     0, List.of(), Map.of(), 0, List.of());
         }
 
-        // 2. Load reference skeleton
         MeshTopology refMesh = MeshLoader.load(refMeshPath);
         SkeletonResult refSkel = MeshSkeletonExtractor.extract(refMesh, resolution);
 
-        // 3. Find output node and ports (same pattern as BatchDslEvaluator)
         PythonParser.ParsedNode lastNode = parsed.get(parsed.size() - 1);
         List<String> ports = candidatePorts(parsed);
 
         NodeGraphRuntime runtime = GroupLibrary.load(parsed, Map.of());
 
-        // 4. Execute baseline (all defaults)
         MeshTopology baselineMesh = executeDsl(runtime, lastNode.id, ports, Map.of());
         if (baselineMesh == null) {
             throw new IllegalStateException("Baseline DSL execution produced no mesh");
@@ -92,13 +87,9 @@ public final class SkeletonSensitivityAnalyzer {
         SkeletonResult baselineSkel = MeshSkeletonExtractor.extract(baselineMesh, resolution);
         DetailedComparisonResult baselineComparison = MeshSkeletonComparator.compareDetailed(baselineSkel, refSkel);
 
-        // 5. Flatten baseline joint positions and errors across all matched branches.
-        //    Index by branch label so perturbed comparisons can match correctly even
-        //    if branch ordering differs.
         List<BranchJointIndex> jointIndices = new ArrayList<>();
         List<JointDelta> baselineErrors = new ArrayList<>();
         List<float[]> baselinePositions = new ArrayList<>();
-        // Maps branch label → range [startIdx, endIdx) in the flattened joint list
         Map<String, int[]> branchRanges = new LinkedHashMap<>();
 
         for (int bi = 0; bi < baselineComparison.detailedMatches().size(); bi++) {
@@ -123,9 +114,6 @@ public final class SkeletonSensitivityAnalyzer {
                     baselineComparison.summary().skeletonScore(), List.of());
         }
 
-        // 6. Compute Jacobian: perturb each parameter.
-        //    Match perturbed branches to baseline branches BY LABEL (not iteration order)
-        //    to handle cases where greedy nearest-tip matching produces different orderings.
         float[][][] jacobian3D = new float[M][N][3];
         List<String> unstableParams = new ArrayList<>();
 
@@ -148,7 +136,6 @@ public final class SkeletonSensitivityAnalyzer {
                 DetailedComparisonResult perturbedComparison =
                         MeshSkeletonComparator.compareDetailed(perturbedSkel, refSkel);
 
-                // Build label → perturbed gen positions map
                 Map<String, List<float[]>> perturbedByLabel = new HashMap<>();
                 for (DetailedBranchMatch dbm : perturbedComparison.detailedMatches()) {
                     if (dbm.summary().genBranchId() < 0) continue;
@@ -159,7 +146,6 @@ public final class SkeletonSensitivityAnalyzer {
                     perturbedByLabel.put(dbm.summary().label(), positions);
                 }
 
-                // Match branches by label and compute Jacobian entries
                 int matchedJoints = 0;
                 float invEps = 1.0f / eps;
                 for (var entry : branchRanges.entrySet()) {
@@ -187,11 +173,9 @@ public final class SkeletonSensitivityAnalyzer {
             }
         }
 
-        // 7. Compute suggested parameter deltas via damped least-squares
         Map<String, Float> suggestedDeltas = solveDampedLeastSquares(
                 jacobian3D, baselineErrors, params, DAMPING_LAMBDA);
 
-        // 8. Estimate projected score by applying suggested deltas
         float projectedScore = estimateProjectedScore(
                 runtime, lastNode.id, ports, params, suggestedDeltas, refSkel, resolution);
 
@@ -201,7 +185,6 @@ public final class SkeletonSensitivityAnalyzer {
                 baselineErrors, suggestedDeltas, projectedScore, unstableParams);
     }
 
-    // ─── Iterative Gauss-Newton optimization ───
 
     /**
      * Run iterative skeleton optimization by repeatedly computing the Jacobian
@@ -232,7 +215,6 @@ public final class SkeletonSensitivityAnalyzer {
 
         NodeGraphRuntime runtime = GroupLibrary.load(parsed, Map.of());
 
-        // Current parameter values (start at defaults)
         Map<String, Float> currentParams = new LinkedHashMap<>();
         for (OptimizableParameter p : params) {
             currentParams.put(p.overrideKey(), p.defaultValue());
@@ -248,20 +230,17 @@ public final class SkeletonSensitivityAnalyzer {
         for (int iter = 1; iter <= maxIters; iter++) {
             if (currentScore >= targetScore) break;
 
-            // Build overrides map from current params
             Map<String, Object> overridesBase = new HashMap<>();
             for (var entry : currentParams.entrySet()) {
                 overridesBase.put(entry.getKey(), entry.getValue());
             }
 
-            // Execute at current params
             MeshTopology mesh = executeDsl(runtime, lastNode.id, ports, overridesBase);
             if (mesh == null) break;
 
             SkeletonResult skel = MeshSkeletonExtractor.extract(mesh, resolution);
             DetailedComparisonResult comparison = MeshSkeletonComparator.compareDetailed(skel, refSkel);
 
-            // Flatten joint positions and errors, indexed by branch label
             List<float[]> basePositions = new ArrayList<>();
             List<JointDelta> errors = new ArrayList<>();
             Map<String, int[]> iterBranchRanges = new LinkedHashMap<>();
@@ -279,7 +258,6 @@ public final class SkeletonSensitivityAnalyzer {
             int N = params.size();
             if (M == 0) break;
 
-            // Compute Jacobian at current parameter values (label-matched)
             float[][][] jacobian = new float[M][N][3];
             for (int pi = 0; pi < N; pi++) {
                 OptimizableParameter param = params.get(pi);
@@ -297,7 +275,6 @@ public final class SkeletonSensitivityAnalyzer {
                     DetailedComparisonResult perturbedComparison =
                             MeshSkeletonComparator.compareDetailed(perturbedSkel, refSkel);
 
-                    // Build label → perturbed gen positions map
                     Map<String, List<float[]>> perturbedByLabel = new HashMap<>();
                     for (DetailedBranchMatch dbm : perturbedComparison.detailedMatches()) {
                         if (dbm.summary().genBranchId() < 0) continue;
@@ -308,7 +285,6 @@ public final class SkeletonSensitivityAnalyzer {
                         perturbedByLabel.put(dbm.summary().label(), positions);
                     }
 
-                    // Match by label
                     float invEps = 1.0f / eps;
                     for (var brEntry : iterBranchRanges.entrySet()) {
                         String label = brEntry.getKey();
@@ -324,14 +300,11 @@ public final class SkeletonSensitivityAnalyzer {
                         }
                     }
                 } catch (Exception e) {
-                    // skip this parameter for this iteration
                 }
             }
 
-            // Solve for parameter updates
             Map<String, Float> deltas = solveDampedLeastSquares(jacobian, errors, params, DAMPING_LAMBDA);
 
-            // Apply updates with step-size backoff
             Map<String, Float> candidateParams = new LinkedHashMap<>(currentParams);
             float stepSize = 1.0f;
             float candidateScore = 0;
@@ -371,7 +344,6 @@ public final class SkeletonSensitivityAnalyzer {
         return new OptimizationResult(steps, currentParams, initialScore, currentScore);
     }
 
-    // ─── Damped least-squares solver ───
 
     /**
      * Solve delta_params = J^T * (J * J^T + lambda * I)^{-1} * (-error)
@@ -417,8 +389,6 @@ public final class SkeletonSensitivityAnalyzer {
             JTe[pi] = sum;
         }
 
-        // J^T J + lambda I through the sparse Cholesky path: diagonal, then the upper triangle in
-        // row-major order, which is the sorted key order NormalMatrix expects.
         double[] diagonal = new double[N];
         long[] upperKeys = new long[N * (N - 1) / 2];
         double[] upperValues = new double[upperKeys.length];
@@ -452,7 +422,6 @@ public final class SkeletonSensitivityAnalyzer {
         return deltas;
     }
 
-    // ─── Helper methods ───
 
     private static MeshTopology executeDsl(NodeGraphRuntime runtime,
             String lastNodeId,
@@ -527,7 +496,6 @@ public final class SkeletonSensitivityAnalyzer {
     }
 
     private static List<String> candidatePorts(List<PythonParser.ParsedNode> parsed) {
-        // Try to detect output port from node schema, fall back to common names
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         Supplier<? extends MeshNode> supplier = NodeGraphRuntime.supplierFor(last.type);
         if (supplier != null) {
@@ -543,7 +511,6 @@ public final class SkeletonSensitivityAnalyzer {
         return List.of("geometry", "mesh");
     }
 
-    // ─── Output records ───
 
     /** Index of a single joint within the flattened list across all matched branches. */
     public record BranchJointIndex(int branchMatchIndex, int jointIndex, String branchLabel) {}

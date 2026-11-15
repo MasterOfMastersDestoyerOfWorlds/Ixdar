@@ -180,8 +180,6 @@ class ToolInputReplyTest {
                         case "setPlatformID":
                             return null;
                         default:
-                            // The suite's platform, so the shaders cached for the stand-in's id
-                            // keep working buffers for the tests that run after this one.
                             return method.invoke(suitePlatform, arguments);
                     }
                 });

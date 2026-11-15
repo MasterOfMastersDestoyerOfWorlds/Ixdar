@@ -38,7 +38,6 @@ public final class GraphAnalyzer {
     public static AnalysisResult analyze(List<PythonParser.ParsedNode> parsed,
             Map<String, Supplier<? extends MeshNode>> registry, int minSubgraphSize) {
 
-        // 1. Build adjacency
         Map<String, Integer> idToIndex = new LinkedHashMap<>();
         List<String> nodeIds = new ArrayList<>();
         for (int i = 0; i < parsed.size(); i++) {
@@ -66,11 +65,8 @@ public final class GraphAnalyzer {
             }
         }
 
-        // 2. Compute dominator tree (iterative algorithm)
-        // Add virtual root that dominates all nodes with no predecessors
         Map<String, String> idom = computeDominators(nodeIds, predecessors);
 
-        // 3. Find seam nodes
         List<SeamNode> seams = findSeams(parsed, nodeIds, idToIndex, predecessors, successors,
                 idom, registry, minSubgraphSize);
 
@@ -107,12 +103,9 @@ public final class GraphAnalyzer {
             idToIdx.put(nodeIds.get(i), i);
         }
 
-        // idomIdx[i] = index of immediate dominator, -1 = undefined
         int[] idomIdx = new int[n];
         for (int i = 0; i < n; i++) idomIdx[i] = -1;
 
-        // Find entry nodes (no predecessors within the graph)
-        // They dominate themselves
         List<Integer> entries = new ArrayList<>();
         for (int i = 0; i < n; i++) {
             if (predecessors.get(nodeIds.get(i)).isEmpty()) {
@@ -121,9 +114,6 @@ public final class GraphAnalyzer {
             }
         }
 
-        // If there are multiple entry nodes, create a virtual root concept:
-        // all entries are dominated by index 0 (or themselves if they're the first).
-        // For simplicity, treat all entry nodes as self-dominating (they're roots).
 
         boolean changed = true;
         while (changed) {
@@ -150,7 +140,6 @@ public final class GraphAnalyzer {
             }
         }
 
-        // Convert to string map
         Map<String, String> result = new LinkedHashMap<>();
         for (int i = 0; i < n; i++) {
             if (idomIdx[i] == -1 || idomIdx[i] == i) {
@@ -204,7 +193,6 @@ public final class GraphAnalyzer {
             Map<String, String> idom, Map<String, Supplier<? extends MeshNode>> registry,
             int minSubgraphSize) {
 
-        // Build dominator tree children: nodeId -> list of nodes it immediately dominates
         Map<String, List<String>> domChildren = new HashMap<>();
         for (String id : nodeIds) {
             domChildren.put(id, new ArrayList<>());
@@ -215,7 +203,6 @@ public final class GraphAnalyzer {
             }
         }
 
-        // Map nodeId -> ParsedNode for type lookup
         Map<String, PythonParser.ParsedNode> byId = new LinkedHashMap<>();
         for (PythonParser.ParsedNode node : parsed) {
             byId.put(node.id, node);
@@ -224,14 +211,11 @@ public final class GraphAnalyzer {
         List<SeamNode> seams = new ArrayList<>();
 
         for (String candidateId : nodeIds) {
-            // Collect dominator subtree rooted at candidate
             Set<String> subtree = new HashSet<>();
             collectDomSubtree(candidateId, domChildren, subtree);
 
             if (subtree.size() < minSubgraphSize) continue;
 
-            // Check seam condition: no node in subtree (except candidate) has
-            // successors outside the subtree
             boolean isSeam = true;
             for (String subId : subtree) {
                 if (subId.equals(candidateId)) continue;
@@ -246,14 +230,12 @@ public final class GraphAnalyzer {
 
             if (!isSeam) continue;
 
-            // Check that seam produces geometry
             PythonParser.ParsedNode seamParsed = byId.get(candidateId);
             List<String> outputTypes = getOutputPortTypes(seamParsed.type, registry);
             boolean producesMesh = outputTypes.stream().anyMatch(
                     "GEOMETRY_BUNDLE"::equals);
             if (!producesMesh) continue;
 
-            // Collect external inputs (edges into subtree from outside)
             List<ExternalInput> externalInputs = new ArrayList<>();
             for (String subId : subtree) {
                 PythonParser.ParsedNode subNode = byId.get(subId);
@@ -268,7 +250,6 @@ public final class GraphAnalyzer {
                 }
             }
 
-            // Subgraph node IDs in topological order
             List<String> subgraphOrdered = new ArrayList<>();
             for (String id : nodeIds) {
                 if (subtree.contains(id)) {

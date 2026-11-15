@@ -55,6 +55,5 @@ public class MeshShader extends ShaderProgram {
      */
     @Override
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
-        // The model scene sets projection per-frame from Camera3D.
     }
 }

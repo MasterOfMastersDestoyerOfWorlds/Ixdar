@@ -88,8 +88,6 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
                 if (settledResult.has(OK) && settledResult.get(OK).getAsBoolean()) {
                     settledResult.addProperty(SETTLED,
                             InputSettle.awaitFrames(appliedDuringFrame[0], settleFrames));
-                    // What lies under the cursor once the hover is drawn, whichever tool is
-                    // active: pick at the framebuffer pixel the tools read the cursor at.
                     JsonObject surface = runtime.runOnMainThread(() -> {
                         MouseTrap mouse = runtime.activeMouse();
                         int width = Platforms.get().getWindowWidth();

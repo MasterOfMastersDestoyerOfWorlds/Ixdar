@@ -815,32 +815,20 @@ public class Knot {
      */
     public WindingOrder DetermineWindingOrder() {
         int nVerts = knotPointsFlattened.size();
-        // If vertices duplicates first as last to represent closed polygon,
-        // skip last.
         Vector2d lastV = (knotPointsFlattened.get(nVerts - 1)).p.toVector2d();
         if (lastV.equals((knotPointsFlattened.get(0)).p.toVector2d()))
             nVerts -= 1;
         int iMinVertex = FindCornerVertex();
-        // Orientation matrix:
-        // [ 1 xa ya ]
-        // O = | 1 xb yb |
-        // [ 1 xc yc ]
         Vector2d a = (knotPointsFlattened.get(WrapAt(iMinVertex - 1, nVerts))).p.toVector2d();
         Vector2d b = (knotPointsFlattened.get(iMinVertex)).p.toVector2d();
         Vector2d c = (knotPointsFlattened.get(WrapAt(iMinVertex + 1, nVerts))).p.toVector2d();
-        // determinant(O) = (xb*yc + xa*yb + ya*xc) - (ya*xb + yb*xc + xa*yc)
         double detOrient = (b.x * c.y + a.x * b.y + a.y * c.x)
                 - (a.y * b.x + b.y * c.x + a.x * c.y);
 
-        // TBD: check for "==0", in which case is not defined?
-        // Can that happen? Do we need to check other vertices / eliminate duplicate
-        // vertices?
         WindingOrder result = detOrient > 0 ? WindingOrder.Clockwise : WindingOrder.CounterClockwise;
         return result;
     }
 
-    // Find vertex along one edge of bounding box.
-    // In this case, we find smallest y; in case of tie also smallest x.
     private int FindCornerVertex() {
         int iMinVertex = -1;
         double minY = Float.MAX_VALUE;
@@ -855,7 +843,6 @@ public class Knot {
                 if (vert.x >= minXAtMinY)
                     continue;
 
-            // Minimum so far.
             iMinVertex = i;
             minY = y;
             minXAtMinY = vert.x;
@@ -864,11 +851,7 @@ public class Knot {
         return iMinVertex;
     }
 
-    // Return value in (0..n-1).
-    // Works for i in (-n..+infinity).
-    // If need to allow more negative values, need more complex formula.
     private static int WrapAt(int i, int n) {
-        // "+n": Moves (-n..) up to (0..).
         return (i + n) % n;
     }
 
@@ -1033,7 +1016,6 @@ public class Knot {
             return new EdgeInfo(edge, EdgeType.UNKNOWN, null);
         }
 
-        // Check if both endpoints belong to the same child knot
         for (Knot child : knotPoints) {
             if (!child.isSingleton()) {
                 boolean firstInChild = child.contains(edge.first);
@@ -1044,7 +1026,6 @@ public class Knot {
             }
         }
 
-        // If endpoints are in different children (or singletons), it's a pipe edge
         return new EdgeInfo(edge, EdgeType.PIPE_EDGE, this);
     }
 
@@ -1067,48 +1048,40 @@ public class Knot {
         record.childA = k1;
         record.childB = k2;
 
-        // Create the new knot
         Shell shell = k1.shell;
         Knot loop = new Knot();
         loop.simpleConstructorNoRegister(shell, shell.pointMap.keySet().size());
         loop.minMatches = 2;
         loop.maxMatches = 2;
 
-        // Add both points to the loop
         loop.knotPoints.add(k1);
         loop.knotPoints.add(k2);
         loop.knotPointsFlattened.add(k1);
         loop.knotPointsFlattened.add(k2);
 
-        // Create segments between them (bidirectional for the loop)
         double dist = shell.distanceMatrix.getDistance(k1.p, k2.p);
         Segment s1to2 = new Segment(k1, k2, dist);
         Segment s2to1 = new Segment(k2, k1, dist);
 
-        // Set up neighbor connections
         k1.setMatch(k2, s1to2);
         k1.setMatch(k2, s2to1);
         k2.setMatch(k1, s1to2);
         k2.setMatch(k1, s2to1);
 
-        // Add segments to manifold
         loop.manifoldSegments.add(s1to2);
         loop.manifoldSegments.add(s2to1);
         loop.sortedSegments.add(s1to2);
         loop.sortedSegments.add(s2to1);
         loop.sortedSegments.sort(null);
 
-        // Set parent references
         k1.topGroupKnot = loop;
         k2.topGroupKnot = loop;
 
-        // Union sets
         KnotEngine engine = shell.knotEngine;
         engine.addGroup(loop);
         UnionFind.unionByRank(engine.groupParent, engine.groupRank, loop.id, k1.id);
         UnionFind.unionByRank(engine.groupParent, engine.groupRank, loop.id, k2.id);
 
-        // Store in record
         record.resultKnot = loop;
         record.addedSeg1 = s1to2;
         record.addedSeg2 = s2to1;
@@ -1135,22 +1108,18 @@ public class Knot {
         }
 
         if (aSingle || bSingle) {
-            // One singleton, one knot - this is essentially a grow operation
             Knot singleton = aSingle ? a : b;
             Knot knot = aSingle ? b : a;
             Segment cutEdge = aSingle ? edgeB : edgeA;
             return pipeToExisting(knot, singleton, cutEdge);
         }
 
-        // Both are knots - determine hierarchy based on edge types
         EdgeInfo infoA = a.getEdgeInfo(edgeA);
         EdgeInfo infoB = b.getEdgeInfo(edgeB);
 
         if (infoA.type == EdgeType.SUBKNOT_EDGE && infoB.type == EdgeType.SUBKNOT_EDGE) {
-            // Both edges are within sub-knots - same hierarchy level
             return pipeToSameLevel(a, b, edgeA, edgeB);
         } else {
-            // At least one is a pipe edge - create new hierarchy level
             return pipeToNewLevel(a, b, edgeA, edgeB);
         }
     }
@@ -1171,32 +1140,26 @@ public class Knot {
         record.childB = singleton;
         record.cutEdgeA = cutEdge;
 
-        // Remove the cut edge
         knot.removeSegment(cutEdge);
 
-        // Create new segments through the singleton
         Shell shell = knot.shell;
         double dist1 = shell.distanceMatrix.getDistance(cutEdge.first.p, singleton.p);
         double dist2 = shell.distanceMatrix.getDistance(singleton.p, cutEdge.last.p);
         Segment seg1 = new Segment(cutEdge.first, singleton, dist1);
         Segment seg2 = new Segment(singleton, cutEdge.last, dist2);
 
-        // Add new segments
         knot.manifoldSegments.add(seg1);
         knot.manifoldSegments.add(seg2);
         knot.sortedSegments.add(seg1);
         knot.sortedSegments.add(seg2);
         knot.sortedSegments.sort(null);
 
-        // Set up match connections
         cutEdge.first.setMatch(singleton, seg1);
         singleton.setMatch(cutEdge.first, seg1);
         singleton.setMatch(cutEdge.last, seg2);
         cutEdge.last.setMatch(singleton, seg2);
 
-        // Add singleton to knot
         knot.knotPoints.add(singleton);
-        // Insert in flattened list at appropriate position
         int insertIdx = knot.knotPointsFlattened.indexOf(cutEdge.first);
         if (insertIdx >= 0) {
             knot.knotPointsFlattened.add(insertIdx + 1, singleton);
@@ -1204,15 +1167,12 @@ public class Knot {
             knot.knotPointsFlattened.add(singleton);
         }
 
-        // Set parent reference
         singleton.topGroupKnot = knot;
         knot.maxMatches++;
 
-        // Union sets
         UnionFind.unionByRank(knot.shell.knotEngine.groupParent, knot.shell.knotEngine.groupRank, knot.id,
                 singleton.id);
 
-        // Store in record
         record.addedSeg1 = seg1;
         record.addedSeg2 = seg2;
 
@@ -1236,14 +1196,12 @@ public class Knot {
         record.cutEdgeA = edgeA;
         record.cutEdgeB = edgeB;
 
-        // Find or create parent knot
         Knot parent = a.topGroupKnot;
         if (parent == null) {
             parent = a;
         }
         record.resultKnot = parent;
 
-        // Remove cut edges
         if (edgeA != null) {
             parent.removeSegment(edgeA);
         }
@@ -1251,27 +1209,23 @@ public class Knot {
             parent.removeSegment(edgeB);
         }
 
-        // Create pipe segments connecting the cut edge endpoints
         Shell shell = a.shell;
         Segment pipe1 = new Segment(edgeA.first, edgeB.first,
                 shell.distanceMatrix.getDistance(edgeA.first.p, edgeB.first.p));
         Segment pipe2 = new Segment(edgeA.last, edgeB.last,
                 shell.distanceMatrix.getDistance(edgeA.last.p, edgeB.last.p));
 
-        // Add pipe segments
         parent.manifoldSegments.add(pipe1);
         parent.manifoldSegments.add(pipe2);
         parent.sortedSegments.add(pipe1);
         parent.sortedSegments.add(pipe2);
         parent.sortedSegments.sort(null);
 
-        // Set up match connections
         edgeA.first.setMatch(edgeB.first, pipe1);
         edgeB.first.setMatch(edgeA.first, pipe1);
         edgeA.last.setMatch(edgeB.last, pipe2);
         edgeB.last.setMatch(edgeA.last, pipe2);
 
-        // Add b to parent if not already there
         if (!parent.knotPoints.contains(b)) {
             parent.knotPoints.add(b);
             for (Knot flatPoint : b.knotPointsFlattened) {
@@ -1309,18 +1263,15 @@ public class Knot {
         record.cutEdgeA = edgeA;
         record.cutEdgeB = edgeB;
 
-        // Create new parent knot
         Shell shell = a.shell;
         Knot newParent = new Knot();
         newParent.simpleConstructorNoRegister(shell, shell.pointMap.keySet().size());
         newParent.minMatches = 2;
         newParent.maxMatches = 2;
 
-        // Add children
         newParent.knotPoints.add(a);
         newParent.knotPoints.add(b);
 
-        // Flatten points from both children
         for (Knot flatPoint : a.knotPointsFlattened) {
             newParent.knotPointsFlattened.add(flatPoint);
         }
@@ -1328,7 +1279,6 @@ public class Knot {
             newParent.knotPointsFlattened.add(flatPoint);
         }
 
-        // Remove cut edges from children's manifolds
         if (edgeA != null) {
             a.removeSegment(edgeA);
         }
@@ -1336,16 +1286,13 @@ public class Knot {
             b.removeSegment(edgeB);
         }
 
-        // Create pipe segments
         Segment pipe1 = new Segment(edgeA.first, edgeB.first,
                 shell.distanceMatrix.getDistance(edgeA.first.p, edgeB.first.p));
         Segment pipe2 = new Segment(edgeA.last, edgeB.last,
                 shell.distanceMatrix.getDistance(edgeA.last.p, edgeB.last.p));
 
-        // Add to new parent's manifold
         newParent.manifoldSegments.add(pipe1);
         newParent.manifoldSegments.add(pipe2);
-        // Also add all segments from children
         for (Segment s : a.manifoldSegments) {
             newParent.manifoldSegments.add(s);
         }
@@ -1357,17 +1304,14 @@ public class Knot {
         newParent.sortedSegments.add(pipe2);
         newParent.sortedSegments.sort(null);
 
-        // Set up match connections
         edgeA.first.setMatch(edgeB.first, pipe1);
         edgeB.first.setMatch(edgeA.first, pipe1);
         edgeA.last.setMatch(edgeB.last, pipe2);
         edgeB.last.setMatch(edgeA.last, pipe2);
 
-        // Set parent references
         a.topGroupKnot = newParent;
         b.topGroupKnot = newParent;
 
-        // Union sets
         KnotEngine engine = shell.knotEngine;
         engine.addGroup(newParent);
         UnionFind.unionByRank(engine.groupParent, engine.groupRank, newParent.id, a.id);
@@ -1421,7 +1365,6 @@ public class Knot {
         matchList = new ArrayList<>();
     }
 
-    // ==================== GROW OPERATION ====================
 
     /**
      * Grow this knot by inserting a singleton into a specific edge. Does not change
@@ -1445,32 +1388,26 @@ public class Knot {
         record.insertedPoint = singleton;
         record.originalEdge = edge;
 
-        // Remove the original edge
         removeSegment(edge);
 
-        // Create two new edges through the singleton
         double dist1 = shell.distanceMatrix.getDistance(edge.first.p, singleton.p);
         double dist2 = shell.distanceMatrix.getDistance(singleton.p, edge.last.p);
         Segment newEdge1 = new Segment(edge.first, singleton, dist1);
         Segment newEdge2 = new Segment(singleton, edge.last, dist2);
 
-        // Add new edges to manifold
         manifoldSegments.add(newEdge1);
         manifoldSegments.add(newEdge2);
         sortedSegments.add(newEdge1);
         sortedSegments.add(newEdge2);
         sortedSegments.sort(null);
 
-        // Set up match connections
         edge.first.setMatch(singleton, newEdge1);
         singleton.setMatch(edge.first, newEdge1);
         singleton.setMatch(edge.last, newEdge2);
         edge.last.setMatch(singleton, newEdge2);
 
-        // Add singleton to this knot
         knotPoints.add(singleton);
 
-        // Insert in flattened list at appropriate position
         int insertIdx = knotPointsFlattened.indexOf(edge.first);
         if (insertIdx >= 0 && insertIdx < knotPointsFlattened.size() - 1) {
             knotPointsFlattened.add(insertIdx + 1, singleton);
@@ -1480,14 +1417,11 @@ public class Knot {
             record.insertionIndex = knotPointsFlattened.size() - 1;
         }
 
-        // Set parent reference
         singleton.topGroupKnot = this;
         maxMatches++;
 
-        // Union sets
         UnionFind.unionByRank(shell.knotEngine.groupParent, shell.knotEngine.groupRank, id, singleton.id);
 
-        // Ancestors carry copies of their children's segments; swap the split edge there too.
         for (Knot ancestor = topGroupKnot; ancestor != null; ancestor = ancestor.topGroupKnot) {
             if (ancestor.manifoldSegments.removeIf(s -> s == edge)) {
                 ancestor.manifoldSegments.add(newEdge1);
@@ -1496,7 +1430,6 @@ public class Knot {
             ancestor.knotPointsFlattened.add(singleton);
         }
 
-        // Store in record
         record.newEdge1 = newEdge1;
         record.newEdge2 = newEdge2;
 
@@ -1516,7 +1449,6 @@ public class Knot {
             throw new IllegalArgumentException(GROW_REQUIRES_A_SINGLETON);
         }
 
-        // Find the lowest-cost edge to split
         Segment bestEdge = null;
         double minDelta = Double.MAX_VALUE;
 
@@ -1564,7 +1496,6 @@ public class Knot {
         return bestEdge;
     }
 
-    // ==================== COLLAPSE OPERATION ====================
 
     /**
      * Find the two pipe segments connecting two child knots. Pipes have 2 segments
@@ -1583,7 +1514,6 @@ public class Knot {
             boolean firstInB = childB.contains(seg.first);
             boolean lastInB = childB.contains(seg.last);
 
-            // A pipe segment connects a point in A to a point in B
             if ((firstInA && lastInB) || (firstInB && lastInA)) {
                 pipeSegs.add(seg);
             }
@@ -1609,7 +1539,6 @@ public class Knot {
             return null;
         }
 
-        // Build adjacency based on pipe connections
         HashMap<Knot, ArrayList<Knot>> adjacency = new HashMap<>();
         for (Knot child : knotPoints) {
             adjacency.put(child, new ArrayList<>());
@@ -1627,7 +1556,6 @@ public class Knot {
             }
         }
 
-        // BFS to find path
         HashMap<Knot, Knot> parent = new HashMap<>();
         ArrayList<Knot> queue = new ArrayList<>();
         queue.add(startChild);
@@ -1636,7 +1564,6 @@ public class Knot {
         while (!queue.isEmpty()) {
             Knot current = queue.remove(0);
             if (current == endChild) {
-                // Reconstruct path
                 ArrayList<Knot> path = new ArrayList<>();
                 Knot node = endChild;
                 while (node != null) {
@@ -1678,13 +1605,11 @@ public class Knot {
         record.endKnot = endChild;
         record.pathKnots = new ArrayList<>(path);
 
-        // Track removed endpoints for creating crossings
         HashMap<Knot, ArrayList<Knot>> removedEndpoints = new HashMap<>();
         for (Knot child : path) {
             removedEndpoints.put(child, new ArrayList<>());
         }
 
-        // For each pipe in the path, remove one segment
         for (int i = 0; i < path.size() - 1; i++) {
             Knot a = path.get(i);
             Knot b = path.get(i + 1);
@@ -1694,15 +1619,12 @@ public class Knot {
                 continue;
             }
 
-            // Remove the second segment (keep the first)
-            // If only one exists, we don't remove anything
             if (pipeSegs[1] != null) {
                 Segment toRemove = pipeSegs[1];
                 record.removedPipeSegments.add(toRemove);
 
                 removeSegment(toRemove);
 
-                // Track which endpoints lost connections
                 if (a.contains(toRemove.first)) {
                     removedEndpoints.get(a).add(toRemove.first);
                 } else {
@@ -1716,8 +1638,6 @@ public class Knot {
             }
         }
 
-        // For each child in the path, create an internal crossing
-        // connecting the endpoints that lost their pipe connections
         for (Knot child : path) {
             ArrayList<Knot> endpoints = removedEndpoints.get(child);
             if (endpoints.size() >= 2) {
@@ -1729,19 +1649,15 @@ public class Knot {
 
                 record.addedCrossings.add(crossing);
 
-                // Add to manifold
                 manifoldSegments.add(crossing);
                 sortedSegments.add(crossing);
 
-                // Set up match connections
                 ep1.setMatch(ep2, crossing);
                 ep2.setMatch(ep1, crossing);
             }
         }
         sortedSegments.sort(null);
 
-        // Add direct connection between start and end
-        // Find endpoints in startChild and endChild that can connect
         Knot startEndpoint = null;
         Knot endEndpoint = null;
 
@@ -1751,7 +1667,6 @@ public class Knot {
         if (!startEndpoints.isEmpty()) {
             startEndpoint = startEndpoints.get(startEndpoints.size() - 1);
         } else {
-            // Use first flattened point
             startEndpoint = startChild.knotPointsFlattened.isEmpty() ? startChild
                     : startChild.knotPointsFlattened.get(0);
         }
@@ -1799,7 +1714,6 @@ public class Knot {
 
             Segment[] pipeSegs = getPipeSegments(a, b);
             if (pipeSegs != null && pipeSegs[1] != null) {
-                // Default: remove the longer segment
                 if (pipeSegs[0].distance > pipeSegs[1].distance) {
                     result.add(pipeSegs[0]);
                 } else {
@@ -1815,7 +1729,6 @@ public class Knot {
         None, Clockwise, CounterClockwise
     }
 
-    // ==================== TRADE ROUTE OPERATIONS ====================
 
     /**
      * Type of edge in a knot hierarchy.

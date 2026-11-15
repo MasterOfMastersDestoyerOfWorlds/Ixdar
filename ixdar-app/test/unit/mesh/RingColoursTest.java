@@ -31,7 +31,6 @@ class RingColoursTest {
                             palette.name + ": " + meanings[first].getName() + " vs "
                                     + meanings[second].getName());
                 }
-                // Ring entries only cycle by ring number, so they are not checked against each other.
                 for (Color entry : palette.ring) {
                     assertNotEquals(meanings[first].toVector4f(), entry.toVector4f(),
                             palette.name + ": " + meanings[first].getName() + " vs " + entry.getName());

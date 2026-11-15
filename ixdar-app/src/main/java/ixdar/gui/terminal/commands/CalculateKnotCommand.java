@@ -36,7 +36,6 @@ public class CalculateKnotCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        // Main.calculateSubPaths();
         return new String[] { cmd };
     }
 }

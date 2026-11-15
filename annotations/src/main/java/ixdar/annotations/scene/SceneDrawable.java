@@ -23,6 +23,5 @@ public abstract class SceneDrawable {
      * Optional lifecycle hook for releasing GPU/scene resources when the drawable is removed.
      */
     public void shutdown() {
-        // Optional lifecycle hook for releasing GPU/scene resources.
     }
 }

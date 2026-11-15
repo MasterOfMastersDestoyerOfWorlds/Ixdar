@@ -59,13 +59,10 @@ public final class DelaunayTriangulation2D {
         if (dmax == 0) dmax = 1;
         double midX = (minX + maxX) / 2;
         double midY = (minY + maxY) / 2;
-        // Super-triangle clearly encloses the bounding box with margin to spare.
         xs[n] = midX - SUPER_TRIANGLE_MARGIN_SCALE * dmax;     ys[n] = midY - dmax;
         xs[n + 1] = midX + SUPER_TRIANGLE_MARGIN_SCALE * dmax; ys[n + 1] = midY - dmax;
         xs[n + 2] = midX;             ys[n + 2] = midY + SUPER_TRIANGLE_MARGIN_SCALE * dmax;
 
-        // Triangles are int[3] rows of site indices in CCW order; edges are EdgeKey-packed
-        // longs (smaller index in the high word), so sorting them as longs is lexicographic.
         List<int[]> tris = new ArrayList<>();
         tris.add(ccwTriangle(n, n + 1, n + 2, xs, ys));
 
@@ -80,7 +77,6 @@ public final class DelaunayTriangulation2D {
                     bad.add(t);
                 }
             }
-            // Boundary of the polygon hole: edges that appear in exactly one bad triangle.
             Map<Long, Integer> edgeCount = new LinkedHashMap<>();
             for (int[] t : bad) {
                 edgeCount.merge(EdgeKey.undirected(t[0], t[1]), 1, Integer::sum);

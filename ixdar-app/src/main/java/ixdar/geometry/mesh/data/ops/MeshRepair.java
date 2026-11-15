@@ -67,7 +67,6 @@ public final class MeshRepair {
 
     private static final int CORNER_FACES_TRIED_FIRST = 48;
 
-    // The debris floods give up for the whole-surface pass past this fraction of the vertices.
     private static final int DEBRIS_FLOOD_SHARE = 8;
 
     private static final double SLIVER_RATIO = 1e-4;
@@ -278,8 +277,6 @@ public final class MeshRepair {
         fixDegenerates();
         classifyShells();
         firstFillFace = faceCount;
-        // The pruning's ray tree and crease flags need only the faces as they stand, so they are
-        // made while the holes fill; the fills join them afterwards.
         TriangleBvh pruneTree = pruneExposed ? rayTree() : null;
         CompletableFuture<Void> treeBuilt = null;
         CompletableFuture<boolean[]> pruneCreases = null;
@@ -290,7 +287,6 @@ public final class MeshRepair {
             treeBuilt = CompletableFuture.runAsync(tree::build);
             pruneCreases = CompletableFuture.supplyAsync(() -> creasedFaces(tree.triangleCorners, tree.positions,
                     tree.triangleCount, vertices, tree.triangleGroup));
-            // The fill only adds faces, so the cells the faces changed so far reach are known now.
             float[] changedCorners = changedSinceOrientationCorners();
             cellsChangedBeforeFill = CompletableFuture.supplyAsync(() -> columnSoup.cellsUnder(changedCorners));
         }
@@ -302,8 +298,6 @@ public final class MeshRepair {
         assemble();
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Read
 
     /**
      * Fuses vertices closer than {@link #weldEpsilon}, keeping the weld's maps so corner UVs and
@@ -313,7 +307,6 @@ public final class MeshRepair {
         if (weldEpsilon <= 0 || input.mesh().vertexCount() == 0) {
             return;
         }
-        // The scan may be non-manifold, so the weld stays in its indexed form for the stages below.
         MeshMergeByDistance welder = new MeshMergeByDistance();
         welder.weldArrays(input.mesh(), (float) weldEpsilon);
         if (welder.weldedFaceCorners.length != welder.weldedFaceSizes.length * TRIANGLE_CORNERS) {
@@ -399,8 +392,6 @@ public final class MeshRepair {
         }
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Orient
 
     /**
      * Makes the winding consistent and outward by two-colouring patches of consistently wound faces
@@ -410,9 +401,6 @@ public final class MeshRepair {
     private void orient() {
         TriangleBvh soup = closedRaySoup();
         CompletableFuture<Void> columns = CompletableFuture.runAsync(soup::buildColumns);
-        // Parity is cast from the first and last face of each small cluster of consistently wound
-        // faces and given to the whole cluster when they agree: it changes only across a shadow,
-        // an intersection or a fold. Clusters where it may change are cast face by face below.
         int[] partner = edges.partnersAsBuilt();
         int[] clusterNumber = new int[faceCount];
         int[] clusterSamples = new int[faceCount * CLUSTER_SAMPLES];
@@ -456,8 +444,6 @@ public final class MeshRepair {
         }
         columns.join();
         columnSoup = soup;
-        // Crowding is read with the parity: a cluster whose sample lies on a sheet nearly touching
-        // another is cast face by face, so every face's crowding the pruning reads is known.
         soup.crowdMargin = pruneExposed ? PARITY_CROWD_MARGIN : 0;
         int[] sampled = soup.facing(sampleAsked);
         int[] sampledExposed = soup.exposedSide;
@@ -478,8 +464,6 @@ public final class MeshRepair {
                 }
             }
         }
-        // A cluster that borders one facing the other way, or sits on a contested edge, where the
-        // winding and with it the side the parity finds inside turns over, may straddle a change.
         for (int edge = 0; edge < edges.edgeCount(); edge++) {
             if (edges.useCount(edge) != 2) {
                 continue;
@@ -491,7 +475,6 @@ public final class MeshRepair {
                 mixed[second] = true;
             }
         }
-        // Their neighbours are cast too, since a change can run along a cluster's border.
         boolean[] near = Arrays.copyOf(mixed, clusters);
         for (int edge = 0; edge < edges.edgeCount(); edge++) {
             if (edges.manifold(edge)) {
@@ -509,21 +492,16 @@ public final class MeshRepair {
                 }
             }
         }
-        // Counted in face order over the flags: in the clusters' own order the faces scatter
-        // through memory.
         int[] refined = soup.facing(asked);
         int[] refinedExposed = soup.exposedSide;
         boolean[] refinedCrowded = soup.crowded;
         soup.crowdMargin = 0;
-        // Each face's facing: its own count where asked, else its cluster's.
         int[] facing = new int[faceCount];
         for (int face = 0; face < faceCount; face++) {
             if (faceAlive[face]) {
                 facing[face] = asked[face] ? refined[face] : clusterFacing[clusterNumber[face] - 1];
             }
         }
-        // The patches: a union-find over faces whose parents are kept one more than their face,
-        // zero at a root, joined across consistently wound edges where both faces agree on facing.
         int[] parentPlusOne = new int[faceCount];
         int[] seamSlots = new int[0];
         int seamCount = 0;
@@ -550,9 +528,6 @@ public final class MeshRepair {
             seamSlots[seamCount * SLOTS_PER_EDGE + 1] = secondSlot;
             seamCount++;
         }
-        // One pass numbers the patches in the order of their roots and gathers each one's exposure
-        // balance, its largest face and its areas: faces whose front alone sees out count for it,
-        // faces whose back alone sees out count against.
         int[] componentOf = new int[faceCount];
         int[] metPatchOfRoot = new int[faceCount];
         int[] rootOfMet = new int[SMALL_BUCKET];
@@ -593,8 +568,6 @@ public final class MeshRepair {
                 flat[flatCount++] = face;
             }
         }
-        // No vertex moves before the degenerate stage but by its own collapses, so these are the
-        // only faces it can find flat that no collapse touched.
         flatFaces = Arrays.copyOf(flat, flatCount);
         long[] byRoot = new long[components];
         for (int met = 0; met < components; met++) {
@@ -613,7 +586,6 @@ public final class MeshRepair {
         Arrays.sort(seedOrder);
         boolean[] componentFlip = twoColourPatches(seamSlots, seamCount, componentOf, patchOfMet,
                 components, seedOrder, exposedBalance, facing, faceAreas);
-        // Read before the turns, while the edge table still holds the windings as read.
         for (int index = 0; index < seamCount; index++) {
             int firstSlot = seamSlots[index * SLOTS_PER_EDGE];
             int secondSlot = seamSlots[index * SLOTS_PER_EDGE + 1];
@@ -623,7 +595,6 @@ public final class MeshRepair {
                 report.mobiusEdgeCount++;
             }
         }
-        // Turned in place; the edge table turns each face's slots in place too.
         boolean[] crowded = pruneExposed ? new boolean[faceCount] : null;
         for (int face = 0; face < faceCount; face++) {
             if (!faceAlive[face]) {
@@ -639,8 +610,6 @@ public final class MeshRepair {
             faceCorners[face * TRIANGLE_CORNERS + 1] = faceCorners[face * TRIANGLE_CORNERS + 2];
             faceCorners[face * TRIANGLE_CORNERS + 2] = swap;
             edges.flipFace(face, faceCorners);
-            // The crossings do not depend on any face's winding, so a turned face's facing is its
-            // count negated.
             facing[face] = -facing[face];
             if (cornerU != null) {
                 double swapU = cornerU[face * TRIANGLE_CORNERS + 1];
@@ -819,7 +788,6 @@ public final class MeshRepair {
     private TriangleBvh closedRaySoup() {
         int[] open = edges.openEdgesAsBuilt();
         int boundaryEdges = open.length;
-        // The loops are worked over the boundary vertices alone, numbered in vertex order.
         int[] boundary = new int[boundaryEdges * 2];
         for (int index = 0; index < boundaryEdges; index++) {
             boundary[index * 2] = EdgeKey.minVertex(edges.key(open[index]));
@@ -890,8 +858,6 @@ public final class MeshRepair {
         return root;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Split non-manifold
 
     /**
      * Pulls non-manifold edges apart by giving each edge-connected face fan its own copy of the
@@ -900,8 +866,6 @@ public final class MeshRepair {
     private void splitNonManifold() {
         ensureEdges();
         edges.clearChanged();
-        // Nearly every vertex has one fan, which a walk round it shows without grouping; only the
-        // others are grouped.
         int[] uneven = IntStream.range(0, aroundStart.length - 1).parallel().filter(vertex -> !oneFan(vertex))
                 .toArray();
         List<VertexFans> found = Arrays.stream(uneven).mapToObj(this::fansAt).filter(Objects::nonNull).toList();
@@ -915,7 +879,6 @@ public final class MeshRepair {
             extraFans.addAll(fans.extraFans());
         }
         int[] candidates = nonManifold.build().toArray();
-        // Each vertex's first fan, in face order, keeps the vertex; every other fan gets a copy.
         extraFans.sort(Comparator.comparingInt(fan -> fan[0]));
         IntStream.Builder moved = IntStream.builder();
         for (int[] fan : extraFans) {
@@ -932,8 +895,6 @@ public final class MeshRepair {
         moved.build().sorted().distinct().forEach(this::refile);
         for (int round = 0; round < DETACH_ROUNDS; round++) {
             ensureEdges();
-            // A face can still share a side with two others only on a side that was non-manifold
-            // or that a split has re-filed since.
             int[] changed = new int[edges.changedEdgeCount()];
             for (int index = 0; index < changed.length; index++) {
                 changed[index] = edges.changedEdge(index);
@@ -1154,8 +1115,6 @@ public final class MeshRepair {
         return detached;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Degenerates
 
     /**
      * Resolves faces of exactly zero area by collapsing their shortest edge when the link
@@ -1329,8 +1288,6 @@ public final class MeshRepair {
         return moved;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Shells
 
     /**
      * Groups the faces into edge-connected shells, decides which sit inside another by ray parity,
@@ -1382,7 +1339,6 @@ public final class MeshRepair {
                 largestShell = shell;
             }
         }
-        // Containment decides only a shell the debris threshold keeps.
         boolean[] contained = new boolean[shells];
         for (int shell = 0; shell < shells; shell++) {
             if (shell != largestShell && shellFaceCount[shell] >= minShellFaces) {
@@ -1429,8 +1385,6 @@ public final class MeshRepair {
      * @return true when it sits inside another shell
      */
     private boolean insideAnother(int shell, int firstFace) {
-        // The grid's copy of the faces stands for the faces it was filed over: the split and
-        // collapses since moved none far enough to change a majority, and the dead carry no shell.
         int covered = Math.min(faceCount, columnSoup.firstExposureOnly);
         double[] origin = new double[TRIANGLE_CORNERS];
         for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
@@ -1515,12 +1469,6 @@ public final class MeshRepair {
      *         loose piece is large enough to need the shells' containment test
      */
     private int[] dropDebrisNear(int[] seeds, int seedCount) {
-        // Each seed vertex starts a flood and floods that meet join. A piece the cuts cut loose
-        // keeps a corner of a face they deleted, so every piece holds a flood; a flood that runs
-        // out of vertices has closed round a whole piece. Two pieces joined before the cuts were
-        // joined through a chain of cut regions whose floods meet unless a piece in the chain is
-        // still growing; so once each region is down to one growing flood, that flood is the piece
-        // that was there before and only the closed ones are new.
         int[] vertexFlood = new int[vertexCount];
         Arrays.fill(vertexFlood, -1);
         int[] queue = new int[Math.max(SMALL_BUCKET, seedCount)];
@@ -1533,7 +1481,6 @@ public final class MeshRepair {
             }
         }
         int floods = tail;
-        // The cut regions: floods whose seeds share a cut face, and regions whose floods have met.
         int[] regionParent = UnionFind.singletons(floods);
         for (int index = 0; index + 2 < seedCount; index += TRIANGLE_CORNERS) {
             UnionFind.union(regionParent, vertexFlood[seeds[index]], vertexFlood[seeds[index + 1]]);
@@ -1547,8 +1494,6 @@ public final class MeshRepair {
         int[] stamp = new int[floods];
         int checks = 0;
         int budget = vertexCount / DEBRIS_FLOOD_SHARE;
-        // Vertices waiting to be expanded, and those set aside while their flood's region is
-        // settled, so that once few regions are unsettled only their floods grow.
         int[] work = Arrays.copyOf(queue, Math.max(SMALL_BUCKET, tail));
         int workHead = 0;
         int workTail = tail;
@@ -1560,8 +1505,6 @@ public final class MeshRepair {
         int sinceCheck = Integer.MAX_VALUE;
         while (true) {
             if (workHead == workTail || sinceCheck >= Math.max(SMALL_BUCKET, floods) || expanded == budget) {
-                // A region is settled once it has at most one growing flood and that one already
-                // counts more faces than debris can have.
                 sinceCheck = 0;
                 for (int flood = 0; flood < floods; flood++) {
                     byRegion[flood] = ((long) UnionFind.find(regionParent, flood) << KEY_SHIFT) | flood;
@@ -1632,7 +1575,6 @@ public final class MeshRepair {
             int around = facesRound(vertex);
             for (int near = 0; near < around; near++) {
                 int slot = aroundScratch[near] * TRIANGLE_CORNERS;
-                // A face counts once, toward the flood of its first corner.
                 floodFaces[flood] += faceCorners[slot] == vertex ? 1 : 0;
                 for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
                     int other = faceCorners[slot + corner];
@@ -1662,11 +1604,9 @@ public final class MeshRepair {
                 }
             }
             if (--pending[flood] == 0 && floodFaces[flood] >= minShellFaces) {
-                // A loose piece too large for debris needs the containment test.
                 return null;
             }
         }
-        // A closed piece below the debris size goes; a larger one needs the containment test.
         for (int flood = 0; flood < floods; flood++) {
             if (UnionFind.find(floodParent, flood) == flood && pending[flood] == 0
                     && floodFaces[flood] >= minShellFaces) {
@@ -1708,8 +1648,6 @@ public final class MeshRepair {
         return dropped;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Holes
 
     /**
      * Fills every boundary loop of at most {@link #maxHoleEdges} edges with
@@ -1719,7 +1657,6 @@ public final class MeshRepair {
      */
     private void fillHoles(boolean openedByCuts) {
         ensureEdges();
-        // A hole a cut opened has its sides among the edges whose uses changed since the last fill.
         int candidates = openedByCuts ? edges.changedEdgeCount() : edges.edgeCount();
         if (holeNext.length < vertexCount) {
             int old = holeNext.length;
@@ -1760,7 +1697,6 @@ public final class MeshRepair {
         double[] vertexSigma = meanIncidentEdgeLengthNear(boundary);
         int[] neighbourStart = new int[0];
         int[] neighbours = new int[0];
-        // A loop also walks the start of a dangling side, which is not a boundary end itself.
         int walkCap = boundaryCount + 1;
         int[] walkedVertices = new int[SMALL_BUCKET];
         int walkedCount = 0;
@@ -1816,7 +1752,6 @@ public final class MeshRepair {
         for (int index = 0; index < walkedCount; index++) {
             holeWalked[walkedVertices[index]] = false;
         }
-        // Each loop fills from its own corners and ring alone; the results join in loop order.
         IntStream.range(0, holes).parallel().forEach(hole -> {
             if (fills[hole] != null) {
                 fills[hole].filler().build();
@@ -2072,8 +2007,6 @@ public final class MeshRepair {
     private record PreparedFill(MeshHoleFiller filler, int[] meshOfFixed) {
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Prune
 
     /**
      * A ray tree over the alive faces as they stand, on its own copy of their corners so later
@@ -2108,22 +2041,15 @@ public final class MeshRepair {
         if (report.openHoleCount > 0 || orientedFacing == null) {
             return;
         }
-        // A face whose back lies in a cell of nonzero winding number is backed by solid: every ray
-        // out of that cell crosses the surface, so only the faces backed by winding zero cast the
-        // hemisphere. Orientation's count says which those are for every face nothing has changed
-        // near since; the rest count by two winding rays.
         ensureEdges();
         int treeFaces = tree.triangleCount;
-        // The fills join the tree as its companion and the crease flags as faces judged near them.
         tree.companion = treeOverFrom(treeFaces);
         boolean[] creased = foldedBackNear(treeFaces, creasedThen);
         creaseJudged = new int[0];
-        // Orientation summed every face's area; only the faces changed or added since move the sum.
         double totalArea = orientedTotalArea;
         int areaFaces = orientedAreaFaces;
         for (int index = 0; index < changedSinceCount; index++) {
             int face = changedSince[index];
-            // The soup files a face orientation met dead under a negative group.
             if (columnSoup.triangleGroup[face] >= 0) {
                 totalArea -= orientedArea[face];
                 areaFaces--;
@@ -2140,7 +2066,6 @@ public final class MeshRepair {
             }
         }
         TriangleBvh grid = columnSoup;
-        // The cells the fill's own faces reach, joined to those found while it ran.
         int[] cellsOfFill = grid.cellsUnder(cornersWhere(face -> faceAlive[face], treeFaces));
         int[] cellsChanged = IntStream.concat(Arrays.stream(cellsBefore), Arrays.stream(cellsOfFill)).sorted()
                 .distinct().toArray();
@@ -2154,16 +2079,8 @@ public final class MeshRepair {
         int[] changedColumns = cellsChanged;
         int countedBelow = 0;
         boolean shellsChecked = false;
-        // Only a cut whose region leaves two or more loops, or a pinch the split pulls apart, can
-        // cut a piece loose; otherwise the shells stand as the shell stage left them.
         boolean mayDetach = false;
-        // Every face a count vouches for, filed by the column its counting line runs in. A cut and
-        // its refill share a rim and so enclose a pocket; only a face inside it can count
-        // differently, and such a face's line runs in a column the change covers. Round 0 files
-        // every face, each later round the faces it recounted.
         List<long[]> byColumn = new ArrayList<>();
-        // Per face, the faces whose hemisphere it blocks, chained: deleting a face wakes exactly
-        // those, and adding faces can only block more.
         int[] blockingHead = new int[faceCount];
         Arrays.fill(blockingHead, -1);
         int[] blockingNext = new int[SMALL_BUCKET];
@@ -2171,7 +2088,6 @@ public final class MeshRepair {
         int blockingCount = 0;
         int[] woken = new int[0];
         boolean[] recounted = new boolean[faceCount];
-        // The corners of the faces cut since the debris was last checked, three per face.
         int[] debrisSeeds = new int[SMALL_BUCKET];
         int debrisSeedCount = 0;
         boolean buriedChecked = false;
@@ -2196,8 +2112,6 @@ public final class MeshRepair {
                     .forEach(task -> castBackRays(state, task * FACES_PER_RAY_TASK,
                             Math.min(judging, (task + 1) * FACES_PER_RAY_TASK)));
             countedBelow = faceCount;
-            // File what this round recounted: count-vouched faces by column, blocked faces under
-            // each face that stopped one of their rays.
             long[] filed = new long[SMALL_BUCKET];
             int filedCount = 0;
             for (int index = 0; index < judging; index++) {
@@ -2256,8 +2170,6 @@ public final class MeshRepair {
                     }
                 }
             }
-            // Only once no back shows does the surface say what is inside it: the sheets sealed in
-            // the body then go, cut exactly, their necks refilled and judged like any refill.
             boolean buriedCut = false;
             if (exposed == 0 && !buriedChecked) {
                 buriedChecked = true;
@@ -2280,11 +2192,7 @@ public final class MeshRepair {
                 return;
             }
             if (!buriedCut && exposed == 0) {
-                // Debris the cuts cut loose goes once the faces are settled; a drop is a change,
-                // so one more round judges what it uncovered.
                 shellsChecked = true;
-                // Flooded out from the cut corners first; only when the floods cannot settle it does
-                // a pass over every face decide.
                 int[] droppedFaces = dropDebrisNear(debrisSeeds, debrisSeedCount);
                 debrisSeedCount = 0;
                 if (droppedFaces == null) {
@@ -2311,8 +2219,6 @@ public final class MeshRepair {
                     return;
                 }
                 changed = treeOver(dropped);
-                // A dropped shell is closed, so it crossed every line an even number of times and
-                // no face's parity moves; only ray evidence needs judging against it.
                 changedColumns = new int[0];
                 tree.companion = treeOverFrom(treeFaces);
                 continue;
@@ -2320,8 +2226,6 @@ public final class MeshRepair {
             shellsChecked = false;
             report.exposedFaceCount += exposed;
             report.pruneRoundCount++;
-            // Widening the cut each round lets a fold that keeps poking out be cut back far enough
-            // that its refill ends up inside the skin.
             ensureEdges();
             int frontierStart = 0;
             for (int ring = 0; ring < (buriedCut ? 0 : FIRST_PRUNE_RINGS + round); ring++) {
@@ -2374,7 +2278,6 @@ public final class MeshRepair {
                     wake.add(blockedFace[entry]);
                 }
                 blockingHead[face] = -1;
-                // Every piece a cut can cut loose keeps a corner of a face it deleted.
                 if (debrisSeedCount + TRIANGLE_CORNERS > debrisSeeds.length) {
                     debrisSeeds = Arrays.copyOf(debrisSeeds, (debrisSeedCount + TRIANGLE_CORNERS) * GROWTH);
                 }
@@ -2488,8 +2391,6 @@ public final class MeshRepair {
                 }
             }
         }
-        // A region of fill alone only capped a hole: deleting it reopens that hole and the refill
-        // builds the same cap again, so only regions holding scan faces go.
         boolean[] inRegion = new boolean[faceCount];
         for (int index = 0; index < foundCount; index++) {
             inRegion[found[index]] = true;
@@ -2674,21 +2575,16 @@ public final class MeshRepair {
                     Math.max(acrossX * acrossX + acrossY * acrossY + acrossZ * acrossZ,
                             (acrossX - alongX) * (acrossX - alongX) + (acrossY - alongY) * (acrossY - alongY)
                                     + (acrossZ - alongZ) * (acrossZ - alongZ)));
-            // A sliver's normal is rounding noise, and past a fold its grazing rays leave a
-            // different cell than the counted ones, so no count can vouch for either.
             boolean countable = length >= SLIVER_RATIO * longest && length >= state.tinyDoubleArea()
                     && !state.creased()[face];
             int lineAxis = Math.abs(normalX) >= Math.abs(normalY) && Math.abs(normalX) >= Math.abs(normalZ) ? 0
                     : Math.abs(normalY) >= Math.abs(normalZ) ? 1 : 2;
             if (changed != null && face < state.recountFrom()) {
-                // Evidence holds until a changed face lands on the line or rays it rests on.
                 boolean stands = switch (verdict[face]) {
                     case VOUCHED_BY_PARITY -> countable && !meetsAxisLine(state.grid(), changed,
                             state.changedColumns(), centroid, lineAxis, stack);
                     case VOUCHED_BY_RAYS -> countable && !changed.meetsWindingRays(centroid, back, stack);
                     case HEMISPHERE_BLOCKED -> {
-                        // Faces added since can only stop more rays, so it stays blocked while
-                        // every face that stopped one of its rays stands.
                         boolean blockersStand = true;
                         for (int blocker : state.blockedBy()[face]) {
                             blockersStand &= faceAlive[blocker];
@@ -2707,7 +2603,6 @@ public final class MeshRepair {
             if (!countable) {
                 verdict[face] = UNVOUCHED;
             } else if (changed == null) {
-                // Orientation's count stands where nothing has changed on or near the line since.
                 boolean vouched = face < orientedFaces && !changedSinceOrientation[face]
                         && orientedFacing[face] == TriangleBvh.FACING_OUT_OF_VOLUME && !orientedCrowded[face]
                         && !columnMarked(state.changedColumns(), cell);
@@ -2717,9 +2612,6 @@ public final class MeshRepair {
                 verdict[face] = tree.agreedWinding(centroid, back, stack) != 0 ? VOUCHED_BY_RAYS : UNVOUCHED;
             }
             if (verdict[face] == UNVOUCHED) {
-                // At a fold the faces round the corners are what most rays meet first, so each ray
-                // tries them before walking the tree; a hit on one is a hit, so the answer is the
-                // walk's.
                 int nearbyCount = 0;
                 for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
                     nearbyCount = facesRoundInto(faceCorners[face * TRIANGLE_CORNERS + corner], face, nearby,
@@ -3196,8 +3088,6 @@ public final class MeshRepair {
         return tree;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Assemble
 
     /**
      * Compacts the survivors into a {@link HalfEdgeMesh} and rebuilds the bundle's slots. An
@@ -3271,7 +3161,6 @@ public final class MeshRepair {
         report.outputVertexCount = survivors;
         report.outputFaceCount = aliveFaces;
         report.fillFaceIndices = Arrays.copyOf(fillFaceIndices, fillFaces);
-        // The edge table already pairs every side, so the half-edge build need not find the pairs.
         int[] cornerTwin = null;
         if (twinsKnown && report.unorientedEdgeCount == 0) {
             int[] twins = new int[aliveFaces * TRIANGLE_CORNERS];
@@ -3327,8 +3216,6 @@ public final class MeshRepair {
         return marks;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Working state
 
     /** Re-files in the edges every face changed since they were last read. */
     private void ensureEdges() {

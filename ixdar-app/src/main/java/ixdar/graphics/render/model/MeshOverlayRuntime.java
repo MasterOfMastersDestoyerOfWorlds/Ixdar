@@ -289,8 +289,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         }
         updateOverlayProjection(camera);
         if (drawLineGroups) {
-            // The groups test against the surface but leave its depth alone, so the dots drawn
-            // next are not lost to a ring line tying them at the vertex they share.
             Platforms.gl().depthMask(false);
             for (int group = 0; group + 1 < lineGroupSegmentStart.length; group++) {
                 int firstVertex = 2 * lineGroupSegmentStart[group];
@@ -304,8 +302,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             Platforms.gl().depthMask(true);
         }
         if (!drawn.isEmpty() && dotShader.ID >= 0) {
-            // The discs take their faces' depth themselves; the fill offset would only push the
-            // flat disc behind the surface it marks.
             GL gl = Platforms.gl();
             gl.disable(gl.POLYGON_OFFSET_FILL());
             dotShader.use(camera.view, camera.projection, model.identity());

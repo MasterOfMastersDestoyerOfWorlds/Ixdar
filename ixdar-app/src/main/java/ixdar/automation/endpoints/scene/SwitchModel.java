@@ -82,9 +82,6 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                     return failure("the active scene is not a model scene");
                 }
                 ModelScene scene = (ModelScene) runtime.canvas;
-                // A path opens the way -Dixdar.model does, a relative one from the checkout root
-                // whatever directory the JVM runs in; the scene's own model, reopened by its path,
-                // keeps its choice, so its overrides and save target stay the same.
                 ModelChoice match = file.isEmpty() ? ModelCatalog.resolve(scene.availableModels(), name)
                         : ModelCatalog.launchChoice(
                                 AutomationPortFile.checkoutRoot().resolve(file).toString(), null);
@@ -106,8 +103,6 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                     miss.add(AVAILABLE, available);
                     return miss;
                 }
-                // Each set entry is checked against the graph the model runs; an empty value
-                // clears its key.
                 JsonArray assignments = body.has(SET) && body.get(SET).isJsonArray()
                         ? body.getAsJsonArray(SET) : new JsonArray();
                 for (JsonElement entry : assignments) {

@@ -581,8 +581,6 @@ public class HyperString {
         float offset = 0;
         float charLength = 0;
         wrappedLines = 0;
-        // Whether the joined run the current word belongs to fits in the view, so its
-        // joined words never wrap on their own.
         boolean groupFits = false;
         for (int j = idxStart; j < idxEnd; j++) {
             HyperWord w = words.get(j);
@@ -594,7 +592,6 @@ public class HyperString {
                 subWords = w.subWords();
             }
             boolean joined = w.wordAction == null && w.joinsPrevious && groupFits;
-            // A word starting a group asks whether the whole group fits on the row, not itself.
             float groupWidth = 0;
             int groupChars = 0;
             for (int k = j; !joined && k < idxEnd; k++) {

@@ -80,7 +80,6 @@ public final class RingFitBench {
                 double nearestWithin = worstWithin;
                 for (Place place : places) {
                     double off = place.off().applyAsDouble(at);
-                    // An unbound place takes the anchor whatever it stands at.
                     off = Double.isNaN(off) ? 0 : off;
                     if (off / place.within() < nearestOff / nearestWithin) {
                         nearestOff = off;
@@ -164,7 +163,6 @@ public final class RingFitBench {
 
     private static final String BISECTOR = "ring_02";
 
-    // Radius of the circle the tube's centre runs on.
     private static final double MAJOR_RADIUS = 2.0;
 
     private static final double HALF_TURN = 180.0;
@@ -175,26 +173,18 @@ public final class RingFitBench {
 
     private static final double SIXTH_GROOVE = 60.0;
 
-    // The slanted-ring fixtures' two grooves stand this far either side of +x.
     private static final double SLANTED_GROOVE = 15.0;
 
-    // The tree fixture's nearer branch: the sine of how far round the torus it leans per unit it
-    // runs toward the inside of the tube, and how far inward it keeps its full depth.
     private static final double NEAR_BRANCH_LEAN = 0.20;
 
     private static final double BRANCH_FULL_DEPTH_INWARD = 0.75;
 
-    // One cross-section of the torus's 160, and one side of the tube's 40, in degrees.
     private static final double SECTION = 2.25;
 
     private static final double SIDE = 9.0;
 
-    // A ring with no groove to take stands within this many cross-sections of where it is
-    // furthest from the other rings.
     private static final double OPPOSITE = 4 * SECTION;
 
-    // The circle the horn fixtures' cone meets their unit sphere in, about the y axis, and how
-    // near it a fitted anchor stands: about one edge of the sphere.
     private static final double HORN_FOOT_HEIGHT = 0.96;
 
     private static final double HORN_FOOT_RADIUS = 0.285;
@@ -326,8 +316,6 @@ public final class RingFitBench {
         return new Place(degrees + " degrees round the tube", at -> apart(roundTubeDegrees(at), degrees), within);
     }
 
-    // The slanted-ring trenches run along the outside and the inside of the tube between the two
-    // grooves: inside them is between the grooves and within a side of the tube's outside or inside.
     private static Place trench() {
         return new Place("a trench", at -> {
             double between = Math.max(0, Math.abs(roundTorusDegrees(at)) - SLANTED_GROOVE - SECTION);
@@ -337,8 +325,6 @@ public final class RingFitBench {
         }, SECTION);
     }
 
-    // The tree fixture's nearer branch, or its trunk on the tube's outer half; anchors further in
-    // than the branch keeps its depth are not bound.
     private static Place nearerBranch() {
         return new Place("the trunk or the nearer branch", at -> {
             double inward = Math.max(0, -Math.cos(Math.toRadians(roundTubeDegrees(at))));

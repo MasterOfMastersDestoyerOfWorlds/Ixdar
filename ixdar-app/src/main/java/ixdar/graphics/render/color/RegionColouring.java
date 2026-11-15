@@ -70,8 +70,6 @@ public final class RegionColouring {
                         ? Integer.compare(neighboursByNode[second].length,
                                 neighboursByNode[first].length)
                         : 0);
-        // How many nodes hold each entry, so a free node takes the least used palette entry its
-        // neighbours leave free and the whole palette gets used, not just its first four entries.
         int[] uses = new int[cycle.length + count];
         for (int node = 0; node < count; node++) {
             if (next[node] != UNCOLOURED) {
@@ -95,7 +93,6 @@ public final class RegionColouring {
                     chosen = entry;
                 }
             }
-            // Only a node whose neighbours hold every palette entry goes past it, to a shade.
             if (chosen == UNCOLOURED) {
                 chosen = cycle.length;
                 while (used[chosen]) {

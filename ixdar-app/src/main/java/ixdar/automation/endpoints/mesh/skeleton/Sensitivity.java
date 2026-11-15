@@ -70,14 +70,12 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                         sensResult.parameters().size());
                 result.addProperty("jointCount", sensResult.jointIndices().size());
 
-                // Suggested deltas
                 JsonObject deltas = new JsonObject();
                 for (var entry : sensResult.suggestedDeltas().entrySet()) {
                     deltas.addProperty(entry.getKey(), entry.getValue());
                 }
                 result.add("suggestedDeltas", deltas);
 
-                // Suggested new values
                 JsonObject suggestedValues = new JsonObject();
                 for (var param : sensResult.parameters()) {
                     float base = param.defaultValue();

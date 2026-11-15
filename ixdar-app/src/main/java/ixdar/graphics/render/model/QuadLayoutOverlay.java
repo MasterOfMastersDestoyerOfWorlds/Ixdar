@@ -358,7 +358,6 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         }
         setDots(LAYOUT_CORNER_DOTS, 0, layoutCorners);
 
-        // Patch boundary edges first, then the interior grid edges.
         LineSet lines = new LineSet(mesh.edgeCount());
         for (boolean boundary : new boolean[] { true, false }) {
             for (int edge = 0; edge < mesh.edgeCount(); edge++) {
@@ -620,7 +619,6 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                 drawTriangles(constraints, constraintRangeStart[source.ordinal()], count);
             }
         }
-        // The line groups and every dot layer last, so the markers sit over the glyphs.
         super.renderOverlays(camera);
     }
 

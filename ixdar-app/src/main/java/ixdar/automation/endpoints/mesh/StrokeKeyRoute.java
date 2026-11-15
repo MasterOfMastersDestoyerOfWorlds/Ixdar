@@ -151,7 +151,6 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
             long started = System.nanoTime();
             key.compute(base, goal, reference, template, start);
             if (key.goalLines != null) {
-                // The goal's lines as the key carried them onto the base, whole, in every cell that sees them.
                 FaceAnchors onBase = new FaceAnchors(baseMesh);
                 StrokeAnchors carried = new StrokeAnchors();
                 for (int line = 0; line < key.shapes.carriedLines.size(); line++) {
@@ -221,8 +220,6 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
                 rows.add(row);
             }
             result.add(COUNTS, rows);
-            // Every candidate the pursuit was offered, each in the cell it was drawn in and grouped by
-            // layer, for strokes_overlay over the base's capture.
             StrokeSketch offered = key.candidateStrokes.sketch(template, baseMesh);
             List<String> grouped = new ArrayList<>();
             for (String layer : StrokeKey.LAYER_ORDER) {
@@ -238,8 +235,6 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
             Files.write(candidates, offered.toSvg().getBytes(StandardCharsets.UTF_8));
             files.add(candidates.toString());
             result.addProperty("candidates", key.candidateStrokes.strokes.size());
-            // The offset and reachability maps: one dot per base vertex, grouped by bin, drawn into
-            // every template cell that sees it, for strokes_overlay over the base's capture.
             float diagonal = baseMesh.boundsDiagonal();
             String[] binNames = { "sink_far", "within_near", "sink_near", "raise_far", "raise_near" };
             int[] binByVertex = new int[baseMesh.vertexCount()];
@@ -261,8 +256,6 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
             }
             StrokeAnchors largest = key.keyByCount.get(key.counts.length - 1);
             if (body.has(MANIFEST) && !body.get(MANIFEST).getAsString().isBlank()) {
-                // The largest key drawn through the reference pictures' own cameras, its sculpt carried
-                // into the goal's frame the pictures were rendered in.
                 JsonObject manifest = JsonParser.parseString(new String(Files.readAllBytes(existingFile("--manifest",
                         body.get(MANIFEST).getAsString())), StandardCharsets.UTF_8)).getAsJsonObject();
                 StrokeSketch pictures = new StrokeSketch();
@@ -290,8 +283,6 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
                 StrokeAnchors moved = StrokeAnchors.parse(largest.toText());
                 Path overReferences = out.resolve(String.format(Locale.ROOT, "key_%03d_references.svg",
                         key.counts[key.counts.length - 1]));
-                // The pictures' frame is the goal they were rendered from: its framed centre and radius
-                // (the bounding box's half diagonal), which the manifest records.
                 Vector3f frameCenter = new Vector3f(pictures.center[0], pictures.center[1], pictures.center[2]);
                 float frameRadius = manifest.get("radius").getAsFloat();
                 Files.write(overReferences, new SculptSync(pictures, GoalProjection.moved(baseMesh, baseMesh,

@@ -172,14 +172,10 @@ public final class StrokeKey {
         }
         candidateStrokes.strokes.clear();
         int offered = pursuit.candidates.size();
-        // The goal's lines into the base's frame the way the projection relates them: bounding-box
-        // centres and diagonals.
         List<float[]> baseLines = goalLines == null ? null : goalLines.stream()
                 .map(line -> MeshDistance.inFrame(MeshDistance.normalized(line.clone(), goal),
                         baseMesh.center(new Vector3f()), baseMesh.boundsDiagonal()))
                 .toList();
-        // The goal's own lines wait until the fills have taken the broad shape, then go on top of them;
-        // the offset field's lines compete with the fills from the start.
         List<AnchoredStroke> lineStrokes = baseLines == null ? null
                 : shapes.chains(surface, projection.offset, projection.normalXyz, baseLines);
         if (lineStrokes == null) {
@@ -197,7 +193,6 @@ public final class StrokeKey {
         residualByCount = new float[counts.length];
         int lineCount = 0;
         for (int countIndex = 0; countIndex < counts.length; countIndex++) {
-            // With the goal's lines, a count is the fills' alone; the lines come on top.
             int count = counts[countIndex] + lineCount;
             int stalls = 0;
             while (pursuit.selection.size() < count && stalls < STALLS) {
@@ -221,8 +216,6 @@ public final class StrokeKey {
                 stalls = pursuit.selection.size() > before ? 0 : stalls + 1;
             }
             if (lineStrokes != null && lineCount == 0) {
-                // Every line at its carried place, its depth fitted to what the fills leave, then all
-                // depths refitted together and each line tried narrower and wider, never moved.
                 int from = pursuit.selection.size();
                 pursuit.choose(lineStrokes, new float[lineStrokes.size()]);
                 pursuit.sweepDepths(DEPTH_SWEEPS);
@@ -236,8 +229,6 @@ public final class StrokeKey {
                 lap(5);
             }
             residualByCount[countIndex] = (float) Math.sqrt(pursuit.residualEnergy() / totalArea);
-            // The key at this count, layer by layer, sculpted exactly as stroke_sculpt sculpts a
-            // sidecar's strokes.
             StrokeAnchors key = new StrokeAnchors();
             key.baseVertices = baseMesh.vertexCount();
             key.baseFaces = baseMesh.faceCount();

@@ -81,7 +81,6 @@ class QuadRingToolTest {
 
     @Test
     void aGeodesicOnAQuadGridIsTheStraightLineThroughItsQuads() {
-        // A flat grid of unit squares in the xy plane, the vertex at column c, row r at (c, r).
         float[] positions = new float[RingTool.COORDINATES_PER_POINT * (GRID_COLUMNS + 1)
                 * (GRID_ROWS + 1)];
         for (int row = 0; row <= GRID_ROWS; row++) {
@@ -109,7 +108,6 @@ class QuadRingToolTest {
         assertEquals(grid.edgeCount() + grid.faceCount(), metric.edgeLength.length,
                 "one split edge per quad");
 
-        // Interior endpoints: FlipOut leaves a path hugging the boundary as it does on triangles.
         SurfaceGeodesics geodesics = SurfaceGeodesics.over(metric);
         assertTrue(geodesics.geodesic(gridVertexId(1, 1),
                 gridVertexId(1 + RUN_ACROSS, 1 + RUN_UP)));

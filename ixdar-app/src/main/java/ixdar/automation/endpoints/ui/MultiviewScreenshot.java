@@ -71,7 +71,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 : StrokeSketch.read(existingFile("--camera", cameraPath).toString());
         JsonObject reloaded = null;
         if (!dsl.isEmpty()) {
-            // The model route's own load, so a DSL that fails here fails with the error ml reports.
             SwitchModel reload = new SwitchModel();
             reload.runtime = runtime;
             JsonObject request = new JsonObject();
@@ -82,7 +81,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 return reloaded;
             }
         }
-        // The viewer's own look, put back once every view is read.
         String[] savedLook = new String[1];
         boolean[] savedHeadlight = new boolean[1];
         boolean[] savedToolbar = new boolean[1];
@@ -90,8 +88,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             float[][] views = VIEW_AZIMUTH_ELEVATION_RADIANS;
             String[] labels = VIEW_LABELS;
 
-            // Save the orbit, then aim it at the selection and fit its distance, on the render
-            // thread; every view below keeps that centre and distance.
             float[] saved = new float[SAVED_ORBIT_FIELDS]; // az, el, dist, viewDist, roll
             Vector3f savedTarget = new Vector3f();
             JsonObject framing = runtime.runOnMainThread(() -> {
@@ -113,13 +109,11 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 saved[1] = orbit.elevation;
                 saved[2] = orbit.distance;
                 saved[VIEW_ROLL_INDEX] = orbit.roll;
-                // The grid's views and the camera the drawing template records carry no roll.
                 orbit.roll = 0f;
                 savedTarget.set(orbit.orbitTarget);
                 Vector3f center = new Vector3f();
                 float radius = selected.sphere(center);
                 if (cameraTemplate != null) {
-                    // The sphere whose fit distance is the template's, about its centre.
                     double half = Math.toRadians(cameraTemplate.fieldOfViewDegrees) / 2.0;
                     center.set(cameraTemplate.center[0], cameraTemplate.center[1], cameraTemplate.center[2]);
                     radius = (float) (cameraTemplate.distance * Math.sin(Math.min(half,
@@ -138,7 +132,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 framed.addProperty(StrokeSketch.ORTHOGRAPHIC, mvs.isOrthographic());
                 savedLook[0] = mvs.looks.picked.id;
                 savedHeadlight[0] = mvs.headlight;
-                // The cells show the model alone: the toolbar would repeat in every one.
                 savedToolbar[0] = mvs.showToolbar;
                 mvs.showToolbar = false;
                 mvs.setLook(look.id, headlight);
@@ -157,8 +150,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 final float el = views[i][1];
                 final float dist = viewDist;
 
-                // Call 1: set orbit — completes at end of frame N.
-                // Frame N+1 will render with new orbit via SceneInputFrameUpdater.
                 runtime.runOnMainThread(() -> {
                     if (runtime.canvas instanceof MeshNodeViewerScene mvs) {
                         mvs.camera.setOrbit(az, el, dist);
@@ -166,8 +157,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                     return new JsonObject();
                 });
 
-                // Call 2: runs at end of frame N+1, AFTER drawScene() + shader flush.
-                // Reads the freshly rendered pixels with new orbit applied.
                 final int viewIndex = i;
                 runtime.runOnMainThread(() -> {
                     int w = Platforms.get().getFrameBufferWidth();
@@ -193,7 +182,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 });
             }
 
-            // Restore original orbit
             runtime.runOnMainThread(() -> {
                 if (runtime.canvas instanceof MeshNodeViewerScene mvs) {
                     mvs.camera.moveTarget(savedTarget);
@@ -203,7 +191,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 return new JsonObject();
             });
 
-            // Composite 4x2 grid on the HTTP thread (no GL needed)
             int cellW = dims[0];
             int cellH = dims[1];
             if (cellW == 0 || cellH == 0) {
@@ -224,7 +211,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 }
             }
 
-            // Write to disk
             File checkout = AutomationPortFile.checkoutRoot().toFile();
             File out;
             if (outputPath == null || outputPath.isBlank()) {
@@ -263,8 +249,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 result.add(SwitchModel.SECONDS, reloaded.get(SwitchModel.SECONDS));
             }
             if (body.has(OUTLINE) && body.get(OUTLINE).getAsBoolean()) {
-                // Composite pixels are the template's coordinates: multiview --svg writes its
-                // viewBox as the composite's size.
                 JsonArray outlines = new JsonArray();
                 for (int view = 0; view < VIEW_COUNT; view++) {
                     if (captures[view] == null) {
@@ -305,8 +289,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             }
             String svgPath = body.has(SVG) ? body.get(SVG).getAsString() : "";
             if (!svgPath.isBlank()) {
-                // A blank drawing template whose root records this capture's camera, which the
-                // stroke_sculpt node lifts the strokes drawn on it through.
                 JsonArray center = framing.getAsJsonArray(CENTER);
                 String template = StrokeSketch.svgRoot(GRID_COLUMNS * cellW, 2 * cellH, GRID_COLUMNS * cellW,
                         2 * cellH, new float[] { center.get(0).getAsFloat(), center.get(1).getAsFloat(),

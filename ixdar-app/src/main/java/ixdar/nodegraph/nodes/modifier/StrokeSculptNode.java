@@ -116,8 +116,6 @@ public class StrokeSculptNode implements MeshNode {
         StrokeSketch sketch = null;
         boolean unsynced = false;
         if (!svgPath.isEmpty() && base.mesh().faceCount() > 0) {
-            // With a sidecar the strokes are its curves on the base, whatever the SVG now shows; an
-            // SVG sync wrote cannot be read without one, since it draws every stroke in every cell.
             sketch = StrokeSketch.load(svgPath, NODE_ID);
             StrokeAnchors anchors = StrokeAnchors.beside(svgPath);
             if (anchors != null) {
@@ -128,8 +126,6 @@ public class StrokeSculptNode implements MeshNode {
                 throw new IllegalArgumentException(svgPath + " was written by sculpt-sync, but its stroke sidecar "
                         + StrokeAnchors.sidecarPath(svgPath) + " is missing: restore it from git");
             } else {
-                // Named by the ids the first sculpt-sync will give them, so a report reads the same
-                // before and after the sidecar exists.
                 sketch.idByShape = SculptSync.stableIds(sketch.text, Set.of()).toArray(new String[0]);
             }
             String lifted = sketch.lift(base.mesh());
@@ -139,8 +135,6 @@ public class StrokeSculptNode implements MeshNode {
         GeometryBundle sculpted = sculpt.apply(base, strokes);
         ctx.setOutput(GEOMETRY.name, sculpted.withSlot(StrokeSculpt.SCULPT_SLOT, sculpt));
 
-        // The report: the pass, then every stroke text by text then shape by shape, as the strokes
-        // were joined, each with what it moved.
         StringBuilder report = new StringBuilder(String.format(Locale.ROOT, "%s: %d vertices in, %d after refinement%s",
                 ctx.nodeAssignmentId() == null ? NODE_ID : ctx.nodeAssignmentId(),
                 base.mesh() == null ? 0 : base.mesh().vertexCount(), sculpt.refinedVertices, unsynced
@@ -172,10 +166,6 @@ public class StrokeSculptNode implements MeshNode {
                 report.append("; near a cell's outline the surface is seen edge-on, so move the outline itself with a "
                         + "data-kind=\"silhouette\" stroke drawn where it should be");
             }
-            // A falloff of slope k |depth| / radius needs about three edges per radius / slope;
-            // refinement stops at finestEdgeLength, and twice too coarse stairs the slope. One bump's
-            // k is 1.54; a fill's samples union into a steeper rim, and a bowl's floor rises over its
-            // deepest inset at 2 |depth| / inset.
             float radius = sketch.radiusByShape[shape];
             float slope = sketch.sampleSpacingByShape[shape] > 0f
                     ? FillStroke.rimSlope(sketch.sampleSpacingByShape[shape] / radius) : SculptStroke.FALLOFF_STEEPEST_SLOPE;

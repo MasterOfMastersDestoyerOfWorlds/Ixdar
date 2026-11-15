@@ -26,9 +26,6 @@ public final class ManifoldMeshBooleanBackend implements MeshBooleanBackend {
     public static final ManifoldProvenanceBindings PROVENANCE;
 
     static {
-        // The vendored loader announces each library it extracts and then prints its entire symbol
-        // table to System.out, which lands in every build and test log. Discard it for the duration
-        // of the load only; the restore is in the finally, so a load failure still reports normally.
         PrintStream console = System.out;
         System.setOut(new PrintStream(OutputStream.nullOutputStream()));
         try {
@@ -91,10 +88,6 @@ public final class ManifoldMeshBooleanBackend implements MeshBooleanBackend {
 
         int vertexCount = solved.vertexCount();
         int stride = solved.propertiesPerVertex;
-        // A UV seam gives one point of the surface several property vertices, and the kernel's
-        // merge vectors name them. Welding by those, not by position, keeps the mesh closed without
-        // fusing distinct vertices that merely coincide, such as the copies repair_mesh splits a
-        // pinched vertex into; the per-corner UV field then carries the seam.
         int[] weldTarget = new int[vertexCount];
         for (int vertex = 0; vertex < vertexCount; vertex++) {
             weldTarget[vertex] = vertex;

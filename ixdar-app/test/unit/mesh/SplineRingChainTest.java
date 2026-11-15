@@ -34,7 +34,6 @@ class SplineRingChainTest {
 
     private static final int GRID_TILES = 4;
 
-    // Scaled points reach past the unit sphere's bounding box, so clamped grid cells are exercised.
     private static final float SAMPLE_REACH = 1.6f;
 
     private static final String EQUATOR_POINT = "0.97,0.02,0.23";
@@ -144,7 +143,6 @@ class SplineRingChainTest {
             assertTrue(EdgeMarks.bools(wiredRun, label) != null, label + " left no marks");
         }
 
-        // A crease ring T fitted as geodesic loses its creases input; the other keeps the field.
         String fitted = RingDslWriter.wireRingInputs(RingDslWriter.withMode(wired, FIRST_LABEL,
                 RingSegmentMode.GEODESIC));
         assertEquals(wired.replace(creaseArguments + "points=\"" + EQUATOR_POINT + "\", normal=\""
@@ -180,8 +178,6 @@ class SplineRingChainTest {
         MeshTopology sphere = icosphere().mesh();
         NearestVertex grid = NearestVertex.over(sphere);
         Vector3f position = new Vector3f();
-        // On a sphere centred at the origin, a vertex scaled radially stays nearest its own
-        // vertex, so every scale names the expected pick.
         for (int index = 0; index < sphere.vertexCount(); index++) {
             int vertexId = sphere.vertexIdAt(index);
             sphere.vertexPosition(vertexId, position);

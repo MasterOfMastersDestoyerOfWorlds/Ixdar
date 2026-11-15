@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-// removed duplicate IntBuffer import
 import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryStack;
 
@@ -128,7 +127,6 @@ public class LwjglPlatform implements Platform {
     /** {@inheritDoc}. */
     @Override
     public void requestRepaint() {
-        // no-op; loop-driven repaint in LWJGL
     }
 
     /** {@inheritDoc}. */
@@ -175,8 +173,6 @@ public class LwjglPlatform implements Platform {
         switch (mode) {
         case CAPTURED -> {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            // Raw motion bypasses OS cursor acceleration — better for FPS look. Not all
-            // hardware supports it; falls through silently when unavailable.
             if (glfwRawMouseMotionSupported()) {
                 glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
             }

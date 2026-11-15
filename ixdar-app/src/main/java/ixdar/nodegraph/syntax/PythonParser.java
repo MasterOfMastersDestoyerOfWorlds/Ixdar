@@ -59,7 +59,6 @@ public class PythonParser {
         throw new RuntimeException(LINE + current.line + ": " + errorMessage + ". Found '" + current.value + "'");
     }
 
-    // Graph -> (FunctionDef | Statement)* EOF
     /**
      * Parse the full source: top-level {@code def} statements register function
      * definitions, every other statement is parsed into a {@link ParsedNode}
@@ -91,7 +90,6 @@ public class PythonParser {
         return functionDefs;
     }
 
-    // Statement -> Identifier "=" Identifier "(" Arguments ")"
     private ParsedNode parseStatement() {
         ParsedNode node = new ParsedNode();
         node.line = current.line;
@@ -109,8 +107,6 @@ public class PythonParser {
         return node;
     }
 
-    // FunctionDef -> "def" Identifier "(" ParamList ")" "->" Identifier ":" Body Return? "end"
-    // Return -> "return" "(" Arguments ")"
     private void parseFunctionDef() {
         consume(TokenType.IDENTIFIER, "Expected 'def'"); // consume "def"
         String name = consume(TokenType.IDENTIFIER, "Expected function name after 'def'").value;
@@ -159,7 +155,6 @@ public class PythonParser {
         }
     }
 
-    // Param -> Identifier ":" Identifier ("=" Literal)?
     private FunctionParam parseFunctionParam() {
         String paramName = consume(TokenType.IDENTIFIER, "Expected parameter name").value;
         consume(TokenType.COLON, "Expected ':' after parameter name");
@@ -177,8 +172,6 @@ public class PythonParser {
         return param;
     }
 
-    // Arguments -> Argument ("," Argument)*
-    // Tolerates trailing commas for LLM-generated DSL
     private void parseArguments(Map<String, Object> args) {
         parseArgument(args);
         while (current.type == TokenType.COMMA) {
@@ -188,15 +181,12 @@ public class PythonParser {
         }
     }
 
-    // Argument -> Identifier "=" Value
     private void parseArgument(Map<String, Object> args) {
         String portName = consume(TokenType.IDENTIFIER, "Expected input port name").value;
         consume(TokenType.EQUALS, "Expected '=' after port name");
         args.put(portName, parseValue());
     }
 
-    // Value -> Number | VectorLiteral | Reference | Identifier (string/boolean literal)
-    // VectorLiteral -> "<" Number "," Number "," Number ">"
     private Object parseValue() {
         if (current.type == TokenType.NUMBER) {
             float val = Float.parseFloat(current.value);
@@ -205,8 +195,6 @@ public class PythonParser {
         } else if (current.type == TokenType.LANGLE) {
             return parseVectorLiteral();
         } else if (current.type == TokenType.STRING) {
-            // Treat quoted strings same as bare identifiers for boolean/enum resolution
-            // so LLMs can write mode="EQUAL" or region="true" and it still works
             String val = current.value;
             advance();
             if (TRUE.equalsIgnoreCase(val)) return Boolean.TRUE;
@@ -233,7 +221,6 @@ public class PythonParser {
         throw new RuntimeException(LINE + current.line + ": Expected Number, Vector, or Node Reference, found '" + current.value + "'");
     }
 
-    // InlineCall -> Identifier "(" Arguments ")" ("." Identifier)?
     private NodeReference parseInlineCall(String type) {
         String syntheticId = "__inline_" + (inlineCounter++);
         int callLine = current.line;
@@ -255,9 +242,6 @@ public class PythonParser {
         return new NodeReference(syntheticId, "result");
     }
 
-    // VectorLiteral -> "<" Value "," Value "," Value ">"
-    // If all values are float literals, returns Vector3Value.
-    // Otherwise, desugars to a synthetic combine_xyz node and returns a NodeReference.
     private Object parseVectorLiteral() {
         int litLine = current.line;
         consume(TokenType.LANGLE, "Expected '<'");
@@ -272,7 +256,6 @@ public class PythonParser {
             return new Vector3Value((float) xVal, (float) yVal, (float) zVal);
         }
 
-        // Desugar to synthetic combine_xyz node
         String syntheticId = "__vec_" + (inlineCounter++);
         ParsedNode node = new ParsedNode();
         node.line = litLine;
@@ -285,7 +268,6 @@ public class PythonParser {
         return new NodeReference(syntheticId, "vector");
     }
 
-    // Temporary AST structures to hold parsed data
     public static class ParsedNode {
         public String id;
         public String type;

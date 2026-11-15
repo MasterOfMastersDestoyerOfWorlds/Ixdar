@@ -74,8 +74,6 @@ class BisectorTest {
 
     private static final float TUBE_HALF_LENGTH = 2f;
 
-    // About two thirds of a row apart per pixel at the reach, so a click a row off
-    // a ring snaps.
     private static final double WORLD_PER_PIXEL = 0.002;
 
     private static final int FIRST_RING_ROW = 16;
@@ -84,11 +82,8 @@ class BisectorTest {
 
     private static final int MIDDLE_ROW = 32;
 
-    // A ring between the two, which a bisector from the first to the second
-    // crosses.
     private static final int CROSSED_RING_ROW = 40;
 
-    // A ring past the second, which a dragged end moves onto.
     private static final int FAR_RING_ROW = 56;
 
     private static final int TOP_SIDE = 16;
@@ -101,7 +96,6 @@ class BisectorTest {
 
     private static final int SECOND_PATCH_ROW = 40;
 
-    // The smallest true region holds dozens of faces, a sliver a handful.
     private static final int FEWEST_FACES_OF_A_REGION = 40;
 
     private static final String CARRIER = "carrier = load_mesh(path=\"tube.off\")\n";
@@ -114,9 +108,6 @@ class BisectorTest {
 
     private static final String WORKING_DSL = "tube.dsl";
 
-    // The groove dips a tenth of the radius, about a side wide, and bows this many
-    // sides off the
-    // straight line between its ends at the middle row.
     private static final double GROOVE_DEPTH = 0.04;
 
     private static final double GROOVE_HALF_WIDTH_SIDES = 1.0;
@@ -459,8 +450,6 @@ class BisectorTest {
                 "the save left the bisector unwired:\n"
                         + saved);
 
-        // The statement alone, on a bundle carrying both walls, gives back the same
-        // edges.
         GeometryBundle bundle = GeometryBundle.ofMesh(tube);
         bundle = EdgeMarks.with(bundle, firstId, tool.confirmedRings.get(first).spline.marks.markedByEdgeId);
         bundle = EdgeMarks.with(bundle, secondId, tool.confirmedRings.get(second).spline.marks.markedByEdgeId);
@@ -476,8 +465,6 @@ class BisectorTest {
                 ctx.getOutput(SplineCutNode.GEOMETRY.name, GeometryBundle.class), bisectorId),
                 "the spline_cut statement reloads other edges than the bisector drawn");
 
-        // The re-run graph's rings are adopted again, the bisector naming its walls by
-        // serial.
         tool.scene.ringMarksByLabel.put(firstId, tool.confirmedRings.get(first).spline.marks.markedByEdgeId);
         tool.scene.ringMarksByLabel.put(secondId, tool.confirmedRings.get(second).spline.marks.markedByEdgeId);
         tool.scene.ringMarksByLabel.put(bisectorId, drawn);
@@ -496,10 +483,6 @@ class BisectorTest {
     void aGraphRingAuthoredAsEdgesWallsWithItsOwnEdgesNotItsFittedSpline() {
         MeshTopology tube = tube();
         RingTool tool = toolOn(tube, null);
-        // A staircase round the tube between two rows: diagonal, along, back down. The
-        // spline the
-        // tool fits through it runs smooth, so its snapped cycle is other edges than
-        // these.
         int[] loop = new int[3 * TUBE_SIDES / 2];
         for (int step = 0; step < TUBE_SIDES / 2; step++) {
             loop[3 * step] = vertex(MIDDLE_ROW, 2 * step);
@@ -568,14 +551,10 @@ class BisectorTest {
         patch(tool, FIRST_PATCH_ROW);
         patch(tool, SECOND_PATCH_ROW);
         assertEquals(COORDINATES, regions(tool).regionCount, "two patches on the tube");
-        // From the far edge of one patch, across both, to the far edge of the other:
-        // four walls
-        // crossed or touched, two clicks.
         int bisector = bisect(tool, vertex(FIRST_PATCH_ROW - PATCH_HALF_ROWS, TOP_SIDE),
                 vertex(SECOND_PATCH_ROW + PATCH_HALF_ROWS, TOP_SIDE));
         RingRegions regions = regions(tool);
         assertTrue(regions.ringIsWall[bisector], regions.problems.toString());
-        // Each patch falls in two; the tube outside only opens between the patches.
         assertEquals(COORDINATES + 2, regions.regionCount,
                 String.join(RingDslWriter.LINE_BREAK, regions.reportLines()));
         assertNoSliverAndNoBisectorProblem(regions, tool.liveLabel(bisector));
@@ -587,11 +566,9 @@ class BisectorTest {
         RingTool tool = toolOn(tube, null);
         int ring = ring(tool, FIRST_RING_ROW);
         int apex = vertex(MIDDLE_ROW, TOP_SIDE);
-        // A bite off the ring, steered out to the apex, closes a pocket with the ring.
         int bite = bisect(tool, vertex(FIRST_RING_ROW, TOP_SIDE - PATCH_HALF_SIDES),
                 vertex(FIRST_RING_ROW, TOP_SIDE + PATCH_HALF_SIDES), apex);
         assertEquals(COORDINATES, regions(tool).regionCount, "the bite closes no pocket");
-        // A second bisector from the bite's apex back to the ring halves the pocket.
         int join = bisect(tool, apex, vertex(FIRST_RING_ROW, TOP_SIDE));
         int[] ends = tool.confirmedRings.get(join).bisectorEnds.clone();
         Arrays.sort(ends);
@@ -625,7 +602,6 @@ class BisectorTest {
                 placed.confirmedRings.get(bisector).authoredVertexId,
                 "the anchors were not placed where they add least");
 
-        // The same anchors in click order, as a statement holds them, cross.
         RingTool clicked = toolOn(tube, null);
         clicked.confirmedRings.get(ring(clicked, FIRST_RING_ROW)).sourceLabel = FIRST_WALL;
         clicked.confirmedRings.get(ring(clicked, SECOND_RING_ROW)).sourceLabel = SECOND_WALL;
@@ -647,8 +623,6 @@ class BisectorTest {
         assertFalse(clicked.confirmDraft(), "a crossing bisector was confirmed");
         assertTrue(clicked.lastError.contains("crosses itself"), clicked.lastError);
 
-        // Esc on the crossing draft, edited, drops it and leaves the bisector; Ctrl+Z
-        // restores it.
         int[] confirmedAnchors = clicked.confirmedRings.get(crossing).authoredVertexId;
         press(clicked, Keys.T);
         assertFalse(clicked.bisector.draftSimple, "the crease draft no longer crosses itself");
@@ -740,8 +714,6 @@ class BisectorTest {
     @Test
     void graphRingsAreAdoptedAsTheGraphsOwnSplinesAndStillEdit(@TempDir Path folder)
             throws Exception {
-        // The graph loads the tube from a file, which it reads back with the same
-        // vertex ids.
         MeshTopology written = tube();
         StringBuilder off = new StringBuilder("OFF\n" + written.vertexCount() + " "
                 + written.faceCount() + " 0\n");
@@ -771,8 +743,6 @@ class BisectorTest {
                 vertex(MIDDLE_ROW, TOP_SIDE + 2));
         assertTrue(saving.saveRings(), saving.lastError);
         String saved = new String(Files.readAllBytes(dsl), StandardCharsets.UTF_8);
-        // The first source writes no normal for the first ring, whose plane adoption
-        // then fits.
         String[] sources = { saved.replaceFirst(", normal=\"[^\"]*\"", ""), saved };
         assertFalse(sources[0].equals(saved), "the saved rings carry no normal:\n" + saved);
         RingTool adopting = null;
@@ -784,8 +754,6 @@ class BisectorTest {
             MeshTopology tube = output.mesh();
             assertEquals(written.vertexCount(), tube.vertexCount());
 
-            // The same graph rings, adopted once from the graph that ran and once from its
-            // statements alone, with no output to read, which traces them.
             adopting = toolOn(tube, dsl);
             adopting.scene.graph = graph;
             assertSame(output, adopting.scene.getGeometryBundle());
@@ -841,7 +809,6 @@ class BisectorTest {
         assertNotSame(adoptedCut, adopting.confirmedRings.get(cut).spline,
                 "the bisector did not follow its edited wall");
 
-        // Undo back past the re-opening, to no draft at all.
         assertTrue(adopting.undo(), adopting.lastError);
         while (adopting.draft != null) {
             assertTrue(adopting.undo(), adopting.lastError);

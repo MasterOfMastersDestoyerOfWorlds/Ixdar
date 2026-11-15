@@ -9,8 +9,6 @@ import java.util.Map;
  */
 public enum Keys {
 
-    // Named keys; the glyphs follow NAMED in tools/build_key_glyphs.py. The enter, shift,
-    // backspace, arrow and move symbols in them are Material Design Icons,
     // https://github.com/Templarian/MaterialDesign, Apache License 2.0.
     ENTER(257, 0xE100, "enter"),
     LEFT_SHIFT(340, Codes.SHIFT_GLYPH, Codes.SHIFT),
@@ -31,7 +29,6 @@ public enum Keys {
     LEFT_SUPER(343, Codes.NO_GLYPH, Codes.SUPER),
     RIGHT_SUPER(347, Codes.NO_GLYPH, Codes.SUPER),
 
-    // Printable keys: the code is the character's ASCII code, the glyph its keycap.
     A('A'),
     B('B'),
     C('C'),
@@ -74,10 +71,8 @@ public enum Keys {
     PERIOD('.'),
     LEFT_BRACKET('['),
     RIGHT_BRACKET(']'),
-    // The key left of 1, listed by the tilde it shifts to.
     GRAVE(96, Codes.KEYCAP_GLYPHS_START + '~', "~"),
 
-    // Mouse gestures, which no key code fires.
     CLICK(Codes.NO_KEY_CODE, 0xE10D, "click"),
     DRAG(Codes.NO_KEY_CODE, 0xE10E, "drag"),
     SCROLL(Codes.NO_KEY_CODE, 0xE10F, "scroll"),

@@ -28,7 +28,6 @@ public final class GridToMesh3D {
      * @return a fresh {@link HalfEdgeMesh} with positions, quad indices, and computed normals
      */
     public static HalfEdgeMesh emit(int width, int height, int depth, CellType[] cells, float cellSize) {
-        // Each visible boundary emits TWO quads (inward + outward) — see GridToMesh2D for why.
         int faces = countFaces(width, height, depth, cells) * 2;
         float[] positions = new float[faces * 4 * 3];
         int[] quads = new int[faces * 4];
@@ -52,37 +51,31 @@ public final class GridToMesh3D {
                     float minZ = offsetZ + z * cellSize;
                     float maxZ = minZ + cellSize;
 
-                    // -Y floor (omit if cell below is non-empty)
                     if (y == 0 || cells[idx(x, y - 1, z, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 minX, minY, maxZ,  maxX, minY, maxZ,  maxX, minY, minZ,  minX, minY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
-                    // +Y ceiling (omit if cell above is non-empty)
                     if (y == height - 1 || cells[idx(x, y + 1, z, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 maxX, maxY, minZ,  maxX, maxY, maxZ,  minX, maxY, maxZ,  minX, maxY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
-                    // -X wall
                     if (x == 0 || cells[idx(x - 1, y, z, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 minX, maxY, minZ,  minX, maxY, maxZ,  minX, minY, maxZ,  minX, minY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
-                    // +X wall
                     if (x == width - 1 || cells[idx(x + 1, y, z, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 maxX, minY, maxZ,  maxX, maxY, maxZ,  maxX, maxY, minZ,  maxX, minY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
-                    // -Z wall
                     if (z == 0 || cells[idx(x, y, z - 1, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 maxX, minY, minZ,  maxX, maxY, minZ,  minX, maxY, minZ,  minX, minY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
-                    // +Z wall
                     if (z == depth - 1 || cells[idx(x, y, z + 1, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 minX, maxY, maxZ,  maxX, maxY, maxZ,  maxX, minY, maxZ,  minX, minY, maxZ);

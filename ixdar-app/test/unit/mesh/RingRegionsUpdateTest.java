@@ -56,7 +56,6 @@ class RingRegionsUpdateTest {
         assertEquals(cylinder.faceCount(), regions.refloodedFaces);
         assertMatchesFreshBuild(regions, labels, masks, 0);
 
-        // Add a ring above the others: only the top region is flooded again.
         int topRegion = regions.regionByActiveFace[regions.regionByActiveFace.length - 1];
         int topFaces = regions.regionFaceCount[topRegion];
         labels.add(row(7));
@@ -65,12 +64,10 @@ class RingRegionsUpdateTest {
         assertEquals(topFaces, regions.refloodedFaces);
         assertMatchesFreshBuild(regions, labels, masks, 0);
 
-        // Move a ring: the same label with a new mask.
         masks.set(1, rowMask(cylinder, 3, false));
         update(regions, labels, masks);
         assertMatchesFreshBuild(regions, labels, masks, 0);
 
-        // A ring crossing every other, then a duplicate of one, an open one, and deletions.
         labels.add(MERIDIAN);
         masks.add(meridianMask(cylinder));
         update(regions, labels, masks);
@@ -91,11 +88,9 @@ class RingRegionsUpdateTest {
         update(regions, labels, masks);
         assertMatchesFreshBuild(regions, labels, masks, 0);
 
-        // Nothing changed: nothing is flooded.
         update(regions, labels, masks);
         assertEquals(0, regions.refloodedFaces);
 
-        // Absorbing slivers merges each small region into its largest neighbour.
         regions.absorbBelowFaces = ABSORB_BELOW;
         regions.build();
         labels.add(row(1));
@@ -179,8 +174,6 @@ class RingRegionsUpdateTest {
         if (absorbBelow > 0) {
             return;
         }
-        // The flood the closed rings wall, by a plain breadth-first search over shared edges,
-        // each component numbered by its lowest face.
         MeshTopology mesh = updated.mesh;
         boolean[] wall = new boolean[RingBundle.edgeIdCeiling(mesh)];
         for (int ring = 0; ring < updated.ringLabels.length; ring++) {

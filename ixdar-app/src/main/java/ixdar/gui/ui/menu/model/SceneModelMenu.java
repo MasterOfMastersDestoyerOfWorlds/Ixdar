@@ -114,7 +114,6 @@ public final class SceneModelMenu implements PointerRegion {
                 stripTop - (RECOMPUTE_BLANK_AND_CONTROLS_TITLE_ROWS + 1) * rowHeight);
         int controlLines = controlsBox.rowsUsed;
         if (controlLines == 0) {
-            // Before the first draw: each shown section's rows under its heading.
             for (List<ControlHint> section : scene.controls()) {
                 controlLines += section.isEmpty() ? 0 : section.size() + 1;
             }

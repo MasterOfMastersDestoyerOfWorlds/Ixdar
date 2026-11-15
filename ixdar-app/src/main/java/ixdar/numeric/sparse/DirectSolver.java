@@ -246,8 +246,6 @@ public final class DirectSolver {
             return;
         }
 
-        // Build the permuted RHS, folding fixed contributions into it
-        // (a_ij * x_j moves from LHS to RHS when x_j is fixed).
         double[] permutedRhs = handle.rhsScratch();
         double[] permutedSolution = handle.solutionScratch();
         int[] perm = handle.perm();

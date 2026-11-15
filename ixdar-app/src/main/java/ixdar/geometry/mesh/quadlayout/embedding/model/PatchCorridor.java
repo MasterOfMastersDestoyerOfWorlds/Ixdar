@@ -190,8 +190,6 @@ public final class PatchCorridor {
         int[] halfEdgeEdges = copy.halfEdgeEdge;
         int[] halfEdgeTwins = copy.halfEdgeTwin;
         int[] halfEdgeFaces = copy.halfEdgeFace;
-        // The face's half-edge loop visits its corners in corner-list order, through flat
-        // arrays instead of the per-face lists.
         for (int cursor = 0; cursor < faceScratch.size(); cursor++) {
             int faceId = faceScratch.get(cursor);
             int firstHalfEdge = copy.faceHalfEdge[faceId];

@@ -349,7 +349,6 @@ public class DslGraphView extends Tool {
         }
         rebuild();
         if (newRun) {
-            // The camera's base frame is the first layout of a run, so later rebuilds keep the view.
             PointSet bounds = new PointSet();
             bounds.add(new PointND.Double(layout.minX, layout.minY));
             bounds.add(new PointND.Double(layout.maxX, layout.maxY));
@@ -369,8 +368,6 @@ public class DslGraphView extends Tool {
         Font font = Drawing.getDrawing().font;
         layout.place(text -> font.fontHeight == 0 ? 0
                 : DslGraphLayout.TEXT_HEIGHT / font.fontHeight * font.getWidth(text + " "));
-        // Title text sits on a timeShare fill: every palette pairs light text with dark fills or
-        // dark text with light ones, so text and timeShare are read off the same palette.
         Palette palette = scene.palette;
         builtPalette = palette;
         for (int text = 0; text < layout.textString.length; text++) {

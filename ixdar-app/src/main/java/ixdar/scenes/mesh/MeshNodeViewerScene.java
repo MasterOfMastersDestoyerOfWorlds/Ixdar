@@ -325,7 +325,6 @@ public class MeshNodeViewerScene extends ModelScene {
             return;
         }
         camera.resetView();
-        // A model switch replaces meshRuntime, so it is coloured here rather than through runtime.
         meshRuntime.setSolidColor(palette.surface.toVector4f());
         meshRuntime.render(camera);
 
@@ -560,7 +559,6 @@ public class MeshNodeViewerScene extends ModelScene {
      *                               fails
      */
     public void loadDsl(String dslName, String finalNode, String finalPort) {
-        // Normalize: append .dsl if missing
         if (!dslName.endsWith(DSL)) {
             dslName = dslName + DSL;
         }
@@ -824,8 +822,6 @@ public class MeshNodeViewerScene extends ModelScene {
             occluder.faceId = -1;
             return true;
         }
-        // Both rays run near plane to far plane, so one parameter is one depth on each and the
-        // gap between them there is the world span of a pixel at the point.
         Vector3f along = new Vector3f(direction[0], direction[1], direction[2]);
         float pointParameter = along.dot(x - origin[0], y - origin[1], z - origin[2])
                 / along.lengthSquared();
@@ -964,7 +960,6 @@ public class MeshNodeViewerScene extends ModelScene {
             loadModelEntry(modelCatalog.select(0));
             return;
         }
-        // Invalidate any cached decomposition — the mesh is changing.
         cachedDiagnostics = null;
         patchOverlayEnabled = false;
         modelCollection = modelCollection.open(entry);
@@ -981,8 +976,6 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     private void loadDslFromAbsolutePath(String absolutePath) {
-        // loadDsl() expects a resource-relative name, but the staging dir
-        // contains symlinks — read the choice's file directly and execute the graph.
         ModelChoice choice = new ModelChoice(absolutePath, absolutePath, ModelChoice.Kind.DSL);
         String file = choice.workingFile();
         try {

@@ -246,7 +246,6 @@ public abstract class PointND implements Geometry, PointCollection, Cloneable {
         try {
             return super.clone();
         } catch (CloneNotSupportedException e) {
-            // this shouldn't happen, since we are Cloneable
             throw new InternalError(e);
         }
     }

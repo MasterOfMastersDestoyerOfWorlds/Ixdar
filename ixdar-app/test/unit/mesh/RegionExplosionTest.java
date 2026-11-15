@@ -38,7 +38,6 @@ class RegionExplosionTest {
         assertEquals(4.0, explosion.regionArea[2], TOLERANCE);
         assertEquals(5f, explosion.regionCentroidXyz[3 * 2], TOLERANCE);
         assertEquals(1f, explosion.regionCentroidXyz[3 * 2 + 1], TOLERANCE);
-        // (1 * 0.5 + 1 * 2.5 + 4 * 5) / 6 and (1 * 0.5 + 1 * 0.5 + 4 * 1) / 6.
         assertEquals(23f / 6f, explosion.modelCentroid.x, TOLERANCE);
         assertEquals(5f / 6f, explosion.modelCentroid.y, TOLERANCE);
         assertEquals(0f, explosion.modelCentroid.z, TOLERANCE);
@@ -91,7 +90,6 @@ class RegionExplosionTest {
         explosion.step(QUARTER * RegionExplosion.SWEEP_SECONDS, offsets);
 
         assertEquals(QUARTER, explosion.progress, TOLERANCE);
-        // Smoothstep at a quarter: 0.25^2 * (3 - 0.5).
         float eased = QUARTER * QUARTER * (3 - 2 * QUARTER);
         assertEquals(eased, explosion.appliedAmount, TOLERANCE);
         assertTrue(explosion.exploded());

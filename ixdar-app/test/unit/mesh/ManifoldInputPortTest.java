@@ -30,7 +30,6 @@ class ManifoldInputPortTest {
 
     private static final String SURFACE_GEOMETRY = SURFACE + "." + SurfaceMetricNode.GEOMETRY.name;
 
-    // One triangle: an indexed mesh, the form only loaders and repair_mesh produce.
     private static final float[] TRIANGLE_POSITIONS = { 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f };
 
     private static final int[] TRIANGLE_CORNERS = { 0, 1, 2 };

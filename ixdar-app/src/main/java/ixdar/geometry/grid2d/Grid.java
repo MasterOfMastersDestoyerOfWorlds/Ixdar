@@ -300,7 +300,6 @@ public abstract class Grid {
                         camera.pointTransformY(finalBotPointSpace.y));
                 Vector2f topRight = new Vector2f(rightDiagonal).mul(camera.getWidth()).add(finalBotLeft);
 
-                // drawing rightup diagonal
                 Segment s = getSegmentPool(segmentsQ, gridShell, i, finalBotLeft, topRight);
                 Drawing.drawScaledSegment(s, finalBotLeft, topRight, gridLineColor, gridLineThickness, camera);
             }
@@ -319,7 +318,6 @@ public abstract class Grid {
                         camera.pointTransformY(finalTopPointSpace.y));
                 Vector2f botRight = new Vector2f(leftDiagonal).mul(camera.getWidth()).add(finalTopLeft);
 
-                // drawing leftup diagonal
                 Segment s = getSegmentPool(segmentsS, gridShell, i, finalTopLeft, botRight);
                 Drawing.drawScaledSegment(s, finalTopLeft, botRight, gridLineColor, gridLineThickness, camera);
 
@@ -331,7 +329,6 @@ public abstract class Grid {
                 Vector2f botRight = new Vector2f(camera.getWidth(), camera.pointTransformY(botRightPointSpace.y));
                 Vector2f botLeft = new Vector2f(0, botRight.y);
 
-                // drawing horizontals
                 Segment s = getSegmentPool(segmentsR, gridShell, i, botRight, botLeft);
                 Drawing.drawScaledSegment(s, botRight, botLeft, gridLineColor, gridLineThickness, camera);
 

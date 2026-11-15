@@ -46,7 +46,6 @@ public class PipeRecord extends OperationRecord {
     }
 
     private void undoSingletonPipe() {
-        // Remove the added segments
         if (addedSeg1 != null) {
             resultKnot.manifoldSegments.remove(addedSeg1);
             resultKnot.sortedSegments.remove(addedSeg1);
@@ -56,7 +55,6 @@ public class PipeRecord extends OperationRecord {
             resultKnot.sortedSegments.remove(addedSeg2);
         }
 
-        // Remove match connections
         if (childA != null && childB != null) {
             childA.matchList.remove(childB);
             childB.matchList.remove(childA);
@@ -64,18 +62,15 @@ public class PipeRecord extends OperationRecord {
             childB.matchCount = Math.max(0, childB.matchCount - 2);
         }
 
-        // Clear the result knot
         resultKnot.knotPoints.clear();
         resultKnot.knotPointsFlattened.clear();
         resultKnot.manifoldSegments.clear();
     }
 
     private void undoAddToExisting() {
-        // Remove childB from the result knot
         resultKnot.knotPoints.remove(childB);
         resultKnot.knotPointsFlattened.remove(childB);
 
-        // Remove added segments
         if (addedSeg1 != null) {
             resultKnot.manifoldSegments.remove(addedSeg1);
             resultKnot.sortedSegments.remove(addedSeg1);
@@ -85,18 +80,15 @@ public class PipeRecord extends OperationRecord {
             resultKnot.sortedSegments.remove(addedSeg2);
         }
 
-        // Restore the cut edge
         if (cutEdgeA != null) {
             resultKnot.manifoldSegments.add(cutEdgeA);
             resultKnot.sortedSegments.add(cutEdgeA);
             resultKnot.sortedSegments.sort(null);
 
-            // Restore match connections for the cut edge
             cutEdgeA.first.setMatch(cutEdgeA.last, cutEdgeA);
             cutEdgeA.last.setMatch(cutEdgeA.first, cutEdgeA);
         }
 
-        // Remove match connections for added segments
         if (addedSeg1 != null) {
             addedSeg1.first.matchList.remove(addedSeg1.last);
             addedSeg1.last.matchList.remove(addedSeg1.first);
@@ -110,7 +102,6 @@ public class PipeRecord extends OperationRecord {
     }
 
     private void undoNewHierarchyLevel() {
-        // Remove added segments
         if (addedSeg1 != null) {
             resultKnot.manifoldSegments.remove(addedSeg1);
             resultKnot.sortedSegments.remove(addedSeg1);
@@ -120,7 +111,6 @@ public class PipeRecord extends OperationRecord {
             resultKnot.sortedSegments.remove(addedSeg2);
         }
 
-        // Restore cut edges on both children
         if (cutEdgeA != null && childA != null) {
             childA.manifoldSegments.add(cutEdgeA);
             childA.sortedSegments.add(cutEdgeA);
@@ -136,7 +126,6 @@ public class PipeRecord extends OperationRecord {
             cutEdgeB.last.setMatch(cutEdgeB.first, cutEdgeB);
         }
 
-        // Clear the result knot
         resultKnot.knotPoints.clear();
         resultKnot.knotPointsFlattened.clear();
         resultKnot.manifoldSegments.clear();
@@ -144,7 +133,6 @@ public class PipeRecord extends OperationRecord {
 
     @Override
     public void redo() {
-        // Re-execute the pipe operation based on stored data
         switch (type) {
         case SINGLETON_TO_SINGLETON:
             redoSingletonPipe();
@@ -159,13 +147,11 @@ public class PipeRecord extends OperationRecord {
     }
 
     private void redoSingletonPipe() {
-        // Re-add the children
         resultKnot.knotPoints.add(childA);
         resultKnot.knotPoints.add(childB);
         resultKnot.knotPointsFlattened.add(childA);
         resultKnot.knotPointsFlattened.add(childB);
 
-        // Re-add segments
         if (addedSeg1 != null) {
             resultKnot.manifoldSegments.add(addedSeg1);
             resultKnot.sortedSegments.add(addedSeg1);
@@ -176,7 +162,6 @@ public class PipeRecord extends OperationRecord {
         }
         resultKnot.sortedSegments.sort(null);
 
-        // Re-establish match connections
         if (addedSeg1 != null) {
             addedSeg1.first.setMatch(addedSeg1.last, addedSeg1);
             addedSeg1.last.setMatch(addedSeg1.first, addedSeg1);
@@ -188,7 +173,6 @@ public class PipeRecord extends OperationRecord {
     }
 
     private void redoAddToExisting() {
-        // Remove the cut edge
         if (cutEdgeA != null) {
             resultKnot.manifoldSegments.remove(cutEdgeA);
             resultKnot.sortedSegments.remove(cutEdgeA);
@@ -196,11 +180,9 @@ public class PipeRecord extends OperationRecord {
             cutEdgeA.last.matchList.remove(cutEdgeA.first);
         }
 
-        // Add childB back
         resultKnot.knotPoints.add(childB);
         resultKnot.knotPointsFlattened.add(childB);
 
-        // Re-add segments
         if (addedSeg1 != null) {
             resultKnot.manifoldSegments.add(addedSeg1);
             resultKnot.sortedSegments.add(addedSeg1);
@@ -218,7 +200,6 @@ public class PipeRecord extends OperationRecord {
     }
 
     private void redoNewHierarchyLevel() {
-        // Remove cut edges from children
         if (cutEdgeA != null && childA != null) {
             childA.manifoldSegments.remove(cutEdgeA);
             childA.sortedSegments.remove(cutEdgeA);
@@ -232,11 +213,9 @@ public class PipeRecord extends OperationRecord {
             cutEdgeB.last.matchList.remove(cutEdgeB.first);
         }
 
-        // Re-add children to result
         resultKnot.knotPoints.add(childA);
         resultKnot.knotPoints.add(childB);
 
-        // Re-add segments
         if (addedSeg1 != null) {
             resultKnot.manifoldSegments.add(addedSeg1);
             resultKnot.sortedSegments.add(addedSeg1);

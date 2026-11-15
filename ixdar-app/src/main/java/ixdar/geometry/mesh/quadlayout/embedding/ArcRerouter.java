@@ -298,8 +298,6 @@ public final class ArcRerouter {
         int stamp = ++visitStamp;
         int settledMark = stamp << 1 | SETTLED_BIT;
         frontierSize = 0;
-        // Walking a face's corners through the flat half-edge arrays visits them in the order
-        // of its corner lists, without their per-face object indirection.
         int[] faceHalfEdges = copy.faceHalfEdge;
         int[] halfEdgeNexts = copy.halfEdgeNext;
         int[] halfEdgeVertices = copy.halfEdgeVertex;
@@ -337,8 +335,6 @@ public final class ArcRerouter {
                 reachedTarget = true;
                 break;
             }
-            // A midpoint moves onto the corners and edge midpoints of its edge's faces; a vertex
-            // along its free edges and onto its faces' edge midpoints.
             boolean atStart = node == startCopyVertex;
             float headLength = Float.intBitsToFloat(stateByNode[nodeState + LENGTH_SLOT]);
             int headSplits = stateByNode[nodeState + SPLITS_SLOT];

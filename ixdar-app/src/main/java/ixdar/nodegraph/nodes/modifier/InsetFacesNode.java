@@ -117,7 +117,6 @@ public class InsetFacesNode implements MeshNode {
             MeshTopology topology, float[] srcPos, int[] activeVertexOfId,
             int vertCount, int faceCount, boolean[] selected, float t) {
 
-        // Shared cage edges: both incident faces selected.
         Set<Integer> sharedEdgeIds = new HashSet<>();
         for (int ei = 0; ei < topology.edgeCount(); ei++) {
             int eid = topology.edgeIdAt(ei);
@@ -529,7 +528,6 @@ public class InsetFacesNode implements MeshNode {
                 throw new IllegalArgumentException("inset_faces: faces must have uniform vertex count");
             }
         }
-        // Positions by vertex id (gap slots unused); output vertex i is the source's active vertex i.
         float[] srcPos = new float[topology.vertexIdBound() * 3];
         int[] activeVertexOfId = new int[topology.vertexIdBound()];
         Vector3f position = new Vector3f();

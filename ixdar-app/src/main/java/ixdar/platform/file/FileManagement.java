@@ -158,8 +158,6 @@ public class FileManagement {
         }
     }
 
-    // New APIs returning logical text files instead of java.io.File for
-    // cross-platform
     /**
      * Wrap a logical path in an empty {@link TextFile} (cross-platform alternative to
      * {@code java.io.File} since web has no filesystem).

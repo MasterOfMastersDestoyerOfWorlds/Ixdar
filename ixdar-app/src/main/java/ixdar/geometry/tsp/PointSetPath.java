@@ -147,23 +147,18 @@ public class PointSetPath {
             if (fi.flag == true) {
                 String[] args = line.split(" ");
                 if (Circle.opts.contains(args[0])) {
-                    // CIRCLE
                     ArrayList<PointND> points = Circle.parse(args, 1);
                     addPoints(points, fi);
                 } else if (Line.opts.contains(args[0])) {
-                    // LINE
                     ArrayList<PointND> points = Line.parse(args, 1);
                     addPoints(points, fi);
                 } else if (Triangle.opts.contains(args[0])) {
-                    // TRIANGLE
                     ArrayList<PointND> points = Triangle.parse(args, 1);
                     addPoints(points, fi);
                 } else if (Arc.opts.contains(args[0])) {
-                    // ARC
                     ArrayList<PointND> points = Arc.parse(args, 1);
                     addPoints(points, fi);
                 } else if (args[0].equals("WH")) {
-                    // WORMHOLE
                     if (fi.d == null) {
                         fi.d = new DistanceMatrix(fi.ps);
                     }
@@ -182,12 +177,10 @@ public class PointSetPath {
 
                     fi.index++;
                 } else if (args[0].equals("ANS")) {
-                    // ANS
                     for (int j = 1; j < args.length; j++) {
                         fi.answerOrder.add(Integer.parseInt(args[j]));
                     }
                 } else if (Ix.opts.contains(args[0])) {
-                    // LOAD
                     PointSetPath retTup = Ix.parseFull(args, 1);
                     for (PointND pt : retTup.ps) {
                         fi.lookUp.put(fi.index, pt);
@@ -204,11 +197,9 @@ public class PointSetPath {
                         fi.grid = retTup.grid;
                     }
                 } else if (PointND.Hex.opts.contains(args[0])) {
-                    // HEX
                     PointND pt = PointND.Hex.parse(args, 1);
                     addPoint(pt, fi);
                 } else if (args[0].equals("FLAG")) {
-                    // FLAG
                     if (args[1].equals("REMOVE_DUPLICATES")) {
                         fi.removeDuplicates = true;
                     }
@@ -222,7 +213,6 @@ public class PointSetPath {
                         }
                     }
                 } else if (args[0].contains("//")) {
-                    // COMMENT
                     fi.comments.add(line);
                 } else {
                     PointND pt = new PointND.Double(fi.index, Double.parseDouble(args[1]),
@@ -248,7 +238,6 @@ public class PointSetPath {
             fi.tsp = newAns;
         }
         if (!fromResource && fi.removeDuplicates && fi.duplicatePointIndexes.size() > 0) {
-            // removeDuplicates(f, fi.duplicatePointIndexes);
         }
         if (fi.showGrid) {
             fi.grid.showGrid();

@@ -55,49 +55,36 @@ class CreaseRingTest {
 
     private static final int TUBE_RINGS = 161;
 
-    // The notch's centre line runs at x = NOTCH_TILT * cos(angle round the tube), a plane tilted
-    // about 22 degrees off the cross-section.
     private static final double NOTCH_TILT = 0.4;
 
     private static final double NOTCH_WIDTH = 0.06;
 
     private static final double NOTCH_DEPTH = 0.12;
 
-    // A quarter turn from the side the tilt lifts, where the notch crosses x = 0.
     private static final int CLICK_SIDE = TUBE_SIDES / 4;
 
-    // The click lands this far along the tube off the notch's centre line.
     private static final int CLICK_RING_OFFSET = 2;
 
-    // The stem scan clicks every this many sides round the tube, and up to this many rings either
-    // side of where the notch crosses that side, a few notch widths.
     private static final int SCAN_SIDE_STEP = 6;
 
     private static final int SCAN_RING_REACH = 8;
 
-    // Mean distance along the tube from the notch's centre line within which a ring lies in it,
-    // under the notch's half width.
     private static final double IN_NOTCH = 0.04;
 
-    // The cross-section through the click strays NOTCH_TILT * 2 / pi from the notch on average.
     private static final double ACROSS_NOTCH = 0.2;
 
     private static final float[] AXIS = { 1f, 0f, 0f };
 
     private static final double PLANE_SLACK = 1e-6;
 
-    // The waved notch swings this far along the tube either way of the tilted one, at this many
-    // lobes round it, so no plane and no few geodesics follow it.
     private static final double NOTCH_WAVE = 0.15;
 
     private static final int WAVE_LOBES = 3;
 
     private static final String GEODESIC_FIT_EDIT = "geodesic fit";
 
-    // Crease anchors crowded round the waved notch, more than its geodesic ring needs.
     private static final int CROWDED_ANCHORS = 24;
 
-    // Built once for the class: the tests read the notched tube and none of them edits it.
     private static final MeshTopology NOTCHED = tube(NOTCH_DEPTH);
 
     @Test
@@ -211,7 +198,6 @@ class CreaseRingTest {
             assertTrue(tool.draft == null, "T opened a draft");
             tool.perFrame();
             assertTrue(tool.previewValid, "no hover preview in crease mode: " + tool.lastError);
-            // The hover previews the crease ring itself, anchored at the cursor.
             assertTrue(meanOffNotch(tool.previewSpline) < IN_NOTCH,
                     "the crease-mode preview left the notch");
             assertEquals(hovered, tool.previewAuthoredVertexId);
@@ -427,7 +413,6 @@ class CreaseRingTest {
         return NOTCH_TILT * Math.cos(angle) + wave * Math.sin(WAVE_LOBES * angle);
     }
 
-    // --- T on a crease draft fits the geodesic ring to the crease path (CRAW-94) ---
 
     /**
      * One click on the waved notch: the crease ring follows it, the geodesic ring through that one
@@ -450,7 +435,6 @@ class CreaseRingTest {
         assertTrue(ring.refit.deviation <= ring.refit.tolerance, measured);
         assertTrue(geodesicOff < IN_NOTCH, measured);
         assertTrue(ring.simple, measured);
-        // The anchors alone carry the ring: a geodesic trace of them is the same ring.
         AuthoredSplineRing reloaded = new AuthoredSplineRing(ring.tracer.geodesics);
         assertTrue(reloaded.trace(ring.authoredVertexId, ring.authoredVertexId.length, AXIS,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), reloaded.failure);
@@ -553,7 +537,6 @@ class CreaseRingTest {
             assertArrayEquals(fittedAnchors, tool.draftAuthoredVertexId, "redo lost the fit");
             assertArrayEquals(fitted.marks.markedByEdgeId, tool.draft.marks.markedByEdgeId);
 
-            // Geodesic to crease keeps today's swap: the same anchors as crease paths.
             controls.clear();
             tool.addControls(controls);
             press(controls, Keys.T);
@@ -562,7 +545,6 @@ class CreaseRingTest {
                     "T to crease changed the anchors");
             assertTrue(tool.undo(), tool.lastError);
 
-            // A confirmed crease ring clicked open converts too.
             assertTrue(tool.undo(), tool.lastError);
             assertTrue(tool.confirmDraft(), tool.lastError);
             assertEquals(RingSegmentMode.CREASE, tool.confirmedRings.get(0).mode);

@@ -138,7 +138,6 @@ public final class StrokeAnchors {
         MeshTopology baseMesh = base.mesh();
         SculptSync folding;
         if (anchors == null) {
-            // The first sync holds the SVG's strokes where the layer lifted them: on the base.
             anchors = new StrokeAnchors();
             folding = new SculptSync(sketch, baseMesh, baseMesh, baseMesh);
         } else {
@@ -305,7 +304,6 @@ public final class StrokeAnchors {
                 xyz[point * 3] = position.x;
                 xyz[point * 3 + 1] = position.y;
                 xyz[point * 3 + 2] = position.z;
-                // Kept inside the cell, which the first point names and every fill sample is cast in.
                 sketch.cellPixel(cellCamera, position, pixel);
                 pixels[point * 2] = Math.max(0f, Math.min(sketch.cellWidth - 1f, pixel[0]));
                 pixels[point * 2 + 1] = Math.max(0f, Math.min(sketch.cellHeight - 1f, pixel[1]));

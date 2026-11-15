@@ -37,8 +37,6 @@ class SurfaceConnectionTest {
 
     @Test
     void theNeckIsAnEdgeLoopOnTheTubeThatSeparatesTheSpheres() {
-        // Two unit spheres on the z axis joined by a tube of radius TUBE_RADIUS, as one surface
-        // of revolution closed by a vertex at each pole.
         int rows = 2 * SPHERE_ROWS + TUBE_ROWS;
         double[] rowRadius = new double[rows];
         double[] rowHeight = new double[rows];

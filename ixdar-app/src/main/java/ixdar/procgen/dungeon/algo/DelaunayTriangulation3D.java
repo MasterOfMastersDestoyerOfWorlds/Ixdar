@@ -43,8 +43,6 @@ public final class DelaunayTriangulation3D {
             return new int[] { 0, 1 };
         }
 
-        // Pack point coordinates into parallel arrays. Indices [n .. n+3] reserved for the
-        // super-tetrahedron's vertices.
         double[] xs = new double[n + 4];
         double[] ys = new double[n + 4];
         double[] zs = new double[n + 4];
@@ -63,15 +61,12 @@ public final class DelaunayTriangulation3D {
         double midX = (minX + maxX) / 2;
         double midY = (minY + maxY) / 2;
         double midZ = (minZ + maxZ) / 2;
-        // Corner-style super-tetrahedron well outside the bounding sphere.
         double bigR = SUPER_TET_MARGIN_SCALE * dmax;
         xs[n]   = midX - bigR; ys[n]   = midY - bigR; zs[n]   = midZ - bigR;
         xs[n+1] = midX + 3*bigR; ys[n+1] = midY - bigR; zs[n+1] = midZ - bigR;
         xs[n+2] = midX - bigR; ys[n+2] = midY + 3*bigR; zs[n+2] = midZ - bigR;
         xs[n+3] = midX - bigR; ys[n+3] = midY - bigR; zs[n+3] = midZ + 3*bigR;
 
-        // Tetrahedra are int[4] rows of site indices with positive signed volume; boundary
-        // faces are ascending-sorted index triples packed 3 x 21 bits into a long map key.
         List<int[]> tets = new ArrayList<>();
         tets.add(orient(n, n + 1, n + 2, n + 3, xs, ys, zs));
 
@@ -87,7 +82,6 @@ public final class DelaunayTriangulation3D {
                     bad.add(t);
                 }
             }
-            // Boundary triangles: faces appearing in exactly one bad tet.
             Map<Long, Integer> faceCount = new LinkedHashMap<>();
             for (int[] t : bad) {
                 faceCount.merge(faceKey(t[0], t[1], t[2]), 1, Integer::sum);
@@ -104,7 +98,6 @@ public final class DelaunayTriangulation3D {
             }
         }
 
-        // Strip tets touching the super-tetrahedron, then collect unique edges.
         Set<Long> edges = new LinkedHashSet<>();
         for (int[] t : tets) {
             if (t[0] >= n || t[1] >= n || t[2] >= n || t[3] >= n) continue;
@@ -145,7 +138,6 @@ public final class DelaunayTriangulation3D {
         double abx = xs[b] - xs[a], aby = ys[b] - ys[a], abz = zs[b] - zs[a];
         double acx = xs[c] - xs[a], acy = ys[c] - ys[a], acz = zs[c] - zs[a];
         double adx = xs[d] - xs[a], ady = ys[d] - ys[a], adz = zs[d] - zs[a];
-        // Signed volume * 6 = (b-a) . ((c-a) x (d-a))
         double crossX = acy * adz - acz * ady;
         double crossY = acz * adx - acx * adz;
         double crossZ = acx * ady - acy * adx;
@@ -172,8 +164,6 @@ public final class DelaunayTriangulation3D {
         double bLift = bx_ * bx_ + by_ * by_ + bz_ * bz_;
         double cLift = cx_ * cx_ + cy_ * cy_ + cz_ * cz_;
         double dLift = dx_ * dx_ + dy_ * dy_ + dz_ * dz_;
-        // 4x4 determinant of [(a-p) | aLift; (b-p) | bLift; (c-p) | cLift; (d-p) | dLift]
-        // expanded along the last column.
         double det = aLift * det3(bx_, by_, bz_, cx_, cy_, cz_, dx_, dy_, dz_)
                    - bLift * det3(ax_, ay_, az_, cx_, cy_, cz_, dx_, dy_, dz_)
                    + cLift * det3(ax_, ay_, az_, bx_, by_, bz_, dx_, dy_, dz_)

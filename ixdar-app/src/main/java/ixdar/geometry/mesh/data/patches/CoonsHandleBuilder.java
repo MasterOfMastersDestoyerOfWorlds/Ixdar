@@ -184,9 +184,6 @@ public final class CoonsHandleBuilder {
         return new float[][]{hs, he};
     }
 
-    // ------------------------------------------------------------------
-    // Coons-surface evaluation (shared with CoonsPatchNode)
-    // ------------------------------------------------------------------
 
     /**
      * Evaluates a cubic Bezier at parameter {@code t}. Allocating version —
@@ -312,9 +309,6 @@ public final class CoonsHandleBuilder {
         Vector3f n = new Vector3f();
         dS_du.cross(dS_dv, n);
 
-        // Sign check against flat-polygon normal of v0→v1 × v0→v3 at the face corner.
-        // Ixdar's face convention has normals pointing outward from closed meshes, so
-        // we flip our finite-difference normal to match if it came out inverted.
         Vector3f p0 = mesh.vertexPosition(v0, new Vector3f());
         Vector3f p1 = mesh.vertexPosition(v1, new Vector3f());
         Vector3f p3 = mesh.vertexPosition(v3, new Vector3f());
@@ -364,10 +358,8 @@ public final class CoonsHandleBuilder {
         Vector3f left = evalFaceEdgeAt(mesh, hStart, hEnd, e3, v0, v);
         Vector3f right = evalFaceEdgeAt(mesh, hStart, hEnd, e1, v1, v);
 
-        // loftU = lerp(bottom, top, vS); loftV = lerp(left, right, uS)
         Vector3f loftU = new Vector3f(bottom).lerp(top, vS);
         Vector3f loftV = new Vector3f(left).lerp(right, uS);
-        // bilinear = lerp( lerp(p00,p10,uS), lerp(p01,p11,uS), vS )
         Vector3f mix1 = new Vector3f(p00).lerp(p10, uS);
         Vector3f mix2 = new Vector3f(p01).lerp(p11, uS);
         Vector3f bilinear = new Vector3f(mix1).lerp(mix2, vS);

@@ -80,8 +80,6 @@ public class StrokeLift extends AutomationEndpoint implements AutomationRoute {
                     row.addProperty("radius", sketch.radiusByShape[shape]);
                     row.addProperty("depth", sketch.depthByShape[shape]);
                     float[] lifted = sketch.liftedXyzByShape[shape];
-                    // The world radius the shape's stroke-width drew before MESH-80: its pixels times
-                    // the world size of a pixel where its points land (a silhouette's, at the target).
                     Matcher width = STROKE_WIDTH.matcher(sketch.shapes.get(shape));
                     if (width.find() && view >= 0) {
                         Camera3D camera = sketch.cellCamera(view);

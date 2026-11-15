@@ -201,9 +201,6 @@ public final class SurfaceConnection {
         }
         int steps = pathActiveFace.length;
 
-        // At evenly spaced path faces, the shortest loop a plane through the face cuts from the
-        // surface, the scan starting across the path's direction; a loop crossing a wall leaves
-        // the region the walls bound, so it is passed over.
         long start = System.nanoTime();
         int samples = Math.min(GIRTH_SAMPLES, steps);
         int reach = Math.max(1, steps / (2 * GIRTH_SAMPLES));
@@ -237,9 +234,6 @@ public final class SurfaceConnection {
                 girthsCrossingWalls++;
                 continue;
             }
-            // The path must cross the loop an odd number of times, or the loop does not cut it
-            // (one around a spine beside the path). Within a face the loop is the plane's only
-            // chord, so a path span changing side inside a loop face crosses the loop.
             loopStamp++;
             for (int step = 0; step < girth.pointCount; step++) {
                 for (int side = 0; side < 2; side++) {
@@ -270,9 +264,6 @@ public final class SurfaceConnection {
             sampleGirth[kept] = girth.length;
             samplePathIndex[kept++] = index;
         }
-        // The neck is the narrowest cross-section that the path widens away from on both sides
-        // by NECK_WIDENING: a path that only narrows toward a pick, or ripples over spines, has
-        // no neck there.
         double[] widestAfter = new double[kept + 1];
         for (int sample = kept - 1; sample >= 0; sample--) {
             widestAfter[sample] = Math.max(widestAfter[sample + 1], sampleGirth[sample]);
@@ -295,7 +286,6 @@ public final class SurfaceConnection {
             System.arraycopy(sampleAlong, COORDINATES_PER_POINT * neck, neckAlong, 0,
                     COORDINATES_PER_POINT);
         }
-        // The neck is cut again rather than kept per sample, so only one loop is snapped.
         boolean snapped = neck >= 0
                 && girdle.find(mesh, mesh.faceIdAt(pathActiveFace[narrowestPathIndex]),
                         narrowestPoint, neckAlong);
@@ -341,8 +331,6 @@ public final class SurfaceConnection {
             failure = "the two ends are the same face";
             return false;
         }
-        // Surface distance of every face from the start over arcs that cross no wall, each
-        // reached face keeping its arc back toward the start.
         long start = System.nanoTime();
         faceSearch.start(faceCount);
         faceSearch.relax(startFace, 0.0, -1);

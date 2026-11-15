@@ -141,8 +141,6 @@ public final class ShadingEdges {
                     + (sample >> PixelImage.CHANNEL_BITS & PixelImage.CHANNEL_MASK) + (sample & PixelImage.CHANNEL_MASK))
                     / LUMINANCE_CHANNELS;
         }
-        // A Gaussian blur, one pass across and one down; then the pixels well inside the outline,
-        // shrunk the same way, since the outline's own step is the silhouette, not shading.
         int reach = (int) Math.ceil(BLUR_SIGMA * 3f);
         float[] kernel = new float[reach * 2 + 1];
         float total = 0f;
@@ -199,8 +197,6 @@ public final class ShadingEdges {
                     / SOBEL_NORMALISER;
             magnitude[pixel] = (float) Math.hypot(gradientX[pixel], gradientY[pixel]);
         }
-        // Canny: keep only the crest of each edge across it, so an edge is one pixel wide and links
-        // into one line, not a band whose boundary runs out along one side and back along the other.
         boolean[] crest = new boolean[raw.length];
         for (int pixel = 0; pixel < raw.length; pixel++) {
             if (!interior[pixel] || magnitude[pixel] < EDGE_LOW) {
@@ -256,7 +252,6 @@ public final class ShadingEdges {
                     || inside[pixel - 1] && inside[pixel + 1] && inside[pixel - width] && inside[pixel + width]) {
                 continue;
             }
-            // The outward normal from the mask's own gradient over a small window.
             float outX = 0f;
             float outY = 0f;
             for (int dy = -2; dy <= 2; dy++) {
@@ -341,7 +336,6 @@ public final class ShadingEdges {
                         if (x < 0 || y < 0 || x >= width || y >= height || !edge[neighbour] || used[neighbour]) {
                             continue;
                         }
-                        // Continue the way the line was heading; a 4-neighbour before a diagonal.
                         float heading = previous < 0 ? 0f
                                 : (current % width - previous % width) * PixelImage.NEIGHBOUR_X[direction]
                                         + (current / width - previous / width) * PixelImage.NEIGHBOUR_Y[direction];
@@ -368,8 +362,6 @@ public final class ShadingEdges {
                     xy[index * 2 + 1] = pixel / width;
                     float stepX = gradientX[pixel] / magnitude[pixel];
                     float stepY = gradientY[pixel] / magnitude[pixel];
-                    // Walk across the edge each way until the gradient falls flat: the transition's
-                    // width, and the luminance step between its ends.
                     float[] ends = new float[2];
                     for (int side = 0; side < 2; side++) {
                         float sign = side == 0 ? 1f : -1f;
@@ -384,9 +376,6 @@ public final class ShadingEdges {
                     lineContrasts[index] = (sample(luminance, width, height, xy[index * 2] + stepX * ends[0],
                             xy[index * 2 + 1] + stepY * ends[0]) - sample(luminance, width, height,
                                     xy[index * 2] - stepX * ends[1], xy[index * 2 + 1] - stepY * ends[1])) / litLuminance;
-                    // The bright side toward a light across the picture is a convex turn. With the
-                    // light along the view a thin dark band is a crease, a thin bright band a crest,
-                    // and a plain step a convex shoulder rolling away from the eye.
                     float bright = sample(luminance, width, height, xy[index * 2] + stepX * ends[0],
                             xy[index * 2 + 1] + stepY * ends[0]);
                     float dark = sample(luminance, width, height, xy[index * 2] - stepX * ends[1],
@@ -433,8 +422,6 @@ public final class ShadingEdges {
             isDark[pixel] = interior[pixel] && luminance[pixel] < DARK_FRACTION * litLuminance;
             dark.pixels[pixel] = isDark[pixel] ? PixelImage.OPAQUE : PixelImage.OPAQUE | PixelImage.RGB_MASK;
         }
-        // PixelImage.outlines traces blobs in raster order of their first pixel, as this labelling
-        // visits them, so blob i here is outline i there.
         List<int[]> outlines = dark.outlines(PixelImage.OPAQUE | PixelImage.RGB_MASK, 0, REGION_SIMPLIFY_PIXELS, 1);
         int[] label = new int[luminance.length];
         int[] frontier = new int[luminance.length];
@@ -449,9 +436,6 @@ public final class ShadingEdges {
             int area = 0;
             int hollowed = 0;
             double sum = 0.0;
-            // A dark patch reaching the outline is a side turned from the light, not a hollow: a
-            // hollow is ringed by lit surface. One mostly inside a blob (a socket's shadowed roof) is
-            // part of that blob's fill, not a second one.
             boolean turnedAway = false;
             while (top > 0) {
                 int pixel = frontier[--top];
@@ -526,7 +510,6 @@ public final class ShadingEdges {
         if (right < 0) {
             return;
         }
-        // A coarse grid over the subject keeps the widest blurs cheap; the blobs it finds are wide.
         int step = Math.max(1, (int) Math.ceil((bottom - top + 1) / (float) BLOB_GRID_ROWS));
         int columns = (right - left) / step + 1;
         int rows = (bottom - top) / step + 1;
@@ -542,8 +525,6 @@ public final class ShadingEdges {
                 walled[cell] |= edge[pixel];
             }
         }
-        // Each blur is a normalized convolution over the subject alone, so the bright background
-        // does not make every rim a dark blob.
         float[][] blurred = new float[BLOB_SCALES][];
         float[] sigmaByScale = new float[BLOB_SCALES];
         for (int scale = 0; scale < BLOB_SCALES; scale++) {
@@ -555,8 +536,6 @@ public final class ShadingEdges {
                 blurred[scale][cell] = denominator[cell] > 0f ? numerator[cell] / denominator[cell] : 0f;
             }
         }
-        // Centre against a surround about three times as wide: a socket's lit floor and shadowed
-        // walls average darker than the brow and cheek around it, where a narrow band cancels out.
         float[][] difference = new float[BLOB_SCALES - BLOB_SURROUND_SCALES][cells];
         for (int scale = 0; scale < difference.length; scale++) {
             for (int cell = 0; cell < cells; cell++) {
@@ -597,8 +576,6 @@ public final class ShadingEdges {
             claimed[centre] = true;
             boolean[] reachedOutline = new boolean[2];
             int darkCount = 0;
-            // First the dark centre its scale measured; then on to the rim edges that wall it in, as a
-            // socket's lit floor does not darken but its rim walls it off, unless that leaks away.
             for (int phase = 0; phase < 2; phase++) {
                 float reach = (phase == 0 ? BLOB_REACH : BLOB_RIM_REACH) * sigmaByScale[scale];
                 for (int next = 0; next < count; next++) {

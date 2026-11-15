@@ -38,8 +38,6 @@ public final class MeshDistance {
         float chamfer = 0f;
 
         if (meshA.length > 0 && meshB.length > 0) {
-            // Each direction's nearest-vertex distances, answered by a KD-tree over the other
-            // mesh, give its Hausdorff maximum and its Chamfer mean.
             float[] directedMax = new float[2];
             double[] directedMean = new double[2];
             for (int direction = 0; direction < 2; direction++) {
@@ -144,7 +142,6 @@ public final class MeshDistance {
      * @return full comparison result
      */
     public static CompareResult compareFull(float[] genPos, int genVerts, PreparedReference ref) {
-        // Center generated mesh
         float[] genCentroid = computeCentroid(genPos, genVerts);
         float[] genC = new float[genVerts * FLOATS_PER_VERTEX];
         for (int i = 0; i < genVerts; i++) {
@@ -154,17 +151,14 @@ public final class MeshDistance {
             genC[o + 2] = genPos[o + 2] - genCentroid[2];
         }
 
-        // Build KD-tree for centered generated mesh
         KDTree3D genTree = new KDTree3D(genC, genVerts);
 
-        // Distances: generated → reference
         float[] dGenToRef = new float[genVerts];
         for (int i = 0; i < genVerts; i++) {
             int o = i * FLOATS_PER_VERTEX;
             dGenToRef[i] = (float) Math.sqrt(ref.tree.queryNearestSq(genC[o], genC[o + 1], genC[o + 2]));
         }
 
-        // Distances: reference → generated
         float[] dRefToGen = new float[ref.vertexCount];
         for (int i = 0; i < ref.vertexCount; i++) {
             int o = i * FLOATS_PER_VERTEX;
@@ -172,25 +166,19 @@ public final class MeshDistance {
                     ref.centeredPos[o], ref.centeredPos[o + 1], ref.centeredPos[o + 2]));
         }
 
-        // Chamfer distance (symmetric mean of min-distances)
         float chamfer = (mean(dGenToRef) + mean(dRefToGen)) / 2f;
 
-        // Hausdorff distance (symmetric max of min-distances)
         float hausdorff = Math.max(max(dGenToRef), max(dRefToGen));
 
-        // Similarity score: exponential decay, scale = 20% of reference extent
         float scale = ref.extent * SIMILARITY_SCALE_RATIO;
         float similarity = MAX_SCORE * (float) Math.exp(-chamfer / Math.max(scale, MIN_CHAMFER_SCALE));
         similarity = Math.max(0f, Math.min(MAX_SCORE, similarity));
 
-        // Coverage: fraction of reference points within 5% of extent from generated
         float threshold = ref.extent * COVERAGE_THRESHOLD_RATIO;
         float coverage = fractionBelow(dRefToGen, threshold);
 
-        // Proximity: fraction of generated points within 5% of extent from reference
         float proximity = fractionBelow(dGenToRef, threshold);
 
-        // Per-axis spans of generated mesh (from original positions)
         float[] genMin = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
         float[] genMax = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
         for (int i = 0; i < genVerts; i++) {
@@ -203,7 +191,6 @@ public final class MeshDistance {
         }
         float[] genSpans = {genMax[0] - genMin[0], genMax[1] - genMin[1], genMax[2] - genMin[2]};
 
-        // Centroid offset (gen - ref, before centering)
         float[] centroidOffset = {
                 genCentroid[0] - ref.centroid[0],
                 genCentroid[1] - ref.centroid[1],
@@ -213,7 +200,6 @@ public final class MeshDistance {
                 genSpans, ref.spans, centroidOffset);
     }
 
-    // ─── helpers ────────────────────────────────────────────────────
 
     private static float[] computeCentroid(float[] pos, int vertexCount) {
         double cx = 0, cy = 0, cz = 0;
@@ -282,9 +268,6 @@ public final class MeshDistance {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // KD-tree accelerated comparison (for batch optimization)
-    // ═══════════════════════════════════════════════════════════════
 
     /**
      * Full comparison result compatible with Python mesh_compare output.
@@ -333,7 +316,6 @@ public final class MeshDistance {
             }
             tree = new KDTree3D(centeredPos, vertexCount);
 
-            // Compute axis spans from original positions
             float[] min = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
             float[] max = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
             for (int i = 0; i < vertexCount; i++) {
@@ -349,9 +331,6 @@ public final class MeshDistance {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // 3D KD-Tree for O(log n) nearest-neighbor queries
-    // ═══════════════════════════════════════════════════════════════
 
     /**
      * Simple static 3D KD-tree. Thread-safe for queries after construction.
@@ -421,12 +400,10 @@ public final class MeshDistance {
             float diff = (ax == 0 ? dx : ax == 1 ? dy : dz);
             float diffSq = diff * diff;
 
-            // Search the side the query point is on first
             int near = diff <= 0 ? left[node] : right[node];
             int far = diff <= 0 ? right[node] : left[node];
 
             bestSq = searchSq(near, qx, qy, qz, bestSq);
-            // Only search far side if splitting plane is closer than current best
             if (diffSq < bestSq) {
                 bestSq = searchSq(far, qx, qy, qz, bestSq);
             }

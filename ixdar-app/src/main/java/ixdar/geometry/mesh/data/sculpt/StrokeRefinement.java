@@ -57,8 +57,6 @@ public final class StrokeRefinement {
             int[] activeVertexById = new int[mesh.vertexIdBound()];
             float[] vertexXyz = mesh.packedPositions(activeVertexById);
             NearestVertex nearestVertex = NearestVertex.over(mesh);
-            // On a surface that is not exactly symmetric (a quad layout) most vertices have no twin
-            // and keep their own displacement, which the reflected strokes already made symmetric.
             twinByActiveVertex = new int[symmetryAxis < 0 ? 0 : vertexCount];
             for (int activeVertex = 0; activeVertex < twinByActiveVertex.length; activeVertex++) {
                 int vertexId = mesh.vertexIdAt(activeVertex);

@@ -47,7 +47,6 @@ class RingDeletionTest {
         assertEquals(List.of(FIRST, MIDDLE, LAST), List.copyOf(saved.keySet()), source);
         assertTrue(source.contains(LAST + " = spline_ring(geometry=" + MIDDLE + "."), source);
 
-        // The middle ring is the one the last reads from, so its reader is rewired.
         String middleDeleted = RingDslWriter.remove(source, MIDDLE);
         Map<String, String> expected = new TreeMap<>(saved);
         expected.remove(MIDDLE);
@@ -55,7 +54,6 @@ class RingDeletionTest {
                 "a ring other than the deleted one changed or vanished on reload: "
                         + middleDeleted);
 
-        // With the first gone too, the last reads the sphere's surface directly.
         String onlyLast = RingDslWriter.remove(middleDeleted, FIRST);
         Map<String, String> last = fingerprints(run(onlyLast));
         assertEquals(Set.of(LAST), last.keySet(), onlyLast);

@@ -177,8 +177,6 @@ public class Segment implements Comparable<Segment> {
         } else {
             Segment s2 = (Segment) obj;
             return this.id == s2.id;
-            // return (this.first.id == s2.first.id && this.last.id == s2.last.id)
-            // || (this.first.id == s2.last.id && this.last.id == s2.first.id);
         }
     }
 

@@ -209,7 +209,6 @@ public final class GroupLibrary {
                         throw new IllegalArgumentException("group '" + def.name + "' parameter '"
                                 + param.name + "' has unknown type '" + param.type + "'", unknown);
                     }
-                    // DSL numbers parse as floats; a whole default of an INT parameter is an int.
                     Object defaultValue = type == PortType.INT && param.defaultValue instanceof Float number
                             && number == Math.rint(number) ? Integer.valueOf(Math.round(number))
                             : param.defaultValue;

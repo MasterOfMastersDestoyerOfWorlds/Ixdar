@@ -208,9 +208,6 @@ public final class DslGraphLayout {
             inputPortStart[node] = inputNames.size();
             List<String> literals = new ArrayList<>();
             for (Map.Entry<String, Object> input : new TreeMap<>(record.inputSources).entrySet()) {
-                // Follow a source through expanded groups: a parameter to what the call bound it
-                // to, a group output to the body node it reads, and an output a compiled group
-                // computed to every wired output it read, so one input port may take several edges.
                 List<Object> pending = new ArrayList<>();
                 List<Object> pendingPort = new ArrayList<>();
                 List<String> pendingConsumer = new ArrayList<>();
@@ -312,8 +309,6 @@ public final class DslGraphLayout {
         outputPortStart[nodeCount] = outputNames.size();
         outputPortName = outputNames.toArray(new String[0]);
 
-        // Kahn's order over the edges: evaluation order is topological for a whole run but a pull
-        // may evaluate a group's body nodes after records that come later in the tree.
         int[] waiting = new int[nodeCount];
         for (int edge = 0; edge < edgeCount; edge++) {
             waiting[edgeTarget[edge]]++;
@@ -543,7 +538,6 @@ public final class DslGraphLayout {
             }
         }
 
-        // Frames deepest first, so an outer frame encloses the inner frames and their titles.
         float[] groupTitleWidth = new float[groupCount];
         for (int group = 0; group < groupCount; group++) {
             String prefix = groupPath[group] + GraphNodeContext.PATH_SEPARATOR;

@@ -268,8 +268,6 @@ class RegionControlAutomationTest {
                     continue;
                 }
                 assertTrue(!row.actionName.isEmpty(), tool.toolName() + ": no action id for " + row);
-                // Two rows share an id only as one action under two keys, as redo is on ctrl+shift+Z
-                // and ctrl+Y: the same description.
                 String earlier = descriptionById.putIfAbsent(row.actionName, row.description);
                 assertTrue(earlier == null || earlier.equals(row.description), tool.toolName() + ": '"
                         + row.actionName + "' is both '" + earlier + "' and '" + row.description + "'");
@@ -488,7 +486,6 @@ class RegionControlAutomationTest {
         assertTrue(!scene.ringTool.ringNumbers.isEmpty(), "the rings have no numbers");
         Vector3f eye = new Vector3f();
         boolean[] surfaceHidesAll = { false };
-        // The near half of the tube is what a depth test would show: points on the eye's side.
         scene.camera.pointVisibility = (camera, x, y, z, depthLift, pixel) -> camera.projectToPixels(
                 new Matrix4f(), x, y, z, pixel) && !surfaceHidesAll[0] && x * eye.x + y * eye.y > 0f;
         scene.camera.setTarget(new Vector3f(0f, 0f, 1f));

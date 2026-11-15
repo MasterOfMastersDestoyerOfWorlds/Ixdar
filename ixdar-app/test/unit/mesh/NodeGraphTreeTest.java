@@ -26,7 +26,6 @@ import ixdar.nodegraph.nodes.math.FloatMathNode;
  */
 class NodeGraphTreeTest {
 
-    // Two nested levels: outer calls inner twice, each call two float nodes.
     private static final String NESTED = """
             def inner(a: FLOAT, b: FLOAT = 2.0) -> FLOAT:
                 sum = float_math(a=a, b=b)

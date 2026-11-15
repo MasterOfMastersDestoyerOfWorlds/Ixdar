@@ -702,8 +702,6 @@ public final class MotorcycleGraph {
 
         trace.metOtherTraces.get(trace.metOtherTraces.size() - 1).intersectionNodeId = intersectionNode.nodeId;
         if (other == trace) {
-            // A self-crossing appends both meeting entries to the one list, so the
-            // first call's entry is now second-to-last; stamp it too.
             trace.metOtherTraces.get(trace.metOtherTraces.size() - 2).intersectionNodeId = intersectionNode.nodeId;
         } else {
             other.metOtherTraces.get(other.metOtherTraces.size() - 1).intersectionNodeId = intersectionNode.nodeId;

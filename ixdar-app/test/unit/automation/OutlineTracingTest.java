@@ -126,8 +126,6 @@ class OutlineTracingTest {
 
     @Test
     void aPictureFileReadsTopRowFirst(@TempDir Path folder) throws IOException {
-        // The platform decoder hands back rows bottom-up for OpenGL; read must undo that, or every
-        // traced outline, and the hull built from it, comes out upside down.
         PixelImage drawn = new PixelImage(PICTURE_WIDTH, PICTURE_HEIGHT);
         for (int y = 0; y < PICTURE_HEIGHT; y++) {
             for (int x = 0; x < PICTURE_WIDTH; x++) {
@@ -147,8 +145,6 @@ class OutlineTracingTest {
 
     @Test
     void aReferenceNamesItsCellByPictureEqualsCellOrByItsFileName() {
-        // reference-compare takes a bare picture named by its view: the longest
-        // view name the file name ends in wins, so front_right is the 3/4 view, not Right.
         String[] labels = MultiviewScreenshot.VIEW_LABELS;
         int threeQuarterRight = ReferenceOutlines.cellNamed("x=3/4 Front-R", labels);
         assertTrue(threeQuarterRight >= 0, "picture=label names a cell");
@@ -165,9 +161,6 @@ class OutlineTracingTest {
 
     @Test
     void picturesAtDifferentZoomsShareOneWorldScale() {
-        // An ellipsoid of radii 0.6, 1.0, 0.8 pictured front, right, top and 3/4 at unrelated zooms:
-        // each axis comes out measured alike by the two views across it, the height pinned to 2, and
-        // the 3/4 outline sized to the ellipsoid's own 3/4 silhouette.
         ReferenceOutlines traced = new ReferenceOutlines();
         traced.cellWidth = CELL_SIZE;
         traced.cellHeight = CELL_SIZE;
@@ -187,8 +180,6 @@ class OutlineTracingTest {
             for (int pixel = 0; pixel < picture.pixels.length; pixel++) {
                 float u = (pixel % size - size / 2f) / PIXELS_PER_UNIT[view];
                 float v = -(pixel / size - size / 2f) / PIXELS_PER_UNIT[view];
-                // The line through (u, v) along the view meets the ellipsoid when its closest approach,
-                // in the ellipsoid's own scaled space, lies within the unit sphere.
                 float[] start = new float[3];
                 float[] along = new float[3];
                 double nearest = 0.0;

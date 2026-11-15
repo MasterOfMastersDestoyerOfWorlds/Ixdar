@@ -42,8 +42,6 @@ public final class StbImageDecoder {
         }
         byte[] rgba = new byte[pixels.remaining()];
         pixels.get(rgba);
-        // stbi_image_free frees memAddress(pixels), which is base + position: rewind first or the
-        // read above shifts the pointer and glibc aborts on the mismatched free.
         pixels.rewind();
         STBImage.stbi_image_free(pixels);
         return new DecodedImage(rgba, width.get(0), height.get(0));

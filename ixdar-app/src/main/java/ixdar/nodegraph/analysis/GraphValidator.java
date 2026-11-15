@@ -66,7 +66,6 @@ public final class GraphValidator {
 
         for (PythonParser.ParsedNode n : parsed) {
             if (functionNames.contains(n.type)) {
-                // Function call — skip registry validation (validated at runtime)
                 continue;
             }
             Supplier<? extends MeshNode> supplier = registry.get(n.type);

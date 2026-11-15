@@ -70,10 +70,6 @@ public class NodeGraphRuntime {
     private static final String FUNCTION = "Function '";
     private static final String LINE_BREAK = "\n";
 
-    // The one node lookup: the generated registry, then the desktop-only one reached through
-    // Class.forName so TeaVM never walks its name (in the browser the lookup fails and it adds
-    // nothing). The name is the generated class's own plus the processor's suffix, so a move
-    // cannot break it. Each node is instantiated once to learn its class and its inputs.
     static {
         Map<String, Supplier<? extends MeshNode>> desktop;
         try {
@@ -477,8 +473,6 @@ public class NodeGraphRuntime {
             }
         }
 
-        // Fallback: walk the evaluated top-level records from the last and probe common mesh
-        // port names, for graphs whose output node isn't named as expected.
         String[] probeNames = { outputPortName, MESH, GEOMETRY, RESULT };
         for (int child = root.children.size() - 1; child >= 0; child--) {
             GraphNodeContext ctx = root.children.get(child);
@@ -770,7 +764,6 @@ public class NodeGraphRuntime {
                         record.inputSourcePorts.get(wire.getKey())));
             }
         }
-        // Whole-port overrides first, then vector components of the resolved (or overridden) vector.
         for (Map.Entry<String, Object> override : pathOverrides.entrySet()) {
             if (!override.getKey().contains(PORT_SEPARATOR)) {
                 arguments.put(override.getKey(), override.getValue());
@@ -809,7 +802,6 @@ public class NodeGraphRuntime {
             }
         }
 
-        // The previous mesh-producing node of the scope, as sequential execution defines it.
         record.setFieldContext(fieldContext == null ? scope.fieldContext() : fieldContext);
         for (Map.Entry<String, Object> resolved : arguments.entrySet()) {
             record.setInputValue(resolved.getKey(), resolved.getValue());
@@ -839,8 +831,6 @@ public class NodeGraphRuntime {
             return record;
         }
 
-        // A group call: bind its parameters (defaults for omitted ones) and, when whole groups
-        // are evaluated, run its body and compute every output.
         for (InputPort param : group.inputs()) {
             if (record.getInputValue(param.name) != null) {
                 continue;
@@ -918,8 +908,6 @@ public class NodeGraphRuntime {
                     }
                 }
                 group.evaluate(record);
-                // A computed output's sources are the wired outputs it was computed from; one the
-                // group left unset reads as null rather than evaluating again.
                 List<Object> wiredSources = new ArrayList<>();
                 List<Object> wiredPorts = new ArrayList<>();
                 for (String wired : record.outputWires.keySet()) {

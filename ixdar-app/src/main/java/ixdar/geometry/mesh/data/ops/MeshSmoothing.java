@@ -53,7 +53,6 @@ public final class MeshSmoothing {
                     next[index] = current[index] + weight * (mean[index] - current[index]);
                 }
             }
-            // Taubin passes alone fold slivers into pleats; a face folded already may unfold.
             unfold(mesh, activeOf, current, next, null, 0);
             System.arraycopy(next, 0, current, 0, current.length);
         }
@@ -118,8 +117,6 @@ public final class MeshSmoothing {
         RayBatch rays = surface == null ? null : new RayBatch(surface, mesh.vertexIdBound());
         int[] hitByEdgeId = new int[mesh.edgeIdBound()];
         boolean[] crossedBefore = new boolean[mesh.edgeIdBound()];
-        // Only faces and edges near a vertex whose step changed are tested again, until a round finds
-        // nothing; then every edge is, once, before the move is accepted.
         int[] changed = new int[vertexCount];
         int changedLength = vertexCount;
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
@@ -129,7 +126,6 @@ public final class MeshSmoothing {
         Arrays.fill(retestByEdgeId, true);
         boolean everyEdge = true;
         int prevented = 0;
-        // Round -1 reads the unmoved surface: its folds and crossings are allowed to stay.
         for (int round = -1;; round++) {
             for (int index = 0; index < changedLength; index++) {
                 int at = changed[index] * 3;
@@ -162,7 +158,6 @@ public final class MeshSmoothing {
             if (surface != null && round >= 0) {
                 surface.refit();
             }
-            // Edge rays are cast in parallel, then their hits are read in order.
             if (rays != null) {
                 rays.forEach(mesh.edgeCount(), (scratch, activeEdge) -> {
                     int edgeId = mesh.edgeIdAt(activeEdge);
@@ -206,8 +201,6 @@ public final class MeshSmoothing {
             if (round < 0) {
                 Arrays.fill(kept, 1f);
             }
-            // Each step starts at part of its clearance from the unmoved surface, so a push through a
-            // thin wall stops short of it whole instead of being cut back piece by piece.
             if (round < 0 && rays != null) {
                 rays.forEach(vertexCount, (scratch, activeVertex) -> {
                     int vertexId = mesh.vertexIdAt(activeVertex);
@@ -237,7 +230,6 @@ public final class MeshSmoothing {
                 continue;
             }
             prevented = round == 0 ? failing : prevented;
-            // A face can stay folded with its corners home when its corner normals are its own state's.
             if (failing > 0 && !shortened || failing == 0 && (everyEdge || surface == null)) {
                 return prevented;
             }
@@ -286,7 +278,6 @@ public final class MeshSmoothing {
      */
     private static int ramp(MeshTopology mesh, int[] activeOf, float[] from, float[] stepLength, float[] kept,
             int[] changed, int changedLength, boolean[] listed, Dijkstra walk) {
-        // Dijkstra from the cut vertices over active indices, each settled at the fraction it keeps.
         walk.start(kept.length);
         for (int index = 0; index < changedLength; index++) {
             listed[changed[index]] = true;
@@ -315,8 +306,6 @@ public final class MeshSmoothing {
                 }
             }
         }
-        // A distance ramp is straight-sided and creases where two meet; easing each vertex down to
-        // its ring's mean rounds the creases off and never undoes a cut.
         for (int pass = 0; pass < RAMP_EASING_PASSES; pass++) {
             for (int index = 0; index < length; index++) {
                 int activeVertex = changed[index];

@@ -494,7 +494,6 @@ public class CutGraph {
         Arrays.fill(secondaryPartner, -1);
         Arrays.fill(chartVertexIsPrimary, true);
     
-        // Sweep 1: mark every chart vertex on the A-side of a cut edge.
         boolean[] onASide = new boolean[chartVertexCount];
         for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
             if (!isCutEdge[activeEdge])
@@ -509,9 +508,6 @@ public class CutGraph {
             onASide[cornerToChartVertex[faceA * cornersPerFace + cornerEndA]] = true;
         }
     
-        // Sweep 2: bind each cut edge's two B-side chart vertices to their A-side
-        // partner via this edge's rotation; defer to a leftover record when the
-        // B-side is itself primary or already claimed secondary.
         ArrayList<int[]> leftover = new ArrayList<>();
         for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
             if (!isCutEdge[activeEdge])

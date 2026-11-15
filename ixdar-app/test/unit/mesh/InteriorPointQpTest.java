@@ -109,7 +109,6 @@ public final class InteriorPointQpTest {
                 rowDofs[constraint][column] = column;
                 rowDotUnconstrained += rows[constraint][column] * unconstrained[column];
             }
-            // Bounds straddle the unconstrained optimum so some constraints bind.
             bounds[constraint] = rowDotUnconstrained + random.nextDouble() - 0.25;
         }
 

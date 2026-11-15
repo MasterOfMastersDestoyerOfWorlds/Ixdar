@@ -248,9 +248,6 @@ public final class GridMapOptimizer {
                     + " despite having no folded triangles; a numerically collapsed source"
                     + " reference was not filtered");
         }
-        // Every patch's interior settles first, arcs and nodes held, as independent
-        // concurrent solves with one solver thread each; the global solve after it
-        // then only has the interfaces left. Gathered triangles are contiguous per patch.
         int[] ownerPatchBySlot = new int[dofs.slotCount];
         Arrays.fill(ownerPatchBySlot, UNOWNED_SLOT);
         for (int corner = 0; corner < triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {

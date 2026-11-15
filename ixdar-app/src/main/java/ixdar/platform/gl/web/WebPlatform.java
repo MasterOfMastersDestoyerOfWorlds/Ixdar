@@ -40,7 +40,6 @@ import ixdar.platform.json.JsonValue;
 public class WebPlatform implements Platform {
     public static final String SRC_MAIN_RESOURCES = "src/main/resources/";
     public static final String SRC_MAIN_RESOURCES_2 = "./src/main/resources/";
-    // Global (document-level) key callbacks shared across canvases
     private static KeyCallback sKeyCallback;
     private static CharCallback sCharCallback;
 
@@ -85,25 +84,19 @@ public class WebPlatform implements Platform {
     }
 
     private void setupEventListeners(HTMLCanvasElement htmlCanvas) {
-        // For now, use the fallback callback system to avoid Scene static conflicts
-        // The specific scene instance will be handled during rendering
 
-        // Mouse move
         htmlCanvas.addEventListener("mousemove", (EventListener<MouseEvent>) e -> {
             if (cursorPosCallback != null) {
-                // Use offsetX and offsetY for canvas-relative coordinates
                 double canvasX = e.getOffsetX();
                 double canvasY = e.getOffsetY();
                 cursorPosCallback.onMousePos(0L, canvasX, canvasY);
             }
         });
 
-        // Prevent context menu on right-click
         htmlCanvas.addEventListener("contextmenu", (EventListener<MouseEvent>) e -> {
             e.preventDefault();
         });
 
-        // Mouse buttons
         htmlCanvas.addEventListener("mousedown", (EventListener<MouseEvent>) e -> {
             int button = mapBrowserButtonToAppButton(e.getButton());
             if (button == 0) {
@@ -126,7 +119,6 @@ public class WebPlatform implements Platform {
             e.preventDefault();
         });
 
-        // Wheel
         htmlCanvas.addEventListener("wheel", (EventListener<WheelEvent>) e -> {
             if (scrollCallback != null) {
                 scrollCallback.onScroll(0, e.getDeltaY());
@@ -134,9 +126,6 @@ public class WebPlatform implements Platform {
             e.preventDefault();
         }, false);
 
-        // Keys - attach to document for global key handling (shared across all
-        // canvases)
-        // Only set up once to avoid duplicate listeners
         if (!WebPlatformHelper.keysInstalled) {
             WebPlatformHelper.keysInstalled = true;
             Window.current().getDocument().addEventListener("keydown", (EventListener<KeyboardEvent>) e -> {
@@ -196,7 +185,6 @@ public class WebPlatform implements Platform {
     /** {@inheritDoc}. */
     @Override
     public void requestRepaint() {
-        // RAF loop externally drives rendering
     }
 
     @JSBody(params = {}, script = "return Date.now()/1000.0;")
@@ -317,7 +305,6 @@ public class WebPlatform implements Platform {
             throw new IllegalArgumentException("Font atlas JSON parse failed");
         }
         FontAtlasDTO dto = new FontAtlasDTO();
-        // atlas
         FontAtlasDTO.AtlasInfo ai = new FontAtlasDTO.AtlasInfo();
         if (js.getAtlas() != null) {
             ai.type = js.getAtlas().getType();
@@ -329,7 +316,6 @@ public class WebPlatform implements Platform {
             ai.yorigin = js.getAtlas().getYOrigin();
         }
         dto.atlas = ai;
-        // metrics
         FontAtlasDTO.Metrics m = new FontAtlasDTO.Metrics();
         if (js.getMetrics() != null) {
             m.emSize = js.getMetrics().getEmSize();
@@ -340,7 +326,6 @@ public class WebPlatform implements Platform {
             m.underlineThickness = js.getMetrics().getUnderlineThickness();
         }
         dto.metrics = m;
-        // glyphs
         JsGlyphEntry[] jg = js.getGlyphs();
         if (jg != null) {
             dto.glyphs = new FontAtlasDTO.GlyphEntry[jg.length];
@@ -370,7 +355,6 @@ public class WebPlatform implements Platform {
         } else {
             dto.glyphs = new FontAtlasDTO.GlyphEntry[0];
         }
-        // kerning left null
         return dto;
     }
 
@@ -423,7 +407,6 @@ public class WebPlatform implements Platform {
      */
     @Override
     public void exit(int code) {
-        // no-op on web
     }
 
     /**
@@ -676,7 +659,6 @@ public class WebPlatform implements Platform {
      */
     @Override
     public void writeTextFile(TextFile file, boolean append) throws IOException {
-        // No-op for web (cannot write). Intentionally ignored.
     }
 
     /**
@@ -1005,7 +987,6 @@ public class WebPlatform implements Platform {
          */
         @JSProperty
         JsGlyphEntry[] getGlyphs();
-        // kerning omitted for now
     }
 
     @JSFunctor

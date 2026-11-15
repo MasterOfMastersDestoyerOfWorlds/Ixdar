@@ -163,8 +163,6 @@ public final class TriangleGeometry {
         }
         int crosses = inverse * (edge2X * crossX + edge2Y * crossY + edge2Z * crossZ) > 0
                 ? CROSSES_FROM_ORIGIN : 0;
-        // The barycentric tests read no coordinate along the axis, so the ray from behind passes
-        // them too and differs only in how far along it meets the plane.
         toX = (axis == 0 ? behind : originX) - cornerAX;
         toY = (axis == 1 ? behind : originY) - cornerAY;
         toZ = (axis == 2 ? behind : originZ) - cornerAZ;

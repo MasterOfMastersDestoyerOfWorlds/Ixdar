@@ -72,9 +72,6 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
                 refusal.add(CANDIDATES, toolNames);
                 return refusal;
             }
-            // The tool's section, as it stands once the tool is active, the scene's own, then the tool
-            // switches: every section the tools listing shows, the tool's rows first among the
-            // candidates a refusal names.
             List<ControlHint> rows = new ArrayList<>();
             if (tool == scene.activeTool) {
                 rows.addAll(scene.controls.get(Scene.TOOL_SECTION));

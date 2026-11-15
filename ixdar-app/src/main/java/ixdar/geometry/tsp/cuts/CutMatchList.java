@@ -629,7 +629,6 @@ public class CutMatchList implements FileStringable {
             if (d1 > d2)
                 return 1; // Neither val is NaN, thisVal is larger
 
-            // Cannot use doubleToRawLongBits because of possibility of NaNs.
             long thisBits = (long) d1;
             long anotherBits = (long) d2;
 

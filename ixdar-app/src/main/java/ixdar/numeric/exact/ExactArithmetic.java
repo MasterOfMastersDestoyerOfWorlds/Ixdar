@@ -19,9 +19,6 @@ public final class ExactArithmetic {
     private ExactArithmetic() {
     }
 
-    // =====================================================================
-    // §4.3 — fixed-point F_d truncation (Ebke et al. trick)
-    // =====================================================================
 
     /**
      * Round {@code value} to the nearest member of {@code F_d} via the Ebke et al.
@@ -65,9 +62,6 @@ public final class ExactArithmetic {
         return Math.pow(2.0, naturalExponent);
     }
 
-    // =====================================================================
-    // §4.1 — fraction-free integer RREF (Algs 1 & 2)
-    // =====================================================================
 
     /**
      * Reduce {@code (matrix, rhs)} to integer reduced row echelon form via
@@ -189,9 +183,6 @@ public final class ExactArithmetic {
         rhs[row] = rhs[row].divide(g);
     }
 
-    // =====================================================================
-    // §4.3 — Algorithm 4 (makeDiv) and Algorithm 5 (safeDot)
-    // =====================================================================
 
     /**
      * Algorithm 4 ({@code makeDiv}): snap a free-variable assignment {@code xBar}
@@ -346,9 +337,6 @@ public final class ExactArithmetic {
         return idx;
     }
 
-    // =====================================================================
-    // §4.3 — Algorithm 3 (Evaluation)
-    // =====================================================================
 
     /**
      * Given an integer reduced row echelon form and an approximate input vector,

@@ -151,7 +151,6 @@ public final class Dijkstra {
             frontierPriority = Arrays.copyOf(frontierPriority, frontierSize * GROWTH);
             frontierNode = Arrays.copyOf(frontierNode, frontierSize * GROWTH);
         }
-        // Sift up exactly as PriorityQueue.offer does, so equal priorities pop in its order.
         int slot = frontierSize++;
         while (slot > 0) {
             int parent = (slot - 1) >>> 1;
@@ -177,7 +176,6 @@ public final class Dijkstra {
         while (frontierSize > 0) {
             int node = frontierNode[0];
             frontierSize--;
-            // Move the last entry to the root and sift it down exactly as PriorityQueue.poll does.
             double key = frontierPriority[frontierSize];
             int moved = frontierNode[frontierSize];
             int slot = 0;

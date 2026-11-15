@@ -644,8 +644,6 @@ public abstract class Scene extends SceneDrawable {
             setControls(sceneRows);
         }
         if (activeTool != null) {
-            // Undo and redo are every scene's, whatever tool is up; redo comes first, since a
-            // ctrl+Z row also answers ctrl+shift+Z.
             Action redone = () -> stepHistory(false);
             sceneRows.add(new ControlHint(REDO_ACTION, Keys.Z, true, true, REDO_DESCRIPTION, redone));
             sceneRows.add(new ControlHint(UNDO_ACTION, Keys.Z, true, "undo the last edit",

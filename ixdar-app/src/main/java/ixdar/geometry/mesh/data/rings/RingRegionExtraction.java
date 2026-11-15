@@ -208,7 +208,6 @@ public final class RingRegionExtraction {
         Vector3f tail = new Vector3f();
         Vector3f head = new Vector3f();
 
-        // Gather every spline crossing.
         int edgeIdCeiling = RingBundle.edgeIdCeiling(mesh);
         int[] crossingEdge = new int[0];
         double[] crossingFraction = new double[0];
@@ -248,8 +247,6 @@ public final class RingRegionExtraction {
                 ? Integer.compare(edges[first], edges[second])
                 : Double.compare(fractions[first], fractions[second]));
 
-        // Merge each edge's crossings into clusters and mint one vertex per cluster, or reuse the
-        // end vertex a cluster sits next to, so no cut leaves a sliver.
         int[] crossingVertex = new int[crossingCount];
         cutPositions = new float[XYZ * (sourceVertexCount + crossingCount + insidePointCount)];
         for (int activeVertex = 0; activeVertex < sourceVertexCount; activeVertex++) {
@@ -301,8 +298,6 @@ public final class RingRegionExtraction {
         }
         insertedVertexCount = cutVertexCount - sourceVertexCount;
 
-        // A point inside a polygon becomes a vertex of its own, unless it sits within the snap
-        // distance of one of that polygon's corners, which takes its place.
         int[][] insideVertexOfPoint = new int[ringCount][];
         faceIdOfInside = new int[insidePointCount];
         for (int ring = 0; ring < ringCount; ring++) {
@@ -341,15 +336,12 @@ public final class RingRegionExtraction {
             }
         }
         cutPositions = Arrays.copyOf(cutPositions, XYZ * cutVertexCount);
-        // Vertices were minted in ascending (edge, fraction) order, so each edge's run of inserted
-        // vertices is the consecutive range its offsets name.
         insertedStartByEdgeId = new int[edgeIdCeiling + 1];
         for (int edgeId = 0; edgeId < edgeIdCeiling; edgeId++) {
             insertedStartByEdgeId[edgeId + 1] = insertedStartByEdgeId[edgeId]
                     + insertedCountByEdgeId[edgeId];
         }
 
-        // Each ring's spline as a loop of cut vertices.
         cutPathByRing = new int[ringCount][];
         for (int ring = 0; ring < ringCount; ring++) {
             if (crossingOfPoint[ring] == null) {
@@ -381,9 +373,6 @@ public final class RingRegionExtraction {
             cutPathByRing[ring] = Arrays.copyOf(path, length);
         }
 
-        // Walls and chords: a span along a source edge walls that edge's pieces, any other span
-        // crosses the one face both ends lie on, through the points it passes inside that face;
-        // a ring with no spline walls its marked edges.
         int[] chordHeadByActiveFace = new int[mesh.faceCount()];
         Arrays.fill(chordHeadByActiveFace, MeshTopology.NONE);
         int[] chordNext = new int[0];
@@ -500,10 +489,6 @@ public final class RingRegionExtraction {
                     + "their cut has a gap the flood can leak through");
         }
 
-        // Split every face along its chords and triangulate the pieces. A piece is convex, or
-        // nearly so where a chord bends at a point inside a polygon, being a convex face cut by
-        // straight chords, so the interval program below triangulates it; its cost, squared
-        // edges over area, keeps collinear points out of any one triangle.
         cutTriangles = new int[TRIANGLE_CORNERS * (mesh.faceCount() + 2 * crossingCount + 2)];
         parentActiveFaceByTriangle = new int[cutTriangles.length / TRIANGLE_CORNERS];
         cutTriangleCount = 0;
@@ -538,8 +523,6 @@ public final class RingRegionExtraction {
                     }
                     int[] interior = chordInterior[chord];
                     if (interior.length > 0) {
-                        // A chord through inside points: one piece walks the polygon forward from
-                        // its start to its end and returns along the chord, the other the rest.
                         placed = from != to;
                         if (!placed) {
                             continue;
@@ -646,8 +629,6 @@ public final class RingRegionExtraction {
                     + "triangulation");
         }
 
-        // Flood the cut triangles across every non-wall edge, and name each piece by the region
-        // most of its area came from, which also classifies the band between loop and spline.
         neighbourByCorner = new int[TRIANGLE_CORNERS * cutTriangleCount];
         Arrays.fill(neighbourByCorner, MeshTopology.NONE);
         double[] triangleArea = new double[cutTriangleCount];
@@ -729,7 +710,6 @@ public final class RingRegionExtraction {
                     + "region; a cut leaks");
         }
 
-        // Keep the pieces standing for selected regions.
         int[] keptIndexOfCutVertex = new int[cutVertexCount];
         Arrays.fill(keptIndexOfCutVertex, MeshTopology.NONE);
         boolean[] onBoundary = new boolean[cutVertexCount];
@@ -772,8 +752,6 @@ public final class RingRegionExtraction {
                 Arrays.copyOf(keptPositions, XYZ * keptVertices),
                 Arrays.copyOf(keptTriangles, keptCorners));
 
-        // How far the open boundary strays from the splines it was cut along, and how far the
-        // snapped loops the selection flooded by stray from them, for comparison.
         boundaryToSplineDistance = 0;
         boundaryToCubicDistance = 0;
         snappedLoopToSplineDistance = 0;
@@ -834,7 +812,6 @@ public final class RingRegionExtraction {
             }
         }
 
-        // Cap every open loop with the Liepa filler repair_mesh runs, then ask the kernel.
         closedMesh = openMesh;
         if (cap) {
             MeshRepair repair = new MeshRepair(GeometryBundle.ofMesh(openMesh));
@@ -882,7 +859,6 @@ public final class RingRegionExtraction {
             splineRings += alongSpline ? 1 : 0;
             edgeRings += regions.ringIsWall[ring] && !alongSpline ? 1 : 0;
         }
-        // Vertices after the source ones and the edge crossings were inserted inside polygons.
         int insideVertices = cutVertexCount - sourceVertexCount - insertedVertexCount;
         lines.add(String.format(Locale.ROOT, "cut %d ring(s) along their splines and %d along "
                 + "their edges: %d crossing(s), %d vertex(es) inserted, %d snapped; %d triangle(s) "

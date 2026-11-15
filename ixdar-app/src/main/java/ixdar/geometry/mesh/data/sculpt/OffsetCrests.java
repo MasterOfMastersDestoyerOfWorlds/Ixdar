@@ -112,8 +112,6 @@ public final class OffsetCrests {
                     }
                 }
             }
-            // Least squares fit of f - f(v) = a x^2 + b xy + c y^2 + d x + e y over the two-ring,
-            // in coordinates scaled by the ring's reach so the normal equations stay well conditioned.
             float reach = SINGULAR;
             for (int index = 0; index < size; index++) {
                 int member = twoRing[index] * 3;
@@ -141,7 +139,6 @@ public final class OffsetCrests {
                     rightSide, FIT_UNKNOWNS) : new float[FIT_UNKNOWNS];
             double[] fit = { scaled[0] / (reach * reach), scaled[1] / (reach * reach), scaled[2] / (reach * reach),
                 scaled[3] / reach, scaled[4] / reach };
-            // The Hessian [[2a, b], [b, 2c]]: its eigenvalue largest in magnitude and that direction.
             double mean = fit[0] + fit[2];
             double spread = Math.sqrt((fit[0] - fit[2]) * (fit[0] - fit[2]) + fit[1] * fit[1]);
             double dominant = Math.abs(mean + spread) >= Math.abs(mean - spread) ? mean + spread : mean - spread;
@@ -160,8 +157,6 @@ public final class OffsetCrests {
                 directionXyz[at + axis] = (float) (tangentX * first.get(axis) + tangentY * second.get(axis));
             }
         }
-        // Line points on edges: a zero crossing of the slope along the dominant direction, flipped
-        // to agree across the edge, that is a maximum (ridge) or minimum (valley) of the field.
         CrestTrace trace = new CrestTrace();
         int[] corners = surface.triangulate(TriangulationRule.FAN, null);
         for (int corner = 0; corner < corners.length; corner++) {
@@ -202,10 +197,6 @@ public final class OffsetCrests {
                 continue;
             }
             float[] line = new float[chain.length * 3];
-            // Each point's half-width from its own centre: the bump d (1 - (s / w)^2)^2 with the
-            // point's field value and second derivative there has w = 2 sqrt(|d| / |f''|). The fit
-            // flattens a narrow peak and smoothing widens it, so this is too wide: it bounds the
-            // search for the width that best sculpts the unsmoothed offsets.
             float[] widths = new float[chain.length];
             for (int point = 0; point < chain.length; point++) {
                 double[] values = trace.points.get(chain[point]);
@@ -243,7 +234,6 @@ public final class OffsetCrests {
         for (int coordinate = 0; coordinate < line.length; coordinate++) {
             lineXyz[coordinate] = line[coordinate];
         }
-        // Every vertex within reach of the line once, with its distance to the line and its offset.
         int[] near = new int[0];
         for (int point = 0; point < line.length; point += 3) {
             int[] found = index.within(line[point], line[point + 1], line[point + 2], widest);
@@ -265,8 +255,6 @@ public final class OffsetCrests {
             across[vertex] = (float) Math.sqrt(nearest);
             value[vertex] = offset[activeVertexById[near[vertex]]];
         }
-        // The squared error is least where the bump at its best depth explains most of the offsets,
-        // (sum f b)^2 / sum b^2.
         double low = widest * SMALLEST_WIDTH_FRACTION;
         double high = widest;
         double inner = high - GOLDEN * (high - low);

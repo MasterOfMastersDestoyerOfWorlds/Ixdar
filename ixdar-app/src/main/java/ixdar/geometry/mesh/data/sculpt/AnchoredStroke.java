@@ -107,8 +107,6 @@ public final class AnchoredStroke {
                 }
             }
         }
-        // Deleting a stroke from every cell, or from one, is one edit; a deletion and a move, or moves
-        // in two cells, are two.
         deleted = !deletedCells.isEmpty() && editedCells.isEmpty();
         if (editedCells.size() > 1 || !deletedCells.isEmpty() && !editedCells.isEmpty()) {
             TreeSet<Integer> cellsEdited = new TreeSet<>(editedCells);

@@ -216,7 +216,6 @@ public final class EMeans {
                 labels[point] = cluster;
             }
         }
-        // The cosine schedule of the paper's Equation 5, annealing to a tenth of alpha0.
         double fraction = Math.min(step, totalSteps) / (double) Math.max(1, totalSteps);
         double cosine = 0.5 * (1.0 + Math.cos(Math.PI * fraction));
         double alpha = alpha0 * (ALPHA_MIN_FACTOR + (1.0 - ALPHA_MIN_FACTOR) * cosine);
@@ -245,8 +244,6 @@ public final class EMeans {
             usage[cluster] = mass;
         }
         if ((step + 1) % CHECK_UNUSED_EVERY == 0 && revivalThreshold > 0) {
-            // Each starved cluster takes half of a donor drawn in proportion to its usage
-            // (Gumbel top-k), a relative SPLIT_EPSILON away on alternating axes (Appendix J).
             double threshold = Arrays.stream(usage).sum() * revivalThreshold / clusterCount;
             double[] keys = new double[clusterCount];
             List<Integer> donors = new ArrayList<>();

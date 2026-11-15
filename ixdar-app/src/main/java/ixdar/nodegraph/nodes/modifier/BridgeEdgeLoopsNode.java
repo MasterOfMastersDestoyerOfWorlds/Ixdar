@@ -102,7 +102,6 @@ public class BridgeEdgeLoopsNode implements MeshNode {
 
         HalfEdgeMesh mesh = (HalfEdgeMesh) meshTopo;
 
-        // Find boundary loops from tagged vertices
         List<Integer> loopA = findBoundaryLoop(mesh, maskA);
         List<Integer> loopB = findBoundaryLoop(mesh, maskB);
 
@@ -111,7 +110,6 @@ public class BridgeEdgeLoopsNode implements MeshNode {
                     + tagA + "=" + loopA.size() + ", " + tagB + "=" + loopB.size());
         }
 
-        // Apply twist to loop B alignment
         if (twist != 0) {
             int n = loopB.size();
             int shift = ((twist % n) + n) % n;
@@ -122,14 +120,11 @@ public class BridgeEdgeLoopsNode implements MeshNode {
             loopB = rotated;
         }
 
-        // Build bridge quads (with optional intermediate rings)
         int loopSize = loopA.size();
         Vector3f posA = new Vector3f();
         Vector3f posB = new Vector3f();
 
-        // Create intermediate vertex rings
         List<int[]> rings = new ArrayList<>();
-        // Ring 0 = loopA, ring (segments) = loopB
         int[] ringA = new int[loopSize];
         for (int i = 0; i < loopSize; i++) {
             ringA[i] = loopA.get(i);
@@ -156,7 +151,6 @@ public class BridgeEdgeLoopsNode implements MeshNode {
         }
         rings.add(ringB);
 
-        // Create quad faces between consecutive rings
         for (int s = 0; s < rings.size() - 1; s++) {
             int[] r0 = rings.get(s);
             int[] r1 = rings.get(s + 1);
@@ -175,14 +169,12 @@ public class BridgeEdgeLoopsNode implements MeshNode {
      * Walks boundary half-edges starting from any tagged boundary vertex.
      */
     private static List<Integer> findBoundaryLoop(HalfEdgeMesh mesh, boolean[] tagMask) {
-        // Find a tagged vertex that has a boundary edge
         int startVid = -1;
         int nv = mesh.vertexCount();
         for (int vi = 0; vi < nv; vi++) {
             int vid = mesh.vertexIdAt(vi);
             if (vid >= tagMask.length || !tagMask[vid]) continue;
 
-            // Check if this vertex has a boundary half-edge
             int edgeCount = mesh.vertexEdgeCount(vid);
             for (int j = 0; j < edgeCount; j++) {
                 int eid = mesh.vertexEdgeAt(vid, j);
@@ -191,7 +183,6 @@ public class BridgeEdgeLoopsNode implements MeshNode {
                     startVid = vid;
                     break;
                 }
-                // Check the other half-edge direction
                 int twin = mesh.halfEdgeTwin(he);
                 if (twin != MeshTopology.NONE && mesh.halfEdgeTwin(twin) == MeshTopology.NONE) {
                     startVid = vid;
@@ -205,7 +196,6 @@ public class BridgeEdgeLoopsNode implements MeshNode {
             throw new IllegalArgumentException("bridge_edge_loops: no boundary vertices found in tag group");
         }
 
-        // Walk the boundary loop starting from startVid
         List<Integer> loop = new ArrayList<>();
         loop.add(startVid);
 
@@ -231,7 +221,6 @@ public class BridgeEdgeLoopsNode implements MeshNode {
             int he = mesh.edgeHalfEdge(eid);
             if (he == MeshTopology.NONE) continue;
 
-            // Check if this is a boundary edge (one side has no twin)
             boolean isBoundary = mesh.halfEdgeTwin(he) == MeshTopology.NONE;
             if (!isBoundary) {
                 int twin = mesh.halfEdgeTwin(he);
@@ -239,7 +228,6 @@ public class BridgeEdgeLoopsNode implements MeshNode {
             }
             if (!isBoundary) continue;
 
-            // Get the other vertex of this edge
             int startV = mesh.halfEdgeVertex(he);
             int endV = mesh.halfEdgeEndVertex(he);
             int otherVid = (startV == currentVid) ? endV : startV;

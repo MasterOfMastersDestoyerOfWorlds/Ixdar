@@ -89,11 +89,9 @@ public final class WebLauncher {
             String dataObj = canvas.getAttribute("data-obj");
             String dataDsl = canvas.getAttribute("data-dsl");
             if (dataObj != null && !dataObj.isEmpty()) {
-                // Canvas specifies an OBJ file — create an OBJ-only viewer
                 Platforms.get().log("OBJ viewer: " + dataObj);
                 canvas3d = MeshNodeViewerScene.forObj(dataObj);
             } else if (dataDsl != null && !dataDsl.isEmpty()) {
-                // Canvas specifies a DSL file — create a parameterized mesh viewer
                 String dataNode = canvas.getAttribute("data-node");
                 String dataPort = canvas.getAttribute("data-port");
                 if (dataNode == null || dataNode.isEmpty()) dataNode = "output";
@@ -132,7 +130,6 @@ public final class WebLauncher {
         if (!broken) {
             if (canvas == null)
                 return;
-            // Skip expensive updates and painting if the canvas is not visible
             if (!isElementVisible(canvas)) {
                 Window.requestAnimationFrame(ts -> tick(i));
                 return;
@@ -152,7 +149,6 @@ public final class WebLauncher {
             canvas3dScenes[i] = canvas3d.paintFrame();
         } else {
             if (gl != null) {
-                // Ensure viewport per-canvas before drawing fallback
                 gl.viewport(0, 0, Platforms.get().getWindowWidth(), Platforms.get().getWindowHeight());
                 drawFallbackTriangle(gl, i);
             }

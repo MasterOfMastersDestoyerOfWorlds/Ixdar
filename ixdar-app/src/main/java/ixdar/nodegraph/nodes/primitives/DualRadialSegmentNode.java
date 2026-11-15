@@ -31,30 +31,24 @@ public class DualRadialSegmentNode implements MeshNode {
     public static final float Y_TOLERANCE = 0.001f;
     public static final float MIN_ELLIPSE_DENOM = 0.0001f;
 
-    // Geometry input (optional — for chaining geometry between segments)
     public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
 
-    // Hermite boundary conditions for X-axis radius
     public static final InputPort START_RX = new InputPort("start_rx", PortType.FLOAT, 0.5f, 0.001f, 10f);
     public static final InputPort START_TX = new InputPort("start_tx", PortType.FLOAT, 0.0f, -10f, 10f);
     public static final InputPort END_RX = new InputPort("end_rx", PortType.FLOAT, 0.4f, 0.001f, 10f);
     public static final InputPort END_TX = new InputPort("end_tx", PortType.FLOAT, 0.0f, -10f, 10f);
 
-    // Hermite boundary conditions for Y-axis radius
     public static final InputPort START_RY = new InputPort("start_ry", PortType.FLOAT, 0.5f, 0.001f, 10f);
     public static final InputPort START_TY = new InputPort("start_ty", PortType.FLOAT, 0.0f, -10f, 10f);
     public static final InputPort END_RY = new InputPort("end_ry", PortType.FLOAT, 0.4f, 0.001f, 10f);
     public static final InputPort END_TY = new InputPort("end_ty", PortType.FLOAT, 0.0f, -10f, 10f);
 
-    // Segment geometry parameters
     public static final InputPort LENGTH = new InputPort("length", PortType.FLOAT, 1.0f, 0.001f, 100f);
     public static final InputPort RINGS = new InputPort("rings", PortType.INT, 8, (float) 1, (float) 64);
     public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12, (float) 3, (float) 128);
 
-    // Geometry output
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
-    // Pass-through outputs for chaining — next segment reads these as start conditions
     public static final OutputPort OUT_END_RX = new OutputPort(END_RX.name, PortType.FLOAT);
     public static final OutputPort OUT_END_RY = new OutputPort(END_RY.name, PortType.FLOAT);
     public static final OutputPort OUT_END_TX = new OutputPort(END_TX.name, PortType.FLOAT);
@@ -96,7 +90,6 @@ public class DualRadialSegmentNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        // Read Hermite boundary conditions
         float srx = floatInput(ctx, START_RX.name, 0.5f);
         float stx = floatInput(ctx, START_TX.name, 0.0f);
         float erx = floatInput(ctx, END_RX.name, 0.4f);
@@ -111,7 +104,6 @@ public class DualRadialSegmentNode implements MeshNode {
         int rings = Math.max(2, intInput(ctx, RINGS.name, 8));
         int segments = Math.max(MIN_SEGMENTS, intInput(ctx, SEGMENTS.name, 12));
 
-        // Determine chaining context from input geometry
         Object geoIn = ctx.getInput(GEOMETRY.name, Object.class);
         GeometryBundle base = null;
         HalfEdgeMesh mesh = null;
@@ -131,15 +123,11 @@ public class DualRadialSegmentNode implements MeshNode {
                     (rings - 1) * segments + 2 * segments, 0);
         }
 
-        // Scale spatial tangents (∂r/∂y) to parametric tangents (∂r/∂t) for Hermite.
-        // User-facing tangent inputs are spatial derivatives so that chaining segments
-        // of different lengths preserves G1 continuity at boundaries.
         float stxParam = stx * length;
         float etxParam = etx * length;
         float styParam = sty * length;
         float etyParam = ety * length;
 
-        // Generate tube directly into the mesh, reusing topRing as ring[0] if chaining
         generateTubeInto(mesh, topRing, yOffset,
                 srx, stxParam, erx, etxParam, sry, styParam, ery, etyParam,
                 length, rings, segments);
@@ -148,7 +136,6 @@ public class DualRadialSegmentNode implements MeshNode {
         GeometryBundle result = base != null ? base.withMesh(mesh) : GeometryBundle.ofMesh(mesh);
         ctx.setOutput(GEOMETRY.name, result);
 
-        // Pass through end conditions for chaining
         ctx.setOutput(END_RX.name, erx);
         ctx.setOutput(END_RY.name, ery);
         ctx.setOutput(END_TX.name, etx);
@@ -182,7 +169,6 @@ public class DualRadialSegmentNode implements MeshNode {
             float ry = Math.max(MIN_RADIUS, hermite(t, sry, sty, ery, ety));
 
             for (int s = 0; s < segments; s++) {
-                // Ring 0 with chaining: reuse existing top ring vertices
                 if (r == 0 && baseTopRing != null && s < baseTopRing.length) {
                     verts[0][s] = baseTopRing[s];
                     continue;
@@ -199,7 +185,6 @@ public class DualRadialSegmentNode implements MeshNode {
             }
         }
 
-        // Quad faces between adjacent rings
         for (int r = 0; r < rings - 1; r++) {
             for (int s = 0; s < segments; s++) {
                 int ns = (s + 1) % segments;
@@ -229,7 +214,6 @@ public class DualRadialSegmentNode implements MeshNode {
         Vector3f pos = new Vector3f();
         float tolerance = Y_TOLERANCE;
 
-        // Collect candidates at max Y
         int[] candidates = new int[expectedCount * 2]; // oversize buffer
         float[] angles = new float[candidates.length];
         int found = 0;
@@ -245,7 +229,6 @@ public class DualRadialSegmentNode implements MeshNode {
 
         if (found < MIN_SEGMENTS) return null;
 
-        // Sort by angle (insertion sort — small N)
         for (int i = 1; i < found; i++) {
             float keyAngle = angles[i];
             int keyVert = candidates[i];
@@ -259,10 +242,6 @@ public class DualRadialSegmentNode implements MeshNode {
             candidates[j + 1] = keyVert;
         }
 
-        // Rotate so index 0 is closest to theta=0 (+X axis).
-        // The tube generates vertices with theta = 2π*s/N starting at angle 0,
-        // but atan2 sorts from -π to +π. Without rotation, index 0 is at -X
-        // and quads twist 180°, collapsing the mesh at segment boundaries.
         int bestIdx = 0;
         float bestDist = Float.MAX_VALUE;
         for (int i = 0; i < found; i++) {

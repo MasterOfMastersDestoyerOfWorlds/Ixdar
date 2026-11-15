@@ -248,8 +248,6 @@ public final class CurveGeometry {
             if (points == 0) {
                 continue;
             }
-            // Where each sample falls: along of the way from point segment to the next. Open, the
-            // first and last samples are the ends exactly; closed, the closing segment counts.
             int segments = closed[curve] ? points : points - 1;
             float[] lengthBefore = new float[segments + 1];
             for (int span = 0; span < segments; span++) {
@@ -320,7 +318,6 @@ public final class CurveGeometry {
                             : Math.max(1, (int) Math.ceil(length / spacing));
                     placedCount += steps[curve][segment];
                 }
-                // The first point, then each segment's pieces; a closed curve's last piece ends on its first point.
                 placedCount += closed[curve] ? 0 : 1;
             }
             offsets[curve + 1] = offsets[curve] + placedCount;

@@ -41,11 +41,9 @@ public final class MeshSkeletonExtractor {
     private static final float MAX_INVALIDATION_RADIUS = 4.0f; // voxel units
     private static final double TEASAR_EXPONENT = 1.0 / 16.0;
 
-    // 26-connected neighbor offsets and distances
     private static final int[][] NBR;
     private static final float[] NBR_DIST;
 
-    // Voxel states
     private static final byte EXTERIOR = 0;
     private static final byte INTERIOR = 1;
     private static final byte SURFACE = 2;
@@ -84,7 +82,6 @@ public final class MeshSkeletonExtractor {
         return new float[]{ox + (x + 0.5f) * vs, oy + (y + 0.5f) * vs, oz + (z + 0.5f) * vs};
     }
 
-    // ───────── public entry point ─────────
 
     /**
      * Run the full TEASAR pipeline on {@code mesh}: voxelize, compute distance-from-boundary,
@@ -129,7 +126,6 @@ public final class MeshSkeletonExtractor {
         return ext.buildResult(rawPaths, resolution);
     }
 
-    // ───────── Step 1: Voxelize via X-axis scanline ─────────
 
     private void voxelizeScanline(MeshTopology mesh) {
         float[] pos = new float[mesh.vertexIdBound() * MIN_PATH_LENGTH];
@@ -142,7 +138,6 @@ public final class MeshSkeletonExtractor {
             pos[vertexId * MIN_PATH_LENGTH + 2] = position.z;
         }
 
-        // Collect X-axis crossing values per (iy, iz) column
         @SuppressWarnings("unchecked")
         ArrayList<Float>[] crossings = new ArrayList[ry * rz];
 
@@ -155,13 +150,11 @@ public final class MeshSkeletonExtractor {
             float by = pos[i1 + 1], bz = pos[i1 + 2];
             float cy = pos[i2 + 1], cz = pos[i2 + 2];
 
-            // YZ bounding box in voxel space
             int iyMin = Math.max(0, (int) Math.floor((Math.min(ay, Math.min(by, cy)) - oy) / vs));
             int iyMax = Math.min(ry - 1, (int) Math.floor((Math.max(ay, Math.max(by, cy)) - oy) / vs));
             int izMin = Math.max(0, (int) Math.floor((Math.min(az, Math.min(bz, cz)) - oz) / vs));
             int izMax = Math.min(rz - 1, (int) Math.floor((Math.max(az, Math.max(bz, cz)) - oz) / vs));
 
-            // 2x2 solve: ray at (rayY, rayZ) in +X → triangle barycentric
             float e1y = by - ay, e1z = bz - az;
             float e2y = cy - ay, e2z = cz - az;
             float det = e1y * e2z - e1z * e2y;
@@ -185,7 +178,6 @@ public final class MeshSkeletonExtractor {
             }
         }
 
-        // Even-odd fill: inside between crossing pairs
         for (int iy = 0; iy < ry; iy++) {
             for (int iz = 0; iz < rz; iz++) {
                 int col = iy * rz + iz;
@@ -203,7 +195,6 @@ public final class MeshSkeletonExtractor {
         }
     }
 
-    // ───────── Step 1b: Mark surface voxels ─────────
 
     private void markSurface() {
         int n = rx * ry * rz;
@@ -228,14 +219,12 @@ public final class MeshSkeletonExtractor {
         }
     }
 
-    // ───────── Step 2: Distance from boundary ─────────
 
     private void computeDFB() {
         int n = rx * ry * rz;
         Dijkstra walk = new Dijkstra();
         walk.start(n);
 
-        // Seed from surface voxels
         for (int z = 0; z < rz; z++)
             for (int y = 0; y < ry; y++)
                 for (int x = 0; x < rx; x++) {
@@ -245,7 +234,6 @@ public final class MeshSkeletonExtractor {
                     }
                 }
 
-        // Distances are summed in float, as the field is stored.
         for (int ci = walk.settle(); ci >= 0; ci = walk.settle()) {
             float here = (float) walk.distance(ci);
             int cx = ci % rx, cy = (ci / rx) % ry, cz = ci / (rx * ry);
@@ -263,12 +251,10 @@ public final class MeshSkeletonExtractor {
         }
     }
 
-    // ───────── Step 3: TEASAR path extraction ─────────
 
     private List<List<int[]>> teasarExtract(int branchBudget) {
         int n = rx * ry * rz;
 
-        // Find root: interior/surface voxel with max DFB
         int root = -1;
         float maxDfb = 0;
         for (int i = 0; i < n; i++) {
@@ -280,7 +266,6 @@ public final class MeshSkeletonExtractor {
         }
         if (root < 0 || maxDfb < EPSILON) return List.of();
 
-        // Penalized Dijkstra from root
         Dijkstra walk = new Dijkstra();
         walk.start(n);
         walk.relax(root, 0f, -1);
@@ -306,12 +291,10 @@ public final class MeshSkeletonExtractor {
             parent[i] = walk.via(i);
         }
 
-        // Iterative branch extraction
         boolean[] processed = new boolean[n];
         List<List<int[]>> branches = new ArrayList<>();
 
         for (int iter = 0; iter < branchBudget; iter++) {
-            // Find farthest unprocessed voxel
             int farthest = -1;
             float maxDist = 0;
             for (int i = 0; i < n; i++) {
@@ -323,7 +306,6 @@ public final class MeshSkeletonExtractor {
             }
             if (farthest < 0) break;
 
-            // Trace back to root (or to an already-processed voxel)
             List<int[]> path = new ArrayList<>();
             int cur = farthest;
             while (cur != -1 && !processed[cur]) {
@@ -331,7 +313,6 @@ public final class MeshSkeletonExtractor {
                 path.add(new int[]{cx, cy, cz, cur});
                 cur = parent[cur];
             }
-            // Include the connection point if it was already processed (branch point)
             if (cur != -1 && processed[cur]) {
                 int cx = cur % rx, cy = (cur / rx) % ry, cz = cur / (rx * ry);
                 path.add(new int[]{cx, cy, cz, cur});
@@ -344,7 +325,6 @@ public final class MeshSkeletonExtractor {
 
             branches.add(path);
 
-            // Invalidate neighborhood around path
             for (int[] p : path) {
                 processed[p[MIN_PATH_LENGTH]] = true;
                 float radius = Math.min(MAX_INVALIDATION_RADIUS,
@@ -365,10 +345,8 @@ public final class MeshSkeletonExtractor {
         return branches;
     }
 
-    // ───────── Step 4: Post-processing ─────────
 
     private SkeletonResult buildResult(List<List<int[]>> rawPaths, int resolution) {
-        // Find root position
         int rootIdx = -1;
         float maxDfb = 0;
         for (int i = 0; i < state.length; i++) {
@@ -386,13 +364,11 @@ public final class MeshSkeletonExtractor {
         for (int bi = 0; bi < rawPaths.size(); bi++) {
             List<int[]> path = rawPaths.get(bi);
 
-            // Convert to world positions
             float[][] worldPos = new float[path.size()][];
             for (int i = 0; i < path.size(); i++) {
                 worldPos[i] = toWorld(path.get(i)[0], path.get(i)[1], path.get(i)[2]);
             }
 
-            // Compute raw path length and skip noise branches
             float rawLength = 0;
             for (int j = 1; j < worldPos.length; j++) rawLength += dist3(worldPos[j - 1], worldPos[j]);
             if (rawLength < vs * MIN_BRANCH_VOXELS) continue;  // skip branches shorter than ~15 voxels
@@ -407,14 +383,12 @@ public final class MeshSkeletonExtractor {
             CurveGeometry simplified = new CurveGeometry(packedPath, new int[] { 0, worldPos.length },
                     new boolean[1], Map.of(RADIUS, radius), Map.of()).simplified(vs * RDP_EPSILON_VOXELS);
 
-            // Build joints
             List<SkeletonJoint> joints = new ArrayList<>();
             for (int k = 0; k < simplified.pointCount(); k++) {
                 joints.add(new SkeletonJoint(Arrays.copyOfRange(simplified.positions, k * 3, k * 3 + 3),
                         simplified.pointAttributes.get(RADIUS)[k]));
             }
 
-            // Direction and length
             float[] dir = new float[]{0, 0, 0};
             float length = 0;
             if (joints.size() >= 2) {
@@ -431,7 +405,6 @@ public final class MeshSkeletonExtractor {
                 }
             }
 
-            // Detect parent branch by proximity (closest voxel on any earlier branch)
             int parentBranch = -1;
             if (path.size() > 0) {
                 float[] connPos = worldPos[worldPos.length - 1];
@@ -451,13 +424,11 @@ public final class MeshSkeletonExtractor {
             branches.add(new SkeletonBranch(branchId, "branch_" + branchId, parentBranch, joints, dir, length));
         }
 
-        // Branch points: where child branches connect to parent branches
         List<BranchPoint> branchPoints = new ArrayList<>();
         for (int bi = 0; bi < branches.size(); bi++) {
             SkeletonBranch b = branches.get(bi);
             if (b.parentBranch >= 0 && !b.joints.isEmpty()) {
                 float[] bpPos = b.joints.get(b.joints.size() - 1).position;
-                // Check if a branch point already exists near here
                 boolean found = false;
                 for (BranchPoint bp : branchPoints) {
                     if (dist3(bp.position, bpPos) < vs * MIN_PATH_LENGTH) {
@@ -478,14 +449,12 @@ public final class MeshSkeletonExtractor {
         return new SkeletonResult(resolution, vs, rootPos, branches, branchPoints);
     }
 
-    // ───────── Utilities ─────────
 
     private static float dist3(float[] a, float[] b) {
         float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-    // Output records
     public record SkeletonJoint(float[] position, float radius) {}
     public record SkeletonBranch(int id, String label, int parentBranch,
                                  List<SkeletonJoint> joints, float[] direction, float length) {}

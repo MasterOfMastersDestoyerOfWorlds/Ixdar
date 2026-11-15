@@ -8,20 +8,14 @@ import java.util.List;
  */
 public final class Palettes {
 
-    // The default: today's dark scenes.
     public static final Palette DARK = new Palette("Dark");
 
-    // Cooler and lighter than the default: blue ground, teal accents.
     public static final Palette SLATE = new Palette("Slate");
 
-    // Dark ink on cream: the trade game's map.
     public static final Palette PAPER = new Palette("Paper");
 
-    // Every scene steps through all of these.
     public static final List<Palette> OPTIONS = List.of(DARK, SLATE, PAPER);
 
-    // No red or purple: those are the ring tool's draft modes (categories 0 and 2), and the marked
-    // ring is the highlight.
     private static final Color[] RING = { Color.GREEN_TEAL, Color.BLUE_LIGHT, Color.YELLOW_ORANGE,
         Color.ORANGE, Color.TEAL_LIGHT, Color.BROWN_ORANGE, Color.YELLOW_LIGHT, Color.GREEN_YELLOW };
 
@@ -32,7 +26,6 @@ public final class Palettes {
     private static final Color[] OVERLAY_GROUP = { Color.YELLOW, Color.GREEN_TEAL_LIGHT,
         Color.PURPLE_PINK, Color.TEAL, Color.PURPLE_LIGHT, Color.WHITE, Color.RED, Color.BLUE_TEAL_LIGHT };
 
-    // Twenty distinct colours, one per patch or tag id.
     private static final Color[] PATCH = { Color.RED_PINK_LIGHT, Color.ORANGE_VERY_LIGHT,
         Color.GREEN_GREY_LIGHT, Color.GREY_BLUE_VERY_DARK, Color.RED_VERY_LIGHT, Color.PURPLE_GREY,
         Color.BLUE_GREY_DARK, Color.ORANGE_LIGHT, Color.PINK_RED_LIGHT, Color.PURPLE_DARK,
@@ -40,20 +33,17 @@ public final class Palettes {
         Color.BROWN_RED, Color.BLUE_GREY_LIGHT, Color.GREEN_YELLOW_LIGHT, Color.PINK_RED_VERY_LIGHT,
         Color.PURPLE_GREY_DARK, Color.PURPLE_GREY_VERY_LIGHT };
 
-    // mesh.fs holds exactly this many stops.
     private static final Color[] SCALAR = { Color.BLUE_VERY_DARK, Color.IXDAR, Color.RED_ORANGE,
         Color.YELLOW_VERY_LIGHT };
 
     private static final Color[] EDGE_MARK = { Color.ORANGE, Color.BLUE_TEAL, Color.PINK };
 
-    // Eighteen bright hues 20 degrees apart, ordered 140 degrees apart so the first entries contrast.
     private static final Color[] BRIGHT = { Color.RED_BRIGHT, Color.GREEN_TEAL_BRIGHT,
         Color.PURPLE_BRIGHT, Color.YELLOW_BRIGHT, Color.TEAL_BLUE_BRIGHT, Color.PINK_RED_BRIGHT,
         Color.GREEN_BRIGHT, Color.BLUE_PURPLE_BRIGHT, Color.ORANGE_YELLOW_BRIGHT, Color.TEAL_BRIGHT,
         Color.PINK_PURPLE_BRIGHT, Color.GREEN_YELLOW_BRIGHT, Color.BLUE_BRIGHT, Color.RED_ORANGE_BRIGHT,
         Color.TEAL_GREEN_BRIGHT, Color.PURPLE_PINK_BRIGHT, Color.YELLOW_GREEN_BRIGHT, Color.BLUE_TEAL_BRIGHT };
 
-    // Deep inks in the same order of hue (red, green, purple, yellow first), readable on paper.
     private static final Color[] INK = { Color.RED_DARK, Color.GREEN_DARK, Color.PURPLE,
         Color.ORANGE_YELLOW_DARK, Color.BLUE_TEAL_DARK, Color.PINK_RED, Color.TEAL_DARK, Color.PURPLE_DARK,
         Color.ORANGE_DARK, Color.BLUE_GREY_DARK, Color.IXDAR, Color.BROWN, Color.BLUE, Color.BROWN_RED };

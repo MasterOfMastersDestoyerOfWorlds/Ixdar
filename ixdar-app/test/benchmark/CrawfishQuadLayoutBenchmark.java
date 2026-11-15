@@ -43,8 +43,6 @@ public final class CrawfishQuadLayoutBenchmark {
 
     public static final String DEFAULT_GLB = "/home/acw/crawfish/IMG_4109.glb";
 
-    // Stage names in pipeline order; the default last stage is the last one known to complete
-    // inside the CRAW-2 heap budget.
     public static final List<String> STAGES = List.of("crossField", "seamless", "motorcycle",
             "quantization", "carve", "contract", "gridMap", "patchSurfaces");
 

@@ -58,7 +58,6 @@ public class SDFBezier extends ShaderDrawable {
      */
     @Override
     public void calculateQuad() {
-        // Oriented bounding box for quadratic Bezier (per Vlad Jukov / iq)
         Vector2f dirB = new Vector2f(pB).sub(pA);
         Vector2f normalizedDirB = new Vector2f(dirB).normalize();
         Vector2f xAxis = new Vector2f(1f, 0f);
@@ -76,8 +75,6 @@ public class SDFBezier extends ShaderDrawable {
             Vector2f den = new Vector2f(pA).sub(new Vector2f(p1).mul(2f)).add(p2);
             Vector2f t = new Vector2f(clamp(num.x / den.x), clamp(num.y / den.y));
             Vector2f s = new Vector2f(1f, 1f).sub(t);
-            // Component-wise evaluation of the quadratic Bezier at t.x (for x) and t.y (for
-            // y)
             float qx = s.x * s.x * pA.x + 2f * s.x * t.x * p1.x + t.x * t.x * p2.x;
             float qy = s.y * s.y * pA.y + 2f * s.y * t.y * p1.y + t.y * t.y * p2.y;
             Vector2f q = new Vector2f(qx, qy);
@@ -97,9 +94,6 @@ public class SDFBezier extends ShaderDrawable {
         topRight = maRot;
         topLeft = b;
 
-        // The box is oriented along the chord, so its axes are the chord and its perpendicular. Taking them
-        // from the corners instead fails on a straight piece: the box has no height, the "up" edge is
-        // rounding noise pointing anywhere, and the quad collapses to a sliver that moves as the map pans.
         Vector2f uDirection = new Vector2f(normalizedDirB);
         if (new Vector2f(bottomRight).sub(bottomLeft).dot(uDirection) < 0) {
             uDirection.negate();

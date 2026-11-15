@@ -194,8 +194,6 @@ public final class VoxelGrid {
             int stepSign = sweep == 0 ? 1 : -1;
             for (int ordinal = 0; ordinal < distance.length; ordinal++) {
                 int index = sweep == 0 ? ordinal : distance.length - 1 - ordinal;
-                // The 13 neighbours a sweep has already passed: lower z, or the same z and lower y,
-                // or the same z and y and lower x (mirrored on the way back).
                 for (int neighbour = 0; neighbour < CHAMFER_NEIGHBOURS; neighbour++) {
                     int offsetZ = neighbour < 9 ? -1 : 0;
                     int offsetY = neighbour < 9 ? neighbour / 3 - 1 : neighbour < 12 ? -1 : 0;

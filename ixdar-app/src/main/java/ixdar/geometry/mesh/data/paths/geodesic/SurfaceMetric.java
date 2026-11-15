@@ -197,9 +197,6 @@ public final class SurfaceMetric {
                             + " uses a half-edge its edge does not pair; the mesh is not manifold");
                 }
             }
-            // Ear-clip a polygon, always cutting the shortest diagonal of an ear valid in its
-            // Newell plane, so a convex quad splits on its shorter diagonal and a concave polygon
-            // never folds over itself; the last three sides close the last triangle.
             int remaining = boundary.length;
             int[] ring = boundary;
             if (remaining > TRIANGLE_SIDES) {

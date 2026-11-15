@@ -169,10 +169,6 @@ public abstract class SculptStroke {
         for (SculptStroke copy : copies) {
             float gap = copy.radius;
             for (SculptStroke other : copies) {
-                // Summed bumps of one sign closer than their radius merge into one smooth bump, so
-                // only a stroke moving the other way leaves a slope across the gap to resolve; a
-                // stroke redrawn over another (a second pass at a nose) would otherwise refine its
-                // whole width to a third of nothing.
                 if (!copy.refines() || other.source == copy.source || !other.refines() || other.pointXyz.length == 0
                         || copy.pointXyz.length == 0 || copy.depth * other.depth >= 0f) {
                     continue;
@@ -183,7 +179,6 @@ public abstract class SculptStroke {
                 }
                 gap = Math.min(gap, (float) meanNearest);
             }
-            // A steep stroke stretches its faces up its slope, so it refines finer by that slope.
             float slope = FALLOFF_STEEPEST_SLOPE * Math.abs(copy.depth) / copy.radius;
             copy.refineTarget = Math.max(minimumEdgeLength, gap * edgesPerWidth / Math.max(1f, slope));
         }
@@ -228,9 +223,6 @@ public abstract class SculptStroke {
         if (!refines() || pointXyz.length == 0) {
             return;
         }
-        // Reach is measured across the stroke's direction, as its falloff is, so the walls of an
-        // earlier pit under the stroke refine too; depth is bounded by the stroke's own depth beyond
-        // the falloff gather.
         float depthReach = radius * GATHER_REACH + Math.abs(depth);
         float[] low = { Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY };
         float[] high = { Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY };
@@ -260,8 +252,6 @@ public abstract class SculptStroke {
             }
             int cell = grid == null ? 0 : grid.cellOf(vertexXyz[at], vertexXyz[at + 1], vertexXyz[at + 2]);
             int elements = grid == null ? pointXyz.length / 3 : cell < 0 ? 0 : grid.first(cell + 1) - grid.first(cell);
-            // Reach is measured to the stroke's elements, as its kernel is: a chain's segments, so
-            // the surface between points drawn farther apart than the radius refines too.
             for (int slot = 0; slot < elements; slot++) {
                 int point = 3 * (grid == null ? slot : grid.element(grid.first(cell) + slot));
                 int end = joinsPoints && point + 3 < pointXyz.length ? point + 3 : point;
@@ -272,8 +262,6 @@ public abstract class SculptStroke {
                 offset.sub((pointXyz[end] - pointXyz[point]) * elementAlong, (pointXyz[end + 1] - pointXyz[point + 1])
                         * elementAlong, (pointXyz[end + 2] - pointXyz[point + 2]) * elementAlong);
                 if (Math.abs(offset.dot(direction)) <= depthReach && across <= 1f) {
-                    // Refinement skips only what faces away; the depth test is left to the
-                    // displacement, which casts one ray per vertex instead of one per round.
                     int vertexId = mesh.vertexIdAt(activeVertex);
                     boolean facing = eyeForward == null
                             || DisplacementSum.faces(mesh, vertexId, mesh.vertexNormal(vertexId, normal), eyeForward);

@@ -56,7 +56,6 @@ public class TradeGame {
         for (Place place : map.places) {
             byName.put(place.name, place);
         }
-        // The file's own city names, which differ from the drawn ones where headquarters is renamed.
         for (int k = 0; k < level.cities.size(); k++) {
             byName.put(level.cities.get(k).name(), map.cities.get(k));
         }

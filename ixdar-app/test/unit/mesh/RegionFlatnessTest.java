@@ -26,8 +26,6 @@ class RegionFlatnessTest {
 
     private static final double TUBE_RADIUS = 1.0;
 
-    // The centre line bends round this radius, so the inner side curves at 1 / (1.2 - 1) = 5
-    // along the tube, well over the tube's own curvature round its section.
     private static final double BEND_RADIUS = 1.2;
 
     private static final double STRAIGHT_LENGTH = 4.0;
@@ -49,7 +47,6 @@ class RegionFlatnessTest {
     private static final int BEND_ROW = (int) Math.round(ROWS
             * (STRAIGHT_LENGTH + BEND_LENGTH / 2) / TUBE_LENGTH);
 
-    // The inner side of the bend at its middle, where the crease is deepest.
     private static final float[] BEND_INNER_POINT = {
         0f,
         (float) (BEND_RADIUS - (BEND_RADIUS - TUBE_RADIUS) * Math.cos(Math.PI / 4)),
@@ -142,7 +139,6 @@ class RegionFlatnessTest {
         double[] across = new double[3];
         for (int row = 0; row <= ROWS; row++) {
             double along = TUBE_LENGTH * row / ROWS;
-            // Centre line and the in-plane section axis; the other axis is always x.
             if (along <= STRAIGHT_LENGTH) {
                 centre[1] = 0.0;
                 centre[2] = along;

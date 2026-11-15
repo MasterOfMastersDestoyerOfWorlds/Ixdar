@@ -64,18 +64,15 @@ public class TagGeometryNode implements MeshNode {
 
         int vertexCount = base.mesh() == null ? 0 : base.mesh().vertexCount();
 
-        // Retrieve existing tags or start fresh
         @SuppressWarnings("unchecked")
         Map<String, boolean[]> existingTags = (Map<String, boolean[]>) base.slots().get(TAGS_SLOT);
         Map<String, boolean[]> merged = existingTags != null ? new HashMap<>(existingTags) : new HashMap<>();
 
-        // Parse comma-separated tag names and create/merge masks
         for (String raw : tagsStr.split(",")) {
             String tag = raw.strip();
             if (tag.isEmpty()) {
                 continue;
             }
-            // A fresh mask, never the input's: that array belongs to an upstream node's output.
             merged.put(tag, allTrue(vertexCount));
         }
 

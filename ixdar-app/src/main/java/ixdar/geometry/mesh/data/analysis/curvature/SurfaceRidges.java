@@ -14,10 +14,6 @@ import ixdar.geometry.mesh.data.representation.TriangulationRule;
  * A surface's ridge and valley lines from its own curvature, after OBS04 (Ohtake, Belyaev and Seidel,
  * "Ridge-valley lines on meshes via implicit surface fitting", SIGGRAPH 2004).
  */
-// The mesh is fitted by an ImplicitFit, each vertex projected onto it for its curvatures and their
-// derivatives; line points lie on edges where a derivative crosses zero at a maximum (eqs. 3 and 4),
-// joined by a CrestTrace and kept when strong (eq. 5). Fewer levels give a smoother fit and fewer,
-// longer lines (OBS04, figure 1). A valley is a ridge of the negated smaller curvature.
 public final class SurfaceRidges {
 
     public static final double SCALED_DIAGONAL = 20.0 * Math.sqrt(3.0);
@@ -117,8 +113,6 @@ public final class SurfaceRidges {
         });
         seconds[1] = (System.nanoTime() - started) / 1e9;
         started = System.nanoTime();
-        // Line points on edges (eqs. 3 and 4), kind 0 ridges of the larger curvature, kind 1 ridges of
-        // the negated smaller one.
         CrestTrace trace = new CrestTrace();
         int[] corners = mesh.triangulate(TriangulationRule.FAN, null);
         for (int corner = 0; corner < corners.length; corner++) {
@@ -154,7 +148,6 @@ public final class SurfaceRidges {
                     toSlope = -toSlope;
                     toAlong = -toAlong;
                 }
-                // A zero crossing where the curvature rises toward it from either end: a maximum.
                 if (fromSlope * toSlope >= 0.0 || fromSlope * fromAlong <= 0.0 && toSlope * toAlong <= 0.0) {
                     continue;
                 }

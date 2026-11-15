@@ -34,7 +34,6 @@ class ShrinkwrapMeshNodeTest {
                 .output(ShrinkwrapMeshNode.GEOMETRY_OUT, GeometryBundle.class);
         MeshTopology mesh = wrapped.mesh();
         Vector3f position = new Vector3f();
-        // The target is faceted: a ray meets a flat facet inside the sphere its corners lie on.
         float outerRadius = OUTER_SIZE / 2f;
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             float radius = mesh.vertexPosition(mesh.vertexIdAt(activeVertex), position).length() - KEEP;

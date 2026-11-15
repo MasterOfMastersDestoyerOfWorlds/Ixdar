@@ -31,14 +31,12 @@ class LoopThroughPointsTest {
 
     private static final float MAJOR_RADIUS = 1.0f;
 
-    // The minimal meridian is 2 * pi * MINOR_RADIUS.
     private static final float MINOR_RADIUS = 0.35f;
 
     private static final int MAJOR_SEGMENTS = 64;
 
     private static final int MINOR_SEGMENTS = 48;
 
-    // The three tube points torus_loop_through_points.dsl uses.
     private static final float[] TUBE_POINTS = {
         1.350000f, 0.000000f, 0.000000f,
         0.445749f, 0.303109f, 0.694214f,
@@ -48,7 +46,6 @@ class LoopThroughPointsTest {
 
     private static final float WAIST_TUBE_RADIUS = 0.4f;
 
-    // Fraction of WAIST_TUBE_RADIUS the waist pinches away at x = 0.
     private static final float WAIST_PINCH = 0.5f;
 
     private static final float WAIST_WIDTH = 0.6f;
@@ -59,7 +56,6 @@ class LoopThroughPointsTest {
 
     private static final int WAIST_TUBE_RINGS = 41;
 
-    // Well away from the waist at x = 0.
     private static final float PIN_X = 1f;
 
     private static final int PINNED_WAYPOINTS = 3;

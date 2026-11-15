@@ -238,7 +238,6 @@ public final class BisectorTool extends RingSubTool {
         }
         int snapped = snapToWall(vertexId, scene.cursorPoint,
                 END_REACH_PIXELS);
-        // A refused click leaves a waiting first end in place, so the refusal names it.
         int waitingRing = ringTool.ringOfSerial(startWall);
         String waiting = startVertexId < 0 || waitingRing < 0 ? ""
                 : "; the first end still waits "
@@ -267,8 +266,6 @@ public final class BisectorTool extends RingSubTool {
             Platforms.get().log(RingTool.LOG_PREFIX + ringTool.lastRow);
             return true;
         }
-        // The lower vertex leads, so which end was clicked first does not change the
-        // trace.
         boolean startLeads = startVertexId < snapped;
         draftEnds = startLeads ? new int[] { startWall, snappedWall }
                 : new int[] { snappedWall, startWall };
@@ -313,10 +310,6 @@ public final class BisectorTool extends RingSubTool {
         int[] held = ringTool.draftAuthoredVertexId;
         int[] kept = null;
         SurfaceSpline shortest = null;
-        // Each trial traces the whole bisector, so only the spans the anchor adds least
-        // chord
-        // length to are traced, nearest first, and the rest only while none of those
-        // takes it.
         float[] heldXyz = ringTool.positionsOf(held);
         float[] at = ringTool.positionsOf(new int[] { vertexId });
         double[] detour = new double[held.length - 1];
@@ -420,9 +413,6 @@ public final class BisectorTool extends RingSubTool {
                     + "ring re-fits as a geodesic bisector";
             return null;
         }
-        // A stretch of a ring is fitted the same way, to the path it has now, and is
-        // from then on
-        // a bisector of its own that follows its walls by its two ends.
         int[] stretchBefore = draftStretch;
         draftStretch = null;
         long start = System.nanoTime();
@@ -431,9 +421,6 @@ public final class BisectorTool extends RingSubTool {
                 RingTool.COORDINATES_PER_POINT * curve.pointCount);
         int[] curveVertexId = Arrays.copyOf(curve.vertexId, curve.pointCount);
         if (stretchBefore != null) {
-            // A stretch's traced path runs on past its walls; the part it keeps is its
-            // marked
-            // edges, walked here from the end that meets its start wall.
             MeshTopology surface = ringTool.geodesics.mesh;
             boolean[] marked = crease.marks.markedByEdgeId;
             int[] tail = new int[crease.marks.markedEdgeCount];
@@ -679,7 +666,6 @@ public final class BisectorTool extends RingSubTool {
         int doomed = selected >= 0 ? selected : held.length > 2 ? held.length - 2 : held.length - 1;
         boolean end = doomed == 0 || doomed == held.length - 1;
         if (end && held.length == 2 && ringTool.draftSourceRing >= 0) {
-            // A confirmed bisector down to its two ends goes whole, as Delete takes a ring.
             ringTool.deleteDraftRing();
             return ringTool.lastError.isEmpty();
         }
@@ -695,11 +681,6 @@ public final class BisectorTool extends RingSubTool {
             Platforms.get().log(RingTool.LOG_PREFIX + ringTool.lastRow);
             return true;
         }
-        // An end goes only when the inner anchor next to it lies on a wall, its
-        // selected disc
-        // touching one, and takes its place; else the refusal names the anchors in the
-        // way of
-        // the nearest one on a wall.
         int inward = doomed == 0 ? 1 : -1;
         int neighbour = doomed + inward;
         if (end) {

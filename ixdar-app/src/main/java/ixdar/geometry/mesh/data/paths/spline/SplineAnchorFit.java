@@ -108,8 +108,6 @@ public final class SplineAnchorFit {
         anchorAllowance = new double[capacity];
         scannedXyz = new double[0][];
         scannedDeviation = new double[0];
-        // Bound each run of reference spans by a box, so a distance query skips every run whose
-        // box is already farther than its best span.
         chunkCount = (pointCount + REFERENCE_SPANS_PER_CULLING_BOX - 1)
                 / REFERENCE_SPANS_PER_CULLING_BOX;
         chunkBounds = new double[2 * COORDINATES_PER_POINT * chunkCount];
@@ -178,9 +176,6 @@ public final class SplineAnchorFit {
         traceCount++;
         int anchorCeiling = Math.max(maximumAnchors, authoredAnchors + STARTING_ANCHORS);
         while (true) {
-            // The largest distance from any traced spline point to its segment's stretch of the
-            // reference; a segment still holding the points array already measured keeps its
-            // distance rather than being walked against the reference again.
             if (alignedXyz.length < tracer.anchorCount) {
                 alignedXyz = new double[tracer.anchorCount][];
                 alignedDeviation = new double[tracer.anchorCount];
@@ -233,10 +228,6 @@ public final class SplineAnchorFit {
                 anchorCapReached = true;
                 return true;
             }
-            // The next anchor goes at the reference point opposite the traced point that sits
-            // furthest out, or, where the spline skipped a stretch of its reference, at the
-            // reference point it passes furthest from. A supporting anchor never lands on another
-            // span's stretch.
             double[] worstPoints = tracer.segmentXyz[worstSegment];
             boolean onSpline = false;
             int worstBase = 0;

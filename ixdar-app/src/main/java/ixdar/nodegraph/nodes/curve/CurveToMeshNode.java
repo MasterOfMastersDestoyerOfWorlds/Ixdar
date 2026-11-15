@@ -94,7 +94,6 @@ public class CurveToMeshNode implements MeshNode {
 
         FloatCurveKernel radiusClosure = ctx.getInput(RADIUS_CLOSURE.name, FloatCurveKernel.class);
 
-        // Determine cross-section: use profile curve if provided, otherwise circle
         float[] profileU;
         float[] profileV;
         GeometryBundle profileGb = ctx.getInput(PROFILE_CURVE.name, GeometryBundle.class);
@@ -118,7 +117,6 @@ public class CurveToMeshNode implements MeshNode {
             profileV = circleV(resolution, radius);
         }
 
-        // Build mesh by sweeping profile along each curve segment
         HalfEdgeMesh mesh = new HalfEdgeMesh();
         float[] pos = cg.positions;
 
@@ -163,7 +161,6 @@ public class CurveToMeshNode implements MeshNode {
     private static void sweepAlongCurve(HalfEdgeMesh mesh, Vector3f[] pts, int nSamples,
                                          boolean closed, float[] profileU, float[] profileV,
                                          int m, boolean fillCaps, FloatCurveKernel radiusClosure) {
-        // Compute initial frame
         Vector3f w = tangent(pts, 0, nSamples, closed);
         if (w.lengthSquared() < DEGENERATE_TANGENT_LENGTH_SQ) return;
         w.normalize();
@@ -181,7 +178,6 @@ public class CurveToMeshNode implements MeshNode {
                 w = tangent(pts, i, nSamples, closed);
                 if (w.lengthSquared() < DEGENERATE_TANGENT_LENGTH_SQ) w.set(0, 1, 0);
                 w.normalize();
-                // Parallel transport: project uDir onto plane perpendicular to new tangent
                 uDir.fma(-w.dot(uDir), w);
                 if (uDir.lengthSquared() < DEGENERATE_TRANSPORT_LENGTH_SQ) stablePerp(w, uDir);
                 else uDir.normalize();
@@ -205,7 +201,6 @@ public class CurveToMeshNode implements MeshNode {
             }
         }
 
-        // Connect quads
         if (closed) {
             for (int i = 0; i < nSamples; i++) {
                 int inext = (i + 1) % nSamples;

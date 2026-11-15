@@ -95,8 +95,6 @@ public class QuadLayoutNode extends NodeGroup {
             @Override
             public void build(GroupBuilder graph) {
                 GraphNodeContext model = graph.node(MODEL_CALL, SceneModelNode::new);
-                // By registered id, not QuadLayoutNode::new: the scenes calling this are reachable
-                // from the web build, which must never instantiate a desktop-only node.
                 graph.node(LAYOUT_CALL, TYPE)
                         .input(GEOMETRY.name, model, SceneModelNode.GEOMETRY.name);
             }

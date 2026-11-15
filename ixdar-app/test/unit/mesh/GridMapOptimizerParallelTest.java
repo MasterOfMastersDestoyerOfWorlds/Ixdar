@@ -30,10 +30,8 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
  */
 class GridMapOptimizerParallelTest {
 
-    // Sized so arcs carry interior grid points.
     private static final int QUADS_ON_SHORTEST_ARC = 3;
 
-    // Loose only for the parallel reduction's changed summation order.
     private static final double ENERGY_RELATIVE_TOLERANCE = 1.0e-8;
 
     private static final int ITERATION_SLACK = 3;

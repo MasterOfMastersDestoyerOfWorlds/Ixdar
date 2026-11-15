@@ -77,7 +77,6 @@ public class SegmentCapNode implements MeshNode {
             return;
         }
 
-        // Find boundary ring at max Y
         Vector3f pos = new Vector3f();
         float maxY = Float.NEGATIVE_INFINITY;
         for (int v = 0; v < totalVerts; v++) {
@@ -103,7 +102,6 @@ public class SegmentCapNode implements MeshNode {
             return;
         }
 
-        // Compute centroid of outer ring
         Vector3f center = new Vector3f();
         for (int i = 0; i < found; i++) {
             mesh.vertexPosition(outerRing[i], pos);
@@ -111,14 +109,12 @@ public class SegmentCapNode implements MeshNode {
         }
         center.div(found);
 
-        // Sort by angle for consistent winding
         for (int i = 0; i < found; i++) {
             mesh.vertexPosition(outerRing[i], pos);
             ringAngles[i] = (float) Math.atan2(pos.z - center.z, pos.x - center.x);
         }
         sortByAngle(outerRing, ringAngles, found);
 
-        // Compute per-vertex displacement from center (for scaling inner rings)
         float[][] displacements = new float[found][2]; // dx, dz from center
         for (int i = 0; i < found; i++) {
             mesh.vertexPosition(outerRing[i], pos);
@@ -126,13 +122,11 @@ public class SegmentCapNode implements MeshNode {
             displacements[i][1] = pos.z - center.z;
         }
 
-        // Build concentric quad rings spiraling inward
         int[] prevRing = new int[found];
         System.arraycopy(outerRing, 0, prevRing, 0, found);
 
         for (int ring = 1; ring <= capRings; ring++) {
             float t = (float) ring / capRings;
-            // Smoothstep easing for nicer distribution
             float scale = 1.0f - t;
             if (ring == capRings) {
                 scale = MIN_RING_SCALE; // innermost ring: tiny but non-zero to avoid degeneracy
@@ -145,18 +139,14 @@ public class SegmentCapNode implements MeshNode {
                 currentRing[s] = mesh.addVertex(x, maxY, z);
             }
 
-            // Quad faces between prevRing and currentRing
             for (int s = 0; s < found; s++) {
                 int ns = (s + 1) % found;
-                // Wind outward (+Y normal)
                 mesh.addFace(prevRing[s], prevRing[ns], currentRing[ns], currentRing[s]);
             }
 
             prevRing = currentRing;
         }
 
-        // Close the innermost ring with a triangle fan to a center vertex.
-        // CC subdivision handles triangles by splitting each into 3 quads.
         int centerVert = mesh.addVertex(center.x, maxY, center.z);
         for (int s = 0; s < found; s++) {
             int ns = (s + 1) % found;

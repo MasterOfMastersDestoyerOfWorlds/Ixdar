@@ -49,7 +49,6 @@ public final class PlyMeshParser {
      */
     public static MeshTopology load(String content) throws IOException {
         String[] lines = content.split("\n");
-        // Header: element counts, and the vertex element's property names in column order.
         List<String> vertexProperties = new ArrayList<>();
         int vertexCount = 0;
         int faceCount = 0;
@@ -115,7 +114,6 @@ public final class PlyMeshParser {
             corners += size;
         }
 
-        // Keep the faces' arity when they all agree on triangles or quads; fan them otherwise.
         int uniform = faceSizes.length == 0 ? 0 : faceSizes[0];
         for (int size : faceSizes) {
             if (size != uniform) {

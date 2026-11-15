@@ -132,14 +132,11 @@ public final class RingToolState {
                 sourceLabel = statementId == null ? sourceLabel : statementId;
             }
             if (statementId != null && !tool.knownRingStatementIds.contains(statementId)) {
-                // A save since the capture removed the statement, so the ring is the file's no
-                // longer and the next save writes it afresh.
                 statementId = null;
                 sourceLabel = null;
             }
             boolean unsaved;
             if (statementId == null) {
-                // A proposed ring the graph still proposes is as saved as it was when captured.
                 unsaved = sourceLabel == null
                         || !tool.scene.ringMarksByLabel.containsKey(sourceLabel)
                         || ring.unsaved;
@@ -170,9 +167,6 @@ public final class RingToolState {
         tool.bisector.draftSimple = draftSimple;
         tool.bisector.startVertexId = bisectorStartVertexId;
         tool.bisector.startWall = bisectorStartWall;
-        // Back in the sub-tool the state was captured in, so a bisector draft is edited in the
-        // bisector and a ring draft in the rings. An inactive tool only notes it: the sub-tool
-        // starts when the tool does.
         if (tool.active) {
             tool.switchSubTool(activeSubTool);
         } else {

@@ -54,7 +54,6 @@ public final class MathExpressionEvaluator {
         return result;
     }
 
-    // ── Grammar ──────────────────────────────────────────────────────
 
     private double parseExpr() {
         double v = parseTerm();
@@ -125,31 +124,26 @@ public final class MathExpressionEvaluator {
                 }
                 expect(')');
                 return switch (ident.toLowerCase()) {
-            // 1-arg: trig
             case "sin" -> { requireArgs(ident, args, 1); yield Math.sin(args.get(0)); }
             case "cos" -> { requireArgs(ident, args, 1); yield Math.cos(args.get(0)); }
             case "tan" -> { requireArgs(ident, args, 1); yield Math.tan(args.get(0)); }
             case "asin" -> { requireArgs(ident, args, 1); yield Math.asin(args.get(0)); }
             case "acos" -> { requireArgs(ident, args, 1); yield Math.acos(args.get(0)); }
             case "atan" -> { requireArgs(ident, args, 1); yield Math.atan(args.get(0)); }
-            // 1-arg: hyperbolic
             case "sinh" -> { requireArgs(ident, args, 1); yield Math.sinh(args.get(0)); }
             case "cosh" -> { requireArgs(ident, args, 1); yield Math.cosh(args.get(0)); }
             case "tanh" -> { requireArgs(ident, args, 1); yield Math.tanh(args.get(0)); }
-            // 1-arg: rounding / sign
             case "floor" -> { requireArgs(ident, args, 1); yield Math.floor(args.get(0)); }
             case "ceil" -> { requireArgs(ident, args, 1); yield Math.ceil(args.get(0)); }
             case "round" -> { requireArgs(ident, args, 1); yield Math.round(args.get(0)); }
             case "sign" -> { requireArgs(ident, args, 1); yield Math.signum(args.get(0)); }
             case "abs" -> { requireArgs(ident, args, 1); yield Math.abs(args.get(0)); }
             case "fract" -> { requireArgs(ident, args, 1); double a = args.get(0); yield a - Math.floor(a); }
-            // 1-arg: exponential / logarithmic
             case "exp" -> { requireArgs(ident, args, 1); yield Math.exp(args.get(0)); }
             case "log" -> { requireArgs(ident, args, 1); yield Math.log(args.get(0)); }
             case "log2" -> { requireArgs(ident, args, 1); yield Math.log(args.get(0)) / Math.log(2.0); }
             case "log10" -> { requireArgs(ident, args, 1); yield Math.log10(args.get(0)); }
             case "sqrt" -> { requireArgs(ident, args, 1); yield Math.sqrt(args.get(0)); }
-            // 1-arg: easing (quadratic, defined over [0,1])
             case "ease_in" -> { requireArgs(ident, args, 1); double t = args.get(0); yield t * t; }
             case "ease_out" -> { requireArgs(ident, args, 1); double t = args.get(0); yield 1.0 - (1.0 - t) * (1.0 - t); }
             case "ease_in_out" -> {
@@ -157,7 +151,6 @@ public final class MathExpressionEvaluator {
                 double t = args.get(0);
                 yield t < 0.5 ? 2.0 * t * t : 1.0 - 2.0 * (1.0 - t) * (1.0 - t);
             }
-            // 2-arg
             case "pow" -> { requireArgs(ident, args, 2); yield Math.pow(args.get(0), args.get(1)); }
             case "min" -> { requireArgs(ident, args, 2); yield Math.min(args.get(0), args.get(1)); }
             case "max" -> { requireArgs(ident, args, 2); yield Math.max(args.get(0), args.get(1)); }
@@ -176,7 +169,6 @@ public final class MathExpressionEvaluator {
                 if (t < 0.0) t += len * 2.0;
                 yield len - Math.abs(t - len);
             }
-            // 3-arg: interpolation / easing
             case "clamp" -> {
                 requireArgs(ident, args, 3);
                 yield Math.max(args.get(1), Math.min(args.get(2), args.get(0)));
@@ -215,7 +207,6 @@ public final class MathExpressionEvaluator {
                 double h = Math.max(0.0, Math.min(1.0, 0.5 + 0.5 * (b - a) / k));
                 yield a * h + b * (1.0 - h) - k * h * (1.0 - h);
             }
-            // 5-arg
             case "remap" -> {
                 requireArgs(ident, args, 5);
                 double v = args.get(0);
@@ -273,7 +264,6 @@ public final class MathExpressionEvaluator {
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────
 
     private void skipWs() {
         while (pos < s.length() && Character.isWhitespace(s.charAt(pos))) {

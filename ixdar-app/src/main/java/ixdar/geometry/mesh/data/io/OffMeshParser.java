@@ -305,7 +305,6 @@ public final class OffMeshParser {
         for (int i = 0; i < positions.size(); i++)
             posArray[i] = positions.get(i);
 
-        // An all-quad file keeps its quads; any other is fan-triangulated.
         boolean uniformQuads = !faces.isEmpty();
         for (int[] face : faces) {
             if (face.length != 4) {

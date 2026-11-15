@@ -26,9 +26,6 @@ public final class MorseSmaleDecomposer {
     public static final int MIN_FACES_FOR_REFINEMENT = 8;
     public static final int SECOND_SEED_STRIDE = 6;
 
-    // PATCH-26 B4c: same threshold as PATCH-16's SemanticPatchDecomposer
-    // for consistency. Expressed as fraction of mesh bounding-sphere
-    // diameter; multiplied by the mesh extent at use time.
     private static final float T_COONS_ERROR_FRAC = 0.025f;
     private static final int   COONS_UV_SAMPLES   = 16;
     private static final int   MAX_REFINE_DEPTH   = 4;
@@ -47,21 +44,13 @@ public final class MorseSmaleDecomposer {
      */
     public static SemanticPatchDecomposer.DecompositionDiagnostics decomposeWithDiagnostics(
             MeshTopology mesh, int resolution) {
-        // Borrow the existing decomposer's diagnostics for feature edges
-        // + MSC result. The semantic patch decomposition gets thrown
-        // away below.
         SemanticPatchDecomposer.DecompositionDiagnostics borrowed =
                 SemanticPatchDecomposer.decomposeWithDiagnostics(mesh, resolution);
         MorseSmaleComplex.Result msc = borrowed.morseSmale();
         if (msc == null || msc.smoothedScalar() == null) {
-            // MSC not available (zero-vertex mesh, etc.) — fall back to
-            // semantic output verbatim so callers don't see surprises.
             return borrowed;
         }
 
-        // High-confidence edges: crest + saddle separators + multi-
-        // source (≥2 of dihedral / principal / crest agreement). Same
-        // construction PATCH-25's verifier uses; keep in lockstep.
         Set<Long> highConf = new HashSet<>(borrowed.crestEdges());
         highConf.addAll(borrowed.saddleSeparatorEdges());
         Set<Long> dih = borrowed.dihedralFeatureEdges();
@@ -80,42 +69,21 @@ public final class MorseSmaleDecomposer {
         int[] faceLabels = MscCellAssembly.ascendingManifold(
                 mesh, msc.smoothedScalar(), msc, highConf);
 
-        // PATCH-28: post-assembly snap. MSC ascending-manifold places
-        // boundaries within ~2 faces of feature creases; this pass
-        // reroutes adjacent-cell boundaries onto the high-confidence
-        // feature-edge graph (banded Dijkstra) so the cell geometry
-        // tracks teeth gum lines, eye-socket rims, mandible ridge etc.
         int[] snappedLabels = BoundarySnap.snap(mesh, faceLabels, highConf,
                 borrowed.dihedralFeatureEdges(),
                 borrowed.principalFeatureEdges(),
                 borrowed.crestEdges());
 
-        // PATCH-26 B4a/B4b ship without Coons-error refinement: the
-        // recursive refinement loop hits OOM/SIGKILL during the live D
-        // toggle when the cranium's giant cell triggers many sub-cell
-        // Coons fits. Refinement moves to a separate ticket so it can
-        // be tuned with proper memory accounting / progress reporting.
-        // Cranium remains as a single MSC cell for now — visible but
-        // not Coons-fittable until the refinement layer lands.
         float[] positions = SemanticPatchDecomposer.positionsById(mesh);
         float meshExtent = mesh.boundsDiagonal();
 
-        // Compact labels (no-op when there's no refinement, but keeps
-        // the downstream code symmetric with the refinement-on path).
         int[] compacted = compactLabels(snappedLabels);
         PatchDecomposition decomposition = MscCellAssembly.toPatchDecomposition(
                 mesh, compacted, positions);
 
-        // Recompute patch-boundary edges from the MSC labels.
         Set<Long> patchBoundary = computePatchBoundaryEdges(
                 mesh.triangulate(TriangulationRule.FAN, null), compacted);
 
-        // Reuse the borrowed Coons error vector so SCALAR overlay still
-        // works. It maps to the SEMANTIC patch layout, not the MSC one,
-        // so it's not strictly accurate — but it's the right order of
-        // magnitude for visualization and the user can still tell where
-        // the surface is hard to fit. A proper recompute is part of the
-        // future B4c refinement ticket.
         float[] coonsError = borrowed.coonsError();
 
         return new SemanticPatchDecomposer.DecompositionDiagnostics(
@@ -132,7 +100,6 @@ public final class MorseSmaleDecomposer {
                 msc);
     }
 
-    // ---------- B4c: Coons-error refinement ----------
 
     private static int[] refineWithCoonsError(MeshTopology mesh, int[] faceLabels,
                                                int[][] adj, Set<Long> highConf,
@@ -148,7 +115,6 @@ public final class MorseSmaleDecomposer {
         for (int l : current) if (l + 1 > nextLabelId) nextLabelId = l + 1;
 
         for (int depth = 0; depth < MAX_REFINE_DEPTH; depth++) {
-            // Gather faces by label.
             Map<Integer, List<Integer>> byLabel = new HashMap<>();
             for (int f = 0; f < faceCount; f++) {
                 byLabel.computeIfAbsent(current[f], k -> new ArrayList<>()).add(f);
@@ -164,9 +130,6 @@ public final class MorseSmaleDecomposer {
                                 faces, label, current, faceIdx, adj, positions, nv,
                                 COONS_UV_SAMPLES);
                 if (!err.fourSided() || err.p95Error() <= threshold) continue;
-                // Pick two highest-error face centroids as BFS seeds, run
-                // BFS-region-grow on adj (which already cuts on highConf
-                // because we built it that way below).
                 int[] seedFaces = pickHighErrorSeeds(faces, err.vertexError(),
                         faceIdx);
                 int[] sub = bfsRegionGrowInsideCell(faces, seedFaces, adj);
@@ -198,8 +161,6 @@ public final class MorseSmaleDecomposer {
         for (int i = 0; i < n; i++) order[i] = i;
         Arrays.sort(order, (a, b) -> Float.compare(faceErr[b], faceErr[a]));
         int seed1 = faces.get(order[0]);
-        // Second seed: stride into the sorted head so seeds aren't both
-        // in the same hot spot.
         int strideIdx = Math.min(n - 1, Math.max(1, n / SECOND_SEED_STRIDE));
         int seed2 = faces.get(order[strideIdx]);
         return new int[]{seed1, seed2};
@@ -240,13 +201,10 @@ public final class MorseSmaleDecomposer {
                 queue.add(new int[]{nbIdx, label});
             }
         }
-        // Orphan fallback by Euclidean centroid distance to seed centroid.
-        // For v1 we just label as 0 — a pathological case.
         for (int i = 0; i < n; i++) if (labels[i] < 0) labels[i] = 0;
         return labels;
     }
 
-    // ---------- helpers ----------
 
     /**
      * Build face-face adjacency from raw faceIdx with high-confidence

@@ -138,7 +138,6 @@ class RingRegionsTest {
         assertEquals(2, regions.regionCount);
         assertFalse(regions.ringSeparates[0] || regions.ringSeparates[1]);
         assertTrue(regions.problems.isEmpty(), regions.problems.toString());
-        // The outer equator point at column 4, midway between the rings' columns 2 and 6.
         boolean[] stretch = regions.select("point 0,3,0");
         assertEquals(1, count(stretch));
         assertEquals(2 * TORUS_TUBE * (ringColumns[1] - ringColumns[0]),
@@ -158,9 +157,7 @@ class RingRegionsTest {
 
         assertTrue(regions.ringSplitsNothing[0]);
         float[] joined = Arrays.copyOf(regions.ringJoinPoint, RingRegions.TRIANGLE_CORNERS);
-        // The ring sits at x = 2 + cos(phi) > 1; the far side of the torus at x < -1.
         assertTrue(joined[0] < -1f, "the join is not on the far side: " + Arrays.toString(joined));
-        // Round the torus the long way: at least the inner equator's span of about 2 pi.
         assertTrue(regions.ringJoinPathLength[0] > Math.PI,
                 "the path does not go round the handle: " + regions.ringJoinPathLength[0]);
 

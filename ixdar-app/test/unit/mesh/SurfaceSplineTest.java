@@ -39,13 +39,10 @@ class SurfaceSplineTest {
 
     private static final int COORDINATES = 3;
 
-    // The equator is 2 pi long.
     private static final float SPHERE_RADIUS = 1f;
 
-    // A multiple of four puts a vertex at every anchor.
     private static final int SPHERE_SIDES = 96;
 
-    // Odd, so one latitude line is the equator.
     private static final int SPHERE_RINGS = 49;
 
     private static final double GREAT_CIRCLE_TOLERANCE = 0.005;
@@ -62,10 +59,8 @@ class SurfaceSplineTest {
 
     private static final float TUBE_HALF_LENGTH = 2f;
 
-    // Multiple of TUBE_RADIUS the tapered tube grows to at its far end.
     private static final float TAPER_GROWTH = 3f;
 
-    // Radians.
     private static final double TAPER_CUT_TILT = 0.6;
 
     private static final float[] AXIS = { 1f, 0f, 0f };

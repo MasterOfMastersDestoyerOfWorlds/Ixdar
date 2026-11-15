@@ -19,22 +19,14 @@ import ixdar.numeric.graph.ShortestPathForest;
  */
 public final class SurfaceCreases {
 
-    // The valley signal is diffused over a disc of this many mean edges before it is ranked, so
-    // scan noise at the edge scale averages out while a groove a few edges wide survives.
     public static final double SMOOTHING_EDGES = 3.0;
 
-    // Strengths are signal over this quantile of the positive signal, clamped to one, so the
-    // strongest grooves saturate whatever the scan's scale.
     public static final double SATURATION_QUANTILE = 0.95;
 
-    // An edge wholly inside a saturated groove costs this fraction of its length, so following a
-    // groove is never free and the path still prefers the shorter of two grooves.
     public static final double GROOVE_COST_OF_LENGTH = 0.05;
 
     public static final double HALF = 0.5;
 
-    // A face whose corners' mean valley strength reaches this lies in a crease: at least half
-    // the saturating signal, the grooves a crease ring follows rather than scan noise.
     public static final float CREASE_STRENGTH = 0.5f;
 
     /** Mesh the creases were measured on. */
@@ -80,8 +72,6 @@ public final class SurfaceCreases {
         this.sourceMesh = mesh;
         int vertexIdBound = valleySignal.length;
         int vertexCount = mesh.vertexCount();
-        // Every vertex's spokes as flat arrays, in the mesh's spoke order the sums follow; each
-        // pass below then reads only primitive arrays, one vertex or edge per parallel step.
         int[] vertexIds = new int[vertexCount];
         int[] spokeStart = new int[vertexCount + 1];
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
@@ -162,8 +152,6 @@ public final class SurfaceCreases {
      */
     private static double[] diffuse(float[] signal, boolean positivesOnly, int[] vertexIds,
             int[] spokeStart, int[] spokeVertex) {
-        // Jacobi neighbour averaging spreads a value about one edge per step, so a disc of r edges
-        // takes r squared steps.
         int steps = (int) Math.ceil(SMOOTHING_EDGES * SMOOTHING_EDGES);
         double[] smoothed = new double[signal.length];
         double[] next = new double[signal.length];
@@ -203,12 +191,7 @@ public final class SurfaceCreases {
         PrincipalDirectionField curvature = PrincipalDirectionField.compute(mesh, positions,
                 triangles, SemanticPatchDecomposer.triangleNormals(triangles, positions),
                 TriangleSoup.oneRings(triangles, mesh.vertexIdBound()));
-        // The estimate counts bending away from the normal as negative, so with outward normals
-        // a groove is the positive maximum curvature; a surface wound inward, whose fan triangles
-        // enclose a negative signed volume, is read with the signs swapped.
         boolean outward = mesh.signedVolume() >= 0.0;
-        // The other principal curvature, in the same sign, is the bend along the groove: negative
-        // where the surface turns convex along it, as around a limb.
         float[] signal = new float[mesh.vertexIdBound()];
         float[] along = new float[mesh.vertexIdBound()];
         double[] magnitude = new double[mesh.vertexCount()];

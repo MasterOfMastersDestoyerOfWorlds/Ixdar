@@ -170,11 +170,8 @@ class StrokeSculptTest {
 
     private static final float PIT_FLOOR_CEILING = 0.5f;
 
-    // A sculpt pass returns a new mesh and leaves its input alone, so every test shares one ball.
     private static final GeometryBundle BALL = ball(64);
 
-    // Pits wider than a tenth of the ball, and a pass checked only for replaying and keeping a
-    // broad cheek, need no fine cage.
     private static final GeometryBundle COARSE_BALL = ball(32);
 
     @TempDir
@@ -280,7 +277,6 @@ class StrokeSculptTest {
             }
         }
         GeometryBundle carved = new StrokeSculpt().apply(sphere(), pitStroke.toString());
-        // The eye looks down onto the pit from 49 degrees off its axis, so the near wall hides the floor.
         Vector3f forward = new Vector3f(GRAZING_EYE).negate().normalize();
         StringBuilder ridgeStroke = new StringBuilder(String.format(Locale.ROOT, "0.2 r=0.35 eye=%f/%f/%f/%f/%f/%f:",
                 GRAZING_EYE.x, GRAZING_EYE.y, GRAZING_EYE.z, forward.x, forward.y, forward.z));
@@ -312,7 +308,6 @@ class StrokeSculptTest {
     void aPitDeeperThanTheBodyStopsShortOfTheFarSide() {
         MeshTopology pitted = new StrokeSculpt().apply(COARSE_BALL, -THROUGH_DEPTH + " r=0.3: 0 0 1").mesh();
         assertEquals(0, inwardFaces(pitted), "a pit pushed past the far side of the ball turns faces inside out");
-        // On the axis the pit's floor is the higher of the two surfaces left, the far side the lower.
         Vector3f position = new Vector3f();
         float floor = -1f;
         for (int index = 0; index < pitted.vertexCount(); index++) {
@@ -443,8 +438,6 @@ class StrokeSculptTest {
         assertTrue(index.nearest(0f, 0f, 0f, Float.POSITIVE_INFINITY) >= 0, "a sculpt sample on a tie takes either");
         assertEquals(-1, index.nearest(0f, 0f, 0f, 0.5f), "no vertex lies within half a unit");
 
-        // A sphere turned a little about y is no longer its own mirror image: every stroke still lifts
-        // and symmetrises without refusing a tie, and a stroke's peak is not averaged away.
         MeshTopology ball = sphere().mesh();
         float[] turn = positions(ball);
         for (int vertex = 0; vertex < turn.length; vertex += 3) {
@@ -512,7 +505,6 @@ class StrokeSculptTest {
 
     @Test
     void aFillIsTooSteepWhereAChainOfTheSameDepthAndRadiusIsNot() throws IOException {
-        // Run 4's rippled bowl: radius 0.05, depth 0.21, under the one-falloff limit of about 0.2.
         String report = sculptContext(sphere(), svg("steep.svg", STEEP_BOWL + STEEP_CHAIN), StrokeSculptNode.NO_SYMMETRY)
                 .output(StrokeSculptNode.REPORT, String.class);
         String[] lines = report.split(LINE_BREAK);
@@ -527,8 +519,6 @@ class StrokeSculptTest {
 
     @Test
     void theReportNamesTheFacesAStrokeWouldFoldInsideOut() {
-        // A narrow groove bent a third of the way round the ball sinks along its mean normal, which
-        // its ends meet at a slant, so the groove's walls there shear over.
         StringBuilder groove = new StringBuilder(FOLDING_DEPTH + " r=0.05:");
         StringBuilder gentle = new StringBuilder("0.01 r=0.2:");
         for (int point = -ARC_POINTS; point <= ARC_POINTS; point++) {

@@ -82,13 +82,11 @@ public class MapRangeNode implements MeshNode {
         String mode = modeObj instanceof String s ? s : LINEAR;
         boolean smooth = SMOOTH_STEP.equalsIgnoreCase(mode);
 
-        // Determine if any input is a field (per-vertex)
         int len = FieldBroadcast.floatFieldLength(valObj, fMinObj);
         len = Math.max(len, FieldBroadcast.floatFieldLength(fMaxObj, tMinObj));
         len = Math.max(len, FieldBroadcast.floatFieldLength(tMaxObj, valObj));
 
         if (len <= 1) {
-            // Scalar path
             float value = FieldBroadcast.floatScalarOrDefault(valObj, 0.5f);
             float fromMin = FieldBroadcast.floatScalarOrDefault(fMinObj, 0.0f);
             float fromMax = FieldBroadcast.floatScalarOrDefault(fMaxObj, 1.0f);
@@ -96,7 +94,6 @@ public class MapRangeNode implements MeshNode {
             float toMax = FieldBroadcast.floatScalarOrDefault(tMaxObj, 1.0f);
             ctx.setOutput(RESULT.name, mapRange(value, fromMin, fromMax, toMin, toMax, clamp, smooth));
         } else {
-            // Field path
             float[] data = new float[len];
             for (int i = 0; i < len; i++) {
                 float value = FieldBroadcast.floatAt(valObj, i, 0.5f);

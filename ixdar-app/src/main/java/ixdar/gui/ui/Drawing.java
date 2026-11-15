@@ -169,7 +169,6 @@ public class Drawing {
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
         sbe.initDraw(palette);
         d.font.drawHyperString(sbe.x1, midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, camera);
-        // Draw x 2
         first = (cut2.first).p.toVector2d();
         last = (cut2.last).p.toVector2d();
 
@@ -182,7 +181,6 @@ public class Drawing {
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
 
         d.font.drawHyperString(sbe.x2, midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, camera);
-        // Draw external segment 1
 
         PointND pND = (ex1.getKnotPoint(topKnot.knotPointsFlattened)).p;
         Vector2d knotPoint1 = pND.toVector2d();
@@ -196,7 +194,6 @@ public class Drawing {
         strokeSegment(ex1, lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
         drawSegment(ex1, palette.success, camera);
 
-        // Draw external segment 2
 
         PointND pND2 = (ex2.getKnotPoint(topKnot.knotPointsFlattened)).p;
 
@@ -210,7 +207,6 @@ public class Drawing {
         strokeSegment(ex2, lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
         drawSegment(ex2, palette.success, camera);
 
-        // Draw Cuts and Matches
         if (cml != null) {
             for (CutMatch cutMatch : cml.cutMatches) {
 
@@ -224,7 +220,6 @@ public class Drawing {
                         }
                     }
 
-                    // Draw Cuts
                     for (Segment s : cutMatch.cutSegments) {
                         strokeSegment(s, 2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
                         if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
@@ -234,7 +229,6 @@ public class Drawing {
                         }
                     }
                 }
-                // Draw SubKnot
                 Shell result = new Shell();
                 for (Knot p : cutMatch.knot.knotPoints) {
                     result.add((p).p);

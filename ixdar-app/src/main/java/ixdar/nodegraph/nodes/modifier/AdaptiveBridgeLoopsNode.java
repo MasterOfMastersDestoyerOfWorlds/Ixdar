@@ -96,7 +96,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             throw new IllegalArgumentException("adaptive_bridge_loops: geometry has no tags");
         }
 
-        // Find loop A from tag
         boolean[] maskA = tags.get(tagA.strip());
         if (maskA == null) {
             throw new IllegalArgumentException(ADAPTIVE_BRIDGE_LOOPS_TAG + tagA + NOT_FOUND);
@@ -106,7 +105,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         List<Integer> loopB;
 
         if (tagB != null && !tagB.isBlank()) {
-            // Both tags provided — find both tagged loops
             boolean[] maskB = tags.get(tagB.strip());
             if (maskB == null) {
                 throw new IllegalArgumentException(ADAPTIVE_BRIDGE_LOOPS_TAG + tagB + NOT_FOUND);
@@ -114,7 +112,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             loopA = findBoundaryLoop(mesh, maskA);
             loopB = findBoundaryLoop(mesh, maskB);
         } else {
-            // Only tag A provided — auto-find nearest boundary loop
             List<List<Integer>> allLoops = findAllBoundaryLoops(mesh);
             loopA = findTaggedLoop(allLoops, maskA);
             if (loopA == null) {
@@ -128,7 +125,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             }
         }
 
-        // Apply twist to loop B
         if (twist != 0) {
             int n = loopB.size();
             int shift = ((twist % n) + n) % n;
@@ -139,7 +135,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             loopB = rotated;
         }
 
-        // Bridge
         if (loopA.size() == loopB.size()) {
             bridgeEqual(mesh, loopA, loopB, segments);
         } else {
@@ -150,13 +145,11 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         ctx.setOutput(GEOMETRY.name, base.withMesh(mesh));
     }
 
-    // ── Equal-size bridge (same as BridgeEdgeLoopsNode) ───────────────────
 
     private static void bridgeEqual(HalfEdgeMesh mesh,
             List<Integer> loopA, List<Integer> loopB, int segments) {
         int n = loopA.size();
 
-        // Orient loops: bridge creates forward on loopA, reverse on loopB
         if (n > 1) {
             if (directedHalfEdgeHasFace(mesh, loopA.get(0), loopA.get(1))) {
                 Collections.reverse(loopA);
@@ -197,12 +190,10 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         }
     }
 
-    // ── Adaptive bridge (different sizes) ─────────────────────────────────
 
     private static void bridgeAdaptive(HalfEdgeMesh mesh,
             List<Integer> loopA, List<Integer> loopB, int segments) {
 
-        // Identify which is smaller and which is larger
         List<Integer> smallLoop, largeLoop;
         boolean aIsSmall;
         if (loopA.size() <= loopB.size()) {
@@ -218,10 +209,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         int S = smallLoop.size();
         int L = largeLoop.size();
 
-        // Orient loops so bridge faces use boundary (free) half-edges.
-        // Fan transition creates large-forward edges (large[k]→large[k+1]) and
-        // small-backward edges (small[nextS]→small[s]) that must be free.
-        // L→L ring pairs (flipped winding) also create large-forward on the last ring.
         if (L > 1 && directedHalfEdgeHasFace(mesh, largeLoop.get(0), largeLoop.get(1))) {
             Collections.reverse(largeLoop);
         }
@@ -229,8 +216,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             Collections.reverse(smallLoop);
         }
 
-        // Compute group sizes: distribute L vertices across S groups
-        // groupSize[i] = number of large-loop vertices assigned to small-loop vertex i
         int[] groupSize = new int[S];
         int base = L / S;
         int remainder = L % S;
@@ -238,14 +223,9 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             groupSize[i] = base + (i < remainder ? 1 : 0);
         }
 
-        // Build intermediate rings at the large-loop vertex count
-        // Ring layout: smallLoop → [intermediate rings at size L] → largeLoop
-        // The fan transition (S→L) happens at the first ring boundary.
-        // Subsequent rings are L→L quads.
         List<int[]> largeRings = new ArrayList<>();
 
         if (segments > 1) {
-            // Create intermediate rings of size L, interpolated between small and large
             Vector3f pSmall = new Vector3f();
             Vector3f pLarge = new Vector3f();
 
@@ -253,7 +233,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
                 float t = (float) s / segments;
                 int[] ring = new int[L];
                 for (int i = 0; i < L; i++) {
-                    // Map large vertex i to its position on the small loop via arc-length
                     interpolateOnSmallLoop(mesh, smallLoop, (float) i / L, pSmall);
                     mesh.vertexPosition(largeLoop.get(i), pLarge);
                     ring[i] = mesh.addVertex(
@@ -266,18 +245,13 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         }
         largeRings.add(toArray(largeLoop));
 
-        // First ring of faces: fan transition from smallLoop (S) to first large ring (L)
         int[] firstLargeRing = largeRings.get(0);
         if (aIsSmall) {
             buildFanTransition(mesh, toArray(smallLoop), firstLargeRing, groupSize, S, L);
         } else {
-            // Loop A is larger — the fan goes from small (B) to large (first intermediate or A)
-            // But we built largeRings relative to the largeLoop. Need to reverse direction.
             buildFanTransition(mesh, toArray(smallLoop), firstLargeRing, groupSize, S, L);
         }
 
-        // Subsequent rings: L→L quads (flipped winding so r0 uses reverse = twin
-        // of the fan's forward, and r1 uses forward = free for the large loop)
         for (int s = 0; s < largeRings.size() - 1; s++) {
             int[] r0 = largeRings.get(s);
             int[] r1 = largeRings.get(s + 1);
@@ -303,12 +277,10 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             int gs = groupSize[s];
 
             if (gs == 1) {
-                // Single large vertex per group: one inter-group quad
                 int la = large[largeIdx % L];
                 int nextGroupFirst = large[(largeIdx + 1) % L];
                 mesh.addFace(small[s], la, nextGroupFirst, small[nextS]);
             } else if (gs % 2 == 1) {
-                // Odd gs (e.g. 3): pair consecutive triangles into wide quads → all quads
                 int nWideQuads = (gs - 1) / 2;
                 for (int q = 0; q < nWideQuads; q++) {
                     int l0 = large[(largeIdx + q * 2) % L];
@@ -316,12 +288,10 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
                     int l2 = large[(largeIdx + q * 2 + 2) % L];
                     mesh.addFace(small[s], l0, l1, l2);
                 }
-                // Inter-group quad
                 int lastL = large[(largeIdx + gs - 1) % L];
                 int nextGroupFirst = large[(largeIdx + gs) % L];
                 mesh.addFace(small[s], lastL, nextGroupFirst, small[nextS]);
             } else {
-                // Even gs (fallback): wide quads + 1 remaining triangle + inter-group quad
                 int nWideQuads = (gs - 2) / 2;
                 for (int q = 0; q < nWideQuads; q++) {
                     int l0 = large[(largeIdx + q * 2) % L];
@@ -329,12 +299,10 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
                     int l2 = large[(largeIdx + q * 2 + 2) % L];
                     mesh.addFace(small[s], l0, l1, l2);
                 }
-                // One remaining triangle
                 int triStart = nWideQuads * 2;
                 int la = large[(largeIdx + triStart) % L];
                 int lb = large[(largeIdx + triStart + 1) % L];
                 mesh.addFace(small[s], la, lb);
-                // Inter-group quad
                 int lastL = large[(largeIdx + gs - 1) % L];
                 int nextGroupFirst = large[(largeIdx + gs) % L];
                 mesh.addFace(small[s], lastL, nextGroupFirst, small[nextS]);
@@ -344,7 +312,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         }
     }
 
-    // ── Boundary loop discovery ───────────────────────────────────────────
 
     /**
      * Find all distinct boundary loops in the mesh. Each loop is an ordered list
@@ -452,7 +419,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         float bestDist = Float.MAX_VALUE;
 
         for (List<Integer> loop : allLoops) {
-            // Skip the source loop itself
             boolean isSource = false;
             for (int vid : loop) {
                 if (sourceVerts.contains(vid)) {
@@ -462,7 +428,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             }
             if (isSource) continue;
 
-            // Skip loops that contain tagged vertices (they belong to other fingers)
             boolean hasTagged = false;
             for (int vid : loop) {
                 if (vid < sourceMask.length && sourceMask[vid]) {
@@ -482,7 +447,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         return best;
     }
 
-    // ── Utilities ─────────────────────────────────────────────────────────
 
     /**
      * Check whether the directed half-edge vid0→vid1 already has a face.
@@ -496,7 +460,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             int twin = mesh.halfEdgeTwin(he);
             int heStart = mesh.halfEdgeVertex(he);
 
-            // Identify which half-edge goes from vid0 and what the far vertex is
             int heFromVid0 = (heStart == vid0) ? he : twin;
             int farVid = mesh.halfEdgeVertex((heStart == vid0) ? twin : he);
             if (farVid != vid1) continue;
@@ -534,7 +497,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             return;
         }
 
-        // Compute cumulative arc lengths
         float[] cumLen = new float[n + 1];
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
@@ -552,7 +514,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
 
         float targetLen = t * totalLen;
 
-        // Find the edge segment containing targetLen
         for (int i = 0; i < n; i++) {
             if (targetLen <= cumLen[i + 1] || i == n - 1) {
                 float edgeLen = cumLen[i + 1] - cumLen[i];

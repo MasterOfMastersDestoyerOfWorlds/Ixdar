@@ -123,8 +123,6 @@ public class LoopCutNode implements MeshNode {
             sourcePositions[activeVertex * 3 + 2] = position.z;
         }
 
-        // Cut vertices are numbered after the source vertices in the order their edges first
-        // appear walking the faces, each edge's run ordered from its lower active vertex.
         int[] firstCutVertexOfEdge = new int[mesh.edgeIdBound()];
         Arrays.fill(firstCutVertexOfEdge, MeshTopology.NONE);
         boolean[] classified = new boolean[mesh.edgeIdBound()];

@@ -103,8 +103,6 @@ public final class SurfacePicker {
         if (mesh == null || candidateFace < 0 || !mesh.hasFace(candidateFace)) {
             return false;
         }
-        // Shear the ray onto +z of a frame whose z is the direction's dominant axis; the swap
-        // keeps the frame right-handed so every edge's 2D function has one sign convention.
         int axisZ = 0;
         for (int axis = 1; axis < COORDINATES_PER_POINT; axis++) {
             if (Math.abs(rayDirection[axis]) > Math.abs(rayDirection[axisZ])) {

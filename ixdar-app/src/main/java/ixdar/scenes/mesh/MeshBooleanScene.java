@@ -119,7 +119,6 @@ public class MeshBooleanScene extends ModelScene {
     @Override
     public void renderScene() {
         camera.resetView();
-        // Tag colours come from the palette worn now, so a swap re-colours A, B and the cut faces.
         runtime.setTagColor(TAG_FROM_A, palette.categories[BOOLEAN_A].toVector4f());
         runtime.setTagColor(TAG_FROM_B, palette.categories[BOOLEAN_B].toVector4f());
         runtime.setTagColor(TAG_INTERSECTION, palette.categories[BOOLEAN_BOTH].toVector4f());

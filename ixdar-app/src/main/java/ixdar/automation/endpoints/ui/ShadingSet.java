@@ -26,7 +26,6 @@ public class ShadingSet extends AutomationEndpoint implements AutomationRoute {
      */
     @Override
     public JsonObject endpointHandler(JsonObject body) throws Exception {
-        // The CLI sends an omitted mode as an empty string and an omitted flag as false.
         String name = body.has(SHADING) ? body.get(SHADING).getAsString() : "";
         boolean headlight = body.has(HEADLIGHT) && body.get(HEADLIGHT).getAsBoolean();
         return runtime.runOnMainThread(() -> {

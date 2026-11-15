@@ -59,8 +59,6 @@ public final class KeyCandidates {
 
     public static final float MINIMUM_HULL_COVERAGE = 0.75f;
 
-    // A chain piece this many of its radii from a piece already offered, on average along it, is the
-    // same crease found again at another smoothing scale.
     public static final float REPEATED_CHAIN_RADII = 1f;
 
     /** Smoothing iterations of the offset field per scale, finest first, as in scale-space blob detection. */
@@ -171,7 +169,6 @@ public final class KeyCandidates {
                         if (label[seed] != 0 || sign * smoothed[seed] <= level) {
                             continue;
                         }
-                        // One connected region beyond the level, grown breadth first.
                         int size = 0;
                         region[size++] = seed;
                         label[seed] = 1;
@@ -214,7 +211,6 @@ public final class KeyCandidates {
                                 }
                             }
                             if (kept < 3) {
-                                // Too thin to erode: the region itself, drawn in toward its centre.
                                 kept = 0;
                                 for (int index = 0; index < size; index++) {
                                     for (int axis = 0; axis < 3; axis++) {
@@ -228,7 +224,6 @@ public final class KeyCandidates {
                             if (cell < 0) {
                                 continue;
                             }
-                            // The outline is the interior's convex hull in the cell's pixels.
                             float[] pixels = new float[kept * 2];
                             float[] pixel = new float[2];
                             Vector3f point = new Vector3f();
@@ -239,9 +234,6 @@ public final class KeyCandidates {
                                 pixels[index * 2 + 1] = pixel[1];
                             }
                             int[] hull = PolygonScan.convexHull(pixels);
-                            // A hull the region does not fill (two sockets joined across the bridge of
-                            // the nose) would sink what lies between them; that region is left to the
-                            // finer scales and higher quantiles, which part it.
                             float[] hullPixels = new float[hull.length * 2];
                             for (int index = 0; index < hull.length; index++) {
                                 hullPixels[index * 2] = pixels[hull[index] * 2];
@@ -310,8 +302,6 @@ public final class KeyCandidates {
         List<float[]> lines = new ArrayList<>();
         List<Float> widths = new ArrayList<>();
         if (goalLines != null) {
-            // Where each surface vertex lands on the goal; a goal line point takes the surface point of
-            // the nearest landing, and a line breaks where no landing is within its radius.
             float[] surfaceXyz = surface.packedPositions(null);
             double[] landingXyz = new double[surfaceXyz.length];
             double low = Double.POSITIVE_INFINITY;
@@ -346,9 +336,6 @@ public final class KeyCandidates {
                     }
                 }
             }
-            // Each line's width: half the median distance from its points to the nearest point of any
-            // other line, so neighbouring strokes' falloffs do not overlap; teeth get thin strokes, a
-            // lone brow ridge stays wide.
             int total = 0;
             for (float[] line : lines) {
                 total += line.length / 3;
@@ -380,8 +367,6 @@ public final class KeyCandidates {
                             - allXyz[filled * 3], 2) + Math.pow(allXyz[other * 3 + 1] - allXyz[filled * 3 + 1], 2)
                             + Math.pow(allXyz[other * 3 + 2] - allXyz[filled * 3 + 2], 2));
                 }
-                // Half the gap is the widest the line may be; within that, the width that best sculpts
-                // the offsets around it, as for the offset field's own lines.
                 Arrays.sort(gaps);
                 widths.set(lineIndex, OffsetCrests.fittedWidth(lines.get(lineIndex), gaps[count / 2] / 2f, surface,
                         vertices, activeVertexById, offset));
@@ -406,10 +391,7 @@ public final class KeyCandidates {
                 length += Vector3f.distance(line[point * 3], line[point * 3 + 1], line[point * 3 + 2],
                         line[point * 3 + 3], line[point * 3 + 4], line[point * 3 + 5]);
             }
-            // One radius, the crease's own width: refinement tries it narrower and wider.
             float radius = Math.max(minimumRadius, Math.min(maximumRadius, widths.get(lineIndex)));
-            // A goal line is cut as if offered at the full goal-line radius: a thin line between teeth
-            // stays one long stroke rather than many short ones.
             float pieceRadius = goalLines != null ? Math.max(radius, goalLineRadius) : radius;
             float pieceLength = Math.max((float) length / Math.max(1, (int) Math.ceil(length
                     / (CHAIN_LENGTH_RADII * pieceRadius))), StrokeSketch.DEFAULT_SPACING);
@@ -481,7 +463,6 @@ public final class KeyCandidates {
         List<AnchoredStroke> variants = new ArrayList<>();
         for (float scale : new float[] { NARROWER, WIDER }) {
             float scaled = Math.max(minimumRadius, Math.min(maximumRadius, radius * scale));
-            // A placed line is as wide as its neighbours allow already: it may only narrow.
             if (scaled != radius && !(scale > 1f && placed.contains(stroke))) {
                 variants.add(stroke(stroke.polygon, xyz, count, stroke.cell, scaled, bowl));
             }

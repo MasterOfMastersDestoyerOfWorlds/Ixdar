@@ -79,7 +79,6 @@ public final class ObjMeshParser {
             return new HalfEdgeMesh();
         }
 
-        // Convert face data to flat arrays — count triangulated indices
         int totalTriIndices = 0;
         for (int[] face : faces) {
             if (face.length >= MeshLoader.FLOATS_PER_VERTEX) {
@@ -102,7 +101,6 @@ public final class ObjMeshParser {
             }
         }
 
-        // Fan every face into triangles.
         int[] faceIndices = new int[totalTriIndices];
         int[] fan = new int[0];
         int fi = 0;

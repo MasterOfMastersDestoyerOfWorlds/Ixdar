@@ -143,7 +143,6 @@ public final class NodeInspector {
             } else if (name != null && record.getInputsSnapshot().containsKey(name)) {
                 current = record.getInputValue(name);
             } else if (name != null) {
-                // The first non-null public field of that name on the node or its outputs.
                 List<Object> owners = new ArrayList<>();
                 if (record.node != null) {
                     owners.add(record.node);
@@ -169,7 +168,6 @@ public final class NodeInspector {
             first = false;
             Matcher subscripts = SUBSCRIPT.matcher(matcher.group(2));
             while (subscripts.find()) {
-                // A list or array index, or a map key compared as text.
                 String key = subscripts.group(1).trim();
                 if (current instanceof Map<?, ?> map) {
                     Object element = null;

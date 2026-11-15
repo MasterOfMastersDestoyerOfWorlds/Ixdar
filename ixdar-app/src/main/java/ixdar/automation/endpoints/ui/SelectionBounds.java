@@ -79,8 +79,6 @@ public class SelectionBounds {
             return ring(scene, name);
         }
         if (REGION.equals(kind)) {
-            // Comma-separated region numbers as the region tool's item labels carry them, or the
-            // region tool's selection.
             RingRegions regions = scene instanceof RingScene ringScene
                     && ringScene.regionLayer.regions != null
                     && ringScene.regionLayer.regions.mesh == ringScene.halfEdgeSurface()
@@ -116,7 +114,6 @@ public class SelectionBounds {
             return true;
         }
         if (POINT.equals(kind) || BOUNDS.equals(kind)) {
-            // A point and radius x,y,z,r, or a box minX,minY,minZ,maxX,maxY,maxZ.
             boolean point = POINT.equals(kind);
             int expected = point ? POINT_FIELD_COUNT : BOUNDS_FIELD_COUNT;
             String[] parts = name.split(NUMBER_SEPARATOR);

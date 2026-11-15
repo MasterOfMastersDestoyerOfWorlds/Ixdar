@@ -148,9 +148,6 @@ public final class GridMapDofSystem {
                     valuesV.add(there);
                     continue;
                 }
-                // A slot stores one chart: a freed node's primary patch chart, or a coupled
-                // seam's left patch chart. Other copies carry the value there and read it back
-                // through the inverse transform.
                 Map<Integer, double[]> fan = freedFans.get(copyVertex);
                 Integer seamArcId = fan != null ? null : seamArcByCopyVertex.get(copyVertex);
                 double[] toSlotChart = null;

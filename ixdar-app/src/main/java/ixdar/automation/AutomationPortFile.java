@@ -56,7 +56,6 @@ public class AutomationPortFile {
             Files.writeString(file, record + "\n", StandardCharsets.UTF_8);
             file.toFile().deleteOnExit();
         } catch (IOException unwritable) {
-            // Advertising the port is best-effort; an explicit --base-url still works.
         }
     }
 
@@ -68,7 +67,6 @@ public class AutomationPortFile {
         try {
             Files.deleteIfExists(location());
         } catch (IOException undeletable) {
-            // A stale record is survivable: the CLI drops records whose pid is gone.
         }
     }
 }

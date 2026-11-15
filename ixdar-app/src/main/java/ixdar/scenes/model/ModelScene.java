@@ -401,7 +401,6 @@ public abstract class ModelScene extends Scene {
                     + NodeGraphRuntime.NEEDS_MANIFOLD_MESH);
         }
         halfEdgeMesh = loaded;
-        // The scene shades with area-weighted normals, not the ones the file carried.
         halfEdgeMesh.computeNormals();
         runtime.upload(halfEdgeMesh);
         frameLoadedModel();

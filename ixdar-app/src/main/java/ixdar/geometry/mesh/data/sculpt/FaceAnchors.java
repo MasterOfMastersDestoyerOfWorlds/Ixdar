@@ -70,7 +70,6 @@ public final class FaceAnchors {
                     float bb = b.lengthSquared();
                     float bc = b.dot(c);
                     float cc = c.lengthSquared();
-                    // d3..d6 are the dot products from the second and third corners.
                     float d3 = d1 - bb;
                     float d4 = d2 - bc;
                     float d5 = d1 - bc;

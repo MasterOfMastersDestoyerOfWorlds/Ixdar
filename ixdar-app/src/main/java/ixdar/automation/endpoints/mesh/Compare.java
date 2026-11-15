@@ -66,7 +66,6 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
 
                     MeshTopology currentMesh = currentMeshTopology;
 
-                    // Load reference mesh
                     MeshTopology referenceMesh;
                     try {
                         long modified = Files.getLastModifiedTime(
@@ -86,7 +85,6 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                         return failure("Reference mesh is empty");
                     }
 
-                    // Normalize: center both meshes to origin, scale to unit bounding box diagonal
                     float[] currentPositions = normalize
                             ? MeshDistance.normalizedPositions(currentMesh)
                             : currentMesh.packedPositions(null);

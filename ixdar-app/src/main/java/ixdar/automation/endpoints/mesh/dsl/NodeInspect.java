@@ -53,7 +53,6 @@ public class NodeInspect extends AutomationEndpoint implements AutomationRoute {
         int limit = body.has(LIMIT) && !body.get(LIMIT).isJsonNull() ? body.get(LIMIT).getAsInt()
                 : DEFAULT_LIMIT;
         try {
-            // On the render thread, where the scene's graph is not being replaced.
             return runtime.runOnMainThread(() -> {
                 if (!(runtime.canvas instanceof ModelScene scene)) {
                     return failure("the active scene is not a model scene");

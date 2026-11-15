@@ -238,7 +238,6 @@ public class DistanceMatrix {
         double[][] temp = new double[matrix.length + 1][matrix.length + 1];
         int startIndex = points.indexOf(first);
         int endIndex = points.indexOf(last);
-        // \\maxDist = 2*maxDist;
         for (int i = 0; i < temp.length; i++) {
             for (int j = 0; j < temp.length; j++) {
                 if (i == matrix.length || j == matrix.length) {
@@ -298,7 +297,6 @@ public class DistanceMatrix {
     public PointSet toPointSet() {
 
         double[][] D = new double[matrix.length][matrix.length];
-        // addint the max distance so the matrix follows the triangle property
         // https://cstheory.stackexchange.com/questions/12885/guidelines-to-reduce-general-tsp-to-triangle-tsp/14049#14049
         for (int i = 0; i < D.length; i++) {
             for (int j = 0; j < D.length; j++) {
@@ -316,15 +314,12 @@ public class DistanceMatrix {
             }
         }
 
-        // do SVD for M
         RealMatrix E = new Array2DRowRealMatrix(M);
-        // find the eigen values of U
         EigenDecomposition SVD = new EigenDecomposition(E);
         double[] realE = reverseArray(SVD.getRealEigenvalues());
         double[] imagE = reverseArray(SVD.getImagEigenvalues());
         int numE = realE.length;
 
-        // put into a diagonal matrix
         Complex[][] diag = new Complex[numE][numE];
         for (int i = 0; i < numE; i++) {
             for (int j = 0; j < numE; j++) {
@@ -339,7 +334,6 @@ public class DistanceMatrix {
         FieldMatrix<Complex> S = new Array2DRowFieldMatrix<Complex>(diag);
         FieldMatrix<Complex> V = flipMatrix(realToImag(SVD.getV()));
         FieldMatrix<Complex> X = V.multiply(S);
-        // Convert to 2n space
         PointSet ps = new PointSet();
         for (int i = 0; i < X.getRowDimension(); i++) {
 
@@ -405,8 +399,6 @@ public class DistanceMatrix {
             }
             int index = indexObj.intValue();
             centroidDist[index] = ps.get(i).distance(centroid);
-            // System.out.println( ps.get(i).getID()+ " Dist to centroid: " +
-            // centroidDist[index]);
         }
 
         return centroid;
@@ -546,8 +538,6 @@ public class DistanceMatrix {
             str += "[";
             for (int j = 0; j < matrix.length; j++) {
                 double v = matrix[i][j];
-                // Use plain fixed-point formatting to avoid DecimalFormat pattern issues under
-                // TeaVM
                 str += " " + String.format(Locale.ROOT, "%.7f", v) + " ";
             }
             str += "]\n";

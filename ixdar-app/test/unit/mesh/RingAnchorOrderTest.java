@@ -34,7 +34,6 @@ class RingAnchorOrderTest {
 
     private static final int SIDES = 96;
 
-    // The shuffled clicks need only a few samples between neighbouring anchors.
     private static final int SHUFFLED_TUBE_SIDES = 48;
 
     private static final int RINGS = 41;
@@ -47,21 +46,14 @@ class RingAnchorOrderTest {
 
     private static final float ROUND_RADIUS = 0.4f;
 
-    // Where the anchors sit across the tube's width, each on both flat faces; no two are mirror
-    // images, so no anchor on one face is equally far from one on the other both ways round.
     private static final float[] ACROSS = { -0.4f, -0.22f, -0.03f, 0.17f, 0.36f };
 
-    // Along the tube, the anchors alternate this far either side of the middle, so no plane
-    // holds them all.
     private static final float ALONG_JITTER = 0.03f;
 
     private static final int SHUFFLES = 6;
 
     private static final long SEED = 44L;
 
-    // The base normal a click on the preview hands the draft: along the tube, tipped a little as
-    // a girdling plane found from a hit always is, so the plane does not run through a whole
-    // ring of vertices.
     private static final float[] TUBE_AXIS = { 0.998f, 0.05f, 0.03f };
 
     private static final int QUARTERS = 4;
@@ -71,7 +63,6 @@ class RingAnchorOrderTest {
     @Test
     void anchorsAddedInAnyOrderGiveTheSameSimpleRingByLeastAddedLength() {
         MeshTopology tube = tube(FLAT_HALF_WIDTH, HALF_THICKNESS, SHUFFLED_TUBE_SIDES);
-        // The top face across its width first, then the bottom face across the same widths.
         float[] xyz = new float[XYZ * 2 * ACROSS.length];
         for (int face = 0; face < 2; face++) {
             for (int anchor = 0; anchor < ACROSS.length; anchor++) {
@@ -82,7 +73,6 @@ class RingAnchorOrderTest {
             }
         }
         int[] anchors = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, 2 * ACROSS.length);
-        // Across the top face, then back across the bottom.
         int[] around = new int[anchors.length];
         for (int anchor = 0; anchor < ACROSS.length; anchor++) {
             around[anchor] = anchor;
@@ -103,8 +93,6 @@ class RingAnchorOrderTest {
                 order[slot] = order[swap];
                 order[swap] = held;
             }
-            // A refused click is clicked again after the next one the ring takes, the way a user
-            // comes back to a spot once the ring has grown toward it.
             RingTool tool = draftOn(metric, anchors[order[0]], TUBE_AXIS);
             int[] pending = Arrays.copyOfRange(order, 1, order.length);
             int pendingCount = pending.length;
@@ -123,7 +111,6 @@ class RingAnchorOrderTest {
                 }
                 pendingCount--;
                 refused = 0;
-                // The held anchors keep their cyclic order, the new one added somewhere.
                 int[] after = tool.draftAuthoredVertexId;
                 int[] kept = new int[before.length];
                 int next = 0;
@@ -173,8 +160,6 @@ class RingAnchorOrderTest {
         }
         int[] before = tool.draftAuthoredVertexId;
         SurfaceSpline drawn = tool.draft;
-        // The quarter-turn anchor keeps its place between the first and the half-turn one, but
-        // moves past the half turn, so the ring must double back over itself to reach it.
         double angle = Math.toRadians(MOVED_ANCHOR_DEGREES);
         int moved = SurfaceWaypoints.snap(NearestVertex.over(tube),new float[] { 0f,
             (float) (ROUND_RADIUS * Math.cos(angle)), (float) (ROUND_RADIUS * Math.sin(angle)) },

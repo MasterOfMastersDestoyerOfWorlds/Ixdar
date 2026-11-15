@@ -13,7 +13,6 @@ import ixdar.graphics.render.color.Color;
  */
 public final class SurfaceDots {
 
-    // Disc corner rows: centre, corner, face normal, colour, diameter in pixels.
     public static final VertexLayout DISC_CORNER_LAYOUT = new VertexLayout(
             new int[] { 0, 1, 2, 3, 4 }, new int[] { 3, 2, 3, 3, 1 });
 

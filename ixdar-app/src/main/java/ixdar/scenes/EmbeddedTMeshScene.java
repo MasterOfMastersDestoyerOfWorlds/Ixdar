@@ -358,13 +358,9 @@ public class EmbeddedTMeshScene extends ModelScene {
                 quadRuntime.clearDiagnostic();
                 Platforms.get().log("[drag] collapse finished; " + contraction.arcCollapseCount
                         + " arc collapses so far");
-                // Stepping is the debug path: the same check contractStep runs — without it a
-                // stepped collapse sails silently past the tear the C run failed on.
                 ArrangementDiagnosticException tear = tmesh.flankTearFailure(
                         "arc collapse " + collapsedArcId);
                 if (tear != null) {
-                    // The torn collapse is the failing operator; it must not count, so B
-                    // replays to just before it.
                     contractOpsSinceLoad--;
                     throw tear;
                 }

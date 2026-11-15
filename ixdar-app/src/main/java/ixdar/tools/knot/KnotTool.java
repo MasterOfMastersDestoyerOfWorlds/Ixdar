@@ -104,7 +104,6 @@ public abstract class KnotTool extends Tool {
                 "cycle " + cycleKeysStep + " clockwise", this::cycleLeft));
         controls.add(ControlHint.repeating("cycle-anticlockwise", Keys.RIGHT,
                 "cycle " + cycleKeysStep + " anticlockwise", this::cycleRight));
-        // Two keys each step the layer, one action under both.
         controls.add(new ControlHint(NEXT_LAYER, Keys.RIGHT_BRACKET, "next " + layerKeysStep,
                 Toggle.IsMainFocused.gate(this::increaseViewLayer)));
         controls.add(new ControlHint(NEXT_LAYER, Keys.UP, "next " + layerKeysStep,

@@ -157,8 +157,6 @@ public final class MeshMergeByDistance {
 
         float cell = Math.max(distance, MIN_CELL_SIZE);
 
-        // Spatial grid: sort vertex indices by cell-key via counting sort on 32-bit packed cell coords.
-        // Then for each vertex, iterate the 27 neighbor cells; bucket membership is an int[] range.
         int[] cellGx = new int[n];
         int[] cellGy = new int[n];
         int[] cellGz = new int[n];
@@ -168,8 +166,6 @@ public final class MeshMergeByDistance {
             cellGz[i] = (int) Math.floor(vz[i] / cell);
         }
 
-        // Open-addressing Long→int-head map, with int[] chain of vertex indices in bucket.
-        // Power-of-two sized (load factor ~0.5).
         int gridCap = 1;
         while (gridCap < n * 2) {
             gridCap <<= 1;
@@ -234,7 +230,6 @@ public final class MeshMergeByDistance {
             rootOf[i] = UnionFind.find(parent, i);
         }
 
-        // Assign dense output IDs per root. rootToOut[root] = new index, or -1 if unassigned.
         int[] rootToOut = new int[n];
         Arrays.fill(rootToOut, -1);
         float[] sumX = new float[n];

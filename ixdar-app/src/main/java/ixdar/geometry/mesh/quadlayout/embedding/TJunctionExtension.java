@@ -142,9 +142,6 @@ public final class TJunctionExtension {
         int startVertex = tmesh.nodes.get(tjunctionNodeId).copyVertex;
         int endVertex = tmesh.nodes.get(oppositeNodeId).copyVertex;
         List<Integer> routed = new ArrayList<>();
-        // An extension arc cuts one patch from a T-joint to the side opposite, so it
-        // may only run inside that patch; leaving it merges two patch interiors into a
-        // region the arrangement can no longer match. See LCK21a Section 6.
         rerouter.beginPatchRestriction();
         rerouter.admitPatch(tmesh.topology.resolvePatch(patchId));
         boolean reached;

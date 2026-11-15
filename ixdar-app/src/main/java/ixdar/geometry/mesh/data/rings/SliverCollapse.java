@@ -21,8 +21,6 @@ import ixdar.numeric.graph.UnionFind;
  */
 public final class SliverCollapse {
 
-    // Lenses of one pair join into a run while the rings stay this close between them: a zipper's
-    // rings drift a vertex or two apart between touches.
     public static final double RUN_GAP_MEAN_EDGES = 2.0;
 
     public static final String REASON_SEPARATOR = "; ";
@@ -149,7 +147,6 @@ public final class SliverCollapse {
         movedAnchors = new int[ringCount][];
         movedSplines = new SurfaceSpline[ringCount];
 
-        // Every sliver's border edges, from one walk over the faces.
         int[] sliverOfRegion = new int[regions.regionCount];
         int sliverCount = 0;
         for (int region = 0; region < regions.regionCount; region++) {
@@ -189,8 +186,6 @@ public final class SliverCollapse {
             }
         }
 
-        // Each lens: its two rings and each one's stretch along it, one run of its loop from one
-        // meeting point to the other.
         int[][] loopByRing = new int[ringCount][];
         int[][] anchorIndexByRing = new int[ringCount][];
         boolean[] onBorder = new boolean[RingBundle.edgeIdCeiling(mesh)];
@@ -207,7 +202,6 @@ public final class SliverCollapse {
                 refusals.add(where + "it reaches the edge of the surface or has no wall");
                 continue;
             }
-            // The walling rings that border it, as the regions counted them.
             int[] walling = regions.boundingRingsByRegion[regions.regionByActiveFace[
                     lowestFace[sliver]]];
             int bounding = walling.length;
@@ -232,8 +226,6 @@ public final class SliverCollapse {
             for (int side = 0; side < 2 && problem.isEmpty(); side++) {
                 int ring = pair[side];
                 if (loopByRing[ring] == null) {
-                    // The loop, and where each anchor lies along it: on it, or beside the loop
-                    // vertex nearest it in space.
                     int[] walked = EdgeMarks.orderedLoop(mesh, marks[ring]);
                     loopByRing[ring] = walked;
                     anchorIndexByRing[ring] = new int[anchors[ring].length];
@@ -285,8 +277,6 @@ public final class SliverCollapse {
             for (int index = 0; index < borderEdges[sliver]; index++) {
                 onBorder[borderEdgeIds[sliver][index]] = false;
             }
-            // Each end of one ring's stretch meets an end of the other's: the same vertex, or across
-            // a stretch the two share where they run together before parting.
             boolean meet = problem.isEmpty() && stretchEndsMeet(mesh,
                     new int[] { ends[0][0], ends[0][1], ends[1][0], ends[1][1] }, marks[pair[0]],
                     marks[pair[1]]);
@@ -304,9 +294,6 @@ public final class SliverCollapse {
             lensWhere[lenses++] = where;
         }
 
-        // Lenses of one pair that zigzag along each other are one run: on the first ring's loop,
-        // a lens joins the next while every vertex between them stays within RUN_GAP_MEAN_EDGES of
-        // the second ring.
         int[] runOfLens = UnionFind.singletons(lenses);
         double gapReach = RUN_GAP_MEAN_EDGES * meanEdgeLength;
         for (int lens = 0; lens < lenses; lens++) {
@@ -334,9 +321,6 @@ public final class SliverCollapse {
                                     loopPosition).distance(position));
                         }
                         close = nearest <= gapReach;
-                        // The region on this gap edge's side toward the other ring, when it is no
-                        // sliver, is real: a run across the gap would cut it away too. An edge
-                        // both rings mark has no such side.
                         int edgeId = step < gap ? mesh.edgeBetween(loop[(from + step) % loopLength],
                                 loop[(from + step + 1) % loopLength]) : MeshTopology.NONE;
                         boolean shared = edgeId != MeshTopology.NONE
@@ -375,8 +359,6 @@ public final class SliverCollapse {
             }
         }
 
-        // Each run spans its lenses on each ring, the loop less its largest uncovered gap; a run
-        // whose two rings do not end at the same two points falls back to its lenses.
         int[] units = new int[lenses];
         int[][] unitStart = new int[lenses][];
         int[][] unitLength = new int[lenses][];
@@ -439,7 +421,6 @@ public final class SliverCollapse {
                     }
                 }
                 if (!stretchEndsMeet(mesh, ends, marks[pair[0]], marks[pair[1]])) {
-                    // Its lenses go on alone in the second pass.
                     for (int member = 0; asRun && member < lenses; member++) {
                         alone[member] |= runOfLens[member] == lens;
                     }
@@ -453,20 +434,12 @@ public final class SliverCollapse {
                 unitStart[unitCount] = start;
                 unitLength[unitCount] = length;
                 unitSlivers[unitCount] = members;
-                // The crease ring keeps the run; with the modes alike, the ring with more anchors
-                // along it does.
                 unitPreferredKeeper[unitCount++] = modes[pair[0]] != modes[pair[1]]
                         ? (modes[pair[0]] == RingSegmentMode.CREASE ? 0 : 1)
                         : along[1] > along[0] ? 1 : 0;
             }
         }
 
-        // Keepers, runs with most slivers first, every run measured on the rings as traced. A ring
-        // may keep one run and be cut along another while the two stay apart on its own loop, so
-        // each cut still lands on edges its keeper marks. Refused: a cut overlapping another cut
-        // or a kept run on the same ring (three rings zipping along one stretch, the run with more
-        // slivers wins), and a keeper that is, through its own keepers, cut along the ring it would
-        // keep from (a cycle, broken by trying the other keeper, then leaving the run).
         Integer[] order = new Integer[unitCount];
         for (int unit = 0; unit < unitCount; unit++) {
             order[unit] = unit;
@@ -496,15 +469,11 @@ public final class SliverCollapse {
                     int[] loop = loopByRing[ring];
                     keptAt[ring] = keptAt[ring] == null ? new boolean[loop.length] : keptAt[ring];
                     cutAt[ring] = cutAt[ring] == null ? new boolean[loop.length] : cutAt[ring];
-                    // Two rings keeping one stretch is fine; anything else sharing an edge of it
-                    // is not. Index i is the loop edge from vertex i to i + 1, so stretches that
-                    // only touch at an end vertex, as a zigzag's lenses do, do not overlap.
                     for (int step = 0; step < unitLength[unit][side]; step++) {
                         int index = (unitStart[unit][side] + step) % loop.length;
                         overlap |= cutAt[ring][index] || side != keeperSide && keptAt[ring][index];
                     }
                 }
-                // Does the keeper, through the rings it is cut along, reach the cut ring?
                 boolean cycle = false;
                 int head = 0;
                 int tail = 0;
@@ -548,9 +517,6 @@ public final class SliverCollapse {
             }
         }
 
-        // Drop the rings keepers first, so a ring's bisectors end on what its keepers became. Each
-        // drop is whole or not at all: every stretch of the ring outside its runs becomes a
-        // bisector and every bisector ending on it moves, or the ring stays as it was.
         boolean[][] standingMarks = marks.clone();
         int[][] wallsNow = new int[ringCount][];
         int[][] anchorsNow = new int[ringCount][];
@@ -587,8 +553,6 @@ public final class SliverCollapse {
                     }
                     slivers += unitSlivers[unit];
                 }
-                // Where each of the ring's spline anchors, authored and supporting, lies on its
-                // loop, and which way round the loop they run.
                 int[] own = splineAnchors[ring];
                 int anchorCount = own.length;
                 int[] anchorAt = new int[anchorCount];
@@ -614,8 +578,6 @@ public final class SliverCollapse {
                 int firstBisector = bisectorSplines.size();
                 String refused = anchorCount < SurfaceSplineTracer.MINIMUM_ANCHORS
                         ? labels[ring] + " is not dropped: it has no spline anchors to carry" : "";
-                // Each stretch outside the runs, from the end of one run to the start of the next,
-                // less its ends where the ring still runs along that run's keeper.
                 for (int index = 0; index < loopLength && refused.isEmpty(); index++) {
                     if (runAt[index] != MeshTopology.NONE
                             || runAt[(index + loopLength - 1) % loopLength] == MeshTopology.NONE) {
@@ -639,9 +601,6 @@ public final class SliverCollapse {
                     if (from == to) {
                         continue;
                     }
-                    // The ring's anchors over the stretch in the ring's own order, and one past
-                    // each end, inside the runs, so the trace crosses where the ring met its
-                    // keepers; with none inside, the two either side of it.
                     int origin = direction > 0 ? from : to;
                     int length = to - from;
                     int firstInner = -1;
@@ -660,8 +619,6 @@ public final class SliverCollapse {
                     }
                     int lead = firstInner >= 0 ? Math.floorMod(firstInner - 1, anchorCount)
                             : behindMost;
-                    // A stretch running all round the ring between two anchors carries every
-                    // anchor and the two either side of its run again: one more than the ring.
                     List<Integer> carried = new ArrayList<>(List.of(lead));
                     for (int anchor = (lead + 1) % anchorCount; firstInner >= 0
                             && carried.size() <= anchorCount + 1;
@@ -698,7 +655,6 @@ public final class SliverCollapse {
                                 + labels[before] + " to " + labels[after] + " traces no edge";
                         continue;
                     }
-                    // The route must be the ring's own: the edges it marks are the old stretch's.
                     boolean[] oldEdges = new boolean[spline.marks.markedByEdgeId.length];
                     int onlyOld = 0;
                     String missing = "";
@@ -728,8 +684,6 @@ public final class SliverCollapse {
                     bisectorSplines.add(spline);
                     bisectorSource.add(ring);
                 }
-                // Every bisector ending on the ring moves to the new wall nearest that end: one of
-                // the ring's bisectors, or what a keeper of its runs now is.
                 int[][] movedTo = new int[ringCount][];
                 int[][] movedEnds = new int[ringCount][];
                 SurfaceSpline[] retraced = new SurfaceSpline[ringCount];
@@ -744,8 +698,6 @@ public final class SliverCollapse {
                         if (moved[end] != ring) {
                             continue;
                         }
-                        // A ring stretch's end anchor lies past its wall; its end is where it met
-                        // the wall, which stays its meeting point on the new one.
                         int[] stretch = stretchOfBisector[other];
                         int vertexId = stretch != null ? stretch[1 + end]
                                 : ends[end == 0 ? 0 : ends.length - 1];
@@ -902,7 +854,6 @@ public final class SliverCollapse {
                 }
             }
         }
-        // Pairings: 0 is first-first, 1 first-second, 2 second-first, 3 second-second.
         return meets[0] && meets[3] || meets[1] && meets[2];
     }
 }

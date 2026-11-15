@@ -103,7 +103,6 @@ class RingRegionExtractionTest {
             boolean nearHigh = Math.abs(z - HIGH_RING_HEIGHT) <= RING_TILT + ROW_SPACING;
             assertTrue(nearLow || nearHigh, "boundary vertex at z=" + z + LINE_BREAK + report);
         }
-        // The faired caps continue the surface's tangent, so each domes out by at most a radius.
         double prism = polygonArea() * (HIGH_RING_HEIGHT - LOW_RING_HEIGHT);
         double volume = extraction.closedMesh.signedVolume();
         assertTrue(volume > (1 - VOLUME_SHARE_TOLERANCE) * prism, volume + LINE_BREAK + report);

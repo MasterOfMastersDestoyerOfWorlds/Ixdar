@@ -55,11 +55,8 @@ class SliverCollapseTest {
 
     private static final double GEODESIC_TILT_RADIANS = Math.toRadians(6.0);
 
-    // The crease ring runs along edges, a cheapest path, which leaves its lenses wider.
     private static final double CREASE_TILT_RADIANS = Math.toRadians(3.0);
 
-    // A circle cut from the sphere by the plane y = SLOPE z + OFFSET: north of the equator but
-    // for a shallow dip below it round z = -1, the one lens it pinches against the equator.
     private static final float SLOPE = 0.3f;
 
     private static final float OFFSET = 0.2f;
@@ -81,8 +78,6 @@ class SliverCollapseTest {
 
     private static final int LENS_END = 6;
 
-    // A stretch of a latitude circle between two meridians this far apart in longitude, which a
-    // geodesic between its ends alone misses by several edges.
     private static final double STRETCH_DEGREES = 150.0;
 
     private static final double LATITUDE_DEGREES = 45.0;
@@ -105,7 +100,6 @@ class SliverCollapseTest {
 
         RingRegions reloaded = reload(result, points, normals, GEODESIC);
 
-        // The regions as A leaves them: the kept ring and the new bisector.
         List<String> labels = new ArrayList<>(List.of(LABELS[keeper], BISECTOR_PREFIX + 0));
         List<boolean[]> marks = new ArrayList<>(List.of(result.marks[keeper],
                 result.collapse.bisectorSplines.get(0).marks.markedByEdgeId));
@@ -150,8 +144,6 @@ class SliverCollapseTest {
                 result.collapse.routeDifferences.toString());
         int dropped = result.collapse.bisectorSource.get(0);
         int keeper = 1 - dropped;
-        // Every edge of the bisector is an edge of the old ring, and every edge of the old ring
-        // the keeper does not wall off with the lens is one of the bisector's.
         boolean[] bisector = result.collapse.bisectorSplines.get(0).marks.markedByEdgeId;
         for (int edgeId : result.collapse.bisectorSplines.get(0).marks.markedEdgeIds) {
             assertTrue(result.marks[dropped][edgeId], "edge " + edgeId + " is off the old ring");
@@ -172,7 +164,6 @@ class SliverCollapseTest {
             assertTrue(bordersLens || bisector[edgeId], "old ring edge " + edgeId
                     + " outside the lens is not on the bisector");
         }
-        // Its anchors are the dropped ring's own spline anchors, in the ring's order.
         SurfaceSpline ring = SurfaceSpline.inBundle(result.bundle, LABELS[dropped]);
         int[] carried = result.collapse.bisectorAnchors.get(0);
         int at = -1;
@@ -188,8 +179,6 @@ class SliverCollapseTest {
 
     @Test
     void aRingStretchMarksTheSameEdgesAsTheRing() throws Exception {
-        // Two meridians and a latitude circle; the circle's stretch between them becomes a
-        // bisector through its own anchors.
         float height = (float) Math.sin(Math.toRadians(LATITUDE_DEGREES));
         float radius = (float) Math.cos(Math.toRadians(LATITUDE_DEGREES));
         float[] circle = new float[SurfaceWaypoints.COORDINATES_PER_WAYPOINT * LATITUDE_ANCHORS];
@@ -219,7 +208,6 @@ class SliverCollapseTest {
         for (int ring = 0; ring < labels.length; ring++) {
             marks[ring] = EdgeMarks.bools(bundle, labels[ring]);
         }
-        // The circle's loop from where it meets the first meridian, the short way, to the second.
         int[] loop = EdgeMarks.orderedLoop(mesh, marks[2]);
         int first = -1;
         int second = -1;
@@ -237,8 +225,6 @@ class SliverCollapseTest {
         for (int step = 0; step <= length; step++) {
             path[step] = loop[Math.floorMod(forward ? first + step : first - step, loop.length)];
         }
-        // The circle's spline anchors, authored and supporting, strictly inside the stretch, in
-        // ring order, and one more either side of it past the meridians.
         SurfaceSpline circleSpline = SurfaceSpline.inBundle(bundle, labels[2]);
         int count = circleSpline.anchorCount;
         int[] onPath = new int[count];
@@ -263,9 +249,6 @@ class SliverCollapseTest {
         for (int slot = 0; slot < anchors.length; slot++) {
             anchors[slot] = circleSpline.anchorVertexId[carried.get(slot)];
         }
-        // The anchors may run along the path or against it, which says which meridian it starts on:
-        // the anchor before the stretch lies past the meridian nearer it. One inner anchor alone
-        // cannot say which way the ring runs.
         Vector3f before = mesh.vertexPosition(anchors[0], new Vector3f());
         boolean alongPath = before.distance(mesh.vertexPosition(path[0], new Vector3f()))
                 < before.distance(mesh.vertexPosition(path[length], new Vector3f()));
@@ -288,11 +271,6 @@ class SliverCollapseTest {
 
     @Test
     void aLensWhoseTipIsAnEdgeBothRingsShareCollapses() throws Exception {
-        // On the test cylinder, ring_00 runs along row 4 from segment 2 the long way round to
-        // segment 0, up the diagonal to row 5 and back to (5, 2), then down to (4, 2). ring_01 runs
-        // row 5 from segment 2 to 6, down through (4, 6) to row 3, back along row 3 to segment 2
-        // and up to (4, 2) and (5, 2). They cross at (4, 6), and over the edge (4, 2)-(5, 2) both
-        // mark, which is the tip of the lens between rows 4 and 5.
         int around = FINE_SEGMENTS;
         int rows = FINE_ROWS;
         float[] positions = new float[3 * (rows + 1) * around];
@@ -337,8 +315,6 @@ class SliverCollapseTest {
         RingRegions before = new RingRegions(mesh, LABELS, marks).build();
         int slivers = slivers(before);
         assertEquals(2, slivers, String.join(LINE_BREAK, before.reportLines()));
-        // No authored anchors, so neither ring is preferred. Each ring's spline runs through every
-        // vertex of its loop, one edge a segment, so a stretch of it traces the loop's own edges.
         int[][] anchors = { new int[0], new int[0] };
         int[][] splineAnchors = { vertexIds(mesh, first), vertexIds(mesh, second) };
         SliverCollapse collapse = new SliverCollapse(SurfaceGeodesics.over(SurfaceMetric.of(mesh)),

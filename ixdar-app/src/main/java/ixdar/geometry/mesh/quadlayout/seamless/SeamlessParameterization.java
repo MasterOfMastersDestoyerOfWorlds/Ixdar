@@ -291,9 +291,6 @@ public final class SeamlessParameterization {
 
 
 
-    // =====================================================================
-    // C4 prep. per-face shape gradients + branch-rotated cross targets.
-    // =====================================================================
 
     private void precomputePerFaceGeometryAndTargets() {
         faceArea = new double[uv.faceCount];
@@ -321,7 +318,6 @@ public final class SeamlessParameterization {
             Vector3f xAxis = field.faceX[af];
             Vector3f yAxis = field.faceY[af];
 
-            // Project (p_i - p_0) into local frame.
             double x0 = 0, y0 = 0;
             rel.set(p1).sub(p0);
             double x1 = rel.dot(xAxis), y1 = rel.dot(yAxis);
@@ -330,14 +326,12 @@ public final class SeamlessParameterization {
 
             double twoArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
             if (Math.abs(twoArea) < DEGENERATE_AREA_EPSILON) {
-                // Degenerate triangle: skip.
                 faceArea[af] = 0.0;
                 continue;
             }
             faceArea[af] = HALF_D * Math.abs(twoArea);
 
             int o = af * SeamlessUv.CORNERS_PER_FACE;
-            // ∇φ = (Σ b_i φ_i, Σ c_i φ_i) for linear φ on a 2D triangle.
             faceShapeB[o] = (y1 - y2) / twoArea;
             faceShapeB[o + 1] = (y2 - y0) / twoArea;
             faceShapeB[o + 2] = (y0 - y1) / twoArea;
@@ -345,7 +339,6 @@ public final class SeamlessParameterization {
             faceShapeC[o + 1] = (x0 - x2) / twoArea;
             faceShapeC[o + 2] = (x1 - x0) / twoArea;
 
-            // Branch-rotated cross targets.
             double theta = field.theta[af] + uv.cutGraph.faceBranch[af] * HALF_PI;
             double cu = Math.cos(theta), su = Math.sin(theta);
             faceUtxLocal[af] = cu;

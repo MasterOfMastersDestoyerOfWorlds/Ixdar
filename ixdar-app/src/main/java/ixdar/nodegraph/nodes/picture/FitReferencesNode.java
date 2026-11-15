@@ -145,7 +145,6 @@ public class FitReferencesNode implements MeshNode {
                     + labels[traced.cellByView[uncarved]] + " picture to");
         }
 
-        // The template: an orthographic multiview root and cell list, then one silhouette per picture.
         int cellWidth = traced.cellWidth;
         int cellHeight = traced.cellHeight;
         int rows = (angles.length + COLUMNS - 1) / COLUMNS;

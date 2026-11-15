@@ -196,7 +196,6 @@ public class RingScene extends MeshNodeViewerScene {
         super.setLooks(looks);
         looks.add(new SurfaceLook(REGIONS_LOOK, "each ring region in its own colour, in every tool", Colour.SURFACE, Light.VIEW, null));
         looks.add(new SurfaceLook(PARTS_LOOK, "each region in its part's colour, unlabelled ones grey", Colour.SURFACE, Light.VIEW, null));
-        // Lambdas: the looks are set before this scene's ring tool exists, and read it when shown.
         looks.add(new SurfaceLook(CREASES_LOOK, "groove strength, the field crease rings follow", Light.SOFT_CLAY,
                 () -> shownCreases() == null ? null : shownCreases().strengthField()));
         looks.add(new SurfaceLook(ALONG_LOOK, "bend along the groove: low convex (a saddle-shaped groove, as round a limb), mid flat, high concave", Light.SOFT_CLAY,
@@ -251,7 +250,6 @@ public class RingScene extends MeshNodeViewerScene {
         shownLabels.clear();
         hoveredRingNumber = null;
         if (showNumbers && ringsShown()) {
-            // A hovered ring's item is labelled with the number drawn beside it.
             Item hovered = activeTool.hovered();
             for (HyperString number : ringTool.ringNumbers) {
                 if (hovered != null && hovered.label.equals(String.valueOf(number.getData()))) {
@@ -494,7 +492,6 @@ public class RingScene extends MeshNodeViewerScene {
             ringTool.saveRings();
             errorToasts.show(ringTool.toolName(), ringTool.lastError);
         }
-        // Labels wait for a ring save that failed, so the file never holds them past its rings.
         if (!regionLayer.labelsUnsaved || ringsDue && !ringTool.lastError.isEmpty()) {
             return;
         }

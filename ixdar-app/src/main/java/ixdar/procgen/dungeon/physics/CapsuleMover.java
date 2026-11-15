@@ -40,8 +40,6 @@ public final class CapsuleMover {
         if (cellSize <= 0f) {
             throw new IllegalArgumentException("cellSize must be > 0, got " + cellSize);
         }
-        // Sub-stepping based on the smaller of the capsule's body height and radius keeps the
-        // capsule from tunneling through thin walls within one frame at high speed.
         float deltaLen = delta.length();
         float maxStep = capsuleAtStart.radius() * 0.5f;
         int substeps = Math.max(1, (int) Math.ceil(deltaLen / maxStep));
@@ -75,7 +73,6 @@ public final class CapsuleMover {
 
         for (int iter = 0; iter < MAX_RESOLVE_ITERATIONS; iter++) {
             CapsuleShape c = new CapsuleShape(pos.x(), pos.y(), pos.z(), proto.halfHeight(), proto.radius());
-            // Broad-phase: bounding box of cell indices the capsule could touch.
             float bound = c.boundingSphereRadius();
             int xLo = (int) Math.floor((pos.x() - bound - offsetX) / cellSize);
             int xHi = (int) Math.floor((pos.x() + bound - offsetX) / cellSize);

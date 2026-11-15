@@ -52,7 +52,6 @@ public class UVSphereMeshNode implements MeshNode {
         int segments = ctx.getInput(SEGMENTS.name, Number.class) != null ? ctx.getInput(SEGMENTS.name, Number.class).intValue() : 32;
         int rings = ctx.getInput(RINGS.name, Number.class) != null ? ctx.getInput(RINGS.name, Number.class).intValue() : 16;
 
-        // Ensure minimum viable geometry
         segments = Math.max(MIN_SEGMENTS, segments);
         rings = Math.max(2, rings);
 
@@ -61,11 +60,8 @@ public class UVSphereMeshNode implements MeshNode {
         int topPole = mesh.addVertex(0, radius, 0);
         int bottomPole = mesh.addVertex(0, -radius, 0);
 
-        // Store vertex IDs to easily build faces later.
-        // Array maps [ring][segment]
         int[][] ringVertices = new int[rings - 1][segments];
 
-        // Generate inner ring vertices
         for (int i = 1; i < rings; i++) {
             float theta = (float) Math.PI * i / rings;
             float sinTheta = (float) Math.sin(theta);
@@ -84,14 +80,11 @@ public class UVSphereMeshNode implements MeshNode {
             }
         }
 
-        // The rings turn from +x toward +z, clockwise seen from +y, so every face lists its ring
-        // vertices against that turn to wind counter-clockwise seen from outside.
         for (int j = 0; j < segments; j++) {
             int nextJ = (j + 1) % segments;
             mesh.addFace(topPole, ringVertices[0][nextJ], ringVertices[0][j]);
         }
 
-        // Build Middle Bands (Quads)
         for (int i = 0; i < rings - 2; i++) {
             for (int j = 0; j < segments; j++) {
                 int nextJ = (j + 1) % segments;
@@ -103,7 +96,6 @@ public class UVSphereMeshNode implements MeshNode {
             }
         }
 
-        // Build Bottom Cap (Triangles)
         for (int j = 0; j < segments; j++) {
             int nextJ = (j + 1) % segments;
             mesh.addFace(bottomPole, ringVertices[rings - 2][j], ringVertices[rings - 2][nextJ]);

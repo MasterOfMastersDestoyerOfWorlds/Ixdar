@@ -41,16 +41,12 @@ public final class FlipGeodesicsScanBenchmark {
 
     private static final String DEFAULT_MESH = "/home/acw/crawfish/IMG_4109.glb";
 
-    // Around one walking leg at z ~= 0.4, at three heights so the seed walk spirals instead of
-    // following one cross-section.
     private static final float[][] LEG_WAYPOINTS = {
         { 0.158970f, -0.111934f, 0.400764f },
         { 0.107179f, -0.108244f, 0.428180f },
         { 0.127260f, -0.110376f, 0.366955f },
     };
 
-    // Around the abdomen at z ~= -0.3, a girth loop an order of magnitude longer than the leg
-    // loop, kept as the scaling data point.
     private static final float[][] BODY_WAYPOINTS = {
         { 0.142617f, 0.015641f, -0.297141f },
         { -0.074982f, 0.134666f, -0.283574f },
@@ -67,8 +63,6 @@ public final class FlipGeodesicsScanBenchmark {
 
     private static final double HALF = 0.5;
 
-    // The scan's glTF indices split vertices at texture seams (19255 components on IMG_4109);
-    // welding coincident positions restores one surface (7 components, 460459 of 468350 vertices).
     private static final float WELD_DISTANCE = 1e-6f;
 
 

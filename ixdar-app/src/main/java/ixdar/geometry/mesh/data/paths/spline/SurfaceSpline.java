@@ -143,8 +143,6 @@ public final class SurfaceSpline {
                 unresolvedGaps = snap.unresolvedGaps;
             }
         } else {
-            // The crease bisector is its edge path: each span the cheapest crease path to the next
-            // anchor, the anchors its only control points, drawn along the edges it marks.
             int[] walk = { anchorVertexIds[0] };
             for (int anchor = 0; anchor + 1 < anchorVertexIds.length && walk.length > 0; anchor++) {
                 int[] span = creases.path(anchorVertexIds[anchor], anchorVertexIds[anchor + 1]);
@@ -188,8 +186,6 @@ public final class SurfaceSpline {
             spline.path = new TracedSurfacePath(walkXyz, walk, noEdge, noFraction, walk.length,
                     false).measure();
         }
-        // The walk runs over the snapped edges' own vertices, sorted so a vertex finds its slot
-        // by binary search, which keeps its arrays the size of the path, not of the mesh.
         int[] vertices = new int[0];
         int vertexCount = 0;
         for (int edgeId = 0; edgeId < snapped.length; edgeId++) {
@@ -214,8 +210,6 @@ public final class SurfaceSpline {
             parent[from] = from;
             queue[tail++] = from;
         }
-        // The fewest-edge walk over the snapped edges drops the spurs and loops a snap of an open
-        // curve leaves where consecutive points fall back onto a vertex already passed.
         for (int head = 0; head < tail && parent[to] < 0; head++) {
             int vertexId = vertices[queue[head]];
             for (int spoke = 0; spoke < mesh.vertexEdgeCount(vertexId); spoke++) {
@@ -237,9 +231,6 @@ public final class SurfaceSpline {
         if (to >= 0 && parent[to] >= 0) {
             queue[steps++] = vertices[from];
         }
-        // The walk runs end to start in the queue. Near each end it may run along its wall, or
-        // touch it again a few edges on, which would pinch a pocket of faces off: each end moves
-        // in to the last such touch. A crossing, of its own wall or any other, is kept.
         int runFrom = 0;
         int runTo = steps - 1;
         for (int side = 0; side < 2 && steps >= 2; side++) {
@@ -298,9 +289,6 @@ public final class SurfaceSpline {
         ConformingLoopSnap snap = new ConformingLoopSnap();
         int[] walk = traced ? snap.orderedWalk(mesh, spline.path) : new int[0];
         int steps = walk.length;
-        // The walk passes its meeting points once on the stretch, and again where its ends run
-        // on past the walls along the ring: the start is the touch of the start wall nearest its
-        // meeting point before the first inner anchor, the end the one after the last.
         int first = steps - 1;
         int last = 0;
         int inner = anchorVertexIds.length - 1;
@@ -329,8 +317,6 @@ public final class SurfaceSpline {
                 }
             }
         }
-        // A closed ring's snap drops the spurs and side loops a walk leaves; here a vertex met
-        // again cuts the walk back to its first visit.
         int[] kept = new int[Math.max(0, to - from + 1)];
         int keptCount = 0;
         for (int step = from; step <= to && steps > 0; step++) {
@@ -348,7 +334,6 @@ public final class SurfaceSpline {
             }
         }
         if (steps > 0) {
-            // The drawn curve is the traced points between the two trim vertices.
             TracedSurfacePath whole = spline.path;
             int fromPoint = snap.walkPoint[from];
             int points = snap.walkPoint[to] - fromPoint + 1;

@@ -50,8 +50,6 @@ public final class CharrotGregoryPatchSampler {
         }
         if (ringsPerSpoke < 1) ringsPerSpoke = 1;
 
-        // Domain n-gon corners on the unit circle (matches CharrotGregoryPatch
-        // convention: angle = (i + 0.5) * 2π/n + π).
         float[] cornerU = new float[n];
         float[] cornerV = new float[n];
         for (int i = 0; i < n; i++) {
@@ -60,28 +58,14 @@ public final class CharrotGregoryPatchSampler {
             cornerV[i] = (float) Math.sin(theta);
         }
 
-        // Sample positions: center + R rings of N samples each.
-        // Ring k (k=1..R) vertex j = lerp(center, cornerJ, k/R) — barycentric
-        // along each spoke. Outer ring (k=R) sits exactly on the corners.
-        // Boundary edges between consecutive corners need to be sampled
-        // separately for proper boundary continuity; we handle that by
-        // adding extra boundary samples on the outer ring.
-        //
-        // Layout:
-        //   vert 0:                      center
-        //   vert 1..N*R:                 inner rings (ring k starts at 1+(k-1)*N)
-        //   vert N*R+1..N*R+N*(edgeSamples-1):  extra boundary samples per edge
-        //                                (excluding corners which are at ring R)
         int innerVerts = 1 + n * ringsPerSpoke;
         int extraBoundaryPerEdge = Math.max(0, edgeSamples - 2);  // exclude both corner endpoints
         int totalVerts = innerVerts + n * extraBoundaryPerEdge;
         float[] outPositions = new float[totalVerts * 3];
 
         Vector3f tmp = new Vector3f();
-        // Center.
         CharrotGregoryPatch.evaluate(sideBeziers, 0f, 0f, tmp);
         outPositions[0] = tmp.x; outPositions[1] = tmp.y; outPositions[2] = tmp.z;
-        // Inner rings.
         for (int k = 1; k <= ringsPerSpoke; k++) {
             float t = k / (float) ringsPerSpoke;
             for (int j = 0; j < n; j++) {
@@ -94,9 +78,6 @@ public final class CharrotGregoryPatchSampler {
                 outPositions[idx * 3 + 2] = tmp.z;
             }
         }
-        // Extra boundary samples per edge (excluding corners).
-        // Edge i runs from corner i to corner (i+1) % n. Samples at
-        // s = m/(edgeSamples-1) for m = 1..edgeSamples-2.
         for (int i = 0; i < n; i++) {
             int next = (i + 1) % n;
             float u0 = cornerU[i], v0 = cornerV[i];
@@ -113,37 +94,12 @@ public final class CharrotGregoryPatchSampler {
             }
         }
 
-        // Triangulate.
-        // Inner fan (center → ring 1):
-        //   center = vert 0; ring 1 vert j is at index 1+j.
-        //   triangles (0, j, j+1) for j = 0..n-1.
-        // Quad strip between rings k-1 and k:
-        //   ring (k-1) vert j at 1+(k-2)*n+j
-        //   ring k vert j at 1+(k-1)*n+j
-        //   2 triangles per j.
-        // Outer ring → boundary fan (only if extraBoundaryPerEdge > 0):
-        //   ring R is at the corners. Each edge i has corners[i],
-        //   corners[i+1], and the extra boundary samples between them.
-        //   Triangulate as a fan from the inner-ring corners[i] vertex
-        //   to the boundary samples + corner+1. But since ring R is AT
-        //   the corners, we don't need to subdivide the boundary further
-        //   in the triangulation — the extra samples just give nicer
-        //   boundary coverage. For now, add them to the boundary edges
-        //   as part of the quad strip.
-        // (Simplified: ignore extra boundary samples in the topology;
-        // they're additional vertex data but not connected. This gives
-        // a correctly-shaped mesh with the quintic Bezier curve naturally
-        // captured by the n-gon corners. The extra samples could be
-        // wired in by subdividing the outermost boundary fan edges, but
-        // that's a quality-only improvement.)
         List<Integer> tris = new ArrayList<>();
-        // Inner fan.
         for (int j = 0; j < n; j++) {
             int a = 1 + j;
             int b = 1 + (j + 1) % n;
             tris.add(0); tris.add(a); tris.add(b);
         }
-        // Inter-ring quad strips.
         for (int k = 2; k <= ringsPerSpoke; k++) {
             int innerBase = 1 + (k - 2) * n;
             int outerBase = 1 + (k - 1) * n;
@@ -159,8 +115,6 @@ public final class CharrotGregoryPatchSampler {
         }
         int[] faceArr = tris.stream().mapToInt(Integer::intValue).toArray();
 
-        // Compute per-vertex error: nearest distance from each cell
-        // vertex to the sampled-position set.
         float[] errors = new float[vertexCount];
         BitSet touched = new BitSet(vertexCount);
         float[] perPatchErrors = new float[faces.size() * 3];

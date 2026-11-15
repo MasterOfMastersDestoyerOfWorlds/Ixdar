@@ -83,7 +83,6 @@ public class QuadCylinderMeshNode implements MeshNode {
         HalfEdgeMesh mesh = new HalfEdgeMesh();
         float halfH = height * 0.5f;
 
-        // Build barrel vertex rings: (rings + 1) rings of (segments) vertices
         int barrelRows = rings + 1;
         int[][] barrelVerts = new int[barrelRows][segments];
 
@@ -97,7 +96,6 @@ public class QuadCylinderMeshNode implements MeshNode {
             }
         }
 
-        // Barrel quads
         for (int row = 0; row < rings; row++) {
             for (int seg = 0; seg < segments; seg++) {
                 int nextSeg = (seg + 1) % segments;
@@ -109,10 +107,7 @@ public class QuadCylinderMeshNode implements MeshNode {
             }
         }
 
-        // Build quad caps
-        // Bottom cap: ring 0 (y = -halfH), facing -Y
         buildQuadCap(mesh, barrelVerts[0], segments, capRings, radius, -halfH, false);
-        // Top cap: ring (barrelRows-1) (y = +halfH), facing +Y
         buildQuadCap(mesh, barrelVerts[barrelRows - 1], segments, capRings, radius, halfH, true);
 
         return mesh;
@@ -148,7 +143,6 @@ public class QuadCylinderMeshNode implements MeshNode {
                 currentRing[seg] = mesh.addVertex(x, y, z);
             }
 
-            // Create quads between prevRing and currentRing
             for (int seg = 0; seg < segments; seg++) {
                 int nextSeg = (seg + 1) % segments;
                 if (flipWinding) {

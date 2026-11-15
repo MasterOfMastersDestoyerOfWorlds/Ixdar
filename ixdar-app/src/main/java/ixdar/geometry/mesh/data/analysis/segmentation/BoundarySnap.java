@@ -153,7 +153,6 @@ public final class BoundarySnap {
         return relabeled;
     }
 
-    // ---------------- B5a: chain extraction ----------------
 
     private static List<Curve> buildCurves(List<Long> pairEdges,
                                             boolean[] isCorner,
@@ -220,7 +219,6 @@ public final class BoundarySnap {
         return c;
     }
 
-    // ---------------- B5b: banded Dijkstra ----------------
 
     private static List<Integer> rerouteCurve(Curve c, int[] faceLabels,
                                                 int[][] ring, int[][] vertFaces,
@@ -256,7 +254,6 @@ public final class BoundarySnap {
         }
         if (bandSize < MIN_BAND_VERTS) return null;
 
-        // Costs are summed in float; the walk only stores the sums.
         Dijkstra walk = new Dijkstra();
         walk.start(nv);
         walk.relax(s, 0f, -1);
@@ -312,7 +309,6 @@ public final class BoundarySnap {
         return mult * len;
     }
 
-    // ---------------- B5c: face flood-fill relabel ----------------
 
     private static int[] floodFillRelabel(int[] faceIdx, int[] faceLabels,
                                             Set<Long> finalBoundary,
@@ -360,7 +356,6 @@ public final class BoundarySnap {
         return out;
     }
 
-    // ---------------- helpers ----------------
 
     private static int[][] buildVertexFaces(int[] faceIdx, int nv) {
         int faceCount = faceIdx.length / 3;

@@ -478,7 +478,6 @@ public class CurvatureConstraints {
         integrateCalls++;
         long sectionTime = System.nanoTime();
 
-        // Distances are summed in float, as the disk radii are; the walk only stores them.
         disk.start(vertexCount);
         int visitedCount = 0;
         for (int s = 0; s < seedVertexIds.length; s++) {
@@ -506,8 +505,6 @@ public class CurvatureConstraints {
         walkNanos += sectionNow - sectionTime;
         sectionTime = sectionNow;
 
-        // Faces fully inside the max disk; inclusion radius = the farthest of the
-        // three vertices, so the face appears in exactly the disks at least that wide.
         int diskFaceCount = 0;
         for (int vi = 0; vi < visitedCount; vi++) {
             int vertexId = visitedVertexIds[vi];
@@ -537,10 +534,6 @@ public class CurvatureConstraints {
             return tensors;
         }
 
-        // Interior edges with both faces in the disk; inclusion radius = the larger of
-        // the two faces'. The dihedral weight and edge direction are precomputed once
-        // in buildAdjacencyCaches; only the projection onto this disk's center frame is
-        // done here.
         int diskEdgeCount = 0;
         for (int vi = 0; vi < visitedCount; vi++) {
             int vertexId = visitedVertexIds[vi];
@@ -586,8 +579,6 @@ public class CurvatureConstraints {
         edgeCollectNanos += sectionNow - sectionTime;
         sectionTime = sectionNow;
 
-        // Bucket each face/edge at the smallest radius that includes it, then prefix
-        // sum up the series so every radius reuses the single walk's geometry.
         float[] bucketArea = new float[radiusCount];
         float[] bucketTensor00 = new float[radiusCount];
         float[] bucketTensor01 = new float[radiusCount];

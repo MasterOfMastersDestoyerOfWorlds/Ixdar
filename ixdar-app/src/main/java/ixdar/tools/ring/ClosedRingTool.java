@@ -149,7 +149,6 @@ public final class ClosedRingTool extends RingSubTool {
             return null;
         }
         Item graphRing = new Item();
-        // Graph rings draw first, so a graph ring's number is its place among them.
         graphRing.label = Integer.toString(ringTool.unownedGraphRingLabels().indexOf(hoveredGraphRing));
         graphRing.detail = "graph ring " + hoveredGraphRing;
         graphRing.saved = true;
@@ -165,7 +164,6 @@ public final class ClosedRingTool extends RingSubTool {
     @Override
     public Preview preview() {
         RingScene scene = ringTool.scene;
-        // A frame that fits no preview leaves the last fit's numbers, so the detail says why instead.
         String unfitted = ringTool.draft != null ? "a draft is open: a click adds or picks an anchor"
                 : scene != null && scene.cursorVertexId < 0 ? scene.cursorMissReason
                 : hoveredRing >= 0 ? "over ring " + ringTool.drawnRingNumber(hoveredRing)
@@ -246,8 +244,6 @@ public final class ClosedRingTool extends RingSubTool {
         if (cursorStill) {
             return;
         }
-        // The girdling plane through the hit point, and the one-anchor ring through the vertex
-        // under the cursor on it, exactly the ring a click would draft, in the mode it would.
         MeshTopology surface = ringTool.geodesics.mesh;
         previewAnchorCount = 0;
         previewGirdleEdgeCount = 0;
@@ -273,7 +269,6 @@ public final class ClosedRingTool extends RingSubTool {
                     || ringTool.readyCreases(surface);
         }
         if (found) {
-            // In crease mode the loop away from the cursor is pulled into the grooves.
             previewRing.mode = ringTool.newDraftMode();
             previewRing.creases = ringTool.creases;
             found = previewRing.trace(new int[] { scene.cursorVertexId }, 1, previewPlaneNormal,
@@ -288,7 +283,6 @@ public final class ClosedRingTool extends RingSubTool {
             previewAnchorCount = previewRing.tracer.anchorCount;
             ringTool.previewSpline = SurfaceSpline.unsnapped(previewRing.tracer);
             previewLength = ringTool.previewSpline.path.length;
-            // A ring crossing itself is not offered, as the click refuses to draft one.
             found = previewAnchorCount >= SurfaceSplineTracer.MINIMUM_ANCHORS && previewRing.simple;
         }
         ringTool.previewValid = found;
@@ -316,8 +310,6 @@ public final class ClosedRingTool extends RingSubTool {
         }
         RingToolState stateBefore = new RingToolState(ringTool);
         if (hoveredGraphRing != null) {
-            // Fit anchors to the graph ring's edge loop and make every one authored, with the
-            // plane they fit as the base normal, so a save writes a spline_ring.
             String label = hoveredGraphRing;
             AuthoredSplineRing converted = new AuthoredSplineRing(ringTool.geodesics);
             int[] anchors = ringTool.fitLoop(EdgeMarks.orderedLoop(ringTool.geodesics.mesh,
@@ -347,9 +339,6 @@ public final class ClosedRingTool extends RingSubTool {
                     ringTool.newDraftMode() == RingSegmentMode.CREASE ? "purple" : "red");
             return false;
         }
-        // The previewed ring at the full depth, in the mode it was previewed in. The hover shows
-        // no ring that crosses itself, so the click refuses one only where the deeper trace
-        // crosses and the preview's did not.
         ringTool.draftSourceRing = -1;
         ringTool.draftSourceLabel = null;
         ringTool.draftMode = ringTool.newDraftMode();
@@ -413,8 +402,6 @@ public final class ClosedRingTool extends RingSubTool {
     @Override
     public GeodesicRefit refitGeodesic() {
         holdDraft();
-        // The re-fit reads the crease path of a crease trace at the draft's own anchors, so it
-        // starts from a fresh one whatever the last trace was.
         draftRing.mode = RingSegmentMode.CREASE;
         long start = System.nanoTime();
         int[] held = ringTool.draftAuthoredVertexId;

@@ -47,8 +47,6 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
     public JsonObject endpointHandler(JsonObject body)
             throws IOException {
         String requested = body.has(NAME) ? body.get(NAME).getAsString() : "";
-        // A .dsl file path, relative to the checkout as every CLI path is, runs that file; a bare
-        // name is a graph under the dsl resource folder.
         File file = resolvePath(requested);
         String dslName = file != null && file.isFile() ? file.getPath() : requested;
         String node = body.has(NODE) ? body.get(NODE).getAsString() : "";

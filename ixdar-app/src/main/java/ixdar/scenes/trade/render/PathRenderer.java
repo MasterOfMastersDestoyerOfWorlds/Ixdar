@@ -94,9 +94,6 @@ public class PathRenderer {
                         palette.line, palette.line, scene.mapCamera);
             }
         }
-        // A bridge follows the road it carries: the road's two pieces meet at the midpoint of the bridged step,
-        // and the bridge is each piece's stretch within half a span of that joint, cut from the piece's own
-        // curve so it bends with the road. A bridge no road crosses is drawn straight along its step.
         ArrayList<Vector2f> centres = scene.game.map.grid.dualPoints();
         float halfSpan = RIVER_WIDTH_IN_CELLS * scene.game.map.grid.cellSpacing() * BRIDGE_SPAN_IN_RIVERS * 0.5f;
         float halfSpanPixels = halfSpan * scene.scale();

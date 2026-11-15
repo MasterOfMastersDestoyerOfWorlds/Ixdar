@@ -160,8 +160,6 @@ public class CanvasScroll implements CameraController, PointerRegion {
         rangeBottom = Math.min(rangeBottom, camera.screenTransformY(0));
         rangeRight = Math.max(rangeRight, camera.screenTransformX(view.viewWidth));
         rangeTop = Math.max(rangeTop, viewTop);
-        // Not pointTransformX(1) - pointTransformX(0): far into a zoom both are ~1e5 px and their
-        // float difference is off by tenths of a percent, which a scroll then turns into a jump.
         float pixelsPerUnit = camera.width / camera.rangeX;
         horizontalBar.contentLength = Math.round((rangeRight - rangeLeft) * pixelsPerUnit);
         horizontalBar.visibleLength = view.viewWidth;

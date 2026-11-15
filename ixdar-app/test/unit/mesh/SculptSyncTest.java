@@ -122,7 +122,6 @@ class SculptSyncTest {
 
     private static final Pattern POINT_INDICES = Pattern.compile("data-pts=\"([^\"]*)\"");
 
-    // Syncs and sculpts leave their base alone, so every test shares one.
     private static final GeometryBundle BALL = new MapNodeContext(new MergeByDistanceNode())
             .with(MergeByDistanceNode.GEOMETRY, new MapNodeContext(new QuadSphereMeshNode())
                     .with(QuadSphereMeshNode.SIZE, 2f).with(QuadSphereMeshNode.RESOLUTION, 32).eval()
@@ -165,7 +164,6 @@ class SculptSyncTest {
         String after = read(svg);
         float[] frontAfter = point(span(CHEEK_ID, FRONT, after, false), 1);
         float[] frontBefore = point(span(CHEEK_ID, FRONT, before, false), 1);
-        // It is drawn where the ridge now carries it, along the base's normal, a little past the drag.
         float dragged = frontAfter[0] - frontBefore[0];
         assertTrue(dragged > MOVE_PIXELS * 0.5f && dragged < MOVE_PIXELS * 2f, "the moved point is redrawn near "
                 + "where it was dragged in the front cell: " + frontBefore[0] + " to " + frontAfter[0]);
@@ -257,8 +255,6 @@ class SculptSyncTest {
         Path fresh = Files.createDirectories(folder.resolve("fresh")).resolve("alone.svg");
         Files.write(fresh, (ROOT + ACROSS_PIT + SVG_END + "\n").getBytes(StandardCharsets.UTF_8));
         sync(fresh);
-        // Cast onto the pitted sculpt, the middle point lands on the pit's floor and is carried to
-        // another place on the base; lifted onto the base it is where the line alone lands.
         assertArrayEquals(StrokeAnchors.beside(fresh.toString()).stroke(SECOND_ID).anchors,
                 StrokeAnchors.beside(svg.toString()).stroke(SECOND_ID).anchors, 1e-5f,
                 "a new shape is lifted onto the base, whatever the last sculpt did under it");

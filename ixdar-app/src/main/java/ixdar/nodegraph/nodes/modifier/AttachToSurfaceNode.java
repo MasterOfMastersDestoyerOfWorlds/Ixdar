@@ -102,7 +102,6 @@ public class AttachToSurfaceNode implements MeshNode {
         int vertCount = mesh.vertexCount();
         int faceCount = mesh.faceCount();
 
-        // Mesh centroid
         Vector3f centroid = new Vector3f();
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < vertCount; i++) {
@@ -111,7 +110,6 @@ public class AttachToSurfaceNode implements MeshNode {
         }
         centroid.div(vertCount);
 
-        // Ray direction from spherical coords
         Vector3f dir = new Vector3f(
                 (float) (Math.sin(phi) * Math.cos(theta)),
                 (float) Math.cos(phi),
@@ -120,7 +118,6 @@ public class AttachToSurfaceNode implements MeshNode {
         if (dir.lengthSquared() < DIRECTION_EPSILON_SQUARED) dir.set(0, 1, 0);
         dir.normalize();
 
-        // Compute face centroids
         float[][] fc = new float[faceCount][3];
         for (int fi = 0; fi < faceCount; fi++) {
             int fid = mesh.faceIdAt(fi);
@@ -137,7 +134,6 @@ public class AttachToSurfaceNode implements MeshNode {
             fc[fi][2] = cz / nv;
         }
 
-        // Find hit face: highest dot product of (faceCentroid - meshCentroid) with dir
         int hitFace = 0;
         float bestDot = Float.NEGATIVE_INFINITY;
         for (int fi = 0; fi < faceCount; fi++) {
@@ -155,7 +151,6 @@ public class AttachToSurfaceNode implements MeshNode {
 
         Vector3f attachPos = new Vector3f(fc[hitFace][0], fc[hitFace][1], fc[hitFace][2]);
 
-        // Select faces within radius (or just the hit face)
         boolean[] selected = new boolean[faceCount];
         if (radius <= 0f) {
             selected[hitFace] = true;
@@ -170,14 +165,12 @@ public class AttachToSurfaceNode implements MeshNode {
             }
         }
 
-        // Compute face normal at hit face, ensuring it points outward (away from centroid)
         Vector3f attachNormal = faceNormal(mesh, mesh.faceIdAt(hitFace));
         Vector3f toCentroid = new Vector3f(attachPos).sub(centroid);
         if (attachNormal.dot(toCentroid) < 0) {
             attachNormal.negate();
         }
 
-        // Build output mesh: clone verts, inset selected faces, omit inner faces
         HalfEdgeMesh out = new HalfEdgeMesh();
         Map<Integer, Integer> vertMap = new HashMap<>();
         for (int i = 0; i < vertCount; i++) {
@@ -200,7 +193,6 @@ public class AttachToSurfaceNode implements MeshNode {
                 }
                 out.addFace(vids);
             } else {
-                // Create inset inner vertices
                 float fcx = fc[fi][0], fcy = fc[fi][1], fcz = fc[fi][2];
                 int[] inner = new int[nv];
                 for (int k = 0; k < nv; k++) {
@@ -211,20 +203,17 @@ public class AttachToSurfaceNode implements MeshNode {
                     inner[k] = out.addVertex(nx, ny, nz);
                     boundaryVerts.add(inner[k]);
                 }
-                // Side quads connecting outer boundary to inner boundary
                 for (int k = 0; k < nv; k++) {
                     int next = (k + 1) % nv;
                     int oA = vertMap.get(mesh.faceVertexAt(fid, k));
                     int oB = vertMap.get(mesh.faceVertexAt(fid, next));
                     out.addFace(oA, oB, inner[next], inner[k]);
                 }
-                // Inner face is NOT added — creates the hole
             }
         }
 
         out.computeNormals();
 
-        // Tag boundary vertices
         @SuppressWarnings("unchecked")
         Map<String, boolean[]> existingTags = (Map<String, boolean[]>) base.slots().get(TagGeometryNode.TAGS_SLOT);
         Map<String, boolean[]> tags = existingTags != null ? new HashMap<>(existingTags) : new HashMap<>();
@@ -236,7 +225,6 @@ public class AttachToSurfaceNode implements MeshNode {
 
         GeometryBundle result = base.withMesh(out).withSlot(TagGeometryNode.TAGS_SLOT, tags);
 
-        // Compute rotation: align +Y to surface normal, with twist
         Vector3f rotation = alignRotation(attachNormal, twist);
 
         ctx.setOutput(GEOMETRY.name, result);

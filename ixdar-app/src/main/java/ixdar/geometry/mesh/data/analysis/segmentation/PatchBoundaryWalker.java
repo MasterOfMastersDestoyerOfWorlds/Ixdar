@@ -19,8 +19,6 @@ public final class PatchBoundaryWalker {
     public static final int CORNER_COUNT = 4;
     public static final float EPSILON = 1e-20f;
 
-    // Must match SemanticPatchDecomposer.T_CORNER_RAD. Duplicated here
-    // because that constant is private; keep the two in lockstep.
     private static final float T_CORNER_RAD = 1.22f;
 
     private PatchBoundaryWalker() {}
@@ -53,11 +51,6 @@ public final class PatchBoundaryWalker {
         }
         if (neighbours.isEmpty()) return null;
 
-        // Pick the largest ring from all reachable rings starting at any
-        // still-unvisited boundary vertex. Small rings are assumed to
-        // bound holes inside the patch (concavity carve-outs) and are
-        // ignored — the Coons fit is meant to approximate the outer
-        // shape only.
         Set<Integer> globallyVisited = new HashSet<>();
         int[] bestRing = null;
         for (Integer start : neighbours.keySet()) {
@@ -69,11 +62,6 @@ public final class PatchBoundaryWalker {
         if (bestRing == null || bestRing.length < CORNER_COUNT) return null;
         int total = bestRing.length;
 
-        // Corner detection: turn angle at each ring vertex. Same
-        // straight-line-deviation test as boundarySideCount. The walker
-        // always returns the **four strongest** corners so mesh-sampling
-        // noise (triangulation wobble on an otherwise-smooth boundary)
-        // doesn't inflate side count above 4.
         float[] deviationStrength = new float[total];
         List<Integer> allCorners = new ArrayList<>();
         for (int i = 0; i < total; i++) {
@@ -144,7 +132,6 @@ public final class PatchBoundaryWalker {
             int next = pickNext(cur, prev, nbs, ringVisited, start, positions);
             if (next < 0) return null;
             if (next == start) {
-                // Successful closure.
                 globallyVisited.addAll(ringVisited);
                 int[] out = new int[ring.size()];
                 for (int i = 0; i < out.length; i++) out[i] = ring.get(i);
@@ -154,8 +141,6 @@ public final class PatchBoundaryWalker {
             ringVisited.add(next);
             prev = cur;
             cur = next;
-            // Defensive cap — a ring the size of all mesh vertices is
-            // almost certainly broken; bail rather than spin forever.
             if (ring.size() > neighbours.size() + 2) return null;
         }
     }
@@ -194,10 +179,6 @@ public final class PatchBoundaryWalker {
                 float[] outgoing = unitDir(positions, cur, n);
                 float dot = incoming[0] * outgoing[0] + incoming[1] * outgoing[1]
                         + incoming[2] * outgoing[2];
-                // Ring walking wants the edge that continues STRAIGHT, i.e.
-                // whose unit vector FROM cur is anti-parallel to the
-                // incoming unit vector (dot ≈ −1). Score = −dot so higher
-                // score = more-opposite = better continuation.
                 score = -dot;
             }
             if (score > bestUnvisitedDot) {

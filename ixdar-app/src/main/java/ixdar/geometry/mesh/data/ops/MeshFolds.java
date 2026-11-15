@@ -77,8 +77,6 @@ public final class MeshFolds {
         stampByFaceId = new int[mesh.faceIdBound()];
         stampByVertex = new int[vertexCount];
         refreshed = new int[vertexCount];
-        // The adjacency is read four times a sculpt pass; flat arrays read once from the mesh's
-        // per-element lists keep those passes off its scattered adjacency objects.
         vertexFaceStart = new int[vertexCount + 1];
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             vertexFaceStart[activeVertex + 1] = vertexFaceStart[activeVertex]
@@ -110,7 +108,6 @@ public final class MeshFolds {
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             every[activeVertex] = activeVertex;
         }
-        // With no start normals yet nothing turns over against them: this reads the own-corner folds.
         update(startXyz, every, vertexCount);
         System.arraycopy(cornerXyz, 0, startCornerXyz, 0, cornerXyz.length);
         foldedAtStart = failedByFaceId.clone();
@@ -179,8 +176,6 @@ public final class MeshFolds {
                 int faceId = vertexFaces[slot];
                 if (stampByFaceId[faceId] != foldStamp) {
                     stampByFaceId[faceId] = foldStamp;
-                    // Against its start a face may turn past a right angle, as a steep pit's wall does,
-                    // but not over, as the middle of a pleat does.
                     failedByFaceId[faceId] = folds(faceId, cornerXyz, 0f)
                             || folds(faceId, startCornerXyz, TURNED_OVER_COSINE);
                 }

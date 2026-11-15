@@ -638,7 +638,6 @@ public final class GltfMeshParser {
         }
         int weldKeyAccessor = attributes.getInt(WELD_KEY, -1);
         if (weldKeyAccessor >= 0 && sourceWeldKey != null) {
-            // A float SCALAR accessor, one key per vertex of this primitive.
             JsonValue weldKeys = accessors.item(weldKeyAccessor);
             int componentType = weldKeys.getInt(COMPONENT_TYPE, COMPONENT_FLOAT);
             if (componentType != COMPONENT_FLOAT) {

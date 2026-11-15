@@ -102,8 +102,6 @@ public final class RepairEdges {
             lowStart[vertex + 1] += lowStart[vertex];
             aroundStart[vertex + 1] += aroundStart[vertex];
         }
-        // Each use filed under its lower vertex as (higher, slot), in slot order, and each face
-        // round its corners in the same walk.
         long[] byLow = new long[useTotal];
         int[] around = new int[useTotal];
         int[] cursor = Arrays.copyOf(lowStart, vertexCount);
@@ -118,8 +116,6 @@ public final class RepairEdges {
         }
         edges.filedStart = aroundStart;
         edges.filedFaces = around;
-        // A vertex's uses, sorted by (higher, slot), are its edges in order, each one's uses in
-        // slot order: the order a stable sort by higher and then by lower vertex leaves.
         edges.ensureEdges(useTotal);
         int[] partner = new int[slots];
         int[] open = new int[CORNERS];
@@ -146,7 +142,6 @@ public final class RepairEdges {
                 }
                 edges.appendUse(edges.edgeCount - 1, slot);
             }
-            // This vertex's edges are whole: none of their uses is filed under another vertex.
             for (int edge = firstEdge; edge < edges.edgeCount; edge++) {
                 if (edges.manifold(edge)) {
                     partner[edges.firstUses[edge]] = edges.secondUses[edge] + 1;
@@ -443,7 +438,6 @@ public final class RepairEdges {
     private void insertUse(int edge, int slot) {
         noteChanged(edge);
         appendUse(edge, slot);
-        // Keep slot order: walk the new use down past larger ones.
         for (int index = useCounts[edge] - 1; index > 0 && use(edge, index - 1) > slot; index--) {
             setUse(edge, index, use(edge, index - 1));
             setUse(edge, index - 1, slot);

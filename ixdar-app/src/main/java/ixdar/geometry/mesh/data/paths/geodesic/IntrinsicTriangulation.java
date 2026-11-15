@@ -312,8 +312,6 @@ public final class IntrinsicTriangulation {
             return false;
         }
 
-        // Lay the two triangles flat: the edge runs from corner 2 to corner 0, corner 3 sits at the
-        // origin and edge 3-0 lies along the x axis.
         diamondX[3] = 0.0;
         diamondY[3] = 0.0;
         diamondX[0] = edgeLength(backPrevious >> 1);
@@ -333,7 +331,6 @@ public final class IntrinsicTriangulation {
             return false;
         }
 
-        // Each slot is written right after it is touched: a later touch may rehash the overlay.
         int slot = touch(frontHalfEdge, HALF_EDGE_KIND);
         slotFirst[slot] = backPrevious;
         slotSecond[slot] = frontApex;

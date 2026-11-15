@@ -55,8 +55,6 @@ class ReferenceStrokesTest {
 
     private static final float FEATURE_HEIGHT = 9f;
 
-    // Pictures that need no thin line drawn at half size, where the blob search's blurs cost an
-    // eighth; the edge lines need the full size to stay a few pixels wide.
     private static final float HALF = 0.5f;
 
     private static final float[] LIGHT = { -0.55f, -0.35f, 0.76f };
@@ -100,7 +98,6 @@ class ReferenceStrokesTest {
                 lowest = Math.min(lowest, xy[point + 1]);
                 highest = Math.max(highest, xy[point + 1]);
             }
-            // A long vertical line on the ridge's crest or the groove's floor.
             if (highest - lowest > BALL && Math.abs(meanX - RIDGE_X) < NEAR) {
                 ridges += shading.ridgeByLine[line] ? 1 : -BALL_LINES_OFF;
             } else if (highest - lowest > BALL && Math.abs(meanX - GROOVE_X) < NEAR) {
@@ -123,9 +120,6 @@ class ReferenceStrokesTest {
 
     @Test
     void aHollowWithALitFloorIsACavityAndAShadedSideIsNot() {
-        // Lit along the view, as a headlight lights it: the hollow's floor faces the eye and is as
-        // bright as the ball around it, only its walls darken, so it is no dark region; the ball's
-        // own rim, turned from the eye, is dark but reaches the outline.
         int size = Math.round(SIZE * HALF);
         PixelImage picture = new PixelImage(size, size);
         picture.fill(BACKGROUND);
@@ -141,7 +135,6 @@ class ReferenceStrokesTest {
                 }
                 float depth = (float) Math.sqrt(rest);
                 float fromHollow = (float) Math.hypot(x - HOLE_X, y - HOLE_Y) / HOLLOW_RADIUS;
-                // A bowl of depth HOLLOW_DEPTH x (1 - r^2): its slope 2 HOLLOW_DEPTH r / HOLLOW_RADIUS.
                 float wall = fromHollow < 1f ? 2f * HOLLOW_DEPTH * fromHollow : 0f;
                 float normalX = across / depth - (fromHollow < 1f ? wall * (x - HOLE_X) / Math.max(1e-3f,
                         fromHollow * HOLLOW_RADIUS) : 0f);
@@ -166,7 +159,6 @@ class ReferenceStrokesTest {
             }
             found.append(String.format(" (%.0f,%.0f %d px%s)", meanX, meanY, shading.areaByRegion[region],
                     shading.blobByRegion[region] ? " blob" : ""));
-            // The blob centres on the hollow's darker side, toward the ball's own lit middle.
             hollow |= shading.blobByRegion[region] && Math.hypot(meanX - HOLE_X, meanY - HOLE_Y) < HOLLOW_RADIUS;
             assertTrue(Math.hypot(meanX - CENTRE, meanY - CENTRE) < BALL / 2f, "no cavity on the shaded rim:" + found);
         }
@@ -224,7 +216,6 @@ class ReferenceStrokesTest {
         }
         assertTrue(count > 0, front);
         String overlay = strokes.pictureSvgByView[0];
-        // Each group holds its own kind (the first attempt's format shifted them one group along).
         for (String kind : new String[] { "ridges\">\n<polyline data-kind=\"ridge\"",
             "valleys\">\n<polyline data-kind=\"valley\"", "fills\">\n<polygon " }) {
             assertTrue(overlay.contains("<g id=\"" + kind), "the picture's own overlay groups " + kind);
@@ -251,7 +242,6 @@ class ReferenceStrokesTest {
                     continue;
                 }
                 float depth = (float) Math.sqrt(rest);
-                // The ball's normal, tilted across x by the features' slopes (height in pixels).
                 float slopeX = features ? bumpSlope(x - RIDGE_X) - bumpSlope(x - GROOVE_X) : 0f;
                 float normalX = across / depth - slopeX;
                 float normalY = down / depth;

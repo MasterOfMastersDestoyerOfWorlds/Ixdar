@@ -335,8 +335,6 @@ public class ExtrudeMeshNode implements MeshNode {
             }
         }
 
-        // An edge of a selected face is a region boundary when it has one face or its other face
-        // is unselected; each gets one side quad, in the direction its selected face walks it.
         int[] activeFaceOfId = new int[mesh.faceIdBound()];
         for (int fi = 0; fi < faceCount; fi++) {
             activeFaceOfId[mesh.faceIdAt(fi)] = fi;

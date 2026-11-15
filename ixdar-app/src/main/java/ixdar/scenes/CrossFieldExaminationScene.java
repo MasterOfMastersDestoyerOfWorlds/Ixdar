@@ -73,7 +73,6 @@ public class CrossFieldExaminationScene extends ModelScene {
             @Override
             public void build(GroupBuilder graph) {
                 GraphNodeContext model = graph.node(QuadLayoutNode.MODEL_CALL, SceneModelNode::new);
-                // By registered id: the field node is desktop-only, as the layout graph notes.
                 graph.node(FIELD_CALL, FIELD_TYPE)
                         .input(NDirectionFieldNode.GEOMETRY.name, model, SceneModelNode.GEOMETRY.name);
             }

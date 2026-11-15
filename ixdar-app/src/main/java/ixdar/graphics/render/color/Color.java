@@ -6,10 +6,6 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 public interface Color {
-    // Sorted by hue: neutrals black to white, then hue angle from red, ties by
-    // lightness, alpha
-    // variants (named BASE_<percent>) after their base. ColorOrderTest pins the
-    // order.
     public static final Color BLACK = new ColorRGB(0f, 0f, 0f, "Black");
     public static final Color BLACK_75 = new ColorRGB(0, 0, 0, 0.75f, "Black 75");
     public static final Color BLACK_50 = new ColorRGB(0, 0, 0, 0.5f, "Black 50");

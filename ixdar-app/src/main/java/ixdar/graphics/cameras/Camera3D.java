@@ -138,8 +138,7 @@ public class Camera3D implements Camera, CameraController {
         view.set(new Matrix4f()).lookAt(position, target, up);
     }
 
-    void updateCameraVectors() {
-        // calculate the new Front vector
+    private void updateCameraVectors() {
         front.set((float) (Math.cos(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch))),
                 (float) Math.sin(Math.toRadians(pitch)),
                 (float) (Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch))));
@@ -149,9 +148,6 @@ public class Camera3D implements Camera, CameraController {
             front.y /= len;
             front.z /= len;
         }
-        // front already refers to this.front
-        // also re-calculate the Right and Up vector
-        // right = normalize(cross(front, worldUp)) without JOML cross to avoid Math.fma
         right.x = front.y * worldUp.z - front.z * worldUp.y;
         right.y = front.z * worldUp.x - front.x * worldUp.z;
         right.z = front.x * worldUp.y - front.y * worldUp.x;
@@ -159,7 +155,6 @@ public class Camera3D implements Camera, CameraController {
         if (rlen > 0f) {
             right.div(rlen);
         }
-        // up = normalize(cross(right, front))
         up.x = right.y * front.z - right.z * front.y;
         up.y = right.z * front.x - right.x * front.z;
         up.z = right.x * front.y - right.y * front.x;
@@ -907,7 +902,6 @@ public class Camera3D implements Camera, CameraController {
         target.set(orbitTarget);
         up.set(-sinElevation * cosAzimuth, cosElevation, -sinElevation * sinAzimuth);
         if (roll != 0f) {
-            // Rodrigues about the unit view axis, to which up is perpendicular.
             float axisX = -cosElevation * cosAzimuth;
             float axisY = -sinElevation;
             float axisZ = -cosElevation * sinAzimuth;

@@ -59,18 +59,10 @@ public final class RingRegions {
 
     public static final String SPLITS_NOTHING_NOTE = "splits nothing";
 
-    // A face lies near its region's rings within this share of the region's depth, the face steps
-    // from its rings to its farthest face: a joint band a ring splits stays within a third of the
-    // way into each half, while one left unsplit sits deepest in the merged region.
     public static final double NEAR_RING_DEPTH_SHARE = 1.0 / 3;
 
-    // A face this many face steps from a ring or fewer is near it in any region: about three mean
-    // edges, the radius SurfaceCreases diffuses its signal over, so a groove a ring runs in counts
-    // as on the ring.
     public static final int NEAR_RING_FACE_STEPS = 6;
 
-    // Interior crease under this share of a region is surface texture, not a joint: on IMG_4111
-    // the halves of a split claw joint read under 1%, the region left unsplit about 8%.
     public static final double INTERIOR_JOINT_SHARE = 0.02;
 
     public static final int FACES_PER_TASK = 8192;
@@ -376,9 +368,6 @@ public final class RingRegions {
             for (int activeFace = 0; activeFace < faceCount; activeFace++) {
                 activeFaceByFaceId[mesh.faceIdAt(activeFace)] = activeFace;
             }
-            // Each face's area and centroid, and its sides as flat slots: the edge crossed and
-            // the face across it, so the floods below never go back through the half-edge
-            // accessors. Every face writes only its own entries, so blocks of faces run in parallel.
             faceArea = new double[faceCount];
             faceCentroid = new float[TRIANGLE_CORNERS * faceCount];
             slotEdgeId = new int[slots];
@@ -429,7 +418,6 @@ public final class RingRegions {
             regionByActiveFace = new int[0];
         }
 
-        // Classify each ring, reusing the classification of a ring that did not change.
         int ringCount = labels.length;
         int formerRings = built ? ringLabels.length : 0;
         boolean[] formerClaimed = new boolean[formerRings];
@@ -461,14 +449,10 @@ public final class RingRegions {
                 junctions[ring] = ringJunctions[former];
             }
         }
-        // Each new ring's edges, vertices, loose ends and junctions from its mask alone, so the
-        // rings are read in parallel; a vertex's degree is the run its ids make once sorted.
         IntStream.range(0, ringCount).parallel().forEach(ring -> {
             if (formerRingOf[ring] != MeshTopology.NONE) {
                 return;
             }
-            // A mask is mostly clear, so each marked edge is found by a vectorised search for the
-            // next entry that differs from a clear mask.
             boolean[] marks = masks[ring];
             int scanned = Math.min(marks.length, edgeIdCeiling);
             int[] ringEdges = new int[0];
@@ -496,7 +480,6 @@ public final class RingRegions {
                 ends[2 * edge + 1] = mesh.halfEdgeEndVertex(halfEdge);
             }
             Arrays.sort(ends);
-            // A vertex on a single ring edge is a loose end: the loop never closed there.
             int[] ringVertices = new int[ends.length];
             int[] loose = new int[ends.length];
             int vertices = 0;
@@ -520,10 +503,6 @@ public final class RingRegions {
             vertexIds[ring] = Arrays.copyOf(ringVertices, vertices);
         });
 
-        // A closed ring walls the flood. An open one walls it as a bisector once every loose end
-        // lies on another wall, settled until none is added so a bisector may end on an earlier
-        // one; any other open ring would only scar the region it lies in. A bisector may cross
-        // walls on its way, splitting every region it passes through.
         boolean[] isBisector = new boolean[ringCount];
         int wallStamp = ++vertexEpoch;
         for (boolean grew = true; grew;) {
@@ -546,7 +525,6 @@ public final class RingRegions {
             }
         }
 
-        // Count each edge's walling rings; an edge whose count crosses zero changed its wall.
         int[] changedEdges = new int[0];
         int changed = 0;
         for (int pass = 0; pass < 2; pass++) {
@@ -573,7 +551,6 @@ public final class RingRegions {
                 }
             }
         }
-        // Each face side's wall, read in face order by the floods below and in measureFlatness.
         if (slotWalled.length != slotEdgeId.length) {
             slotWalled = new boolean[slotEdgeId.length];
         }
@@ -581,8 +558,6 @@ public final class RingRegions {
             slotWalled[slot] = wallsByEdgeId[slotEdgeId[slot]] > 0;
         });
 
-        // Clear the components beside a changed edge and flood them again; every other component
-        // keeps its faces, since each of its borders is still a wall and nothing inside became one.
         int[] formerRegionByActiveFace = regionByActiveFace;
         int[] formerRegionFaceCount = regionFaceCount;
         refloodedFaces = 0;
@@ -630,7 +605,6 @@ public final class RingRegions {
                 refloodedFaces += tail;
                 nextComponent++;
             }
-            // Number components in order of their lowest face, as a single flood would.
             int[] canonical = new int[nextComponent];
             Arrays.fill(canonical, MeshTopology.NONE);
             componentCount = 0;
@@ -649,7 +623,6 @@ public final class RingRegions {
             componentArea[componentByActiveFace[activeFace]] += faceArea[activeFace];
         }
 
-        // Every walling edge once, with the components on its two sides.
         edgeEpoch++;
         int wallEdges = 0;
         for (int ring = 0; ring < ringCount; ring++) {
@@ -681,8 +654,6 @@ public final class RingRegions {
             }
         }
 
-        // Regions are the components, or with absorption each sliver joined to its largest
-        // neighbour, numbered by their lowest face.
         int[] parent = UnionFind.singletons(componentCount);
         if (absorbBelowFaces > 0) {
             int[] largestNeighbour = new int[componentCount];
@@ -737,8 +708,6 @@ public final class RingRegions {
             }
         }
 
-        // Each region's former region is the one its lowest face was in; it kept its faces when
-        // every face came from there and the counts agree.
         formerRegionByRegion = new int[regionCount];
         Arrays.fill(formerRegionByRegion, MeshTopology.NONE);
         regionKeptFaces = new boolean[regionCount];
@@ -760,7 +729,6 @@ public final class RingRegions {
             }
         }
 
-        // Neighbours, bounding rings, and the rings with one region on both sides.
         long[] pairs = new long[wallEdges];
         int pairCount = 0;
         for (int wall = 0; wall < wallEdges; wall++) {
@@ -846,8 +814,6 @@ public final class RingRegions {
         ringSplitsNothing = splitsNothing;
         ringSeparates = new boolean[ringCount];
         built = true;
-        // The flatness now describes the former regions; measureFlatness keeps it for the ones
-        // whose faces and walls this update left alone.
         formerFlatnessCreases = flatnessCreases;
         flatnessCreases = null;
         regionWallsChanged = new boolean[regionCount];
@@ -878,9 +844,6 @@ public final class RingRegions {
             }
         }
 
-        // A ring's sides are the pieces the surface falls into with only that ring as a wall:
-        // components joined across every other walling edge, the flood each ring alone would make.
-        // A bisector alone parts nothing, so it has no sides.
         sideByRingRegion = new byte[ringCount][regionCount];
         int[] pieceOf = new int[componentCount];
         double[] pieceArea = new double[componentCount];
@@ -924,9 +887,6 @@ public final class RingRegions {
                     sameSideEdges++;
                 }
             }
-            // The ring's two sides are the two largest pieces it borders; any further piece is a
-            // pocket its edges enclose on their own, such as a face a jagged snap walled off.
-            // Pieces are visited in order of their lowest face, as the single flood numbers them.
             int firstSide = MeshTopology.NONE;
             int secondSide = MeshTopology.NONE;
             int pockets = 0;
@@ -948,8 +908,6 @@ public final class RingRegions {
             pockets = Math.max(0, pockets - 2);
             boolean separates = sameSideEdges == 0 && secondSide != MeshTopology.NONE;
             ringSeparates[ring] = separates;
-            // A ring that separates only together with others has no sides of its own; that is
-            // expected, and only one that splits nothing with every ring in place is a problem.
             if (!separates) {
                 continue;
             }
@@ -969,7 +927,6 @@ public final class RingRegions {
         boolean[][] crossed = new boolean[ringCount][ringCount];
         for (int ring = 0; ring < ringCount; ring++) {
             for (int other = 0; ringSeparates[ring] && other < ringCount; other++) {
-                // A bisector crosses the walls on its way by design.
                 if (other == ring || !isWall[other] || isBisector[other]
                         || ringSeparates[other] && other < ring) {
                     continue;
@@ -981,9 +938,6 @@ public final class RingRegions {
                 }
             }
         }
-        // Rings that touch without crossing still pinch slivers of a face or two between them.
-        // Rings that share edges share one wall there, so a vertex on an edge both mark is no
-        // touch, and neither is a bisector's end, which sits on its wall by design.
         int[] bisectorEdge = new int[2];
         for (int ring = 0; ring < ringCount; ring++) {
             int stamp = ++vertexEpoch;
@@ -1003,8 +957,6 @@ public final class RingRegions {
                             || isBisector[other] && Arrays.binarySearch(looseEnds[other], vertexId) >= 0;
                     pinchesNothing |= vertexStamp[vertexId] == stamp
                             && EdgeMarks.markedAt(mesh, vertexId, marks, otherMarks) > 0;
-                    // A bisector passing through a wall at a vertex crosses it there, which pinches
-                    // nothing.
                     boolean[] bisectorMarks = isBisector[ring] ? marks : otherMarks;
                     int bisectorEdges = 0;
                     for (int slot = 0; vertexStamp[vertexId] == stamp && !pinchesNothing
@@ -1133,8 +1085,6 @@ public final class RingRegions {
      * @return dense index of the nearest face, or {@link MeshTopology#NONE} on an empty surface
      */
     public int nearestActiveFace(float x, float y, float z) {
-        // Blocks of faces are searched in parallel; the first block holding the smallest
-        // distance wins, and within a block the first face, so a tie goes to the lowest face.
         int faceCount = faceCentroid.length / TRIANGLE_CORNERS;
         int tasks = (faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK;
         int[] nearestOfTask = new int[tasks];
@@ -1340,14 +1290,11 @@ public final class RingRegions {
             faceInCrease = inCrease;
             faceCurvatureCreases = creases;
         }
-        // A region that kept its faces and walls since the last measure keeps its flatness.
         boolean reusing = formerFlatnessCreases == creases;
         boolean[] measured = new boolean[regionCount];
         for (int region = 0; region < regionCount; region++) {
             measured[region] = !reusing || !regionKeptFaces[region] || regionWallsChanged[region];
         }
-        // Face steps from the nearest face beside a ring edge, never crossing a ring; a face no
-        // ring reaches keeps Integer.MAX_VALUE.
         if (ringSteps.length != faceCount) {
             ringSteps = new int[faceCount];
             faceInterior = new boolean[faceCount];
@@ -1381,7 +1328,6 @@ public final class RingRegions {
             }
         }
         int[] regionDepth = new int[regionCount];
-        // The deepest face holds the region's label; a region no ring bounds takes its lowest face.
         int[] deepestFace = new int[regionCount];
         Arrays.fill(deepestFace, MeshTopology.NONE);
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
@@ -1400,8 +1346,6 @@ public final class RingRegions {
             faceInterior[activeFace] = ringSteps[activeFace] > Math.max(NEAR_RING_FACE_STEPS,
                     NEAR_RING_DEPTH_SHARE * regionDepth[regionByActiveFace[activeFace]]);
         }
-        // Crease patches: crease faces on one side of the near distance, joined across edges no
-        // ring marks.
         double[] creaseArea = new double[regionCount];
         double[] interiorArea = new double[regionCount];
         double[] largestNearArea = new double[regionCount];

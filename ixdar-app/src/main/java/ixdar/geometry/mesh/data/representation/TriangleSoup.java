@@ -14,14 +14,10 @@ public final class TriangleSoup {
 
     public static final int NEIGHBOUR_SET_ORDER_FIXING_CAPACITY = 6;
 
-    // The table java.util.HashMap gives that capacity: the next power of two.
     public static final int NEIGHBOUR_SET_FIRST_TABLE = 8;
 
-    // Entries a bucket may hold before the next would make java.util.HashMap treeify it or grow
-    // the table out of turn (its TREEIFY_THRESHOLD less one), leaving the order rebuilt here.
     public static final int NEIGHBOUR_SET_LONG_BIN = 7;
 
-    // java.util.HashMap folds a hash's high half onto its low half by this shift.
     public static final int HASH_SPREAD_SHIFT = 16;
 
     public static final int VERTICES_PER_TASK = 4096;
@@ -61,12 +57,6 @@ public final class TriangleSoup {
      * @return neighbour indices per vertex index, empty for one no triangle uses
      */
     public static int[][] oneRings(int[] triangles, int vertexBound) {
-        // That order is rebuilt on flat arrays, vertices in parallel: the set's table starts at
-        // NEIGHBOUR_SET_FIRST_TABLE buckets and doubles past three quarters full, iteration runs
-        // bucket by bucket, and a bucket keeps its entries in the order they were added. A bucket
-        // reaching NEIGHBOUR_SET_LONG_BIN entries would make the set restructure it, so that
-        // vertex is read off a real set instead.
-        // Every corner offers its vertex the triangle's two other corners, in corner order.
         int[] start = new int[vertexBound + 1];
         for (int vertex : triangles) {
             start[vertex + 1] += 2;
@@ -122,7 +112,6 @@ public final class TriangleSoup {
                     rings[vertex] = set.stream().mapToInt(Integer::intValue).toArray();
                     continue;
                 }
-                // Bucket by bucket, each bucket's entries in the order they were added.
                 for (int sorted = 1; sorted < size; sorted++) {
                     int neighbour = ring[sorted];
                     int bucket = bucket(neighbour, table);

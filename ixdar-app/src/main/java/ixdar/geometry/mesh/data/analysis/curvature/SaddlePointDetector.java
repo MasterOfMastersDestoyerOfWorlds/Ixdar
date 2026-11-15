@@ -23,22 +23,9 @@ import ixdar.geometry.mesh.data.representation.TriangleSoup;
 public final class SaddlePointDetector {
     public static final float EPSILON = 1e-12f;
 
-    // Only fire at saddles whose magnitudes exceed these adaptive percentiles
-    // of the per-vertex κ distributions. Keeps incidental skull saddles
-    // quiet while the inter-tooth saddles — which sit in the top tail of
-    // both curvatures — still trip the detector.
     private static final float KMAX_PERCENTILE = 0.90f;
     private static final float KMIN_PERCENTILE = 0.90f;
-    // Steps per side to walk from each saddle seed along ±dirMax. A skull
-    // tooth is ≈6–10 edges wide, so 6 steps per side (13 edges total)
-    // reaches across an inter-tooth gap plus a margin onto the adjacent
-    // tooth surfaces, which is what we need to interrupt region-growing
-    // cleanly — a cut that only reaches the crown of one tooth lets flood
-    // fill go around it.
     private static final int STEPS_PER_SIDE = 6;
-    // Minimum edge/direction alignment to take a step. 0.3 ≈ 72° cone,
-    // tight enough to avoid hairpin turns but loose enough to survive
-    // irregular triangulation at tooth edges.
     private static final float MIN_DOT = 0.3f;
 
     private SaddlePointDetector() {}
@@ -58,11 +45,9 @@ public final class SaddlePointDetector {
         float[] positions = ed.positions();
         int[][] ring = TriangleSoup.oneRings(ed.triangles(), vertexIdBound);
 
-        // Adaptive per-mesh thresholds on κMax and −κMin. Top 10% of each.
         float kMaxT = percentile(mesh, pdf, /*max=*/true, KMAX_PERCENTILE);
         float kMinT = percentile(mesh, pdf, /*max=*/false, KMIN_PERCENTILE);
 
-        // Candidate saddles: both principals above the adaptive thresholds.
         boolean[] candidate = new boolean[vertexIdBound];
         float[] strength = new float[vertexIdBound];
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
@@ -71,17 +56,9 @@ public final class SaddlePointDetector {
             float kmin = pdf.kappaMin(vertexId);
             if (kmax > kMaxT && kmin < -kMinT) {
                 candidate[vertexId] = true;
-                // Saddle strength = limiting principal. min(|κ₁|,|κ₂|) keeps
-                // both signs informative — a vertex with one strong axis
-                // and one marginal axis scores below a vertex where both
-                // axes are strongly opposite-signed.
                 strength[vertexId] = Math.min(kmax, -kmin);
             }
         }
-        // NMS: only keep vertices whose saddle strength is maximal in their
-        // 1-ring. Without this, a cluster of saddle-like vertices at the
-        // bottom of one inter-tooth valley would all fire and produce
-        // overlapping cuts that fragment the surrounding teeth.
         List<Integer> seeds = new ArrayList<>();
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);

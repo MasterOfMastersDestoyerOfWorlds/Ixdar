@@ -134,8 +134,6 @@ public class MainScene extends Scene {
         this.backScene = backScene;
         PointND.resetIds();
         if (Compat.isBlank(fileName)) {
-            // pointSetPath = PointSetPath.importFromFile(tempFile);
-            // terminal = new Terminal(tempFile);
         } else {
             this.fileName = fileName;
             TextFile file = FileManagement.getFile(fileName);

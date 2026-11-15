@@ -79,7 +79,6 @@ public class MirrorGeometryNode implements MeshNode {
             return;
         }
 
-        // Build mirror transform: negate the chosen axis
         Matrix4f mirror = new Matrix4f();
         switch (axis.toUpperCase()) {
             case Y -> mirror.scaling(1, -1, 1);
@@ -87,7 +86,6 @@ public class MirrorGeometryNode implements MeshNode {
             default -> mirror.scaling(-1, 1, 1);
         }
 
-        // Create mirrored copy with reversed winding
         HalfEdgeMesh mirrored = new HalfEdgeMesh();
         Vector3f p = new Vector3f();
         Vector4f ph = new Vector4f();
@@ -105,7 +103,6 @@ public class MirrorGeometryNode implements MeshNode {
             int fid = mesh.faceIdAt(fi);
             int fc = mesh.faceVertexCount(fid);
             int[] nv = new int[fc];
-            // Reverse winding to maintain consistent normals after mirror
             for (int k = 0; k < fc; k++) {
                 int ov = mesh.faceVertexAt(fid, fc - 1 - k);
                 nv[k] = idMap.get(ov);
@@ -113,8 +110,6 @@ public class MirrorGeometryNode implements MeshNode {
             mirrored.addFace(nv);
         }
 
-        // Join original + mirrored: the copy is the base again, as a second operand, so every
-        // slot follows it, its corners matched backwards through the reversed winding.
         HalfEdgeMesh combined = new HalfEdgeMesh();
         Matrix4f identity = new Matrix4f();
         MeshAppend.append(combined, mesh, identity);
@@ -139,7 +134,6 @@ public class MirrorGeometryNode implements MeshNode {
         combined.computeNormals();
         GeometryBundle doubled = SlotCarry.carry(List.of(base, base), GeometryBundle.ofMesh(combined));
 
-        // A handle is a direction, so the mirrored half's handles reflect across the plane.
         if (doubled.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START) instanceof float[] start
                 && doubled.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_END) instanceof float[] end) {
             int axisIndex = switch (axis.toUpperCase()) {
@@ -156,7 +150,6 @@ public class MirrorGeometryNode implements MeshNode {
             }
         }
 
-        // Weld seam vertices; the weld records its own provenance for the second carry.
         GeometryBundle out = md > 0f
                 ? SlotCarry.carry(List.of(doubled), GeometryBundle.ofMesh(MeshMergeByDistance.merge(combined, md)))
                 : doubled;

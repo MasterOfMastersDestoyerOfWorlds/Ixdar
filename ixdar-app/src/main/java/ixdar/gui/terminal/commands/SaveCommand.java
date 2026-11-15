@@ -53,7 +53,6 @@ public class SaveCommand extends TerminalCommand {
         File newFile = new File(dirFile, newFileName + IX);
         try {
             newFile.createNewFile();
-            //FileManagement.copyFileContents(Main.tempFile, newFile);
         } catch (IOException e) {
             terminal.error("could not save file: " + newFileName);
         }

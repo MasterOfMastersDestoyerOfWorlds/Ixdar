@@ -96,7 +96,6 @@ public class HeadlessPlatform implements Platform {
     /** No-op: headless has no window decoration. */
     @Override
     public void setTitle(String title) {
-        // no-op
     }
 
     /** {@inheritDoc}. */
@@ -114,7 +113,6 @@ public class HeadlessPlatform implements Platform {
     /** No-op: headless renders on demand from test code. */
     @Override
     public void requestRepaint() {
-        // no-op
     }
 
     /** {@inheritDoc}. */
@@ -126,37 +124,31 @@ public class HeadlessPlatform implements Platform {
     /** No-op: headless does not deliver keyboard events. */
     @Override
     public void setKeyCallback(KeyCallback callback) {
-        // no-op
     }
 
     /** No-op: headless does not deliver text input. */
     @Override
     public void setCharCallback(CharCallback callback) {
-        // no-op
     }
 
     /** No-op: headless does not deliver cursor positions. */
     @Override
     public void setCursorPosCallback(CursorPosCallback callback) {
-        // no-op
     }
 
     /** No-op: headless does not deliver mouse-button events. */
     @Override
     public void setMouseButtonCallback(MouseButtonCallback callback) {
-        // no-op
     }
 
     /** No-op: headless does not deliver scroll events. */
     @Override
     public void setScrollCallback(ScrollCallback callback) {
-        // no-op
     }
 
     /** No-op: headless has no window or cursor. */
     @Override
     public void setCursorMode(CursorMode mode) {
-        // no-op — headless has no window or cursor
     }
 
     /** Parse atlas JSON via Gson (same as desktop). */
@@ -219,7 +211,6 @@ public class HeadlessPlatform implements Platform {
     /** No-op: tests must not terminate the JVM. */
     @Override
     public void exit(int code) {
-        // no-op for tests
     }
 
     /**
@@ -461,7 +452,6 @@ public class HeadlessPlatform implements Platform {
     /** No-op: headless has no input queue to drain. */
     @Override
     public void processInputQueue() {
-        // no-op for headless
     }
 
     /**

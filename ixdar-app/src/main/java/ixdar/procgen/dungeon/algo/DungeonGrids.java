@@ -109,7 +109,6 @@ public final class DungeonGrids {
             }
             int he = mesh.edgeHalfEdge(mesh.edgeIdAt(ei));
             pairs[w++] = denseOf[mesh.halfEdgeVertex(he)];
-            // The twin's start vertex is this half-edge's end; wire edges have no next half-edge.
             pairs[w++] = denseOf[mesh.halfEdgeVertex(mesh.halfEdgeTwin(he))];
         }
         return pairs;

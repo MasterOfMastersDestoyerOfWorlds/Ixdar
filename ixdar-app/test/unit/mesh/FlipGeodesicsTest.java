@@ -42,8 +42,6 @@ class FlipGeodesicsTest {
 
     private static final int SPHERE_SUBDIVISIONS = 4;
 
-    // A tightened loop keeps one vertex, whose O(h^2) kink measured 3.28e-3, 1.45e-3, 8.1e-4 and
-    // 3.6e-4 rad at 48, 72, 96 and 144 tube segments; only an open path reaches pi exactly.
     private static final double CLOSURE_KINK_LIMIT = 5e-3;
 
     private static final String MESH_PORT = "mesh";

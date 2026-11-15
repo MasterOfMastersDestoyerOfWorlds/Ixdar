@@ -63,7 +63,6 @@ public final class CameraGridSweep {
             }
             lastClear = t;
         }
-        // Final endpoint check (loop may stop just short of dist due to step granularity).
         if (overlapsObstacle(desired, cameraRadius, cells, gridW, gridH, gridD, cellSize)) {
             float clipped = Math.max(0f, lastClear - padding);
             return new Vector3f(pivot.x() + dir.x() * clipped,

@@ -109,7 +109,6 @@ public class BiRailLoftNode implements MeshNode {
             return;
         }
 
-        // Optional second profile for blending
         CurveGeometry profileBCg = (profileBGb != null) ? extractCurve(profileBGb) : null;
 
         int xRes = FieldBroadcast.intAt(
@@ -133,7 +132,6 @@ public class BiRailLoftNode implements MeshNode {
         float[] profileAV = new float[yRes];
         normalizeProfile(profileA, yRes, profileAU, profileAV);
 
-        // Extract and normalize profile B (or reuse A if not provided)
         float[] profileBU;
         float[] profileBV;
         if (profileBCg != null) {
@@ -147,7 +145,6 @@ public class BiRailLoftNode implements MeshNode {
             profileBV = profileAV;
         }
 
-        // Optional blend closure for per-station blending along the rail
         FloatCurveKernel blendKernel = ctx.getInput(BLEND_CLOSURE.name, FloatCurveKernel.class);
 
         float depthScale = FieldBroadcast.floatAt(
@@ -156,12 +153,9 @@ public class BiRailLoftNode implements MeshNode {
         float isoCurveT = FieldBroadcast.floatAt(
                 FieldBroadcast.getInputOrDefault(ctx, ISO_CURVE_T.name, ISO_CURVE_T.defaultValue), 0, -1f);
 
-        // Build loft mesh with two-profile blending
-        // If iso_curve_t >= 0, also extract the iso-parameter curve at that profile fraction
         float[] isoCurvePositions = (isoCurveT >= 0f && isoCurveT <= 1f) ? new float[xRes * 3] : null;
         int isoRow = (isoCurvePositions != null) ? Math.round(isoCurveT * (yRes - 1)) : -1;
 
-        // Always extract boundary curves (yi=0 → boundary_a, yi=yRes-1 → boundary_b)
         float[] boundaryAPositions = new float[xRes * 3];
         float[] boundaryBPositions = new float[xRes * 3];
 
@@ -173,7 +167,6 @@ public class BiRailLoftNode implements MeshNode {
                 isoRow, isoCurvePositions, boundaryAPositions, boundaryBPositions);
         mesh.computeNormals();
 
-        // Solidify the open loft surface to make it watertight
         MeshTopology finalMesh;
         if (thickness > 0f) {
             finalMesh = SolidifyMeshNode.solidify(mesh, thickness);
@@ -184,7 +177,6 @@ public class BiRailLoftNode implements MeshNode {
         GeometryBundle outBundle = GeometryBundle.empty().withMesh(finalMesh);
         ctx.setOutput(GEOMETRY.name, outBundle);
 
-        // Output iso-curve if requested
         if (isoCurvePositions != null) {
             ctx.setOutput(ISO_CURVE.name, GeometryBundle.empty().withSlot(CurveGeometry.SLOT,
                     CurveGeometry.singlePolyline(isoCurvePositions, closedRails)));
@@ -192,7 +184,6 @@ public class BiRailLoftNode implements MeshNode {
             ctx.setOutput(ISO_CURVE.name, GeometryBundle.empty());
         }
 
-        // Output boundary curves (always available — these are the actual surface edges)
         ctx.setOutput(BOUNDARY_A.name, GeometryBundle.empty().withSlot(CurveGeometry.SLOT,
                 CurveGeometry.singlePolyline(boundaryAPositions, closedRails)));
         ctx.setOutput(BOUNDARY_B.name, GeometryBundle.empty().withSlot(CurveGeometry.SLOT,
@@ -221,7 +212,6 @@ public class BiRailLoftNode implements MeshNode {
         cx /= n;
         cy /= n;
 
-        // Scale based on U (across) extent only, so cross-section fills the rail gap
         float maxU = 0;
         for (int i = 0; i < n; i++) {
             maxU = Math.max(maxU, Math.abs(profile[i * 3] - cx));
@@ -258,11 +248,9 @@ public class BiRailLoftNode implements MeshNode {
         int[][] vid = new int[xRes][yRes];
 
         for (int xi = 0; xi < xRes; xi++) {
-            // Rail positions at this station
             pA.set(railA[xi * 3], railA[xi * 3 + 1], railA[xi * 3 + 2]);
             pB.set(railB[xi * 3], railB[xi * 3 + 1], railB[xi * 3 + 2]);
 
-            // Tangent: forward direction along rails
             int next = (xi + 1) % xRes;
             if (closed || xi < xRes - 1) {
                 tangent.set(
@@ -286,17 +274,13 @@ public class BiRailLoftNode implements MeshNode {
             if (tangent.lengthSquared() < MIN_TANGENT_LENGTH_SQUARED) tangent.set(0, 0, 1);
             tangent.normalize();
 
-            // Across: direction from rail A to rail B
             across.set(pB).sub(pA);
             float railSpacing = across.length();
             if (railSpacing < MIN_LENGTH) railSpacing = FALLBACK_RAIL_SPACING;
             across.normalize();
 
-            // Up: perpendicular to tangent and across
             up.set(tangent).cross(across);
             if (up.lengthSquared() < PARALLEL_LENGTH_SQUARED_THRESHOLD) {
-                // Tangent nearly parallel to across — use world-up fallback
-                // Pick the axis least aligned with across as the reference direction
                 float ax = Math.abs(across.x), ay = Math.abs(across.y), az = Math.abs(across.z);
                 if (ay <= ax && ay <= az) {
                     up.set(0, 1, 0);
@@ -305,7 +289,6 @@ public class BiRailLoftNode implements MeshNode {
                 } else {
                     up.set(0, 0, 1);
                 }
-                // Orthogonalize: up = up - (up·across)*across, then normalize
                 float dot = up.dot(across);
                 up.x -= dot * across.x;
                 up.y -= dot * across.y;
@@ -313,14 +296,10 @@ public class BiRailLoftNode implements MeshNode {
             }
             up.normalize();
 
-            // Center point between rails
             float cx = (pA.x + pB.x) * 0.5f;
             float cy = (pA.y + pB.y) * 0.5f;
             float cz = (pA.z + pB.z) * 0.5f;
 
-            // Place profile at this station, blending between profile A and B.
-            // When blendKernel is provided, blend varies per-station (along rail, xi direction).
-            // When null, blend varies per-point (across cross-section, yi direction).
             float stationBlend = (blendKernel != null)
                     ? blendKernel.evaluate((xRes > 1) ? (float) xi / (xRes - 1) : 0.5f)
                     : Float.NaN; // sentinel: use per-yi blend
@@ -337,13 +316,11 @@ public class BiRailLoftNode implements MeshNode {
                 float pz = cz + across.z * u + up.z * v;
                 vid[xi][yi] = mesh.addVertex(px, py, pz);
 
-                // Record iso-curve point if this is the target row
                 if (isoCurveOut != null && yi == isoRow) {
                     isoCurveOut[xi * 3] = px;
                     isoCurveOut[xi * 3 + 1] = py;
                     isoCurveOut[xi * 3 + 2] = pz;
                 }
-                // Record boundary curves (first and last profile rows)
                 if (yi == 0 && boundaryAOut != null) {
                     boundaryAOut[xi * 3] = px;
                     boundaryAOut[xi * 3 + 1] = py;
@@ -357,7 +334,6 @@ public class BiRailLoftNode implements MeshNode {
             }
         }
 
-        // Connect quads
         for (int xi = 0; xi < spans; xi++) {
             int next = (xi + 1) % xRes;
             for (int yi = 0; yi < yRes - 1; yi++) {

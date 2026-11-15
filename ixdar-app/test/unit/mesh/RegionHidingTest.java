@@ -146,7 +146,6 @@ class RegionHidingTest {
      */
     @Test
     void aRingRevisionThatLeavesEveryMaskAsItWasKeepsTheRegions() {
-        // The first frame only draws the new surface; the second builds its regions.
         scene.updateScene();
         scene.updateScene();
         int[] built = scene.regionLayer.regions.regionByActiveFace;
@@ -168,7 +167,6 @@ class RegionHidingTest {
 
     @Test
     void picksAndDrawsSkipHiddenFacesUntilShowAll() {
-        // The first frame builds the regions, the second the region tool's pick buffer.
         scene.updateScene();
         scene.updateScene();
         RingRegions regions = scene.regionLayer.regions;
@@ -232,7 +230,6 @@ class RegionHidingTest {
         if (scene.meshRuntime.facePick.vertexCount == 0) {
             return faces;
         }
-        // Each pick vertex is its position, then its face's id as three colour channels.
         int stride = HalfEdgeMeshRuntime.FACE_PICK_LAYOUT.floatsPerVertex;
         for (int vertex = 0; vertex + stride <= lastFloatUpload.length; vertex += stride) {
             int code = 0;

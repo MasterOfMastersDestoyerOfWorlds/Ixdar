@@ -88,7 +88,6 @@ class PixelPickProjectTest {
                                 : standInDefault(method));
         Platforms.init(window, noGl);
         MeshTopology tube = RingAnchorOrderTest.tube(0f, RADIUS);
-        // Named apart from the scene's inherited runtime field, which would shadow it inside.
         HalfEdgeMeshRuntime drawnRuntime = new HalfEdgeMeshRuntime();
         scene = new RingScene() {
             @Override
