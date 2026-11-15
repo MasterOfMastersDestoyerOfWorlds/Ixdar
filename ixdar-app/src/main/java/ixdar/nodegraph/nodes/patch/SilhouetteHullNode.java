@@ -151,30 +151,31 @@ public class SilhouetteHullNode implements MeshNode {
         }
         float frameHalf = sketch.distance * (float) Math.tan(Math.toRadians(sketch.fieldOfViewDegrees) / 2.0)
                 * Math.max(1f, width / (float) height);
-        float[] lower = { sketch.center[0] - frameHalf, sketch.center[1] - frameHalf, sketch.center[2] - frameHalf };
-        float[] upper = { sketch.center[0] + frameHalf, sketch.center[1] + frameHalf, sketch.center[2] + frameHalf };
+        Vector3f lower = new Vector3f(sketch.center).sub(frameHalf, frameHalf, frameHalf);
+        Vector3f upper = new Vector3f(sketch.center).add(frameHalf, frameHalf, frameHalf);
         int required = Math.max(Math.min(viewCount, MINIMUM_AGREEING_VIEWS), viewCount - misses);
         VoxelGrid grid = null;
         boolean[] hull = new boolean[0];
         Vector3f point = new Vector3f();
         Vector4f clip = new Vector4f();
         for (int pass = 0; pass < PASSES; pass++) {
-            float spacing = Math.max(upper[0] - lower[0], Math.max(upper[1] - lower[1], upper[2] - lower[2]))
-                    / (resolution - 2 * MARGIN_VOXELS - 1);
+            Vector3f extent = new Vector3f(upper).sub(lower);
+            float spacing = extent.get(extent.maxComponent()) / (resolution - 2 * MARGIN_VOXELS - 1);
             int[] size = new int[VoxelGrid.AXES];
             for (int axis = 0; axis < VoxelGrid.AXES; axis++) {
-                size[axis] = (int) Math.ceil((upper[axis] - lower[axis]) / spacing) + 1 + 2 * MARGIN_VOXELS;
-                lower[axis] -= MARGIN_VOXELS * spacing;
+                size[axis] = (int) Math.ceil(extent.get(axis) / spacing) + 1 + 2 * MARGIN_VOXELS;
             }
+            float margin = MARGIN_VOXELS * spacing;
+            lower.sub(margin, margin, margin);
             grid = new VoxelGrid(size, lower, spacing);
             hull = new boolean[grid.values.length];
-            float max = Float.MAX_VALUE;
-            float[] found = { max, max, max, -max, -max, -max };
+            Vector3f foundLow = new Vector3f(Float.MAX_VALUE);
+            Vector3f foundHigh = new Vector3f(-Float.MAX_VALUE);
             for (int index = 0; index < hull.length; index++) {
                 grid.position(index, point);
                 float score = 0f;
                 for (int side = 0; side < (mirrored ? 2 : 1); side++) {
-                    float x = side == 0 ? point.x : 2f * sketch.center[0] - point.x;
+                    float x = side == 0 ? point.x : 2f * sketch.center.x - point.x;
                     for (int view = 0; view < viewCount; view++) {
                         projections[view].transform(clip.set(x, point.y, point.z, 1f));
                         int column = (int) Math.floor((clip.x / clip.w + 1f) / 2f * width);
@@ -186,19 +187,17 @@ public class SilhouetteHullNode implements MeshNode {
                     score += viewDepths[viewCount - required];
                 }
                 hull[index] = score > 0f;
-                for (int axis = 0; axis < VoxelGrid.AXES && hull[index]; axis++) {
-                    found[axis] = Math.min(found[axis], point.get(axis));
-                    found[axis + VoxelGrid.AXES] = Math.max(found[axis + VoxelGrid.AXES], point.get(axis));
+                if (hull[index]) {
+                    foundLow.min(point);
+                    foundHigh.max(point);
                 }
             }
-            if (found[0] > found[VoxelGrid.AXES]) {
+            if (foundLow.x > foundHigh.x) {
                 throw new IllegalArgumentException(NODE_ID + ": the outlines' views keep no common volume; "
                         + "raise misses or check the traces");
             }
-            for (int axis = 0; axis < VoxelGrid.AXES; axis++) {
-                lower[axis] = found[axis] - spacing;
-                upper[axis] = found[axis + VoxelGrid.AXES] + spacing;
-            }
+            lower.set(foundLow).sub(spacing, spacing, spacing);
+            upper.set(foundHigh).add(spacing, spacing, spacing);
         }
         float[] floor = new float[hull.length];
         float[] ceiling = new float[hull.length];
@@ -208,8 +207,8 @@ public class SilhouetteHullNode implements MeshNode {
             ceiling[index] = indicator[index];
         }
         Matrix4f model = new Matrix4f();
-        float[] origin = new float[VoxelGrid.AXES];
-        float[] direction = new float[VoxelGrid.AXES];
+        Vector3f origin = new Vector3f();
+        Vector3f direction = new Vector3f();
         for (int view = 0; view < viewCount; view++) {
             Camera3D camera = cameras[view];
             float stepPixels = Math.max(1f, grid.spacing * height / (2f * camera.position.distance(camera.orbitTarget)

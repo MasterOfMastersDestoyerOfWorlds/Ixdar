@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -179,9 +180,7 @@ public class MeshToCurveNode implements MeshNode {
         for (int i = 0; i < order.size(); i++) {
             mesh.vertexPosition(order.get(i), p);
             int b = 3 * i;
-            pos[b] = p.x;
-            pos[b + 1] = p.y;
-            pos[b + 2] = p.z;
+            PackedPoints.store(pos, b, p);
         }
         return CurveGeometry.singlePolyline(pos, closed);
     }

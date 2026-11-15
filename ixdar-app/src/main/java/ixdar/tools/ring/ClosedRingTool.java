@@ -4,6 +4,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.analysis.curvature.LimbAxis;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
@@ -51,10 +53,10 @@ public final class ClosedRingTool extends RingSubTool {
     public boolean previewAnchorCapReached;
 
     /** Normal of the plane the preview was cut with, at the precision a save writes. */
-    public final float[] previewPlaneNormal = new float[RingTool.COORDINATES_PER_POINT];
+    public final Vector3f previewPlaneNormal = new Vector3f();
 
-    /** Limb axis estimated at the hit point, packed xyz. */
-    public final float[] previewLimbAxis = new float[RingTool.COORDINATES_PER_POINT];
+    /** Limb axis estimated at the hit point. */
+    public final Vector3f previewLimbAxis = new Vector3f();
 
     /** Confirmed ring under the cursor, which a click re-opens as the draft, or -1 for none. */
     public int hoveredRing = -1;
@@ -64,7 +66,6 @@ public final class ClosedRingTool extends RingSubTool {
 
     private AuthoredSplineRing draftRing;
     private final GirdlingPlane girdle = new GirdlingPlane();
-    private final float[] limbDirection = new float[RingTool.COORDINATES_PER_POINT];
     private AuthoredSplineRing previewRing;
     private int previewAnchorCount;
     private int previewGirdleEdgeCount;
@@ -193,7 +194,7 @@ public final class ClosedRingTool extends RingSubTool {
             return;
         }
         long start = System.nanoTime();
-        float[] hitPoint = scene.cursorPoint;
+        Vector3f hitPoint = scene.cursorPoint;
         int faceId = scene.cursorFaceId;
         double reach = RING_HIT_PIXELS * scene.worldPerPixel();
         for (int ring = 0; ring < ringTool.confirmedRings.size(); ring++) {
@@ -202,7 +203,7 @@ public final class ClosedRingTool extends RingSubTool {
             }
             TracedSurfacePath path = ringTool.confirmedRings.get(ring).spline.path;
             double distance = SurfaceSpline.distanceToPolyline(path.positions, path.pointCount,
-                    hitPoint[0], hitPoint[1], hitPoint[2]);
+                    hitPoint.x, hitPoint.y, hitPoint.z);
             if (distance < reach) {
                 reach = distance;
                 hoveredRing = ring;
@@ -217,9 +218,9 @@ public final class ClosedRingTool extends RingSubTool {
                 double spanX = segments[base + RingTool.COORDINATES_PER_POINT] - segments[base];
                 double spanY = segments[base + RingTool.COORDINATES_PER_POINT + 1] - segments[base + 1];
                 double spanZ = segments[base + RingTool.COORDINATES_PER_POINT + 2] - segments[base + 2];
-                double toX = hitPoint[0] - segments[base];
-                double toY = hitPoint[1] - segments[base + 1];
-                double toZ = hitPoint[2] - segments[base + 2];
+                double toX = hitPoint.x - segments[base];
+                double toY = hitPoint.y - segments[base + 1];
+                double toZ = hitPoint.z - segments[base + 2];
                 double squared = spanX * spanX + spanY * spanY + spanZ * spanZ;
                 double along = squared <= 0.0 ? 0.0
                         : Math.max(0.0, Math.min(1.0,
@@ -235,7 +236,7 @@ public final class ClosedRingTool extends RingSubTool {
             }
         }
         boolean cursorStill = faceId == ringTool.previewedFace
-                && Arrays.equals(hitPoint, ringTool.previewedHit);
+                && hitPoint.equals(ringTool.previewedHit);
         if (hoveredRing >= 0 || hoveredGraphRing != null) {
             ringTool.previewValid = false;
             ringTool.previewedFace = -1;
@@ -249,18 +250,16 @@ public final class ClosedRingTool extends RingSubTool {
         previewGirdleEdgeCount = 0;
         previewLength = 0.0;
         ringTool.previewSpline = null;
-        boolean seeded = limbAxis.curvatureAxisAt(faceId, limbDirection);
-        if (seeded) {
-            System.arraycopy(limbDirection, 0, previewLimbAxis, 0, RingTool.COORDINATES_PER_POINT);
+        Vector3f limbDirection = limbAxis.curvatureAxisAt(faceId);
+        if (limbDirection != null) {
+            previewLimbAxis.set(limbDirection);
         }
-        System.arraycopy(scene.cursorRayDirection, 0, girdle.viewDirection, 0,
-                RingTool.COORDINATES_PER_POINT);
-        boolean found = girdle.find(surface, faceId, hitPoint, seeded ? limbDirection : null);
+        girdle.viewDirection.set(scene.cursorRayDirection);
+        boolean found = girdle.find(surface, faceId, new Vector3f(hitPoint), limbDirection);
         long geodesicsBefore = ringTool.geodesics.geodesicCount;
         if (found) {
             previewGirdleEdgeCount = girdle.cut.path.pointCount;
-            System.arraycopy(RingTool.written(girdle.normal), 0, previewPlaneNormal, 0,
-                    RingTool.COORDINATES_PER_POINT);
+            previewPlaneNormal.set(RingTool.written(girdle.normal));
             if (previewRing == null || previewRing.tracer.geodesics != ringTool.geodesics) {
                 previewRing = new AuthoredSplineRing(ringTool.geodesics);
             }
@@ -287,7 +286,7 @@ public final class ClosedRingTool extends RingSubTool {
         }
         ringTool.previewValid = found;
         ringTool.previewedFace = faceId;
-        System.arraycopy(hitPoint, 0, ringTool.previewedHit, 0, RingTool.COORDINATES_PER_POINT);
+        ringTool.previewedHit.set(hitPoint);
         ringTool.previewMillis = (System.nanoTime() - start) / 1e6;
     }
 
@@ -315,8 +314,7 @@ public final class ClosedRingTool extends RingSubTool {
             int[] anchors = ringTool.fitLoop(EdgeMarks.orderedLoop(ringTool.geodesics.mesh,
                     scene.ringMarksByLabel.get(label)), converted, "graph ring " + label);
             if (anchors.length > 0) {
-                System.arraycopy(RingTool.written(converted.planeNormal), 0,
-                        ringTool.draftBaseNormal, 0, RingTool.COORDINATES_PER_POINT);
+                ringTool.draftBaseNormal.set(RingTool.written(converted.planeNormal));
                 ringTool.draftMode = RingSegmentMode.GEODESIC;
             }
             if (anchors.length == 0
@@ -342,8 +340,7 @@ public final class ClosedRingTool extends RingSubTool {
         ringTool.draftSourceRing = -1;
         ringTool.draftSourceLabel = null;
         ringTool.draftMode = ringTool.newDraftMode();
-        System.arraycopy(previewPlaneNormal, 0, ringTool.draftBaseNormal, 0,
-                RingTool.COORDINATES_PER_POINT);
+        ringTool.draftBaseNormal.set(previewPlaneNormal);
         if (!trace(new int[] { ringTool.previewAuthoredVertexId },
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, true)) {
             return false;
@@ -495,7 +492,7 @@ public final class ClosedRingTool extends RingSubTool {
     }
 
     @Override
-    public float[] draftCrossing() {
+    public Vector3f draftCrossing() {
         return draftRing == null || draftRing.simple ? null : draftRing.crossings.firstCrossingXyz;
     }
 
@@ -580,10 +577,9 @@ public final class ClosedRingTool extends RingSubTool {
             return false;
         }
         if (keepSimple && wasSimple && !draftRing.simple) {
-            float[] at = draftRing.crossings.firstCrossingXyz;
+            Vector3f at = draftRing.crossings.firstCrossingXyz;
             ringTool.lastError = String.format(Locale.ROOT, "refused: the ring would cross itself "
-                    + "near %.4f,%.4f,%.4f - nothing changed; try another place", at[0], at[1],
-                    at[2]);
+                    + "near %.4f,%.4f,%.4f - nothing changed; try another place", at.x, at.y, at.z);
             return false;
         }
         ringTool.draftAuthoredVertexId = draftRing.authoredVertexId;

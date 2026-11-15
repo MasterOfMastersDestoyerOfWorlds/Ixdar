@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data.sculpt;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * An over-sketched outline, its points view rays from its eye: it drags the contour it reaches all
@@ -52,7 +53,7 @@ public final class SilhouetteStroke extends SculptStroke {
         boolean[] outlineBySeed = new boolean[vertexCount];
         boolean outlineReached = false;
         float[] strokeAtDepth = new float[pointCount * 3];
-        float[] best = new float[3];
+        Vector3f best = new Vector3f();
         int count = 0;
         for (int activeVertex = 0; activeVertex < vertexCount && pointCount >= 2; activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
@@ -96,9 +97,7 @@ public final class SilhouetteStroke extends SculptStroke {
                 if (distance < bestDistance) {
                     bestDistance = distance;
                     bestClamped = clamped;
-                    best[0] = nearestX - position.x;
-                    best[1] = nearestY - position.y;
-                    best[2] = nearestZ - position.z;
+                    best.set(nearestX - position.x, nearestY - position.y, nearestZ - position.z);
                 }
             }
             float seen = bestClamped || bestDistance > radius ? 0f
@@ -108,7 +107,7 @@ public final class SilhouetteStroke extends SculptStroke {
             }
             outlineBySeed[count] = seen == 1f;
             outlineReached |= seen == 1f;
-            System.arraycopy(best, 0, sum.seedDragXyz, count * 3, 3);
+            PackedPoints.store(sum.seedDragXyz, count * 3, best);
             sum.sources[count++] = vertexId;
         }
         int kept = 0;

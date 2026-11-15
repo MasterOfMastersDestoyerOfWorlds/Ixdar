@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -135,14 +136,12 @@ public class CoonsLoopCutNode implements MeshNode {
             int vid = mesh.vertexIdAt(i);
             oldToNew.put(vid, i);
             mesh.vertexPosition(vid, tmpA);
-            origPos[i * 3] = tmpA.x;
-            origPos[i * 3 + 1] = tmpA.y;
-            origPos[i * 3 + 2] = tmpA.z;
+            PackedPoints.store(origPos, i * 3, tmpA);
         }
 
         Map<Integer, int[]> splitMids = new HashMap<>();
         ArrayList<Float> extraPos = new ArrayList<>();
-        Map<Long, float[]> dh = new HashMap<>();
+        Map<Long, Vector3f> dh = new HashMap<>();
 
         for (int ei = 0; ei < mesh.edgeCount(); ei++) {
             int eid = mesh.edgeIdAt(ei);
@@ -151,8 +150,8 @@ public class CoonsLoopCutNode implements MeshNode {
             int ca = mesh.halfEdgeVertex(he), cb = mesh.halfEdgeEndVertex(he);
             int na = oldToNew.get(ca), nb = oldToNew.get(cb);
             int o = eid * 3;
-            dh.put(CoonsHandleBuilder.dirPack(na, nb), new float[]{hStart[o], hStart[o + 1], hStart[o + 2]});
-            dh.put(CoonsHandleBuilder.dirPack(nb, na), new float[]{hEnd[o], hEnd[o + 1], hEnd[o + 2]});
+            dh.put(CoonsHandleBuilder.dirPack(na, nb), PackedPoints.at(hStart, o));
+            dh.put(CoonsHandleBuilder.dirPack(nb, na), PackedPoints.at(hEnd, o));
         }
 
         int nextVid = origCount;
@@ -187,10 +186,8 @@ public class CoonsLoopCutNode implements MeshNode {
                 extraPos.add(sr.splitPoint.y);
                 extraPos.add(sr.splitPoint.z);
 
-                dh.put(CoonsHandleBuilder.dirPack(prevVid, sv),
-                        new float[]{sr.leftCp1.x - rP0.x, sr.leftCp1.y - rP0.y, sr.leftCp1.z - rP0.z});
-                dh.put(CoonsHandleBuilder.dirPack(sv, prevVid),
-                        new float[]{sr.leftCp2.x - sr.splitPoint.x, sr.leftCp2.y - sr.splitPoint.y, sr.leftCp2.z - sr.splitPoint.z});
+                dh.put(CoonsHandleBuilder.dirPack(prevVid, sv), new Vector3f(sr.leftCp1).sub(rP0));
+                dh.put(CoonsHandleBuilder.dirPack(sv, prevVid), new Vector3f(sr.leftCp2).sub(sr.splitPoint));
 
                 rP0.set(sr.splitPoint);
                 rP1.set(sr.rightCp1);
@@ -198,8 +195,8 @@ public class CoonsLoopCutNode implements MeshNode {
                 prevVid = sv;
             }
 
-            dh.put(CoonsHandleBuilder.dirPack(prevVid, nCb), new float[]{rP1.x - rP0.x, rP1.y - rP0.y, rP1.z - rP0.z});
-            dh.put(CoonsHandleBuilder.dirPack(nCb, prevVid), new float[]{rP2.x - rP3.x, rP2.y - rP3.y, rP2.z - rP3.z});
+            dh.put(CoonsHandleBuilder.dirPack(prevVid, nCb), new Vector3f(rP1).sub(rP0));
+            dh.put(CoonsHandleBuilder.dirPack(nCb, prevVid), new Vector3f(rP2).sub(rP3));
 
             splitMids.put(eid, mids);
         }
@@ -356,7 +353,7 @@ public class CoonsLoopCutNode implements MeshNode {
             int splitEid1, int splitFrom1, int splitTo1,
             int[] mids0, int[] mids1,
             int cuts, int origCount, float[] origPos, ArrayList<Float> extraPos,
-            Map<Long, float[]> dh) {
+            Map<Long, Vector3f> dh) {
 
         Vector3f[] perpCp0 = getEdgeCp(mesh, hStart, hEnd, perpEid0, perpFrom0);
         Vector3f[] perpCp1 = getEdgeCp(mesh, hStart, hEnd, perpEid1, perpFrom1);
@@ -382,10 +379,8 @@ public class CoonsLoopCutNode implements MeshNode {
                     .add(new Vector3f(c0).mul(1f / 3f))
                     .add(new Vector3f(c1).mul(2f / 3f));
 
-            float[] hs = {crossP1.x - m0.x, crossP1.y - m0.y, crossP1.z - m0.z};
-            float[] he = {crossP2.x - m1.x, crossP2.y - m1.y, crossP2.z - m1.z};
-            dh.put(CoonsHandleBuilder.dirPack(mids0[k], mids1[k]), hs);
-            dh.put(CoonsHandleBuilder.dirPack(mids1[k], mids0[k]), he);
+            dh.put(CoonsHandleBuilder.dirPack(mids0[k], mids1[k]), crossP1.sub(m0));
+            dh.put(CoonsHandleBuilder.dirPack(mids1[k], mids0[k]), crossP2.sub(m1));
         }
     }
 
@@ -406,8 +401,8 @@ public class CoonsLoopCutNode implements MeshNode {
         int ca = mesh.halfEdgeVertex(he), cb = mesh.halfEdgeEndVertex(he);
         int o = eid * 3;
         Vector3f posCa = getPos(mesh, ca), posCb = getPos(mesh, cb);
-        Vector3f offS = new Vector3f(hStart[o], hStart[o + 1], hStart[o + 2]);
-        Vector3f offE = new Vector3f(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
+        Vector3f offS = PackedPoints.at(hStart, o);
+        Vector3f offE = PackedPoints.at(hEnd, o);
         if (fromVid == ca) {
             return new Vector3f[]{
                     new Vector3f(posCa),
@@ -424,14 +419,14 @@ public class CoonsLoopCutNode implements MeshNode {
     }
 
     private static Vector3f getPos(MeshTopology mesh, int vid) {
-        return mesh.vertexPosition(vid, new Vector3f());
+        return mesh.vertexPosition(vid);
     }
 
     private static Vector3f getNewPos(int newVid, int origCount, float[] origPos,
             ArrayList<Float> extraPos) {
         if (newVid < origCount) {
             int o = newVid * 3;
-            return new Vector3f(origPos[o], origPos[o + 1], origPos[o + 2]);
+            return PackedPoints.at(origPos, o);
         }
         int o = (newVid - origCount) * 3;
         return new Vector3f(extraPos.get(o), extraPos.get(o + 1), extraPos.get(o + 2));

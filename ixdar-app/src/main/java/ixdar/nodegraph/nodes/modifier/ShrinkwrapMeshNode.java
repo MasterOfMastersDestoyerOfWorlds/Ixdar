@@ -7,6 +7,7 @@ import java.util.Objects;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.SlotCarry;
@@ -70,9 +71,7 @@ public class ShrinkwrapMeshNode implements MeshNode {
         Vector3f normal = new Vector3f();
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             mesh.vertexNormal(mesh.vertexIdAt(activeVertex), normal).normalize();
-            normalXyz[activeVertex * 3] = normal.x;
-            normalXyz[activeVertex * 3 + 1] = normal.y;
-            normalXyz[activeVertex * 3 + 2] = normal.z;
+            PackedPoints.store(normalXyz, activeVertex * 3, normal);
         }
         MeshProjection hits = MeshProjection.along(xyz, normalXyz, target.mesh());
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {

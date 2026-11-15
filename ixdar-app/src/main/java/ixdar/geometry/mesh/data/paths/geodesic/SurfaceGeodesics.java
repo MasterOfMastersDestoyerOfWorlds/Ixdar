@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.data.paths.geodesic;
 
 import java.util.Arrays;
 
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -130,38 +131,36 @@ public final class SurfaceGeodesics {
     }
 
     /**
-     * The point at a fraction of the last geodesic's arc length, and the mesh vertex nearest it.
+     * The exact surface point at a fraction of the last geodesic's arc length.
      *
-     * @param fraction  fraction of the arc length, clamped into {@code [0, 1]}
-     * @param pointXyz  filled with the exact surface point, or left alone when null
-     * @return the nearest mesh vertex id, or -1 when no geodesic is held
+     * @param fraction fraction of the arc length, clamped into {@code [0, 1]}
+     * @return the point, or null when no geodesic is held
      */
-    public int vertexAtFraction(double fraction, float[] pointXyz) {
+    public Vector3f pointAtFraction(double fraction) {
         if (tracedPointCount < 2) {
-            return -1;
+            return null;
         }
         double target = Math.max(0.0, Math.min(1.0, fraction)) * pathLength;
-        int point = 1;
-        while (point < tracedPointCount - 1 && tracedArcLength[point] < target) {
-            point++;
-        }
+        int point = segmentEndAt(target);
         int previous = point - 1;
         double span = tracedArcLength[point] - tracedArcLength[previous];
         double along = span <= 0.0 ? 0.0 : (target - tracedArcLength[previous]) / span;
-        double x = tracedXyz[COORDINATES_PER_POINT * previous]
-                + along * (tracedXyz[COORDINATES_PER_POINT * point]
-                        - tracedXyz[COORDINATES_PER_POINT * previous]);
-        double y = tracedXyz[COORDINATES_PER_POINT * previous + 1]
-                + along * (tracedXyz[COORDINATES_PER_POINT * point + 1]
-                        - tracedXyz[COORDINATES_PER_POINT * previous + 1]);
-        double z = tracedXyz[COORDINATES_PER_POINT * previous + 2]
-                + along * (tracedXyz[COORDINATES_PER_POINT * point + 2]
-                        - tracedXyz[COORDINATES_PER_POINT * previous + 2]);
-        if (pointXyz != null) {
-            pointXyz[0] = (float) x;
-            pointXyz[1] = (float) y;
-            pointXyz[2] = (float) z;
+        return new Vector3f(tracedPoint(previous).lerp(tracedPoint(point), along));
+    }
+
+    /**
+     * The mesh vertex nearest the point at a fraction of the last geodesic's arc length.
+     *
+     * @param fraction fraction of the arc length, clamped into {@code [0, 1]}
+     * @return the nearest mesh vertex id, or -1 when no geodesic is held
+     */
+    public int vertexAtFraction(double fraction) {
+        Vector3f at = pointAtFraction(fraction);
+        if (at == null) {
+            return -1;
         }
+        int point = segmentEndAt(Math.max(0.0, Math.min(1.0, fraction)) * pathLength);
+        int previous = point - 1;
         int best = -1;
         double bestSquared = Double.POSITIVE_INFINITY;
         for (int side = previous; side <= point; side++) {
@@ -175,7 +174,7 @@ public final class SurfaceGeodesics {
                     continue;
                 }
                 mesh.vertexPosition(candidate, scratchPosition);
-                double squared = scratchPosition.distanceSquared((float) x, (float) y, (float) z);
+                double squared = scratchPosition.distanceSquared(at);
                 if (squared < bestSquared) {
                     bestSquared = squared;
                     best = candidate;
@@ -183,6 +182,21 @@ public final class SurfaceGeodesics {
             }
         }
         return best;
+    }
+
+    /** Index of the traced point that ends the segment holding arc length {@code target}. */
+    private int segmentEndAt(double target) {
+        int point = 1;
+        while (point < tracedPointCount - 1 && tracedArcLength[point] < target) {
+            point++;
+        }
+        return point;
+    }
+
+    /** A traced point at double precision. */
+    private Vector3d tracedPoint(int point) {
+        return new Vector3d(tracedXyz[COORDINATES_PER_POINT * point],
+                tracedXyz[COORDINATES_PER_POINT * point + 1], tracedXyz[COORDINATES_PER_POINT * point + 2]);
     }
 
     /**
@@ -234,12 +248,12 @@ public final class SurfaceGeodesics {
      * handles of a spline are built with.
      *
      * @param fromVertexId vertex the walk starts at
-     * @param directionXyz direction to head in, packed xyz, need not be normalised
+     * @param direction    direction to head in, need not be normalised
      * @param distance     Euclidean distance to cover
      * @return the vertex the walk stopped at, which is {@code fromVertexId} when it could not move
      */
-    public int walkFrom(int fromVertexId, float[] directionXyz, double distance) {
-        walkDirection.set(directionXyz[0], directionXyz[1], directionXyz[2]);
+    public int walkFrom(int fromVertexId, Vector3f direction, double distance) {
+        walkDirection.set(direction);
         if (walkDirection.lengthSquared() <= 0f || distance <= 0.0) {
             return fromVertexId;
         }

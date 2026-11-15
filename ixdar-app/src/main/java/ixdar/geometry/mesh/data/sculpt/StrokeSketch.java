@@ -16,6 +16,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.grid2d.PolygonScan;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
@@ -139,7 +140,7 @@ public final class StrokeSketch {
     private static final Matrix4f WORLD = new Matrix4f();
 
     /** Point the camera orbits, the multiview capture's centre. */
-    public final float[] center = new float[3];
+    public final Vector3f center = new Vector3f();
 
     /** Camera distance from {@link #center}. */
     public float distance;
@@ -279,7 +280,7 @@ public final class StrokeSketch {
         }
         String[] centerValues = values[0].split(NUMBER_SEPARATORS);
         for (int axis = 0; axis < 3; axis++) {
-            sketch.center[axis] = Float.parseFloat(centerValues[axis]);
+            sketch.center.setComponent(axis, Float.parseFloat(centerValues[axis]));
         }
         sketch.distance = Float.parseFloat(values[1]);
         sketch.cellWidth = Integer.parseInt(values[2]);
@@ -291,8 +292,8 @@ public final class StrokeSketch {
         sketch.viewCameras = new float[views.length][];
         for (int view = 0; view < views.length; view++) {
             String[] numbers = views[view].trim().split(NUMBER_SEPARATORS);
-            float[] camera = { 0f, 0f, sketch.distance, 0f, sketch.fieldOfViewDegrees, sketch.center[0],
-                sketch.center[1], sketch.center[2] };
+            float[] camera = { 0f, 0f, sketch.distance, 0f, sketch.fieldOfViewDegrees, sketch.center.x,
+                sketch.center.y, sketch.center.z };
             for (int field = 0; field < Math.min(numbers.length, VIEW_FIELDS); field++) {
                 camera[field] = Float.parseFloat(numbers[field]);
             }
@@ -325,11 +326,12 @@ public final class StrokeSketch {
      * @return false when the point lies behind the camera
      */
     public boolean cellPixel(Camera3D camera, Vector3f point, float[] dest) {
-        if (!camera.projectToPixels(WORLD, point.x, point.y, point.z, cellWidth, cellHeight, dest)) {
+        Vector3f pixel = camera.projectToPixels(WORLD, point, cellWidth, cellHeight);
+        if (pixel == null) {
             return false;
         }
-        dest[0] -= 0.5f;
-        dest[1] -= 0.5f;
+        dest[0] = pixel.x - 0.5f;
+        dest[1] = pixel.y - 0.5f;
         return true;
     }
 
@@ -405,19 +407,19 @@ public final class StrokeSketch {
      * @return false when the pixel's ray runs along the plane
      */
     public boolean cellPlanePoint(Camera3D camera, float x, float y, Vector3f dest) {
-        float[] origin = new float[3];
-        float[] direction = new float[3];
+        Vector3f origin = new Vector3f();
+        Vector3f direction = new Vector3f();
         if (!camera.rayThroughPixel(WORLD, x, y, cellWidth, cellHeight, origin, direction)) {
             return false;
         }
         Vector3f normal = new Vector3f(camera.position).sub(camera.orbitTarget);
-        float along = normal.dot(direction[0], direction[1], direction[2]);
+        float along = normal.dot(direction);
         if (along == 0f) {
             return false;
         }
-        float reach = normal.dot(camera.orbitTarget.x - origin[0], camera.orbitTarget.y - origin[1],
-                camera.orbitTarget.z - origin[2]) / along;
-        dest.set(origin[0] + reach * direction[0], origin[1] + reach * direction[1], origin[2] + reach * direction[2]);
+        float reach = normal.dot(camera.orbitTarget.x - origin.x, camera.orbitTarget.y - origin.y,
+                camera.orbitTarget.z - origin.z) / along;
+        dest.set(origin.x + reach * direction.x, origin.y + reach * direction.y, origin.z + reach * direction.z);
         return true;
     }
 
@@ -528,7 +530,7 @@ public final class StrokeSketch {
         camera.setDistanceBounds(0f, Float.MAX_VALUE);
         camera.fov = viewCamera[VIEW_FIELD_OF_VIEW];
         camera.roll = viewCamera[VIEW_ROLL];
-        camera.moveTarget(new Vector3f(viewCamera[VIEW_CENTER], viewCamera[VIEW_CENTER + 1], viewCamera[VIEW_CENTER + 2]));
+        camera.moveTarget(PackedPoints.at(viewCamera, VIEW_CENTER));
         camera.setOrbit(viewCamera[VIEW_AZIMUTH], viewCamera[VIEW_ELEVATION], viewDistance);
         camera.updateProjection(orthographic, cellWidth / (float) cellHeight, viewDistance * NEAR_PLANE_FRACTION,
                 viewDistance * FAR_PLANE_MULTIPLE);
@@ -600,8 +602,8 @@ public final class StrokeSketch {
         Vector3f toEye = new Vector3f();
         Vector3f ray = new Vector3f();
         Vector3f hit = new Vector3f();
-        float[] origin = new float[3];
-        float[] direction = new float[3];
+        Vector3f origin = new Vector3f();
+        Vector3f direction = new Vector3f();
         StringBuilder allStrokes = new StringBuilder();
         for (int stroke = 0; stroke < shapeTotal; stroke++) {
             String shape = shapes.get(stroke);
@@ -641,7 +643,7 @@ public final class StrokeSketch {
                 pixels[index] -= view % columns * cellWidth;
                 pixels[index + 1] -= view / columns * cellHeight;
             }
-            float centerWorldPerPixel = (float) camera.worldPerPixel(target.x, target.y, target.z, cellHeight);
+            float centerWorldPerPixel = (float) camera.worldPerPixel(target, cellHeight);
             Vector3f forward = new Vector3f(camera.target).sub(camera.position).normalize();
             String eyeFlag = String.format(Locale.ROOT, " %s%.5f/%.5f/%.5f/%.5f/%.5f/%.5f", StrokeSculpt.EYE_PREFIX,
                     camera.position.x, camera.position.y, camera.position.z, forward.x, forward.y, forward.z);
@@ -676,14 +678,14 @@ public final class StrokeSketch {
                     continue;
                 }
                 int nearestTriangle = silhouette ? -1 : bvh.nearestHit(origin, direction, Double.POSITIVE_INFINITY, stack);
-                ray.set(direction[0], direction[1], direction[2]);
+                ray.set(direction);
                 hit.set(ray).normalize();
                 if (!silhouette && nearestTriangle < 0) {
                     missesByShape[stroke]++;
                     continue;
                 }
                 if (!silhouette) {
-                    hit.set(origin[0], origin[1], origin[2]).fma((float) bvh.hitParameter, ray);
+                    hit.set(origin).fma((float) bvh.hitParameter, ray);
                     float facing = Math.abs(mesh.faceNormal(faceOfTriangle[nearestTriangle], normal).normalize()
                             .dot(toEye.set(camera.position).sub(hit).normalize()));
                     if (facing < GRAZING_COSINE) {
@@ -695,9 +697,7 @@ public final class StrokeSketch {
                         continue;
                     }
                 }
-                lifted[liftedCount * 3] = hit.x;
-                lifted[liftedCount * 3 + 1] = hit.y;
-                lifted[liftedCount * 3 + 2] = hit.z;
+                PackedPoints.store(lifted, liftedCount * 3, hit);
                 float inset = deepestInset > 0f ? insetBySample[point] / deepestInset : 1f;
                 weights[liftedCount++] = inset * (2f - inset);
             }
@@ -744,9 +744,7 @@ public final class StrokeSketch {
             cellWidth = viewWidth;
             cellHeight = viewHeight;
             orthographic = viewOrthographic;
-            center[0] = view.orbitTarget.x;
-            center[1] = view.orbitTarget.y;
-            center[2] = view.orbitTarget.z;
+            center.set(view.orbitTarget);
             distance = view.distance;
             fieldOfViewDegrees = (float) view.fov;
             svgScaleX = 1f;
@@ -768,7 +766,7 @@ public final class StrokeSketch {
         String points = gridPoints(column, pixels, pixels.length / 2);
         boolean fill = FILL.equals(kind);
         Vector3f target = view.orbitTarget;
-        float radius = widthPixels * (float) view.worldPerPixel(target.x, target.y, target.z, viewHeight);
+        float radius = widthPixels * (float) view.worldPerPixel(target, viewHeight);
         String depth = SILHOUETTE.equals(kind) ? ""
                 : String.format(Locale.ROOT, " data-depth=\"%.5f\"", (RIDGE.equals(kind) ? Math.abs(strength)
                         : VALLEY.equals(kind) ? -Math.abs(strength) : strength) * radius);
@@ -813,7 +811,7 @@ public final class StrokeSketch {
      * @param height             height in pixels
      * @param viewBoxWidth       viewBox width, in SVG units
      * @param viewBoxHeight      viewBox height, in SVG units
-     * @param center             orbit centre every cell looks at, xyz
+     * @param center             orbit centre every cell looks at
      * @param distance           orbit distance
      * @param fieldOfViewDegrees vertical field of view
      * @param orthographic       whether the cells were captured orthographically
@@ -823,14 +821,14 @@ public final class StrokeSketch {
      * @param views              one entry per cell, joined by {@link #VIEW_SEPARATOR}
      * @return the tag text
      */
-    public static String svgRoot(int width, int height, int viewBoxWidth, int viewBoxHeight, float[] center,
+    public static String svgRoot(int width, int height, int viewBoxWidth, int viewBoxHeight, Vector3f center,
             float distance, float fieldOfViewDegrees, boolean orthographic, int cellWidth, int cellHeight,
             int columns, String views) {
         return String.format(Locale.ROOT,
                 "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\"%n"
                         + "     %s=\"%.6f %.6f %.6f\" %s=\"%.6f\" %s=\"%.4f\" %s=\"%s\"%n"
                         + "     %s=\"%d\" %s=\"%d\" %s=\"%d\"%n     %s=\"%s\">%n",
-                width, height, viewBoxWidth, viewBoxHeight, CENTER_ATTRIBUTE, center[0], center[1], center[2],
+                width, height, viewBoxWidth, viewBoxHeight, CENTER_ATTRIBUTE, center.x, center.y, center.z,
                 DISTANCE_ATTRIBUTE, distance, FIELD_OF_VIEW_ATTRIBUTE, fieldOfViewDegrees, PROJECTION_ATTRIBUTE,
                 orthographic ? ORTHOGRAPHIC : PERSPECTIVE, CELL_WIDTH_ATTRIBUTE, cellWidth, CELL_HEIGHT_ATTRIBUTE,
                 cellHeight, COLUMNS_ATTRIBUTE, columns, VIEWS_ATTRIBUTE, views);

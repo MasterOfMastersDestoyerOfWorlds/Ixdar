@@ -279,12 +279,7 @@ public interface Color {
      * @return the RGB distance
      */
     public default double distanceTo(Color other) {
-        Vector3f one = toVector3f();
-        Vector3f two = other.toVector3f();
-        double red = one.x - two.x;
-        double green = one.y - two.y;
-        double blue = one.z - two.z;
-        return Math.sqrt(red * red + green * green + blue * blue);
+        return toVector3f().distance(other.toVector3f());
     }
 
     /**

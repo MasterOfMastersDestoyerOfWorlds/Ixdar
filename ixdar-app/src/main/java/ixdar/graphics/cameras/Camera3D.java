@@ -75,8 +75,8 @@ public class Camera3D implements Camera, CameraController {
      * Answers whether text anchored at a world point is seen: the surface a scene draws through
      * this camera, else bare projection, which hides nothing.
      */
-    public PointVisibility pointVisibility = (camera, x, y, z, depthLift, pixelDest) -> camera
-            .projectToPixels(new Matrix4f(), x, y, z, pixelDest);
+    public PointVisibility pointVisibility = (camera, point, depthLift) -> camera
+            .projectToPixels(new Matrix4f(), point);
 
     public Vector3f position;
     public Vector3f target;
@@ -142,25 +142,16 @@ public class Camera3D implements Camera, CameraController {
         front.set((float) (Math.cos(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch))),
                 (float) Math.sin(Math.toRadians(pitch)),
                 (float) (Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch))));
-        float len = (float) Math.sqrt(front.x * front.x + front.y * front.y + front.z * front.z);
-        if (len > 0f) {
-            front.x /= len;
-            front.y /= len;
-            front.z /= len;
+        if (front.lengthSquared() > 0f) {
+            front.normalize();
         }
-        right.x = front.y * worldUp.z - front.z * worldUp.y;
-        right.y = front.z * worldUp.x - front.x * worldUp.z;
-        right.z = front.x * worldUp.y - front.y * worldUp.x;
-        float rlen = (float) Math.sqrt(right.x * right.x + right.y * right.y + right.z * right.z);
-        if (rlen > 0f) {
-            right.div(rlen);
+        front.cross(worldUp, right);
+        if (right.lengthSquared() > 0f) {
+            right.normalize();
         }
-        up.x = right.y * front.z - right.z * front.y;
-        up.y = right.z * front.x - right.x * front.z;
-        up.z = right.x * front.y - right.y * front.x;
-        float ulen = (float) Math.sqrt(up.x * up.x + up.y * up.y + up.z * up.z);
-        if (ulen > 0f) {
-            up.div(ulen);
+        right.cross(front, up);
+        if (up.lengthSquared() > 0f) {
+            up.normalize();
         }
         target.set(position).add(front);
     }
@@ -512,79 +503,65 @@ public class Camera3D implements Camera, CameraController {
     /**
      * World units one framebuffer pixel spans at a point, the scale a pixel reach is in.
      *
-     * @param x world x
-     * @param y world y
-     * @param z world z
+     * @param point world point
      * @return the span at the point's eye distance, or 0 before the framebuffer has a size
      */
-    public double worldPerPixel(float x, float y, float z) {
-        return worldPerPixel(x, y, z, Platforms.get().getFrameBufferHeight());
+    public double worldPerPixel(Vector3f point) {
+        return worldPerPixel(point, Platforms.get().getFrameBufferHeight());
     }
 
     /**
      * World units one pixel of a view {@code height} pixels tall spans at a point.
      *
-     * @param x      world x
-     * @param y      world y
-     * @param z      world z
+     * @param point point
      * @param height view height in pixels
      * @return the span at the point's eye distance, or 0 for an empty view
      */
-    public double worldPerPixel(float x, float y, float z, int height) {
+    public double worldPerPixel(Vector3f point, int height) {
         return height <= 0 ? 0.0
-                : 2.0 * position.distance(x, y, z) * Math.tan(Math.toRadians(fov) / 2.0) / height;
+                : 2.0 * position.distance(point) * Math.tan(Math.toRadians(fov) / 2.0) / height;
     }
 
     /**
      * Project a model-space point through {@code model}, {@link #view} and {@link #projection} onto
      * the framebuffer, where a 2D pass can mark it and test it against the depth buffer.
      *
-     * @param model     model matrix of the surface the point belongs to
-     * @param x         model-space x
-     * @param y         model-space y
-     * @param z         model-space z
-     * @param pixelDest receives framebuffer x from the left, y from the top, and the window-space
-     *                  depth in {@code [0, 1]} the point would write
-     * @return true when the framebuffer has a size and the point lies in front of the camera
+     * @param model model matrix of the surface the point belongs to
+     * @param point model-space point
+     * @return framebuffer x from the left, y from the top, and the window-space depth in
+     *         {@code [0, 1]} the point would write; null when the framebuffer has no size or the
+     *         point lies behind the camera
      */
-    public boolean projectToPixels(Matrix4f model, float x, float y, float z, float[] pixelDest) {
-        return projectToPixels(model, x, y, z, Platforms.get().getFrameBufferWidth(),
-                Platforms.get().getFrameBufferHeight(), pixelDest);
+    public Vector3f projectToPixels(Matrix4f model, Vector3f point) {
+        return projectToPixels(model, point, Platforms.get().getFrameBufferWidth(),
+                Platforms.get().getFrameBufferHeight());
     }
 
     /**
      * Project a model-space point onto a {@code width} by {@code height} view, no framebuffer read.
      * Pixel centres land on half-integers, half a pixel past the whole numbers
-     * {@link #rayThroughPixel(Matrix4f, float, float, int, int, float[], float[])} takes.
+     * {@link #rayThroughPixel(Matrix4f, float, float, int, int, Vector3f, Vector3f)} takes.
      *
-     * @param model     model matrix of the surface the point belongs to
-     * @param x         model-space x
-     * @param y         model-space y
-     * @param z         model-space z
-     * @param width     view width in pixels
-     * @param height    view height in pixels
-     * @param pixelDest receives x from the left, y from the top, and, when it has a third slot, the
-     *                  window-space depth in {@code [0, 1]}
-     * @return true when the view has a size and the point lies in front of the camera
+     * @param model  model matrix of the surface the point belongs to
+     * @param point  model-space point
+     * @param width  view width in pixels
+     * @param height view height in pixels
+     * @return x from the left, y from the top, and the window-space depth in {@code [0, 1]}; null
+     *         when the view has no size or the point lies behind the camera
      */
-    public boolean projectToPixels(Matrix4f model, float x, float y, float z, int width, int height,
-            float[] pixelDest) {
+    public Vector3f projectToPixels(Matrix4f model, Vector3f point, int width, int height) {
         if (width <= 0 || height <= 0) {
-            return false;
+            return null;
         }
-        Vector4f point = new Vector4f(x, y, z, 1f);
-        model.transform(point);
-        view.transform(point);
-        projection.transform(point);
-        if (point.w <= 0f) {
-            return false;
+        Vector4f clip = new Vector4f(point, 1f);
+        model.transform(clip);
+        view.transform(clip);
+        projection.transform(clip);
+        if (clip.w <= 0f) {
+            return null;
         }
-        pixelDest[0] = (point.x / point.w * 0.5f + 0.5f) * width;
-        pixelDest[1] = (0.5f - point.y / point.w * 0.5f) * height;
-        if (pixelDest.length > 2) {
-            pixelDest[2] = point.z / point.w * 0.5f + 0.5f;
-        }
-        return true;
+        return new Vector3f((clip.x / clip.w * 0.5f + 0.5f) * width,
+                (0.5f - clip.y / clip.w * 0.5f) * height, clip.z / clip.w * 0.5f + 0.5f);
     }
 
     /**
@@ -594,12 +571,12 @@ public class Camera3D implements Camera, CameraController {
      * @param model        model matrix of the surface the ray is cast at
      * @param framebufferX pixel x, measured from the left, a whole number the pixel's centre
      * @param framebufferY pixel y, measured from the top, a whole number the pixel's centre
-     * @param origin       receives the ray origin, packed xyz
-     * @param direction    receives the ray direction, packed xyz, not normalised
+     * @param origin       receives the ray origin
+     * @param direction    receives the ray direction, not normalised
      * @return true when the framebuffer has a size
      */
     public boolean rayThroughPixel(Matrix4f model, float framebufferX, float framebufferY,
-            float[] origin, float[] direction) {
+            Vector3f origin, Vector3f direction) {
         return rayThroughPixel(model, framebufferX, framebufferY, Platforms.get().getFrameBufferWidth(),
                 Platforms.get().getFrameBufferHeight(), origin, direction);
     }
@@ -613,12 +590,12 @@ public class Camera3D implements Camera, CameraController {
      * @param pixelY    pixel y from the top, whole numbers at pixel centres
      * @param width     view width in pixels
      * @param height    view height in pixels
-     * @param origin    receives the ray origin, packed xyz
-     * @param direction receives the ray direction, packed xyz, not normalised
+     * @param origin    receives the ray origin
+     * @param direction receives the ray direction, not normalised
      * @return true when the view has a size
      */
     public boolean rayThroughPixel(Matrix4f model, float pixelX, float pixelY, int width, int height,
-            float[] origin, float[] direction) {
+            Vector3f origin, Vector3f direction) {
         if (width <= 0 || height <= 0) {
             return false;
         }
@@ -630,12 +607,12 @@ public class Camera3D implements Camera, CameraController {
         if (near.w == 0f || far.w == 0f) {
             return false;
         }
-        origin[0] = near.x / near.w;
-        origin[1] = near.y / near.w;
-        origin[2] = near.z / near.w;
-        direction[0] = far.x / far.w - origin[0];
-        direction[1] = far.y / far.w - origin[1];
-        direction[2] = far.z / far.w - origin[2];
+        origin.x = near.x / near.w;
+        origin.y = near.y / near.w;
+        origin.z = near.z / near.w;
+        direction.x = far.x / far.w - origin.x;
+        direction.y = far.y / far.w - origin.y;
+        direction.z = far.z / far.w - origin.z;
         return true;
     }
 

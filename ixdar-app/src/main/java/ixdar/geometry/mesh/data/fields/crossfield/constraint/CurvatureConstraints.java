@@ -165,11 +165,8 @@ public class CurvatureConstraints {
                 int halfEdge = mesh.vertexOutgoingHalfEdgeAt(v, i);
                 int neighbor = mesh.halfEdgeEndVertex(halfEdge);
                 mesh.vertexPosition(neighbor, to);
-                float dx = to.x - from.x;
-                float dy = to.y - from.y;
-                float dz = to.z - from.z;
                 neighborVertexId[neighborStart[v] + i] = neighbor;
-                neighborEdgeLength[neighborStart[v] + i] = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+                neighborEdgeLength[neighborStart[v] + i] = to.distance(from);
             }
             int incidentFaceCount = mesh.vertexFaceCount(v);
             for (int i = 0; i < incidentFaceCount; i++) {
@@ -214,28 +211,23 @@ public class CurvatureConstraints {
             }
             mesh.vertexPosition(edge.edgeStartVertex, start);
             mesh.vertexPosition(edge.edgeEndVertex, end);
-            float dx = end.x - start.x;
-            float dy = end.y - start.y;
-            float dz = end.z - start.z;
-            float edgeLength = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            Vector3f along = end.sub(start);
+            float edgeLength = along.length();
             if (edgeLength < CrossField.EPSILON) {
                 continue;
             }
             Vector3f leftNormal = mesh.faceNormal(edge.faceA);
             Vector3f rightNormal = mesh.faceNormal(edge.faceB);
             float cosDihedral = Math.max(-1f, Math.min(1f, leftNormal.dot(rightNormal)));
-            float crossX = leftNormal.y * rightNormal.z - leftNormal.z * rightNormal.y;
-            float crossY = leftNormal.z * rightNormal.x - leftNormal.x * rightNormal.z;
-            float crossZ = leftNormal.x * rightNormal.y - leftNormal.y * rightNormal.x;
-            float sinDihedral = (crossX * dx + crossY * dy + crossZ * dz) / edgeLength;
+            float sinDihedral = leftNormal.cross(rightNormal).dot(along) / edgeLength;
             float dihedralAngle = (float) Math.atan2(sinDihedral, cosDihedral);
             edgeFaceA[edgeId] = edge.faceA;
             edgeFaceB[edgeId] = edge.faceB;
             edgeContributes[edgeId] = true;
             edgeWeight[edgeId] = dihedralAngle * edgeLength;
-            edgeDirX[edgeId] = dx / edgeLength;
-            edgeDirY[edgeId] = dy / edgeLength;
-            edgeDirZ[edgeId] = dz / edgeLength;
+            edgeDirX[edgeId] = along.x / edgeLength;
+            edgeDirY[edgeId] = along.y / edgeLength;
+            edgeDirZ[edgeId] = along.z / edgeLength;
         }
 
         float averageEdgeLength = mesh.computeAverageEdgeLength();

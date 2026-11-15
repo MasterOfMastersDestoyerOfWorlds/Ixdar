@@ -17,6 +17,7 @@ import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RingRegionExtraction;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
@@ -68,8 +69,8 @@ public final class RingRegionTool extends Tool {
     /** Regions currently selected, one flag per region. */
     public boolean[] selectedRegions = new boolean[0];
 
-    /** Surface points of the regions picked by click, packed xyz each. */
-    public final List<float[]> pickedPoints = new ArrayList<>();
+    /** Surface points of the regions picked by click. */
+    public final List<Vector3f> pickedPoints = new ArrayList<>();
 
     /** The {@code ring_regions} {@code select} query the current selection is. */
     public String selectQuery = "";
@@ -425,15 +426,15 @@ public final class RingRegionTool extends Tool {
             return;
         }
         lastError = "";
-        float[] centroid = faceCentroid(surface, surface.faceIdAt(activeFace));
+        Vector3f centroid = surface.faceCentroid(surface.faceIdAt(activeFace));
         int region = regions.regionByActiveFace[activeFace];
         if (!pendingShift) {
             pickedPoints.clear();
         }
         boolean dropped = false;
         for (int picked = pickedPoints.size() - 1; pendingShift && picked >= 0; picked--) {
-            float[] point = pickedPoints.get(picked);
-            int pickedFace = regions.nearestActiveFace(point[0], point[1], point[2]);
+            Vector3f point = pickedPoints.get(picked);
+            int pickedFace = regions.nearestActiveFace(point);
             if (regions.regionByActiveFace[pickedFace] == region) {
                 pickedPoints.remove(picked);
                 dropped = true;
@@ -448,27 +449,6 @@ public final class RingRegionTool extends Tool {
         reselect();
         Platforms.get().log(LOG_PREFIX + lastRow + " -> " + selectedCount() + " of "
                 + regions.regionCount + " selected, select=\"" + selectQuery + "\"");
-    }
-
-    /**
-     * The centroid of a face's corners, the point a pick stands for in the selection, which the
-     * nearest-face lookup maps back to that face.
-     *
-     * @param surface the shown surface
-     * @param faceId  a face of {@code surface}
-     * @return the centroid, packed xyz
-     */
-    public static float[] faceCentroid(MeshTopology surface, int faceId) {
-        float[] centroid = new float[XYZ];
-        Vector3f corner = new Vector3f();
-        int corners = surface.faceVertexCount(faceId);
-        for (int slot = 0; slot < corners; slot++) {
-            surface.vertexPosition(surface.faceVertexAt(faceId, slot), corner);
-            centroid[0] += corner.x / corners;
-            centroid[1] += corner.y / corners;
-            centroid[2] += corner.z / corners;
-        }
-        return centroid;
     }
 
     /**
@@ -488,8 +468,8 @@ public final class RingRegionTool extends Tool {
             return;
         }
         List<String> terms = new ArrayList<>();
-        for (float[] point : pickedPoints) {
-            terms.add(RingRegions.POINT_TERM + " " + SurfaceWaypoints.format(point, 1));
+        for (Vector3f point : pickedPoints) {
+            terms.add(RingRegions.POINT_TERM + " " + SurfaceWaypoints.format(point));
         }
         selectQuery = String.join(QUERY_JOIN, terms);
         selectedRegions = regions.select(selectQuery);
@@ -552,9 +532,8 @@ public final class RingRegionTool extends Tool {
         for (int region = 0; region < regions.regionCount; region++) {
             Item item = new Item();
             item.label = regionTag(region);
-            for (int axis = 0; axis < XYZ; axis++) {
-                item.location[axis] = cornerCount[region] == 0 ? 0f
-                        : corners[XYZ * region + axis] / cornerCount[region];
+            if (cornerCount[region] > 0) {
+                item.location.set(PackedPoints.at(corners, XYZ * region).div(cornerCount[region]));
             }
             item.size = regions.regionFaceCount[region];
             boolean hidden = hiddenFaces[region] == regions.regionFaceCount[region];

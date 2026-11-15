@@ -220,8 +220,7 @@ public abstract class TradeRouteTool extends Tool {
         operation.label = displayName();
         operation.points = new float[] { at.x, at.y, 0 };
         operation.pointLabels = new String[] { pending.name };
-        operation.location[0] = at.x;
-        operation.location[1] = at.y;
+        operation.location.set(at, 0f);
         operation.size = 1;
         operation.valid = true;
         operation.detail = "layer " + scene.layer;
@@ -242,8 +241,7 @@ public abstract class TradeRouteTool extends Tool {
         Vector2f at = scene.game.map.grid.dualPoints().get(place.cell);
         Item item = new Item();
         item.label = place.name;
-        item.location[0] = at.x;
-        item.location[1] = at.y;
+        item.location.set(at, 0f);
         item.saved = true;
         return item;
     }
@@ -268,8 +266,7 @@ public abstract class TradeRouteTool extends Tool {
                 Vector2f pb = game.map.grid.dualPoints().get(b.cell);
                 Item item = new Item();
                 item.label = a.name + "-" + b.name;
-                item.location[0] = (pa.x + pb.x) * 0.5f;
-                item.location[1] = (pa.y + pb.y) * 0.5f;
+                item.location.set((pa.x + pb.x) * 0.5f, (pa.y + pb.y) * 0.5f, 0f);
                 item.size = loop.wagons;
                 item.length = game.table.cost(a, b);
                 item.saved = true;

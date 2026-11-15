@@ -21,6 +21,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.annotations.tool.ToolAnnotation;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.analysis.curvature.LimbAxis;
@@ -167,8 +168,8 @@ public final class RingTool extends Tool {
     /** Wall time the last frame that fitted a preview spent, in milliseconds. */
     public double previewMillis;
 
-    /** Surface point under the cursor on the last frame, packed xyz. */
-    public final float[] previewHitPoint = new float[COORDINATES_PER_POINT];
+    /** Surface point under the cursor on the last frame. */
+    public final Vector3f previewHitPoint = new Vector3f();
 
     /** Mesh vertex a click on the preview anchors: a ring's first anchor or a bisector's end. */
     public int previewAuthoredVertexId = -1;
@@ -180,7 +181,7 @@ public final class RingTool extends Tool {
     public int[] draftAuthoredVertexId = new int[0];
 
     /** Base normal the draft's plane leans toward, at the precision a save writes. */
-    public final float[] draftBaseNormal = new float[COORDINATES_PER_POINT];
+    public final Vector3f draftBaseNormal = new Vector3f();
 
     /** How the draft runs between its authored anchors; T switches it. */
     public RingSegmentMode draftMode = RingSegmentMode.GEODESIC;
@@ -216,7 +217,7 @@ public final class RingTool extends Tool {
     public final Map<String, int[]> savedAuthoredByStatement = new HashMap<>();
 
     /** Base normal the working .dsl holds under each statement id this session saved. */
-    public final Map<String, float[]> savedNormalByStatement = new HashMap<>();
+    public final Map<String, Vector3f> savedNormalByStatement = new HashMap<>();
 
     /** Segment mode the working .dsl holds under each statement id this session saved. */
     public final Map<String, RingSegmentMode> savedModeByStatement = new HashMap<>();
@@ -272,8 +273,8 @@ public final class RingTool extends Tool {
     /** Whether the overlay is uploaded again on the next frame, after the rings or a hover changed. */
     boolean overlayStale = true;
 
-    /** Surface point the hover preview was last fitted for, packed xyz. */
-    final float[] previewedHit = new float[COORDINATES_PER_POINT];
+    /** Surface point the hover preview was last fitted for. */
+    final Vector3f previewedHit = new Vector3f();
 
     /** Segment endpoints of each graph ring drawn from the graph's marks, the ring hover's targets. */
     List<float[]> graphRingSegments = new ArrayList<>();
@@ -293,7 +294,6 @@ public final class RingTool extends Tool {
     private int numbersPlacedWidth;
     private int numbersPlacedHeight;
     private final Matrix4f identityModel = new Matrix4f();
-    private final float[] numberPixel = new float[COORDINATES_PER_POINT];
     private boolean ringsStale = true;
     private SurfaceSpline uploadedPreview;
     private SurfaceSpline uploadedDraft;
@@ -424,9 +424,7 @@ public final class RingTool extends Tool {
      * @param detail the short line the item shows
      */
     private void fillFromTrace(Item item, SurfaceSpline ring, String detail) {
-        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-            item.location[axis] = (float) ring.path.centroid[axis];
-        }
+        item.location.set(ring.path.centroid[0], ring.path.centroid[1], ring.path.centroid[2]);
         item.size = ring.marks.markedEdgeCount;
         item.length = ring.path.length;
         MeshTopology surface = scene.halfEdgeSurface();
@@ -856,7 +854,7 @@ public final class RingTool extends Tool {
         boolean hitValid = scene.pickCursor(runtime, surface);
         int hitVertexId = scene.cursorVertexId;
         if (hitValid) {
-            System.arraycopy(scene.cursorPoint, 0, previewHitPoint, 0, COORDINATES_PER_POINT);
+            previewHitPoint.set(scene.cursorPoint);
         }
         hoveredAnchor = -1;
         if (draft != null) {
@@ -929,7 +927,7 @@ public final class RingTool extends Tool {
         }
         ConfirmedRing reopened = confirmedRings.get(ring);
         RingToolState stateBefore = new RingToolState(this);
-        System.arraycopy(reopened.baseNormal, 0, draftBaseNormal, 0, COORDINATES_PER_POINT);
+        draftBaseNormal.set(reopened.baseNormal);
         draftMode = reopened.mode;
         bisector.draftEnds = reopened.bisectorEnds;
         bisector.draftStretch = reopened.bisectorStretch;
@@ -1031,7 +1029,7 @@ public final class RingTool extends Tool {
         if (ring < 0) {
             ring = confirmedRings.size();
             confirmedRings.add(new ConfirmedRing(draft, draftAuthoredVertexId,
-                    Arrays.copyOf(draftBaseNormal, COORDINATES_PER_POINT), draftMode, null, false,
+                    new Vector3f(draftBaseNormal), draftMode, null, false,
                     draftSourceLabel, nextRingSerial++, bisector.draftEnds));
         }
         clearDraft();
@@ -1276,12 +1274,12 @@ public final class RingTool extends Tool {
                 && !draftOwner.retrace(draftAuthoredVertexId, true)) {
             return false;
         }
-        float[] normal = Arrays.copyOf(draftBaseNormal, COORDINATES_PER_POINT);
+        Vector3f normal = new Vector3f(draftBaseNormal);
         int ring = draftSourceRing;
         if (ring >= 0) {
             ConfirmedRing edited = confirmedRings.get(ring);
             boolean changed = !Arrays.equals(edited.authoredVertexId, draftAuthoredVertexId)
-                    || !Arrays.equals(edited.baseNormal, normal)
+                    || !normal.equals(edited.baseNormal)
                     || edited.mode != draftMode
                     || !Arrays.equals(edited.bisectorEnds, bisectorEnds);
             if (changed) {
@@ -1428,7 +1426,7 @@ public final class RingTool extends Tool {
      */
     public void reportDraft(String what) {
         int authoredAnchors = draft.authoredCount();
-        float[] crossing = draftOwner.draftCrossing();
+        Vector3f crossing = draftOwner.draftCrossing();
         lastRow = String.format(Locale.ROOT,
                 "draft %s: %s, %d authored + %d supporting anchors, %d edges, length %.5f, "
                         + "sharpest corner %.1f deg, %.0f ms%s",
@@ -1436,8 +1434,8 @@ public final class RingTool extends Tool {
                 authoredAnchors, draft.anchorCount - authoredAnchors,
                 draft.marks.markedEdgeCount, draft.path.length, draft.minimumInteriorAngleDegrees,
                 draftMillis, crossing == null ? "" : String.format(Locale.ROOT,
-                        ", crosses itself near %.4f,%.4f,%.4f", crossing[0], crossing[1],
-                        crossing[2]));
+                        ", crosses itself near %.4f,%.4f,%.4f", crossing.x, crossing.y,
+                        crossing.z));
         Platforms.get().log(LOG_PREFIX + lastRow + ", fingerprint "
                 + EdgeMarks.fingerprint(scene.halfEdgeSurface(), draft.marks.markedByEdgeId));
     }
@@ -1460,11 +1458,11 @@ public final class RingTool extends Tool {
      * A normal as a save writes it and a reload reads it back, so the live ring is traced from
      * exactly the numbers its statement will hold.
      *
-     * @param normal packed xyz
+     * @param normal the normal as a fitted plane holds it
      * @return the normal after one round trip through the statement's text format
      */
-    public static float[] written(float[] normal) {
-        return SurfaceWaypoints.parse(SurfaceWaypoints.format(normal, 1));
+    public static Vector3f written(Vector3f normal) {
+        return SurfaceWaypoints.point(SurfaceWaypoints.format(normal));
     }
 
     /**
@@ -1556,11 +1554,20 @@ public final class RingTool extends Tool {
         MeshTopology surface = scene.halfEdgeSurface();
         for (int anchor = 0; surface != null && anchor < vertexIds.length; anchor++) {
             surface.vertexPosition(vertexIds[anchor], scratchPosition);
-            xyz[COORDINATES_PER_POINT * anchor] = scratchPosition.x;
-            xyz[COORDINATES_PER_POINT * anchor + 1] = scratchPosition.y;
-            xyz[COORDINATES_PER_POINT * anchor + 2] = scratchPosition.z;
+            PackedPoints.store(xyz, COORDINATES_PER_POINT * anchor, scratchPosition);
         }
         return xyz;
+    }
+
+    /**
+     * One mesh vertex's position as {@link #positionsOf} reads it.
+     *
+     * @param vertexId mesh vertex
+     * @return a new vector at its position, the origin while no surface is shown
+     */
+    public Vector3f positionOf(int vertexId) {
+        MeshTopology surface = scene.halfEdgeSurface();
+        return surface == null ? new Vector3f() : surface.vertexPosition(vertexId);
     }
 
     /**
@@ -1572,9 +1579,7 @@ public final class RingTool extends Tool {
         MeshTopology surface = scene.halfEdgeSurface();
         for (int point = 0; surface != null && point < loop.length; point++) {
             surface.vertexPosition(loop[point], scratchPosition);
-            xyz[COORDINATES_PER_POINT * point] = scratchPosition.x;
-            xyz[COORDINATES_PER_POINT * point + 1] = scratchPosition.y;
-            xyz[COORDINATES_PER_POINT * point + 2] = scratchPosition.z;
+            PackedPoints.store(xyz, COORDINATES_PER_POINT * point, scratchPosition);
         }
         return xyz;
     }
@@ -1643,21 +1648,22 @@ public final class RingTool extends Tool {
                     savedId[ring] = owner != null ? owner.id : savedId[ring];
                     continue;
                 }
-                float[] normal = held.baseNormal;
+                Vector3f normal = held.baseNormal;
+                List<Vector3f> authoredPoints = SurfaceWaypoints.points(authoredXyz);
                 if (owner != null) {
                     savedId[ring] = owner.id;
                     source = RingDslWriter.replace(source, owner.id,
                             List.of(RingDslWriter.splineStatement(owner.id,
-                                    RingDslWriter.geometryInput(owner), authoredXyz,
+                                    RingDslWriter.geometryInput(owner), authoredPoints,
                                     authored.length, normal)),
                             owner.id + "." + RingDslWriter.geometryPort(SPLINE_RING_NODE));
                 } else if (savedId[ring] == null) {
                     savedId[ring] = RingDslWriter.nextRingId(source, liveLabels);
-                    source = RingDslWriter.appendSpline(source, authoredXyz, authored.length,
+                    source = RingDslWriter.appendSpline(source, authoredPoints, authored.length,
                             normal, liveLabels);
                     appended++;
                 } else {
-                    source = RingDslWriter.replaceSpline(source, savedId[ring], authoredXyz,
+                    source = RingDslWriter.replaceSpline(source, savedId[ring], authoredPoints,
                             authored.length, normal);
                 }
                 source = RingDslWriter.withMode(source, savedId[ring], held.mode);
@@ -1703,8 +1709,8 @@ public final class RingTool extends Tool {
                     int[] authored = written.authoredVertexId;
                     int[] stretch = written.bisectorStretch;
                     source = RingDslWriter.withMode(RingDslWriter.appendBisector(source,
-                            savedId[ring], SurfaceWaypoints.resolvingPoints(
-                                    geodesics.metric.nearestVertex, authored, authored.length),
+                            savedId[ring], SurfaceWaypoints.points(SurfaceWaypoints.resolvingPoints(
+                                    geodesics.metric.nearestVertex, authored, authored.length)),
                             authored.length, walls, stretch == null ? null
                                     : SurfaceWaypoints.resolvingPoints(
                                             geodesics.metric.nearestVertex, stretch,
@@ -1894,7 +1900,7 @@ public final class RingTool extends Tool {
                 }
                 knownRingStatementIds.add(statement.nodeAssignmentId());
                 Integer retired = retiredSerialByLabel.remove(label);
-                confirmedRings.add(new ConfirmedRing(traced, anchors, new float[COORDINATES_PER_POINT],
+                confirmedRings.add(new ConfirmedRing(traced, anchors, new Vector3f(),
                         bisectorMode, statement.nodeAssignmentId(), false, label,
                         retired != null ? retired : nextRingSerial++, ends));
                 confirmedRings.get(confirmedRings.size() - 1).bisectorStretch = stretch;
@@ -1904,15 +1910,13 @@ public final class RingTool extends Tool {
             AuthoredSplineRing anchored = new AuthoredSplineRing(geodesics);
             boolean spline = statement != null
                     && SPLINE_RING_NODE.equals(statement.type);
-            float[] normal = null;
+            Vector3f normal = null;
             int[] anchors;
             if (spline) {
                 float[] points = SurfaceWaypoints.parse(
                         String.valueOf(statement.inputSources.get(SplineRingNode.POINTS.name)));
                 Object normalArgument = statement.inputSources.get(SplineRingNode.NORMAL.name);
-                float[] written = SurfaceWaypoints.parse(
-                        normalArgument instanceof String text ? text : null);
-                normal = written.length == COORDINATES_PER_POINT ? written : null;
+                normal = SurfaceWaypoints.point(normalArgument instanceof String text ? text : null);
                 Object modeArgument = statement.inputSources.get(SplineRingNode.MODE.name);
                 anchored.mode = RingSegmentMode.named(
                         modeArgument instanceof String text ? text : null);
@@ -2086,7 +2090,7 @@ public final class RingTool extends Tool {
         for (int bisectorIndex = 0; bisectorIndex < newBisectors; bisectorIndex++) {
             int[] walls = collapse.bisectorWalls.get(bisectorIndex);
             confirmedRings.add(new ConfirmedRing(collapse.bisectorSplines.get(bisectorIndex),
-                    collapse.bisectorAnchors.get(bisectorIndex), new float[COORDINATES_PER_POINT],
+                    collapse.bisectorAnchors.get(bisectorIndex), new Vector3f(),
                     RingSegmentMode.GEODESIC, null, true, null,
                     serialOfWall[labels.length + bisectorIndex],
                     new int[] { serialOfWall[walls[0]], serialOfWall[walls[1]] }));
@@ -2162,7 +2166,7 @@ public final class RingTool extends Tool {
         if (anchors.length == 0) {
             return -1;
         }
-        float[] normal = written(anchored.planeNormal);
+        Vector3f normal = written(anchored.planeNormal);
         if (!anchored.trace(anchors, anchors.length, normal,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
             lastError = what + ": " + anchored.failure;
@@ -2221,7 +2225,7 @@ public final class RingTool extends Tool {
      * @param what     the edit's name in the undo history and the log
      * @return the new ring's index in {@link #confirmedRings}
      */
-    private int addConfirmedRing(AuthoredSplineRing anchored, float[] normal, String what) {
+    private int addConfirmedRing(AuthoredSplineRing anchored, Vector3f normal, String what) {
         RingToolState stateBefore = new RingToolState(this);
         SurfaceSpline spline = SurfaceSpline.of(anchored.tracer);
         confirmedRings.add(new ConfirmedRing(spline, anchored.authoredVertexId, normal,
@@ -2417,30 +2421,26 @@ public final class RingTool extends Tool {
             int ring = (Integer) number.getData();
             number.anchorCamera = null;
             number.shown = false;
-            if (!camera.projectToPixels(identityModel, ringLabelXyz[COORDINATES_PER_POINT * ring],
-                    ringLabelXyz[COORDINATES_PER_POINT * ring + 1], ringLabelXyz[COORDINATES_PER_POINT * ring + 2],
-                    numberPixel)) {
+            Vector3f centre = camera.projectToPixels(identityModel,
+                    PackedPoints.at(ringLabelXyz, COORDINATES_PER_POINT * ring));
+            if (centre == null) {
                 continue;
             }
-            float centreX = numberPixel[0];
-            float centreY = numberPixel[1];
             int first = ringSegmentStart[ring];
             int segments = ringSegmentStart[ring + 1] - first;
             double[] offCentre = new double[segments];
             for (int segment = 0; segment < segments; segment++) {
                 int base = (first + segment) * stride;
                 float[] vertex = ringLines.vertices;
+                Vector3f start = PackedPoints.at(vertex, base);
+                Vector3f toEye = new Vector3f(camera.position).sub(start);
                 boolean facing = true;
                 for (int side = 1; side <= 2; side++) {
-                    int normal = base + side * COORDINATES_PER_POINT;
-                    facing &= vertex[normal] * (camera.position.x - vertex[base])
-                            + vertex[normal + 1] * (camera.position.y - vertex[base + 1])
-                            + vertex[normal + 2] * (camera.position.z - vertex[base + 2]) > 0f;
+                    facing &= PackedPoints.at(vertex, base + side * COORDINATES_PER_POINT).dot(toEye) > 0f;
                 }
-                offCentre[segment] = facing && camera.projectToPixels(identityModel, vertex[base],
-                        vertex[base + 1], vertex[base + 2], numberPixel)
-                                ? Math.hypot(numberPixel[0] - centreX, numberPixel[1] - centreY)
-                                : Double.POSITIVE_INFINITY;
+                Vector3f pixel = facing ? camera.projectToPixels(identityModel, start) : null;
+                offCentre[segment] = pixel != null ? Math.hypot(pixel.x - centre.x, pixel.y - centre.y)
+                        : Double.POSITIVE_INFINITY;
             }
             for (int attempt = 0; attempt < NUMBER_PLACEMENT_TRIES && !number.shown; attempt++) {
                 int nearest = -1;
@@ -2457,10 +2457,10 @@ public final class RingTool extends Tool {
                 int base = (first + nearest) * stride;
                 float[] vertex = ringLines.vertices;
                 float lift = (float) (NUMBER_DEPTH_TIE_PIXELS
-                        * camera.worldPerPixel(vertex[base], vertex[base + 1], vertex[base + 2]));
-                if (camera.pointVisibility.visiblePixel(camera, vertex[base], vertex[base + 1], vertex[base + 2],
-                        lift, numberPixel)) {
-                    number.anchor.set(vertex[base], vertex[base + 1], vertex[base + 2]);
+                        * camera.worldPerPixel(PackedPoints.at(vertex, base)));
+                Vector3f start = PackedPoints.at(vertex, base);
+                if (camera.pointVisibility.visiblePixel(camera, start, lift) != null) {
+                    number.anchor.set(start);
                     number.anchorDepthLift = lift;
                     number.anchorCamera = camera;
                     number.shown = true;

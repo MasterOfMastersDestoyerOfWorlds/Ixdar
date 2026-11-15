@@ -19,6 +19,7 @@ import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.platform.Platforms;
@@ -693,15 +694,11 @@ public final class GltfMeshParser {
             int offset = floatOffset + vertex * FLOATS_PER_VERTEX;
             scratch.set(positions[offset], positions[offset + 1], positions[offset + 2]);
             world.transformPosition(scratch);
-            positions[offset] = scratch.x;
-            positions[offset + 1] = scratch.y;
-            positions[offset + 2] = scratch.z;
+            PackedPoints.store(positions, offset, scratch);
             if (hasNormals) {
                 scratch.set(normals[offset], normals[offset + 1], normals[offset + 2]);
                 normalTransform.transform(scratch).normalize();
-                normals[offset] = scratch.x;
-                normals[offset + 1] = scratch.y;
-                normals[offset + 2] = scratch.z;
+                PackedPoints.store(normals, offset, scratch);
             }
         }
     }

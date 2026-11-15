@@ -14,6 +14,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.bundle.CornerUvSplit;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
@@ -380,13 +381,9 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
             activeIndexOfVertex[vertexId] = index;
             int target = index * VERTEX_STRIDE;
             mesh.vertexPosition(vertexId, scratch);
-            vertices[target] = scratch.x;
-            vertices[target + 1] = scratch.y;
-            vertices[target + 2] = scratch.z;
+            PackedPoints.store(vertices, target, scratch);
             mesh.vertexNormal(vertexId, scratch);
-            vertices[target + VEC3_SIZE] = scratch.x;
-            vertices[target + VEC3_SIZE + 1] = scratch.y;
-            vertices[target + VEC3_SIZE + 2] = scratch.z;
+            PackedPoints.store(vertices, target + VEC3_SIZE, scratch);
         }
         int[] indices = mesh.triangulate(TriangulationRule.FAN, null);
         for (int corner = 0; corner < indices.length; corner++) {
@@ -853,29 +850,29 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
      * buffer once per frame, so ask after the surface is drawn.
      *
      * @param camera    active camera, whose matrices drew the surface
-     * @param x         world x
-     * @param y         world y
-     * @param z         world z
+     * @param point     world point
      * @param depthLift world distance toward the eye; a quarter of it is the depth tie allowed
-     * @param pixelDest receives framebuffer x from the left and y from the top
-     * @return true when the point is on screen and no nearer surface hides it
+     * @return framebuffer x from the left, y from the top and the window depth, or null when the
+     *         point is off screen or a nearer surface hides it
      */
     @Override
-    public boolean visiblePixel(Camera3D camera, float x, float y, float z, float depthLift,
-            float[] pixelDest) {
+    public Vector3f visiblePixel(Camera3D camera, Vector3f point, float depthLift) {
         int width = Platforms.get().getFrameBufferWidth();
         int height = Platforms.get().getFrameBufferHeight();
         updateProjection(camera);
         inverseProjection.set(camera.projection).invert();
-        liftedPoint.set(x, y, z);
+        liftedPoint.set(point);
         if (depthLift > 0f) {
             liftedPoint.add(towardEye.set(camera.position).sub(liftedPoint).normalize(depthLift));
         }
-        boolean inFront = projectToPixels(camera, liftedPoint.x, liftedPoint.y, liftedPoint.z, pixelDest);
-        int pixelX = Math.round(pixelDest[0]);
-        int pixelFromBottom = height - 1 - Math.round(pixelDest[1]);
-        if (!inFront || pixelX < 0 || pixelX >= width || pixelFromBottom < 0 || pixelFromBottom >= height) {
-            return false;
+        Vector3f pixel = projectToPixels(camera, liftedPoint);
+        if (pixel == null) {
+            return null;
+        }
+        int pixelX = Math.round(pixel.x);
+        int pixelFromBottom = height - 1 - Math.round(pixel.y);
+        if (pixelX < 0 || pixelX >= width || pixelFromBottom < 0 || pixelFromBottom >= height) {
+            return null;
         }
         if (!depthSnapshotTaken || depthSnapshot.length != width * height) {
             depthSnapshot = Platforms.gl().readDepths(0, 0, width, height);
@@ -887,7 +884,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         camera.view.transform(pointInView);
         float surfaceDistance = -surfaceAtPixel.z / surfaceAtPixel.w;
         return -pointInView.z <= surfaceDistance + DEPTH_LIFT_TIE * depthLift
-                && -pointInView.z >= surfaceDistance - ON_SURFACE_LIFTS * depthLift;
+                && -pointInView.z >= surfaceDistance - ON_SURFACE_LIFTS * depthLift ? pixel : null;
     }
 
     /**
@@ -908,12 +905,12 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
      * @param camera       active camera
      * @param framebufferX pixel x, measured from the left, a whole number the pixel's centre
      * @param framebufferY pixel y, measured from the top, a whole number the pixel's centre
-     * @param origin       receives the ray origin, packed xyz
-     * @param direction    receives the ray direction, packed xyz, not normalised
+     * @param origin       receives the ray origin
+     * @param direction    receives the ray direction, not normalised
      * @return true when the framebuffer has a size
      */
     public boolean rayThroughPixel(Camera3D camera, float framebufferX, float framebufferY,
-            float[] origin, float[] direction) {
+            Vector3f origin, Vector3f direction) {
         updateProjection(camera);
         return camera.rayThroughPixel(modelMatrix, framebufferX, framebufferY, origin, direction);
     }
@@ -922,17 +919,14 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
      * Project a world point through the model, view and projection the surface draws with, so an
      * overlay can place a 2D mark where a 3D point landed and test it against the depth buffer.
      *
-     * @param camera    active camera
-     * @param x         world x
-     * @param y         world y
-     * @param z         world z
-     * @param pixelDest receives framebuffer x from the left, y from the top, and the window-space
-     *                  depth in {@code [0, 1]} the point would write
-     * @return true when the point projects in front of the camera
+     * @param camera active camera
+     * @param point  world point
+     * @return framebuffer x from the left, y from the top and the window-space depth in
+     *         {@code [0, 1]}, or null when the point does not project in front of the camera
      */
-    public boolean projectToPixels(Camera3D camera, float x, float y, float z, float[] pixelDest) {
+    public Vector3f projectToPixels(Camera3D camera, Vector3f point) {
         updateProjection(camera);
-        return camera.projectToPixels(modelMatrix, x, y, z, pixelDest);
+        return camera.projectToPixels(modelMatrix, point);
     }
 
     private void renderFeatureEdgeOverlay(Camera3D camera) {

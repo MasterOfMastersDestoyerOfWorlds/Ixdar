@@ -3,9 +3,11 @@ package ixdar.geometry.mesh.data.paths.query;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
@@ -228,9 +230,7 @@ public final class TriangleBvh {
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
             mesh.vertexPosition(vertexId, position);
-            bvh.positions[vertexId * TriangleGeometry.COMPONENTS] = position.x;
-            bvh.positions[vertexId * TriangleGeometry.COMPONENTS + 1] = position.y;
-            bvh.positions[vertexId * TriangleGeometry.COMPONENTS + 2] = position.z;
+            PackedPoints.store(bvh.positions, vertexId * TriangleGeometry.COMPONENTS, position);
         }
         bvh.build();
         return bvh;
@@ -247,7 +247,7 @@ public final class TriangleBvh {
      * @param stack        scratch node stack of at least {@link #nodeCount} entries
      * @return the triangle hit, or -1; its ray parameter is left in {@link #hitParameter}
      */
-    public int nearestHit(float[] origin, float[] direction, double maxParameter, int[] stack) {
+    public int nearestHit(Vector3f origin, Vector3f direction, double maxParameter, int[] stack) {
         return nearestHitAvoiding(origin, direction, maxParameter, null, 0, stack);
     }
 
@@ -263,7 +263,7 @@ public final class TriangleBvh {
      * @param stack        scratch node stack of at least {@link #nodeCount} entries
      * @return the triangle hit, or -1; its ray parameter is left in {@link #hitParameter}
      */
-    public int nearestHitAvoiding(float[] origin, float[] direction, double maxParameter, int[] markByCorner,
+    public int nearestHitAvoiding(Vector3f origin, Vector3f direction, double maxParameter, int[] markByCorner,
             int mark, int[] stack) {
         return nearestHitAvoiding(origin, direction, maxParameter, markByCorner, mark, stack, null);
     }
@@ -282,34 +282,37 @@ public final class TriangleBvh {
      *                     first entry; null leaves it only in {@link #hitParameter}
      * @return the triangle hit, or -1
      */
-    public int nearestHitAvoiding(float[] origin, float[] direction, double maxParameter, int[] markByCorner,
+    public int nearestHitAvoiding(Vector3f origin, Vector3f direction, double maxParameter, int[] markByCorner,
             int mark, int[] stack, double[] hitOut) {
         int nearestTriangle = -1;
         double nearest = maxParameter;
-        double inverseX = 1.0 / direction[0];
-        double inverseY = 1.0 / direction[1];
-        double inverseZ = 1.0 / direction[2];
+        double inverseX = 1.0 / direction.x;
+        double inverseY = 1.0 / direction.y;
+        double inverseZ = 1.0 / direction.z;
         boolean bounded = !Double.isInfinite(maxParameter);
-        double endX = origin[0] + direction[0] * maxParameter;
-        double endY = origin[1] + direction[1] * maxParameter;
-        double endZ = origin[2] + direction[2] * maxParameter;
-        double rayLowX = Math.min(origin[0], endX);
-        double rayLowY = Math.min(origin[1], endY);
-        double rayLowZ = Math.min(origin[2], endZ);
-        double rayHighX = Math.max(origin[0], endX);
-        double rayHighY = Math.max(origin[1], endY);
-        double rayHighZ = Math.max(origin[2], endZ);
+        double endX = origin.x + direction.x * maxParameter;
+        double endY = origin.y + direction.y * maxParameter;
+        double endZ = origin.z + direction.z * maxParameter;
+        double rayLowX = Math.min(origin.x, endX);
+        double rayLowY = Math.min(origin.y, endY);
+        double rayLowZ = Math.min(origin.z, endZ);
+        double rayHighX = Math.max(origin.x, endX);
+        double rayHighY = Math.max(origin.y, endY);
+        double rayHighZ = Math.max(origin.z, endZ);
+        float originX = origin.x;
+        float originY = origin.y;
+        float originZ = origin.z;
         int top = 0;
         stack[top++] = 0;
         while (top > 0 && nodeCount > 0) {
             int node = stack[--top];
             int box = node * TriangleGeometry.COMPONENTS;
-            double lowX = (nodeMin[box] - origin[0]) * inverseX;
-            double highX = (nodeMax[box] - origin[0]) * inverseX;
-            double lowY = (nodeMin[box + 1] - origin[1]) * inverseY;
-            double highY = (nodeMax[box + 1] - origin[1]) * inverseY;
-            double lowZ = (nodeMin[box + 2] - origin[2]) * inverseZ;
-            double highZ = (nodeMax[box + 2] - origin[2]) * inverseZ;
+            double lowX = (nodeMin[box] - originX) * inverseX;
+            double highX = (nodeMax[box] - originX) * inverseX;
+            double lowY = (nodeMin[box + 1] - originY) * inverseY;
+            double highY = (nodeMax[box + 1] - originY) * inverseY;
+            double lowZ = (nodeMin[box + 2] - originZ) * inverseZ;
+            double highZ = (nodeMax[box + 2] - originZ) * inverseZ;
             double enter = Math.max(MINIMUM_RAY_PARAMETER, Math.max(Math.min(lowX, highX),
                     Math.max(Math.min(lowY, highY), Math.min(lowZ, highZ))));
             double exit = Math.min(nearest, Math.min(Math.max(lowX, highX),
@@ -363,7 +366,7 @@ public final class TriangleBvh {
      * @param stack     scratch node stack of at least {@link #nodeCount} entries, one per thread
      * @return a triangle hit, or -1 when the ray escapes
      */
-    public int anyHit(float[] origin, float[] direction, int[] stack) {
+    public int anyHit(Vector3f origin, Vector3f direction, int[] stack) {
         return anyHit(origin, direction, Double.POSITIVE_INFINITY, stack);
     }
 
@@ -377,7 +380,7 @@ public final class TriangleBvh {
      * @param stack        scratch node stack of at least {@link #nodeCount} entries
      * @return a triangle hit, or -1
      */
-    public int anyHit(float[] origin, float[] direction, double maxParameter, int[] stack) {
+    public int anyHit(Vector3f origin, Vector3f direction, double maxParameter, int[] stack) {
         int hit = ownHit(origin, direction, maxParameter, stack);
         return hit >= 0 || companion == null ? hit
                 : companion.anyHit(origin, direction, maxParameter, stack) >= 0 ? Integer.MAX_VALUE : -1;
@@ -392,13 +395,13 @@ public final class TriangleBvh {
      * @param stack        scratch node stack of at least {@link #nodeCount} entries
      * @return a triangle hit, or -1
      */
-    private int ownHit(float[] origin, float[] direction, double maxParameter, int[] stack) {
+    private int ownHit(Vector3f origin, Vector3f direction, double maxParameter, int[] stack) {
         if (nodeCount == 0) {
             return -1;
         }
-        double inverseX = 1.0 / direction[0];
-        double inverseY = 1.0 / direction[1];
-        double inverseZ = 1.0 / direction[2];
+        double inverseX = 1.0 / direction.x;
+        double inverseY = 1.0 / direction.y;
+        double inverseZ = 1.0 / direction.z;
         int top = 0;
         if (boxEnter(0, origin, inverseX, inverseY, inverseZ, maxParameter) < maxParameter) {
             stack[top++] = 0;
@@ -443,7 +446,7 @@ public final class TriangleBvh {
      * @param stack     scratch node stack of at least {@link #nodeCount} entries
      * @return the signed crossing count
      */
-    public int windingAlong(float[] origin, float[] direction, int[] stack) {
+    public int windingAlong(Vector3f origin, Vector3f direction, int[] stack) {
         return windingAlong(origin, direction, stack, 0);
     }
 
@@ -456,7 +459,7 @@ public final class TriangleBvh {
      * @param margin    ray parameter below which a crossing voids the count
      * @return the signed crossing count, or zero
      */
-    private int windingAlong(float[] origin, float[] direction, int[] stack, double margin) {
+    private int windingAlong(Vector3f origin, Vector3f direction, int[] stack, double margin) {
         int own = ownWinding(origin, direction, stack, margin);
         if (companion == null || own == Integer.MIN_VALUE) {
             return own == Integer.MIN_VALUE ? 0 : own;
@@ -474,13 +477,13 @@ public final class TriangleBvh {
      * @param margin    ray parameter below which a crossing voids the count
      * @return the signed crossing count, or {@link Integer#MIN_VALUE} when voided
      */
-    private int ownWinding(float[] origin, float[] direction, int[] stack, double margin) {
+    private int ownWinding(Vector3f origin, Vector3f direction, int[] stack, double margin) {
         if (nodeCount == 0) {
             return 0;
         }
-        double inverseX = 1.0 / direction[0];
-        double inverseY = 1.0 / direction[1];
-        double inverseZ = 1.0 / direction[2];
+        double inverseX = 1.0 / direction.x;
+        double inverseY = 1.0 / direction.y;
+        double inverseZ = 1.0 / direction.z;
         double unbounded = Double.POSITIVE_INFINITY;
         int winding = 0;
         int top = 0;
@@ -526,9 +529,8 @@ public final class TriangleBvh {
      * @param stack  scratch node stack of at least {@link #nodeCount} entries
      * @return the agreed count, or zero
      */
-    public int agreedWinding(float[] origin, float[] axis, int[] stack) {
-        float[] slant = new float[TriangleGeometry.COMPONENTS];
-        hemisphereDirection(hemisphereBasis(axis), 1, slant);
+    public int agreedWinding(Vector3f origin, Vector3f axis, int[] stack) {
+        Vector3f slant = hemisphereDirection(hemisphereBasis(axis), 1);
         int alongAxis = windingAlong(origin, axis, stack, WINDING_MARGIN);
         return alongAxis != 0 && alongAxis == windingAlong(origin, slant, stack, WINDING_MARGIN)
                 ? alongAxis : 0;
@@ -542,9 +544,8 @@ public final class TriangleBvh {
      * @param stack  scratch node stack of at least {@link #nodeCount} entries
      * @return true when one of them hits
      */
-    public boolean meetsWindingRays(float[] origin, float[] axis, int[] stack) {
-        float[] slant = new float[TriangleGeometry.COMPONENTS];
-        hemisphereDirection(hemisphereBasis(axis), 1, slant);
+    public boolean meetsWindingRays(Vector3f origin, Vector3f axis, int[] stack) {
+        Vector3f slant = hemisphereDirection(hemisphereBasis(axis), 1);
         return anyHit(origin, axis, stack) >= 0 || anyHit(origin, slant, stack) >= 0;
     }
 
@@ -555,7 +556,7 @@ public final class TriangleBvh {
      * @param direction direction xyz
      * @return true when it runs along the winding's normal
      */
-    private boolean leavesThroughFront(int triangle, float[] direction) {
+    private boolean leavesThroughFront(int triangle, Vector3f direction) {
         int cornerA = triangleCorners[triangle * TRIANGLE_CORNERS] * TriangleGeometry.COMPONENTS;
         int cornerB = triangleCorners[triangle * TRIANGLE_CORNERS + 1] * TriangleGeometry.COMPONENTS;
         int cornerC = triangleCorners[triangle * TRIANGLE_CORNERS + 2] * TriangleGeometry.COMPONENTS;
@@ -565,9 +566,9 @@ public final class TriangleBvh {
         double edgeTwoX = positions[cornerC] - (double) positions[cornerA];
         double edgeTwoY = positions[cornerC + 1] - (double) positions[cornerA + 1];
         double edgeTwoZ = positions[cornerC + 2] - (double) positions[cornerA + 2];
-        return direction[0] * (edgeOneY * edgeTwoZ - edgeOneZ * edgeTwoY)
-                + direction[1] * (edgeOneZ * edgeTwoX - edgeOneX * edgeTwoZ)
-                + direction[2] * (edgeOneX * edgeTwoY - edgeOneY * edgeTwoX) > 0;
+        return direction.x * (edgeOneY * edgeTwoZ - edgeOneZ * edgeTwoY)
+                + direction.y * (edgeOneZ * edgeTwoX - edgeOneX * edgeTwoZ)
+                + direction.z * (edgeOneX * edgeTwoY - edgeOneY * edgeTwoX) > 0;
     }
 
     /**
@@ -581,15 +582,15 @@ public final class TriangleBvh {
      * @param maxParameter bound past which the box does not count
      * @return the entry parameter, or positive infinity when the ray misses the box in range
      */
-    private double boxEnter(int node, float[] origin, double inverseX, double inverseY,
+    private double boxEnter(int node, Vector3f origin, double inverseX, double inverseY,
             double inverseZ, double maxParameter) {
         int box = node * BOX_FLOATS;
-        double lowX = (nodeBoxes[box] - origin[0]) * inverseX;
-        double highX = (nodeBoxes[box + TriangleGeometry.COMPONENTS] - origin[0]) * inverseX;
-        double lowY = (nodeBoxes[box + 1] - origin[1]) * inverseY;
-        double highY = (nodeBoxes[box + TriangleGeometry.COMPONENTS + 1] - origin[1]) * inverseY;
-        double lowZ = (nodeBoxes[box + 2] - origin[2]) * inverseZ;
-        double highZ = (nodeBoxes[box + TriangleGeometry.COMPONENTS + 2] - origin[2]) * inverseZ;
+        double lowX = (nodeBoxes[box] - origin.x) * inverseX;
+        double highX = (nodeBoxes[box + TriangleGeometry.COMPONENTS] - origin.x) * inverseX;
+        double lowY = (nodeBoxes[box + 1] - origin.y) * inverseY;
+        double highY = (nodeBoxes[box + TriangleGeometry.COMPONENTS + 1] - origin.y) * inverseY;
+        double lowZ = (nodeBoxes[box + 2] - origin.z) * inverseZ;
+        double highZ = (nodeBoxes[box + TriangleGeometry.COMPONENTS + 2] - origin.z) * inverseZ;
         double enter = Math.max(MINIMUM_RAY_PARAMETER, Math.max(Math.min(lowX, highX),
                 Math.max(Math.min(lowY, highY), Math.min(lowZ, highZ))));
         double exit = Math.min(maxParameter, Math.min(Math.max(lowX, highX),
@@ -610,11 +611,12 @@ public final class TriangleBvh {
      * @param stack  scratch node stack of at least {@link #nodeCount} entries, one per thread
      * @return true when one of the rays meets no triangle
      */
-    public boolean hemisphereEscapes(float[] origin, float[] axis, int[] stack) {
+    public boolean hemisphereEscapes(Vector3f origin, Vector3f axis, int[] stack) {
         float[] basis = hemisphereBasis(axis);
-        float[] direction = new float[TriangleGeometry.COMPONENTS];
+        Vector3f direction = new Vector3f();
         for (int ray = 0; ray < HEMISPHERE_RAYS; ray++) {
-            hemisphereDirection(basis, ray, direction);
+            direction.set(hemisphereComponent(basis, ray, 0), hemisphereComponent(basis, ray, 1),
+                    hemisphereComponent(basis, ray, 2));
             if (anyHit(origin, direction, stack) < 0) {
                 return true;
             }
@@ -633,12 +635,12 @@ public final class TriangleBvh {
      * @param blockers receives {@link #HEMISPHERE_RAYS} triangles when no ray escapes
      * @return true when one of the rays meets no triangle
      */
-    public boolean hemisphereEscapes(float[] origin, float[] axis, int[] stack, int[] blockers) {
+    public boolean hemisphereEscapes(Vector3f origin, Vector3f axis, int[] stack, int[] blockers) {
         return hemisphereEscapes(origin, axis, stack, blockers, blockers, 0);
     }
 
     /**
-     * {@link #hemisphereEscapes(float[], float[], int[], int[])} trying, before each ray walks the
+     * {@link #hemisphereEscapes(Vector3f, Vector3f, int[], int[])} trying, before each ray walks the
      * tree, a few triangles likely to stop it, such as the ones round the origin: a hit is a hit.
      *
      * @param origin      ray origin xyz
@@ -649,13 +651,14 @@ public final class TriangleBvh {
      * @param nearbyCount how many of them
      * @return true when one of the rays meets no triangle
      */
-    public boolean hemisphereEscapes(float[] origin, float[] axis, int[] stack, int[] blockers, int[] nearby,
+    public boolean hemisphereEscapes(Vector3f origin, Vector3f axis, int[] stack, int[] blockers, int[] nearby,
             int nearbyCount) {
         float[] basis = hemisphereBasis(axis);
-        float[] direction = new float[TriangleGeometry.COMPONENTS];
+        Vector3f direction = new Vector3f();
         rays:
         for (int ray = 0; ray < HEMISPHERE_RAYS; ray++) {
-            hemisphereDirection(basis, ray, direction);
+            direction.set(hemisphereComponent(basis, ray, 0), hemisphereComponent(basis, ray, 1),
+                    hemisphereComponent(basis, ray, 2));
             for (int index = 0; index < nearbyCount; index++) {
                 if (blocks(nearby[index], origin, direction)) {
                     blockers[ray] = nearby[index];
@@ -683,7 +686,7 @@ public final class TriangleBvh {
      * @param direction ray direction xyz
      * @return true when the ray meets it
      */
-    private boolean blocks(int triangle, float[] origin, float[] direction) {
+    private boolean blocks(int triangle, Vector3f origin, Vector3f direction) {
         if (triangle < 0) {
             return false;
         }
@@ -701,21 +704,21 @@ public final class TriangleBvh {
      * @param axis unit axis xyz
      * @return axis, across and third, three components each
      */
-    private static float[] hemisphereBasis(float[] axis) {
+    private static float[] hemisphereBasis(Vector3f axis) {
         float[] basis = new float[TriangleGeometry.COMPONENTS * TriangleGeometry.COMPONENTS];
-        float acrossX = Math.abs(axis[0]) < SLANT_HELPER_LIMIT ? 0 : -axis[2];
-        float acrossY = Math.abs(axis[0]) < SLANT_HELPER_LIMIT ? axis[2] : 0;
-        float acrossZ = Math.abs(axis[0]) < SLANT_HELPER_LIMIT ? -axis[1] : axis[0];
+        float acrossX = Math.abs(axis.x) < SLANT_HELPER_LIMIT ? 0 : -axis.z;
+        float acrossY = Math.abs(axis.x) < SLANT_HELPER_LIMIT ? axis.z : 0;
+        float acrossZ = Math.abs(axis.x) < SLANT_HELPER_LIMIT ? -axis.y : axis.x;
         float length = (float) Math.sqrt(acrossX * acrossX + acrossY * acrossY + acrossZ * acrossZ);
-        basis[0] = axis[0];
-        basis[1] = axis[1];
-        basis[2] = axis[2];
+        basis[0] = axis.x;
+        basis[1] = axis.y;
+        basis[2] = axis.z;
         basis[3] = acrossX / length;
         basis[4] = acrossY / length;
         basis[5] = acrossZ / length;
-        basis[6] = axis[1] * basis[5] - axis[2] * basis[4];
-        basis[7] = axis[2] * basis[3] - axis[0] * basis[5];
-        basis[8] = axis[0] * basis[4] - axis[1] * basis[3];
+        basis[6] = axis.y * basis[5] - axis.z * basis[4];
+        basis[7] = axis.z * basis[3] - axis.x * basis[5];
+        basis[8] = axis.x * basis[4] - axis.y * basis[3];
         return basis;
     }
 
@@ -723,20 +726,31 @@ public final class TriangleBvh {
      * One of the hemisphere's rays: ray 0 is the axis, then {@link #SLANT_AZIMUTHS} per cone of
      * {@link #SLANT_CONE_TILT_DEGREES}, each cone turned half a step from the last.
      *
+     * @param basis output of {@link #hemisphereBasis}
+     * @param ray   ray index below {@link #HEMISPHERE_RAYS}
+     * @return a new unit direction
+     */
+    private static Vector3f hemisphereDirection(float[] basis, int ray) {
+        return new Vector3f(hemisphereComponent(basis, ray, 0), hemisphereComponent(basis, ray, 1),
+                hemisphereComponent(basis, ray, 2));
+    }
+
+    /**
+     * One component of {@link #hemisphereDirection}, so the per-ray loops of
+     * {@link #hemisphereEscapes} refill one scratch vector instead of allocating a ray each.
+     *
      * @param basis     output of {@link #hemisphereBasis}
      * @param ray       ray index below {@link #HEMISPHERE_RAYS}
-     * @param direction receives the unit direction
+     * @param component 0, 1 or 2 for x, y or z
+     * @return that component of the unit direction
      */
-    private static void hemisphereDirection(float[] basis, int ray, float[] direction) {
+    private static float hemisphereComponent(float[] basis, int ray, int component) {
         if (ray == 0) {
-            System.arraycopy(basis, 0, direction, 0, TriangleGeometry.COMPONENTS);
-            return;
+            return basis[component];
         }
         double[] trig = RAY_TRIG[ray];
-        for (int component = 0; component < TriangleGeometry.COMPONENTS; component++) {
-            direction[component] = (float) (basis[component] * trig[0] + trig[1]
-                    * (basis[component + 3] * trig[2] + basis[component + 6] * trig[3]));
-        }
+        return (float) (basis[component] * trig[0] + trig[1]
+                * (basis[component + 3] * trig[2] + basis[component + 6] * trig[3]));
     }
 
     /**
@@ -764,7 +778,7 @@ public final class TriangleBvh {
      * @return the ray parameter of the crossing, or positive infinity when it misses or the
      *         crossing lies before {@link #MINIMUM_RAY_PARAMETER}
      */
-    private double rayParameter(int triangle, float[] origin, float[] direction) {
+    private double rayParameter(int triangle, Vector3f origin, Vector3f direction) {
         return rayParameter(triangle, origin, direction, 0);
     }
 
@@ -778,7 +792,7 @@ public final class TriangleBvh {
      * @param slack     how far outside the triangle, in barycentric units, still counts
      * @return the ray parameter of the crossing, or positive infinity
      */
-    private double rayParameter(int triangle, float[] origin, float[] direction, double slack) {
+    private double rayParameter(int triangle, Vector3f origin, Vector3f direction, double slack) {
         int cornerA = triangleCorners[triangle * TRIANGLE_CORNERS] * TriangleGeometry.COMPONENTS;
         int cornerB = triangleCorners[triangle * TRIANGLE_CORNERS + 1] * TriangleGeometry.COMPONENTS;
         int cornerC = triangleCorners[triangle * TRIANGLE_CORNERS + 2] * TriangleGeometry.COMPONENTS;
@@ -788,21 +802,21 @@ public final class TriangleBvh {
         double edgeTwoX = positions[cornerC] - (double) positions[cornerA];
         double edgeTwoY = positions[cornerC + 1] - (double) positions[cornerA + 1];
         double edgeTwoZ = positions[cornerC + 2] - (double) positions[cornerA + 2];
-        double crossX = direction[1] * edgeTwoZ - direction[2] * edgeTwoY;
-        double crossY = direction[2] * edgeTwoX - direction[0] * edgeTwoZ;
-        double crossZ = direction[0] * edgeTwoY - direction[1] * edgeTwoX;
+        double crossX = direction.y * edgeTwoZ - direction.z * edgeTwoY;
+        double crossY = direction.z * edgeTwoX - direction.x * edgeTwoZ;
+        double crossZ = direction.x * edgeTwoY - direction.y * edgeTwoX;
         double determinant = edgeOneX * crossX + edgeOneY * crossY + edgeOneZ * crossZ;
         if (determinant == 0.0) {
             return Double.POSITIVE_INFINITY;
         }
-        double toOriginX = origin[0] - (double) positions[cornerA];
-        double toOriginY = origin[1] - (double) positions[cornerA + 1];
-        double toOriginZ = origin[2] - (double) positions[cornerA + 2];
+        double toOriginX = origin.x - (double) positions[cornerA];
+        double toOriginY = origin.y - (double) positions[cornerA + 1];
+        double toOriginZ = origin.z - (double) positions[cornerA + 2];
         double first = (toOriginX * crossX + toOriginY * crossY + toOriginZ * crossZ) / determinant;
         double turnX = toOriginY * edgeOneZ - toOriginZ * edgeOneY;
         double turnY = toOriginZ * edgeOneX - toOriginX * edgeOneZ;
         double turnZ = toOriginX * edgeOneY - toOriginY * edgeOneX;
-        double second = (direction[0] * turnX + direction[1] * turnY + direction[2] * turnZ) / determinant;
+        double second = (direction.x * turnX + direction.y * turnY + direction.z * turnZ) / determinant;
         double parameter = (edgeTwoX * turnX + edgeTwoY * turnY + edgeTwoZ * turnZ) / determinant;
         return first >= -slack && second >= -slack && first + second <= 1.0 + slack
                 && parameter >= MINIMUM_RAY_PARAMETER ? parameter : Double.POSITIVE_INFINITY;
@@ -818,7 +832,7 @@ public final class TriangleBvh {
      * @param slack     how far outside the triangle, in barycentric units, still counts
      * @return the ray parameter of the crossing, or positive infinity
      */
-    private double filedRayParameter(int index, float[] origin, float[] direction, double slack) {
+    private double filedRayParameter(int index, Vector3f origin, Vector3f direction, double slack) {
         int cornerA = index * TRIANGLE_CORNERS * TriangleGeometry.COMPONENTS;
         int cornerB = cornerA + TriangleGeometry.COMPONENTS;
         int cornerC = cornerB + TriangleGeometry.COMPONENTS;
@@ -829,21 +843,21 @@ public final class TriangleBvh {
         double edgeTwoX = at[cornerC] - (double) at[cornerA];
         double edgeTwoY = at[cornerC + 1] - (double) at[cornerA + 1];
         double edgeTwoZ = at[cornerC + 2] - (double) at[cornerA + 2];
-        double crossX = direction[1] * edgeTwoZ - direction[2] * edgeTwoY;
-        double crossY = direction[2] * edgeTwoX - direction[0] * edgeTwoZ;
-        double crossZ = direction[0] * edgeTwoY - direction[1] * edgeTwoX;
+        double crossX = direction.y * edgeTwoZ - direction.z * edgeTwoY;
+        double crossY = direction.z * edgeTwoX - direction.x * edgeTwoZ;
+        double crossZ = direction.x * edgeTwoY - direction.y * edgeTwoX;
         double determinant = edgeOneX * crossX + edgeOneY * crossY + edgeOneZ * crossZ;
         if (determinant == 0.0) {
             return Double.POSITIVE_INFINITY;
         }
-        double toOriginX = origin[0] - (double) at[cornerA];
-        double toOriginY = origin[1] - (double) at[cornerA + 1];
-        double toOriginZ = origin[2] - (double) at[cornerA + 2];
+        double toOriginX = origin.x - (double) at[cornerA];
+        double toOriginY = origin.y - (double) at[cornerA + 1];
+        double toOriginZ = origin.z - (double) at[cornerA + 2];
         double first = (toOriginX * crossX + toOriginY * crossY + toOriginZ * crossZ) / determinant;
         double turnX = toOriginY * edgeOneZ - toOriginZ * edgeOneY;
         double turnY = toOriginZ * edgeOneX - toOriginX * edgeOneZ;
         double turnZ = toOriginX * edgeOneY - toOriginY * edgeOneX;
-        double second = (direction[0] * turnX + direction[1] * turnY + direction[2] * turnZ) / determinant;
+        double second = (direction.x * turnX + direction.y * turnY + direction.z * turnZ) / determinant;
         double parameter = (edgeTwoX * turnX + edgeTwoY * turnY + edgeTwoZ * turnZ) / determinant;
         return first >= -slack && second >= -slack && first + second <= 1.0 + slack
                 && parameter >= MINIMUM_RAY_PARAMETER ? parameter : Double.POSITIVE_INFINITY;
@@ -1189,25 +1203,22 @@ public final class TriangleBvh {
      * @param normal   receives its unnormalised normal
      * @return the line's axis
      */
-    private int lineThrough(int triangle, double[] centre, double[] normal) {
+    private int lineThrough(int triangle, Vector3d centre, Vector3d normal) {
         int cornerA = triangleCorners[triangle * TRIANGLE_CORNERS] * TriangleGeometry.COMPONENTS;
         int cornerB = triangleCorners[triangle * TRIANGLE_CORNERS + 1] * TriangleGeometry.COMPONENTS;
         int cornerC = triangleCorners[triangle * TRIANGLE_CORNERS + 2] * TriangleGeometry.COMPONENTS;
-        int axis = 0;
-        for (int component = 0; component < TriangleGeometry.COMPONENTS; component++) {
-            int next = (component + 1) % TriangleGeometry.COMPONENTS;
-            int after = (component + 2) % TriangleGeometry.COMPONENTS;
-            normal[component] = (positions[cornerB + next] - positions[cornerA + next])
-                    * (positions[cornerC + after] - positions[cornerA + after])
-                    - (positions[cornerB + after] - positions[cornerA + after])
-                    * (positions[cornerC + next] - positions[cornerA + next]);
-            centre[component] = (positions[cornerA + component] + positions[cornerB + component]
-                    + positions[cornerC + component]) / TRIANGLE_CORNERS;
-            if (Math.abs(normal[component]) > Math.abs(normal[axis])) {
-                axis = component;
-            }
-        }
-        return axis;
+        float alongX = positions[cornerB] - positions[cornerA];
+        float alongY = positions[cornerB + 1] - positions[cornerA + 1];
+        float alongZ = positions[cornerB + 2] - positions[cornerA + 2];
+        float acrossX = positions[cornerC] - positions[cornerA];
+        float acrossY = positions[cornerC + 1] - positions[cornerA + 1];
+        float acrossZ = positions[cornerC + 2] - positions[cornerA + 2];
+        normal.set(alongY * acrossZ - alongZ * acrossY, alongZ * acrossX - alongX * acrossZ,
+                alongX * acrossY - alongY * acrossX);
+        centre.set((positions[cornerA] + positions[cornerB] + positions[cornerC]) / TRIANGLE_CORNERS,
+                (positions[cornerA + 1] + positions[cornerB + 1] + positions[cornerC + 1]) / TRIANGLE_CORNERS,
+                (positions[cornerA + 2] + positions[cornerB + 2] + positions[cornerC + 2]) / TRIANGLE_CORNERS);
+        return normal.maxComponent();
     }
 
     /**
@@ -1219,8 +1230,8 @@ public final class TriangleBvh {
      * @param end    one past its last triangle
      */
     private void faceRange(boolean[] asked, int[] facing, int first, int end) {
-        double[] centre = new double[TriangleGeometry.COMPONENTS];
-        double[] normal = new double[TriangleGeometry.COMPONENTS];
+        Vector3d centre = new Vector3d();
+        Vector3d normal = new Vector3d();
         for (int triangle = first; triangle < end; triangle++) {
             if (triangleGroup != null && triangleGroup[triangle] < 0
                     || asked != null && !asked[triangle]) {
@@ -1229,8 +1240,8 @@ public final class TriangleBvh {
             int axis = lineThrough(triangle, centre, normal);
             int across = (axis + 1) % TriangleGeometry.COMPONENTS;
             int along = (axis + 2) % TriangleGeometry.COMPONENTS;
-            int column = columnOf(centre[across], across, axis) * columnsAlongOf[axis]
-                    + columnOf(centre[along], along, axis);
+            int column = columnOf(centre.get(across), across, axis) * columnsAlongOf[axis]
+                    + columnOf(centre.get(along), along, axis);
             if (lineCells != null) {
                 lineCells[triangle] = column * TRIANGLE_CORNERS + axis;
             }
@@ -1244,19 +1255,18 @@ public final class TriangleBvh {
                     member++) {
                 int other = columnMembers[axis][member];
                 int box = other * BOX_FLOATS;
-                if (centre[across] < columnBounds[box + across]
-                        || centre[across] > columnBounds[box + TriangleGeometry.COMPONENTS + across]
-                        || centre[along] < columnBounds[box + along]
-                        || centre[along] > columnBounds[box + TriangleGeometry.COMPONENTS + along]
+                if (centre.get(across) < columnBounds[box + across]
+                        || centre.get(across) > columnBounds[box + TriangleGeometry.COMPONENTS + across]
+                        || centre.get(along) < columnBounds[box + along]
+                        || centre.get(along) > columnBounds[box + TriangleGeometry.COMPONENTS + along]
                         || triangleGroup != null && triangleGroup[other] == group) {
                     continue;
                 }
                 int otherA = triangleCorners[other * TRIANGLE_CORNERS];
                 int otherB = triangleCorners[other * TRIANGLE_CORNERS + 1];
                 int otherC = triangleCorners[other * TRIANGLE_CORNERS + 2];
-                int crosses = TriangleGeometry.positiveAxisRaysCross(axis, centre[0], centre[1],
-                        centre[2], below, positions, otherA, otherB, otherC,
-                        TriangleGeometry.positiveAxisInverseDeterminant(axis, positions, otherA,
+                int crosses = TriangleGeometry.positiveAxisRaysCross(axis, centre, below, positions, otherA,
+                        otherB, otherC, TriangleGeometry.positiveAxisInverseDeterminant(axis, positions, otherA,
                                 otherB, otherC));
                 int crossesAhead = crosses & TriangleGeometry.CROSSES_FROM_ORIGIN;
                 int crossesLine = (crosses & TriangleGeometry.CROSSES_FROM_BEHIND) == 0 ? 0 : 1;
@@ -1273,10 +1283,10 @@ public final class TriangleBvh {
                 }
             }
             facing[triangle] = line % 2 == 0 ? FACING_UNDECIDED
-                    : (ahead % 2 == 0) == (normal[axis] > 0) ? FACING_OUT_OF_VOLUME
+                    : (ahead % 2 == 0) == (normal.get(axis) > 0) ? FACING_OUT_OF_VOLUME
                             : FACING_INTO_VOLUME;
             int seen = line + capLine;
-            int front = normal[axis] > 0 ? ahead + capAhead : seen - ahead - capAhead;
+            int front = normal.get(axis) > 0 ? ahead + capAhead : seen - ahead - capAhead;
             exposedSide[triangle] = seen % 2 == 0 || (front == 0) == (seen == front)
                     ? FACING_UNDECIDED
                     : front == 0 ? FACING_OUT_OF_VOLUME : FACING_INTO_VOLUME;
@@ -1294,7 +1304,7 @@ public final class TriangleBvh {
      * @param cornerC third corner
      * @return the distance, infinite when the plane runs along the line
      */
-    private static double axialGap(int axis, double[] centre, float[] at, int cornerA, int cornerB, int cornerC) {
+    private static double axialGap(int axis, Vector3d centre, float[] at, int cornerA, int cornerB, int cornerC) {
         int a = cornerA * TriangleGeometry.COMPONENTS;
         int b = cornerB * TriangleGeometry.COMPONENTS;
         int c = cornerC * TriangleGeometry.COMPONENTS;
@@ -1307,7 +1317,7 @@ public final class TriangleBvh {
                     * (at[c + after] - (double) at[a + after])
                     - (at[b + after] - (double) at[a + after])
                     * (at[c + next] - (double) at[a + next]);
-            offset += normal * (at[a + component] - centre[component]);
+            offset += normal * (at[a + component] - centre.get(component));
             normalOnAxis = component == axis ? normal : normalOnAxis;
         }
         return normalOnAxis == 0 ? Double.POSITIVE_INFINITY : Math.abs(offset / normalOnAxis);
@@ -1376,11 +1386,11 @@ public final class TriangleBvh {
      * @param point a point on the line
      * @return the column index
      */
-    public int columnAt(int axis, float[] point) {
+    public int columnAt(int axis, Vector3f point) {
         int across = (axis + 1) % TriangleGeometry.COMPONENTS;
         int along = (axis + 2) % TriangleGeometry.COMPONENTS;
-        return clampedColumn(point[across], across, axis) * columnsAlongOf[axis]
-                + clampedColumn(point[along], along, axis);
+        return clampedColumn(point.get(across), across, axis) * columnsAlongOf[axis]
+                + clampedColumn(point.get(along), along, axis);
     }
 
     /**
@@ -1394,18 +1404,18 @@ public final class TriangleBvh {
      * @param skipLabel triangles with this label are skipped too
      * @return the number of crossings
      */
-    public int columnRayCrossings(int axis, double[] origin, int[] labels, int skipLabel) {
+    public int columnRayCrossings(int axis, Vector3d origin, int[] labels, int skipLabel) {
         int across = (axis + 1) % TriangleGeometry.COMPONENTS;
         int along = (axis + 2) % TriangleGeometry.COMPONENTS;
-        int column = clampedColumn(origin[across], across, axis) * columnsAlongOf[axis]
-                + clampedColumn(origin[along], along, axis);
+        int column = clampedColumn(origin.get(across), across, axis) * columnsAlongOf[axis]
+                + clampedColumn(origin.get(along), along, axis);
         int crossings = 0;
         for (int member = columnStart[axis][column]; member < columnStart[axis][column + 1]; member++) {
             int triangle = columnMembers[axis][member];
             if (triangle >= firstExposureOnly || labels[triangle] < 0 || labels[triangle] == skipLabel) {
                 continue;
             }
-            if (TriangleGeometry.positiveAxisRayCrosses(axis, origin[0], origin[1], origin[2], positions,
+            if (TriangleGeometry.positiveAxisRayCrosses(axis, origin, positions,
                     triangleCorners[triangle * TRIANGLE_CORNERS], triangleCorners[triangle * TRIANGLE_CORNERS + 1],
                     triangleCorners[triangle * TRIANGLE_CORNERS + 2])) {
                 crossings++;

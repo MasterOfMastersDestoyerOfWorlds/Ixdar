@@ -6,6 +6,7 @@ import org.joml.Intersectionf;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.Dijkstra;
 
@@ -29,7 +30,7 @@ public final class NearestVertex {
     public MeshTopology mesh;
 
     /** Grid origin, the minimum corner of the vertices' bounding box. */
-    public final float[] origin = new float[3];
+    public final Vector3f origin = new Vector3f();
 
     /** Cells along x, y and z. */
     public final int[] cellsPerAxis = new int[3];
@@ -89,36 +90,32 @@ public final class NearestVertex {
         int[] vertexIds = new int[vertexCount];
         Arrays.setAll(vertexIds, mesh::vertexIdAt);
         float[] xyz = mesh.packedPositions(null);
-        float[] maximum = { Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY,
-            Float.NEGATIVE_INFINITY };
-        Arrays.fill(index.origin, Float.POSITIVE_INFINITY);
-        for (int coordinate = 0; coordinate < xyz.length; coordinate++) {
-            int axis = coordinate % 3;
-            index.origin[axis] = Math.min(index.origin[axis], xyz[coordinate]);
-            maximum[axis] = Math.max(maximum[axis], xyz[coordinate]);
+        Vector3f maximum = new Vector3f(Float.NEGATIVE_INFINITY);
+        index.origin.set(Float.POSITIVE_INFINITY);
+        for (int coordinate = 0; coordinate + 2 < xyz.length; coordinate += 3) {
+            Vector3f position = PackedPoints.at(xyz, coordinate);
+            index.origin.min(position);
+            maximum.max(position);
         }
-        double largestExtent = 0.0;
-        for (int axis = 0; axis < 3 && vertexCount > 0; axis++) {
-            largestExtent = Math.max(largestExtent, maximum[axis] - index.origin[axis]);
-        }
+        Vector3f extent = new Vector3f(maximum).sub(index.origin);
+        double largestExtent = vertexCount > 0 ? Math.max(0.0, extent.get(extent.maxComponent())) : 0.0;
         double volume = 1.0;
         for (int axis = 0; axis < 3; axis++) {
             volume *= vertexCount == 0 ? 1.0
-                    : Math.max(maximum[axis] - index.origin[axis],
-                            CELL_BOUND_SLACK * largestExtent + Float.MIN_NORMAL);
+                    : Math.max(extent.get(axis), CELL_BOUND_SLACK * largestExtent + Float.MIN_NORMAL);
         }
         index.cellSize = (float) Math.cbrt(volume / Math.max(1, vertexCount));
         int cellCount = 1;
         for (int axis = 0; axis < 3; axis++) {
             index.cellsPerAxis[axis] = vertexCount == 0 ? 1
-                    : 1 + (int) ((maximum[axis] - index.origin[axis]) / index.cellSize);
+                    : 1 + (int) (extent.get(axis) / index.cellSize);
             cellCount *= index.cellsPerAxis[axis];
         }
         int[] cellOf = new int[vertexCount];
         for (int coordinate = 0; coordinate < xyz.length; coordinate++) {
             int axis = coordinate % 3;
             int cell = Math.min(index.cellsPerAxis[axis] - 1,
-                    (int) ((xyz[coordinate] - index.origin[axis]) / index.cellSize));
+                    (int) ((xyz[coordinate] - index.origin.get(axis)) / index.cellSize));
             cellOf[coordinate / 3] = cellOf[coordinate / 3] * index.cellsPerAxis[axis] + cell;
         }
         index.cellStart = new int[cellCount + 1];
@@ -176,10 +173,10 @@ public final class NearestVertex {
     public int[] within(float x, float y, float z, float radius) {
         int[] low = new int[3];
         int[] high = new int[3];
-        float[] point = { x, y, z };
+        Vector3f point = new Vector3f(x, y, z);
         for (int axis = 0; axis < 3; axis++) {
-            low[axis] = cellCoordinate(point[axis] - radius, axis);
-            high[axis] = cellCoordinate(point[axis] + radius, axis);
+            low[axis] = cellCoordinate(point.get(axis) - radius, axis);
+            high[axis] = cellCoordinate(point.get(axis) + radius, axis);
         }
         double radiusSquared = (double) radius * radius;
         int[] found = new int[0];
@@ -435,7 +432,7 @@ public final class NearestVertex {
         for (int copy : copies) {
             nearest = Math.min(nearest, distance[copy]);
         }
-        Vector3f position = mesh.vertexPosition(copies[0], new Vector3f());
+        Vector3f position = mesh.vertexPosition(copies[0]);
         if (nearest == Double.POSITIVE_INFINITY) {
             throw new IllegalStateException(copies.length + " coincident vertices at ("
                     + position.x + ", " + position.y + ", " + position.z + ") have faces lying "
@@ -505,7 +502,7 @@ public final class NearestVertex {
     }
 
     private int cellCoordinate(float coordinate, int axis) {
-        int cell = (int) Math.floor((coordinate - origin[axis]) / cellSize);
+        int cell = (int) Math.floor((coordinate - origin.get(axis)) / cellSize);
         return Math.max(0, Math.min(cellsPerAxis[axis] - 1, cell));
     }
 }

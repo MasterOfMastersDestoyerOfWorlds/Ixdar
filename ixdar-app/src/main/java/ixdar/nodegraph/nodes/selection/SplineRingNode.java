@@ -3,6 +3,8 @@ package ixdar.nodegraph.nodes.selection;
 import java.util.List;
 import java.util.Map;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
@@ -133,7 +135,7 @@ public class SplineRingNode implements MeshNode {
         }
         float[] points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
         int anchorCount = points.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        float[] normal = SurfaceWaypoints.parse(ctx.getInput(NORMAL.name, String.class));
+        Vector3f normal = SurfaceWaypoints.point(ctx.getInput(NORMAL.name, String.class));
         SurfaceMetric metric = ctx.getInput(METRIC.name, SurfaceMetric.class);
         if (metric == null) {
             throw new IllegalArgumentException("spline_ring " + label + " has no metric; wire "
@@ -162,8 +164,7 @@ public class SplineRingNode implements MeshNode {
                     + "but has no creases; wire creases = surface_creases(geometry=...) on the "
                     + "surface it rings and pass creases=creases.creases");
         }
-        boolean traced = ring.trace(anchorVertexIds, anchorCount,
-                normal.length == SurfaceWaypoints.COORDINATES_PER_WAYPOINT ? normal : null,
+        boolean traced = ring.trace(anchorVertexIds, anchorCount, normal,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
         if (!traced) {
             throw new IllegalArgumentException("spline_ring " + label + ": " + ring.failure);

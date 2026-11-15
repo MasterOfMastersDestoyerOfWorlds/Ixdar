@@ -71,7 +71,7 @@ class RingCameraDragHoverTest {
 
     private static final int QUARTERS = 4;
 
-    private static final float[] TUBE_AXIS = { 0.998f, 0.05f, 0.03f };
+    private static final Vector3f TUBE_AXIS = new Vector3f(0.998f, 0.05f, 0.03f);
 
     private static final String GET_PLATFORM_ID = "getPlatformID";
 
@@ -246,7 +246,7 @@ class RingCameraDragHoverTest {
         AuthoredSplineRing ring = new AuthoredSplineRing(tool.geodesics);
         assertTrue(ring.trace(quarters, QUARTERS, TUBE_AXIS,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
-        System.arraycopy(TUBE_AXIS, 0, tool.draftBaseNormal, 0, XYZ);
+        tool.draftBaseNormal.set(TUBE_AXIS);
         tool.draftAuthoredVertexId = ring.authoredVertexId;
         tool.draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
         tool.draft = SurfaceSpline.of(ring.tracer);

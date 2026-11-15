@@ -467,20 +467,15 @@ public class NDirectionField {
             }
             mesh.vertexPosition(edge.edgeStartVertex, start);
             mesh.vertexPosition(edge.edgeEndVertex, end);
-            float dx = end.x - start.x;
-            float dy = end.y - start.y;
-            float dz = end.z - start.z;
-            float edgeLength = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            Vector3f along = end.sub(start);
+            float edgeLength = along.length();
             if (edgeLength < CrossField.EPSILON) {
                 continue;
             }
             Vector3f leftNormal = mesh.faceNormal(edge.faceA);
             Vector3f rightNormal = mesh.faceNormal(edge.faceB);
             float cosDihedral = Math.max(-1f, Math.min(1f, leftNormal.dot(rightNormal)));
-            float crossX = leftNormal.y * rightNormal.z - leftNormal.z * rightNormal.y;
-            float crossY = leftNormal.z * rightNormal.x - leftNormal.x * rightNormal.z;
-            float crossZ = leftNormal.x * rightNormal.y - leftNormal.y * rightNormal.x;
-            float sinDihedral = (crossX * dx + crossY * dy + crossZ * dz) / edgeLength;
+            float sinDihedral = leftNormal.cross(rightNormal).dot(along) / edgeLength;
             float dihedralAngle = (float) Math.atan2(sinDihedral, cosDihedral);
             double edgeWeight = (dihedralAngle * edgeLength) / 4.0;
             double phase = 2.0 * getAngle(edge.edgeStartVertex, edge.halfEdge);
@@ -525,10 +520,7 @@ public class NDirectionField {
             int endVertexId = mesh.halfEdgeEndVertex(halfEdge);
             mesh.vertexPosition(startVertexId, start);
             mesh.vertexPosition(endVertexId, end);
-            float dx = end.x - start.x;
-            float dy = end.y - start.y;
-            float dz = end.z - start.z;
-            float edgeLength = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            float edgeLength = end.distance(start);
             if (edgeLength < CrossField.EPSILON) {
                 continue;
             }

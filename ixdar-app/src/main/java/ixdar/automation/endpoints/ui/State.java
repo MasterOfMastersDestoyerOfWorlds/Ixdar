@@ -157,6 +157,20 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     }
 
     /**
+     * A point as a JSON array {@code [x, y, z]}, each value at single precision.
+     *
+     * @param point the point
+     * @return the array
+     */
+    private static JsonArray floats(Vector3f point) {
+        JsonArray array = new JsonArray();
+        array.add(point.x);
+        array.add(point.y);
+        array.add(point.z);
+        return array;
+    }
+
+    /**
      * A packed position list as a JSON array, each value at single precision.
      *
      * @param packed the values, packed xyz for positions

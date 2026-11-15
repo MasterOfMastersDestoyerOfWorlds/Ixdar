@@ -6,8 +6,9 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
- * Where a ray meets a surface: the face it lands on, its barycentric weights there, and the
- * world point; a ray onto an edge two faces share lands on at least one of them.
+ * Where a ray meets a surface: the face it lands on, its barycentric weights
+ * there, and the world point; a ray onto an edge two faces share lands on at
+ * least one of them.
  */
 public final class SurfacePicker {
 
@@ -23,23 +24,23 @@ public final class SurfacePicker {
     /** Weight of the face's first corner in the last hit. */
     public float weightAtFirstCorner;
 
-    /** Weight of the hit fan triangle's second corner, face corner {@link #fanCorner}. */
+    /**
+     * Weight of the hit fan triangle's second corner, face corner
+     * {@link #fanCorner}.
+     */
     public float weightAtSecondCorner;
 
-    /** Weight of the hit fan triangle's third corner, face corner {@link #fanCorner} + 1. */
+    /**
+     * Weight of the hit fan triangle's third corner, face corner {@link #fanCorner}
+     * + 1.
+     */
     public float weightAtThirdCorner;
 
     /** Face corner the hit fan triangle's second corner is; 1 on a triangle. */
     public int fanCorner;
 
-    /** World x of the last hit. */
-    public float pointX;
-
-    /** World y of the last hit. */
-    public float pointY;
-
-    /** World z of the last hit. */
-    public float pointZ;
+    /** World point of the last hit. */
+    public Vector3f point;
 
     /** Ray parameter of the last hit, in the units of the direction given. */
     public float distanceAlongRay;
@@ -50,8 +51,9 @@ public final class SurfacePicker {
     private int[] faceCorners = new int[0];
 
     /**
-     * The ray's hit on {@code hintFace} or, when it passes outside it, the nearest hit on a face
-     * sharing a corner with it: the id buffer and the ray may give an edge to different sides.
+     * The ray's hit on {@code hintFace} or, when it passes outside it, the nearest
+     * hit on a face sharing a corner with it: the id buffer and the ray may give an
+     * edge to different sides.
      *
      * @param mesh         surface the face belongs to
      * @param hintFace     face id the GPU id buffer reports under the ray
@@ -59,8 +61,8 @@ public final class SurfacePicker {
      * @param rayDirection ray direction, packed xyz, need not be normalised
      * @return true when the ray crosses the hint face or one of its neighbours
      */
-    public boolean pickNear(MeshTopology mesh, int hintFace, float[] rayOrigin,
-            float[] rayDirection) {
+    public boolean pickNear(MeshTopology mesh, int hintFace, Vector3f rayOrigin,
+            Vector3f rayDirection) {
         if (hitFace(mesh, hintFace, rayOrigin, rayDirection)) {
             return true;
         }
@@ -85,11 +87,13 @@ public final class SurfacePicker {
     }
 
     /**
-     * Intersects the ray with one face, a polygon as the fan from its first corner, and records
-     * the hit; triangles sharing an edge agree which side the ray passes, so none falls between.
+     * Intersects the ray with one face, a polygon as the fan from its first corner,
+     * and records the hit; triangles sharing an edge agree which side the ray
+     * passes, so none falls between.
      *
      * <p>
-     * Woop, Benthin and Wald 2013, "Watertight Ray/Triangle Intersection", JCGT 2(1).
+     * Woop, Benthin and Wald 2013, "Watertight Ray/Triangle Intersection", JCGT
+     * 2(1).
      *
      * @param mesh          surface the face belongs to
      * @param candidateFace face id to test
@@ -97,31 +101,31 @@ public final class SurfacePicker {
      * @param rayDirection  ray direction, packed xyz, need not be normalised
      * @return true when the ray crosses the face in front of its origin
      */
-    public boolean hitFace(MeshTopology mesh, int candidateFace, float[] rayOrigin,
-            float[] rayDirection) {
+    public boolean hitFace(MeshTopology mesh, int candidateFace, Vector3f rayOrigin,
+            Vector3f rayDirection) {
         faceId = -1;
         if (mesh == null || candidateFace < 0 || !mesh.hasFace(candidateFace)) {
             return false;
         }
         int axisZ = 0;
         for (int axis = 1; axis < COORDINATES_PER_POINT; axis++) {
-            if (Math.abs(rayDirection[axis]) > Math.abs(rayDirection[axisZ])) {
+            if (Math.abs(rayDirection.get(axis)) > Math.abs(rayDirection.get(axisZ))) {
                 axisZ = axis;
             }
         }
-        if (rayDirection[axisZ] == 0f) {
+        if (rayDirection.get(axisZ) == 0f) {
             return false;
         }
         int axisX = (axisZ + 1) % COORDINATES_PER_POINT;
         int axisY = (axisX + 1) % COORDINATES_PER_POINT;
-        if (rayDirection[axisZ] < 0f) {
+        if (rayDirection.get(axisZ) < 0f) {
             int swapped = axisX;
             axisX = axisY;
             axisY = swapped;
         }
-        double shearX = rayDirection[axisX] / (double) rayDirection[axisZ];
-        double shearY = rayDirection[axisY] / (double) rayDirection[axisZ];
-        double scaleZ = 1.0 / rayDirection[axisZ];
+        double shearX = rayDirection.get(axisX) / (double) rayDirection.get(axisZ);
+        double shearY = rayDirection.get(axisY) / (double) rayDirection.get(axisZ);
+        double scaleZ = 1.0 / rayDirection.get(axisZ);
         int corners = mesh.faceVertexCount(candidateFace);
         if (faceCorners.length < TRIANGLE_CORNERS * corners) {
             faceCorners = new int[TRIANGLE_CORNERS * corners];
@@ -134,15 +138,15 @@ public final class SurfacePicker {
             mesh.vertexPosition(mesh.faceVertexAt(candidateFace, fan), cornerB);
             mesh.vertexPosition(mesh.faceVertexAt(candidateFace,
                     faceCorners[TRIANGLE_CORNERS * triangle + 2]), cornerC);
-            double aDepth = cornerA.get(axisZ) - (double) rayOrigin[axisZ];
-            double bDepth = cornerB.get(axisZ) - (double) rayOrigin[axisZ];
-            double cDepth = cornerC.get(axisZ) - (double) rayOrigin[axisZ];
-            double aX = cornerA.get(axisX) - (double) rayOrigin[axisX] - shearX * aDepth;
-            double aY = cornerA.get(axisY) - (double) rayOrigin[axisY] - shearY * aDepth;
-            double bX = cornerB.get(axisX) - (double) rayOrigin[axisX] - shearX * bDepth;
-            double bY = cornerB.get(axisY) - (double) rayOrigin[axisY] - shearY * bDepth;
-            double cX = cornerC.get(axisX) - (double) rayOrigin[axisX] - shearX * cDepth;
-            double cY = cornerC.get(axisY) - (double) rayOrigin[axisY] - shearY * cDepth;
+            double aDepth = cornerA.get(axisZ) - (double) rayOrigin.get(axisZ);
+            double bDepth = cornerB.get(axisZ) - (double) rayOrigin.get(axisZ);
+            double cDepth = cornerC.get(axisZ) - (double) rayOrigin.get(axisZ);
+            double aX = cornerA.get(axisX) - (double) rayOrigin.get(axisX) - shearX * aDepth;
+            double aY = cornerA.get(axisY) - (double) rayOrigin.get(axisY) - shearY * aDepth;
+            double bX = cornerB.get(axisX) - (double) rayOrigin.get(axisX) - shearX * bDepth;
+            double bY = cornerB.get(axisY) - (double) rayOrigin.get(axisY) - shearY * bDepth;
+            double cX = cornerC.get(axisX) - (double) rayOrigin.get(axisX) - shearX * cDepth;
+            double cY = cornerC.get(axisY) - (double) rayOrigin.get(axisY) - shearY * cDepth;
             double oppositeA = cX * bY - cY * bX;
             double oppositeB = aX * cY - aY * cX;
             double oppositeC = bX * aY - bY * aX;
@@ -165,16 +169,17 @@ public final class SurfacePicker {
             weightAtSecondCorner = (float) (oppositeB / determinant);
             weightAtThirdCorner = (float) (oppositeC / determinant);
             distanceAlongRay = (float) parameter;
-            pointX = (float) (rayOrigin[0] + parameter * rayDirection[0]);
-            pointY = (float) (rayOrigin[1] + parameter * rayDirection[1]);
-            pointZ = (float) (rayOrigin[2] + parameter * rayDirection[2]);
+            point = new Vector3f((float) (rayOrigin.x + parameter * rayDirection.x),
+                    (float) (rayOrigin.y + parameter * rayDirection.y),
+                    (float) (rayOrigin.z + parameter * rayDirection.z));
             return true;
         }
         return false;
     }
 
     /**
-     * The corner of the last hit's face nearest the hit point, the vertex a click there anchors to.
+     * The corner of the last hit's face nearest the hit point, the vertex a click
+     * there anchors to.
      *
      * @param mesh surface the last hit landed on
      * @return the vertex id, or -1 when the last pick missed
@@ -188,7 +193,7 @@ public final class SurfacePicker {
         for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
             int vertexId = mesh.faceVertexAt(faceId, corner);
             mesh.vertexPosition(vertexId, cornerA);
-            double distance = cornerA.distance(pointX, pointY, pointZ);
+            double distance = cornerA.distance(point);
             if (distance < nearestDistance) {
                 nearestDistance = distance;
                 nearestVertexId = vertexId;
@@ -198,15 +203,16 @@ public final class SurfacePicker {
     }
 
     /**
-     * The nearest face the ray crosses, found by testing every face: one pass over the surface,
-     * which the interactive tools avoid per frame by reading the face from the GPU id buffer.
+     * The nearest face the ray crosses, found by testing every face: one pass over
+     * the surface, which the interactive tools avoid per frame by reading the face
+     * from the GPU id buffer.
      *
      * @param mesh         surface to test
      * @param rayOrigin    ray origin, packed xyz
      * @param rayDirection ray direction, packed xyz, need not be normalised
      * @return true when the ray crosses the surface in front of its origin
      */
-    public boolean pickNearestFace(MeshTopology mesh, float[] rayOrigin, float[] rayDirection) {
+    public boolean pickNearestFace(MeshTopology mesh, Vector3f rayOrigin, Vector3f rayDirection) {
         int nearestFace = -1;
         float nearestDistance = Float.POSITIVE_INFINITY;
         for (int index = 0; index < mesh.faceCount(); index++) {

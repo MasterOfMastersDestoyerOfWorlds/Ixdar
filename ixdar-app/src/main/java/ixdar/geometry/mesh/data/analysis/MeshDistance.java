@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data.analysis;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Computes mesh distance metrics between two MeshTopology instances.
@@ -142,13 +143,11 @@ public final class MeshDistance {
      * @return full comparison result
      */
     public static CompareResult compareFull(float[] genPos, int genVerts, PreparedReference ref) {
-        float[] genCentroid = computeCentroid(genPos, genVerts);
+        Vector3f genCentroid = computeCentroid(genPos, genVerts);
         float[] genC = new float[genVerts * FLOATS_PER_VERTEX];
         for (int i = 0; i < genVerts; i++) {
             int o = i * FLOATS_PER_VERTEX;
-            genC[o] = genPos[o] - genCentroid[0];
-            genC[o + 1] = genPos[o + 1] - genCentroid[1];
-            genC[o + 2] = genPos[o + 2] - genCentroid[2];
+            PackedPoints.store(genC, o, PackedPoints.at(genPos, o).sub(genCentroid));
         }
 
         KDTree3D genTree = new KDTree3D(genC, genVerts);
@@ -179,29 +178,12 @@ public final class MeshDistance {
 
         float proximity = fractionBelow(dGenToRef, threshold);
 
-        float[] genMin = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
-        float[] genMax = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
-        for (int i = 0; i < genVerts; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            for (int a = 0; a < FLOATS_PER_VERTEX; a++) {
-                float v = genPos[o + a];
-                if (v < genMin[a]) genMin[a] = v;
-                if (v > genMax[a]) genMax[a] = v;
-            }
-        }
-        float[] genSpans = {genMax[0] - genMin[0], genMax[1] - genMin[1], genMax[2] - genMin[2]};
-
-        float[] centroidOffset = {
-                genCentroid[0] - ref.centroid[0],
-                genCentroid[1] - ref.centroid[1],
-                genCentroid[2] - ref.centroid[2]};
-
         return new CompareResult(chamfer, hausdorff, similarity, coverage, proximity,
-                genSpans, ref.spans, centroidOffset);
+                spans(genPos, genVerts), ref.spans, new Vector3f(genCentroid).sub(ref.centroid));
     }
 
 
-    private static float[] computeCentroid(float[] pos, int vertexCount) {
+    private static Vector3f computeCentroid(float[] pos, int vertexCount) {
         double cx = 0, cy = 0, cz = 0;
         for (int i = 0; i < vertexCount; i++) {
             int o = i * FLOATS_PER_VERTEX;
@@ -210,7 +192,19 @@ public final class MeshDistance {
             cz += pos[o + 2];
         }
         float n = vertexCount;
-        return new float[]{(float) (cx / n), (float) (cy / n), (float) (cz / n)};
+        return new Vector3f((float) (cx / n), (float) (cy / n), (float) (cz / n));
+    }
+
+    /** Per-axis spans of packed positions: their bounding box's size. */
+    private static Vector3f spans(float[] pos, int vertexCount) {
+        Vector3f min = new Vector3f(Float.MAX_VALUE);
+        Vector3f max = new Vector3f(-Float.MAX_VALUE);
+        for (int i = 0; i < vertexCount; i++) {
+            Vector3f position = PackedPoints.at(pos, i * FLOATS_PER_VERTEX);
+            min.min(position);
+            max.max(position);
+        }
+        return max.sub(min);
     }
 
     private static float mean(float[] arr) {
@@ -279,9 +273,9 @@ public final class MeshDistance {
             float similarityScore,
             float coverage,
             float proximity,
-            float[] perAxisGenSpans,
-            float[] perAxisRefSpans,
-            float[] centroidOffset) {
+            Vector3f perAxisGenSpans,
+            Vector3f perAxisRefSpans,
+            Vector3f centroidOffset) {
     }
 
     /**
@@ -294,8 +288,8 @@ public final class MeshDistance {
         public final int vertexCount;
         public final KDTree3D tree;
         public final float extent;
-        public final float[] spans; // X, Y, Z spans of original positions
-        public final float[] centroid;
+        public final Vector3f spans; // X, Y, Z spans of original positions
+        public final Vector3f centroid;
 
         /**
          * Pre-process a reference mesh: center on its centroid, build a KD-tree, and
@@ -310,24 +304,12 @@ public final class MeshDistance {
             centeredPos = new float[vertexCount * 3];
             for (int i = 0; i < vertexCount; i++) {
                 int o = i * 3;
-                centeredPos[o] = positions[o] - centroid[0];
-                centeredPos[o + 1] = positions[o + 1] - centroid[1];
-                centeredPos[o + 2] = positions[o + 2] - centroid[2];
+                PackedPoints.store(centeredPos, o, PackedPoints.at(positions, o).sub(centroid));
             }
             tree = new KDTree3D(centeredPos, vertexCount);
 
-            float[] min = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
-            float[] max = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
-            for (int i = 0; i < vertexCount; i++) {
-                int o = i * 3;
-                for (int a = 0; a < 3; a++) {
-                    float v = positions[o + a];
-                    if (v < min[a]) min[a] = v;
-                    if (v > max[a]) max[a] = v;
-                }
-            }
-            spans = new float[]{max[0] - min[0], max[1] - min[1], max[2] - min[2]};
-            extent = Math.max(spans[0], Math.max(spans[1], spans[2]));
+            spans = spans(positions, vertexCount);
+            extent = spans.get(spans.maxComponent());
         }
     }
 

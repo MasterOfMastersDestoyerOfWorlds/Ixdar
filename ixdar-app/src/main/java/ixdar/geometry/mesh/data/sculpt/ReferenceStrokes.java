@@ -10,6 +10,7 @@ import java.util.stream.IntStream;
 import org.joml.Vector3f;
 
 import ixdar.geometry.grid2d.PolygonScan;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
@@ -300,14 +301,14 @@ public final class ReferenceStrokes {
             traced.subjectByView[view].box[1] + traced.subjectByView[view].box[3] / 2f };
         float[] axes = traced.axesByView[view];
         float[] back = backByView[view];
-        float extent = Math.max(traced.extents[0], Math.max(traced.extents[1], traced.extents[2]));
+        float extent = traced.extents.get(traced.extents.maxComponent());
         int cell = templateCellByView[view];
         Camera3D camera = template.cellCamera(cell);
         List<float[]> pieces = new ArrayList<>();
         float[] piece = new float[picture.length / 2 * PLACED_FIELDS];
         int length = 0;
-        float[] origin = new float[3];
-        float[] direction = { -back[0], -back[1], -back[2] };
+        Vector3f origin = new Vector3f();
+        Vector3f direction = new Vector3f(-back[0], -back[1], -back[2]);
         Vector3f normal = new Vector3f();
         Vector3f hit = new Vector3f();
         float[] pixel = new float[2];
@@ -319,14 +320,13 @@ public final class ReferenceStrokes {
             float across = (cellX - (traced.cellWidth / 2f - 0.5f)) * traced.worldPerCellPixel;
             float up = (traced.cellHeight / 2f - 0.5f - cellY) * traced.worldPerCellPixel;
             for (int axis = 0; axis < 3; axis++) {
-                origin[axis] = axes[axis] * across + axes[ReferenceOutlines.UP + axis] * up
-                        + back[axis] * extent * RAY_START_EXTENTS;
+                origin.setComponent(axis, axes[axis] * across + axes[ReferenceOutlines.UP + axis] * up
+                        + back[axis] * extent * RAY_START_EXTENTS);
             }
             int triangle = triangles.nearestHit(origin, direction, Double.POSITIVE_INFINITY, stack);
             boolean kept = triangle >= 0;
             if (kept) {
-                hit.set(origin[0], origin[1], origin[2]).fma((float) triangles.hitParameter,
-                        new Vector3f(direction[0], direction[1], direction[2]));
+                hit.set(origin).fma((float) triangles.hitParameter, direction);
                 base.faceNormal(faceOfTriangle[triangle], normal).normalize();
                 kept = normal.dot(back[0], back[1], back[2]) >= PLACE_COSINE && template.cellPixel(camera, hit, pixel)
                         && pixel[0] >= 0f && pixel[1] >= 0f && pixel[0] < template.cellWidth && pixel[1] < template.cellHeight;
@@ -341,9 +341,7 @@ public final class ReferenceStrokes {
                 if ((pendingPoints + 1) * COVERED_FIELDS > pending.length) {
                     pending = Arrays.copyOf(pending, pending.length * 2 + COVERED_FIELDS);
                 }
-                pending[pendingPoints * COVERED_FIELDS] = hit.x;
-                pending[pendingPoints * COVERED_FIELDS + 1] = hit.y;
-                pending[pendingPoints * COVERED_FIELDS + 2] = hit.z;
+                PackedPoints.store(pending, pendingPoints * COVERED_FIELDS, hit);
                 pending[pendingPoints * COVERED_FIELDS + 3] = radius;
                 pendingPoints++;
                 piece[length * PLACED_FIELDS] = pixel[0];

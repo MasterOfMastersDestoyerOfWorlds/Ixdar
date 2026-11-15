@@ -1,13 +1,15 @@
 package ixdar.tools;
 
+import org.joml.Vector3f;
+
 /**
  * What a {@link Tool} shows under the cursor before a click commits it: where the cursor hit,
  * whether the preview succeeded, what it cost and the tool's own diagnostics as one line of text.
  */
 public final class Preview {
 
-    /** Where the cursor hit, xyz. */
-    public final float[] hitPoint;
+    /** Where the cursor hit. */
+    public final Vector3f hitPoint;
 
     /** Whether the preview succeeded, so a click there would commit it. */
     public final boolean valid;
@@ -21,12 +23,12 @@ public final class Preview {
     /**
      * A preview at {@code hitPoint}.
      *
-     * @param hitPoint where the cursor hit, xyz
+     * @param hitPoint where the cursor hit
      * @param valid    whether the preview succeeded
      * @param millis   wall time it took, in milliseconds
      * @param detail   the tool's diagnostics, one line
      */
-    public Preview(float[] hitPoint, boolean valid, double millis, String detail) {
+    public Preview(Vector3f hitPoint, boolean valid, double millis, String detail) {
         this.hitPoint = hitPoint;
         this.valid = valid;
         this.millis = millis;

@@ -7,6 +7,7 @@ import java.util.Locale;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.paths.query.SurfacePathCrossings;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
@@ -174,10 +175,10 @@ public final class BisectorTool extends RingSubTool {
     @Override
     public void perFrame() {
         RingScene scene = ringTool.scene;
-        float[] hitPoint = scene.cursorPoint;
+        Vector3f hitPoint = scene.cursorPoint;
         int faceId = scene.cursorFaceId;
         if (ringTool.draft != null || scene.cursorVertexId < 0
-                || faceId == ringTool.previewedFace && Arrays.equals(hitPoint, ringTool.previewedHit)) {
+                || faceId == ringTool.previewedFace && hitPoint.equals(ringTool.previewedHit)) {
             return;
         }
         long start = System.nanoTime();
@@ -202,7 +203,7 @@ public final class BisectorTool extends RingSubTool {
                 && ringTool.previewSpline.marks.markedEdgeCount > 0
                 && crossings.isSimple(surface, ringTool.previewSpline.path);
         ringTool.previewedFace = faceId;
-        System.arraycopy(hitPoint, 0, ringTool.previewedHit, 0, RingTool.COORDINATES_PER_POINT);
+        ringTool.previewedHit.set(hitPoint);
         ringTool.previewMillis = (System.nanoTime() - start) / 1e6;
     }
 
@@ -381,10 +382,10 @@ public final class BisectorTool extends RingSubTool {
         }
         boolean simple = crossings.isSimple(ringTool.geodesics.mesh, bisector.path);
         if (keepSimple && draftSimple && ringTool.draft != null && !simple) {
-            float[] at = crossings.firstCrossingXyz;
+            Vector3f at = crossings.firstCrossingXyz;
             ringTool.lastError = String.format(Locale.ROOT, "refused: the bisector would cross "
-                    + "itself near %.4f,%.4f,%.4f - nothing changed; try another place", at[0],
-                    at[1], at[2]);
+                    + "itself near %.4f,%.4f,%.4f - nothing changed; try another place", at.x, at.y,
+                    at.z);
             return false;
         }
         ringTool.draftAuthoredVertexId = anchors;
@@ -454,9 +455,7 @@ public final class BisectorTool extends RingSubTool {
             for (int point = 0; point < curveVertexId.length; point++) {
                 curveVertexId[point] = at;
                 surface.vertexPosition(at, end);
-                curveXyz[RingTool.COORDINATES_PER_POINT * point] = end.x;
-                curveXyz[RingTool.COORDINATES_PER_POINT * point + 1] = end.y;
-                curveXyz[RingTool.COORDINATES_PER_POINT * point + 2] = end.z;
+                PackedPoints.store(curveXyz, RingTool.COORDINATES_PER_POINT * point, end);
                 for (int edge = 0; edge < edges; edge++) {
                     if (!walked[edge] && (tail[edge] == at || head[edge] == at)) {
                         walked[edge] = true;
@@ -505,12 +504,12 @@ public final class BisectorTool extends RingSubTool {
      * are the live confirmed rings and bisectors, the draft's own original aside.
      *
      * @param vertexId    mesh vertex under the point
-     * @param xyz         the point, packed xyz
+     * @param point       the point
      * @param reachPixels how far from the point a wall may lie, in framebuffer
      *                    pixels: {@link #END_REACH_PIXELS} for a click
      * @return the wall vertex, or -1 when no wall lies within reach
      */
-    public int snapToWall(int vertexId, float[] xyz, float reachPixels) {
+    public int snapToWall(int vertexId, Vector3f point, float reachPixels) {
         MeshTopology surface = ringTool.geodesics.mesh;
         int vertexIdBound = ringTool.geodesics.metric.vertexIdBound;
         if (wallVertexStamp.length != vertexIdBound) {
@@ -555,7 +554,7 @@ public final class BisectorTool extends RingSubTool {
         while (head < tail) {
             int here = snapQueue[head++];
             surface.vertexPosition(here, scratchPosition);
-            double distance = scratchPosition.distance(xyz[0], xyz[1], xyz[2]);
+            double distance = scratchPosition.distance(point);
             if (wallVertexStamp[here] == wallEpoch && distance < nearest) {
                 nearest = distance;
                 snapped = here;
@@ -567,7 +566,7 @@ public final class BisectorTool extends RingSubTool {
                 }
                 snapVisitStamp[other] = stamp;
                 surface.vertexPosition(other, scratchPosition);
-                if (scratchPosition.distance(xyz[0], xyz[1], xyz[2]) <= reach) {
+                if (scratchPosition.distance(point) <= reach) {
                     snapQueue[tail++] = other;
                 }
             }
@@ -686,8 +685,7 @@ public final class BisectorTool extends RingSubTool {
         if (end) {
             int onWall = -1;
             for (int anchor = neighbour; onWall < 0 && anchor > 0 && anchor < held.length - 1; anchor += inward) {
-                onWall = snapToWall(held[anchor],
-                        ringTool.positionsOf(new int[] { held[anchor] }),
+                onWall = snapToWall(held[anchor], ringTool.positionOf(held[anchor]),
                         RingTool.SELECTED_ANCHOR_PIXELS) >= 0 ? anchor : -1;
             }
             if (onWall != neighbour) {
@@ -697,7 +695,7 @@ public final class BisectorTool extends RingSubTool {
                 String taker = "the other end, and none lies on a wall to take its place; drag "
                         + "one onto a wall, or delete " + them;
                 if (onWall >= 0) {
-                    snapToWall(held[onWall], ringTool.positionsOf(new int[] { held[onWall] }),
+                    snapToWall(held[onWall], ringTool.positionOf(held[onWall]),
                             RingTool.SELECTED_ANCHOR_PIXELS);
                     taker = "anchor " + onWall + " on "
                             + ringTool.liveLabel(ringTool.ringOfSerial(snappedWall))
@@ -717,8 +715,7 @@ public final class BisectorTool extends RingSubTool {
         int[] endsBefore = draftEnds;
         int promoted = doomed == 0 ? 0 : kept.length - 1;
         if (end) {
-            kept[promoted] = snapToWall(kept[promoted],
-                    ringTool.positionsOf(new int[] { kept[promoted] }),
+            kept[promoted] = snapToWall(kept[promoted], ringTool.positionOf(kept[promoted]),
                     RingTool.SELECTED_ANCHOR_PIXELS);
             draftEnds = Arrays.copyOf(endsBefore, 2);
             draftEnds[doomed == 0 ? 0 : 1] = snappedWall;
@@ -764,7 +761,7 @@ public final class BisectorTool extends RingSubTool {
         }
         Draft waiting = new Draft();
         waiting.points = ringTool.positionsOf(new int[] { startVertexId });
-        System.arraycopy(waiting.points, 0, waiting.location, 0, RingTool.COORDINATES_PER_POINT);
+        waiting.location.set(waiting.points);
         waiting.pointLabels = new String[] { WAITING_END };
         waiting.size = 1;
         waiting.label = WAITING_LABEL;
@@ -852,8 +849,7 @@ public final class BisectorTool extends RingSubTool {
         int[] endsBefore = draftEnds;
         boolean end = selected == 0 || selected == moved.length - 1;
         if (end) {
-            moved[selected] = snapToWall(vertexId,
-                    ringTool.positionsOf(new int[] { vertexId }), END_REACH_PIXELS);
+            moved[selected] = snapToWall(vertexId, ringTool.positionOf(vertexId), END_REACH_PIXELS);
             if (moved[selected] < 0) {
                 ringTool.lastError = "refused: a bisector's end stays on a wall; no wall within "
                         + "reach";
@@ -878,10 +874,10 @@ public final class BisectorTool extends RingSubTool {
     @Override
     public boolean confirmable() {
         if (!draftSimple) {
-            float[] crossing = crossings.firstCrossingXyz;
+            Vector3f crossing = crossings.firstCrossingXyz;
             ringTool.lastError = String.format(Locale.ROOT, "refused: the bisector crosses itself "
-                    + "near %.4f,%.4f,%.4f; move or delete an anchor first", crossing[0],
-                    crossing[1], crossing[2]);
+                    + "near %.4f,%.4f,%.4f; move or delete an anchor first", crossing.x,
+                    crossing.y, crossing.z);
             return false;
         }
         if (ringTool.draft.marks.markedEdgeCount == 0) {
@@ -914,7 +910,7 @@ public final class BisectorTool extends RingSubTool {
     }
 
     @Override
-    public float[] draftCrossing() {
+    public Vector3f draftCrossing() {
         return draftSimple ? null : crossings.firstCrossingXyz;
     }
 

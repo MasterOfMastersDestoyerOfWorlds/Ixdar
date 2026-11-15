@@ -42,7 +42,7 @@ class NearestVertexNodeTest {
             }
         }
         assertEquals(1, selectedCount, "exactly one vertex is selected");
-        Vector3f position = carrier.vertexPosition(carrier.vertexIdAt(index), new Vector3f());
+        Vector3f position = carrier.vertexPosition(carrier.vertexIdAt(index));
         assertTrue(position.distance(1f, 0f, -1f) < 1e-5f,
                 "the vertex nearest (1.2, 0, -0.7) is the grid vertex at (1, 0, -1), got "
                         + position);

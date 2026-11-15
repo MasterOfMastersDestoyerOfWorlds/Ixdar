@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.UnionFind;
@@ -120,12 +122,9 @@ public final class MeshSegmenter {
             }
             int n = e.getValue().size();
             cx /= n; cy /= n; cz /= n;
-            float[] off = {cx - meanX, cy - meanY, cz - meanZ};
-            int dominant = 0;
-            for (int a = 1; a < 3; a++) {
-                if (Math.abs(off[a]) > Math.abs(off[dominant])) dominant = a;
-            }
-            String sign = off[dominant] > 0 ? "+" : "-";
+            Vector3f off = new Vector3f(cx - meanX, cy - meanY, cz - meanZ);
+            int dominant = new Vector3f(off).absolute().maxComponent();
+            String sign = off.get(dominant) > 0 ? "+" : "-";
             int[] arr = e.getValue().stream().mapToInt(Integer::intValue).toArray();
             Arrays.sort(arr);
             out.put("spatial_" + axisNames[dominant] + sign + "_" + e.getKey(), arr);

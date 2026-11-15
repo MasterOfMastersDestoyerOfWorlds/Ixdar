@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.data.analysis.curvature;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.csg.QuadTriangulation;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
@@ -73,32 +75,29 @@ public final class LimbAxis {
      * The minimum-curvature direction averaged over the hit face's corners and their one-rings,
      * sign-aligned to the first sample because a principal direction is a line, not a vector.
      *
-     * @param faceId  face the hit landed on, whose corners the average runs over
-     * @param outAxis receives the unit axis, packed xyz
-     * @return true when a direction could be averaged
+     * @param faceId face the hit landed on, whose corners the average runs over
+     * @return the unit axis, or null when no direction could be averaged
      */
-    public boolean curvatureAxisAt(int faceId, float[] outAxis) {
+    public Vector3f curvatureAxisAt(int faceId) {
         if (curvature == null || faceId < 0 || !surface.hasFace(faceId)) {
-            return false;
+            return null;
         }
-        float[] sample = new float[COORDINATES_PER_POINT];
-        outAxis[0] = 0f;
-        outAxis[1] = 0f;
-        outAxis[2] = 0f;
+        Vector3f axis = new Vector3f();
         for (int corner = 0; corner < surface.faceVertexCount(faceId); corner++) {
             int vertexId = surface.faceVertexAt(faceId, corner);
-            accumulateDirection(vertexId, sample, outAxis);
+            accumulateDirection(vertexId, axis);
             for (int neighbour = 0; neighbour < surface.vertexEdgeCount(vertexId); neighbour++) {
                 int halfEdge = surface.vertexOutgoingHalfEdgeAt(vertexId, neighbour);
                 if (halfEdge >= 0) {
-                    accumulateDirection(surface.halfEdgeEndVertex(halfEdge), sample, outAxis);
+                    accumulateDirection(surface.halfEdgeEndVertex(halfEdge), axis);
                 }
             }
         }
-        return normalise(outAxis);
+        float length = axis.length();
+        return length > 0f ? axis.div(length) : null;
     }
 
-    private void accumulateDirection(int vertexId, float[] sample, float[] outAxis) {
+    private void accumulateDirection(int vertexId, Vector3f axis) {
         if (vertexId < 0 || vertexId >= denseIndexByVertexId.length) {
             return;
         }
@@ -106,23 +105,7 @@ public final class LimbAxis {
         if (denseIndex < 0 || denseIndex >= curvature.vertexIdBound()) {
             return;
         }
-        curvature.dirMin(denseIndex, sample);
-        float alignment = sample[0] * outAxis[0] + sample[1] * outAxis[1] + sample[2] * outAxis[2];
-        float sign = alignment < 0f ? -1f : 1f;
-        outAxis[0] += sign * sample[0];
-        outAxis[1] += sign * sample[1];
-        outAxis[2] += sign * sample[2];
-    }
-
-    private static boolean normalise(float[] axis) {
-        float length = (float) Math.sqrt(
-                axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
-        if (length <= 0f) {
-            return false;
-        }
-        axis[0] /= length;
-        axis[1] /= length;
-        axis[2] /= length;
-        return true;
+        Vector3f sample = curvature.dirMin(denseIndex);
+        axis.fma(sample.dot(axis) < 0f ? -1f : 1f, sample);
     }
 }

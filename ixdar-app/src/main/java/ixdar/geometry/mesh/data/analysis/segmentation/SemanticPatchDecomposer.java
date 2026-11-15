@@ -19,6 +19,7 @@ import java.util.stream.IntStream;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.curvature.CrestLineDetector;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.curvature.SaddlePointDetector;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
@@ -315,7 +316,7 @@ public final class SemanticPatchDecomposer {
 
             boolean[] seenVert = new boolean[nv];
             int[] faces = patchFaceIds(faceList, ed.triangleFaces(), splitPatchId);
-            float[] centroid = new float[3];
+            Vector3f centroid = new Vector3f();
             float curvSum = 0f;
             int curvSamples = 0;
             int vertCount = 0;
@@ -327,9 +328,7 @@ public final class SemanticPatchDecomposer {
                     int v = faceIdx[f * 3 + k];
                     if (!seenVert[v]) {
                         seenVert[v] = true;
-                        centroid[0] += positions[v * 3];
-                        centroid[1] += positions[v * 3 + 1];
-                        centroid[2] += positions[v * 3 + 2];
+                        centroid.add(positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]);
                         curvSum += vertexCurvature[v];
                         curvSamples++;
                         vertCount++;
@@ -342,9 +341,7 @@ public final class SemanticPatchDecomposer {
             for (int v = 0; v < nv; v++) {
                 if (seenVert[v]) verts[vi++] = v;
             }
-            centroid[0] /= vertCount;
-            centroid[1] /= vertCount;
-            centroid[2] /= vertCount;
+            centroid.set(centroid.x / vertCount, centroid.y / vertCount, centroid.z / vertCount);
             Color color = Palette.entry(Palettes.DARK.patch, colorIdx[pid]);
             out.add(new Patch(
                     pid,
@@ -421,9 +418,9 @@ public final class SemanticPatchDecomposer {
         int idx = 0;
         for (SkeletonBranch b : branches) {
             for (SkeletonJoint j : b.joints()) {
-                jx[idx] = j.position()[0];
-                jy[idx] = j.position()[1];
-                jz[idx] = j.position()[2];
+                jx[idx] = j.position().x;
+                jy[idx] = j.position().y;
+                jz[idx] = j.position().z;
                 jr[idx] = Math.max(j.radius(), MIN_JOINT_RADIUS);
                 jb[idx] = b.id();
                 idx++;
@@ -468,9 +465,7 @@ public final class SemanticPatchDecomposer {
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
             mesh.vertexPosition(vertexId, position);
-            positions[vertexId * 3] = position.x;
-            positions[vertexId * 3 + 1] = position.y;
-            positions[vertexId * 3 + 2] = position.z;
+            PackedPoints.store(positions, vertexId * 3, position);
         }
         return positions;
     }

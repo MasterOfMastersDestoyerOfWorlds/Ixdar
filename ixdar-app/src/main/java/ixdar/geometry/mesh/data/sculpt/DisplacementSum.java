@@ -7,6 +7,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.ops.MeshSmoothing;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -165,9 +166,7 @@ public final class DisplacementSum {
                 mesh.vertexPosition(vertexId, normal).sub(center);
             }
             normal.normalize();
-            normalXyz[activeVertex * 3] = normal.x;
-            normalXyz[activeVertex * 3 + 1] = normal.y;
-            normalXyz[activeVertex * 3 + 2] = normal.z;
+            PackedPoints.store(normalXyz, activeVertex * 3, normal);
         }
         int[][] rings = mesh.oneRings();
         for (int pass = 0; pass < NORMAL_SMOOTHING_PASSES; pass++) {
@@ -378,27 +377,27 @@ public final class DisplacementSum {
         }
         float[] eyeForward = stroke.eyeForward;
         int vertexId = mesh.vertexIdAt(activeVertex);
-        Vector3f position = mesh.vertexPosition(vertexId, new Vector3f());
-        float[] toVertex = { position.x - eyeForward[0], position.y - eyeForward[1], position.z - eyeForward[2] };
-        float distance = position.distance(eyeForward[0], eyeForward[1], eyeForward[2]);
+        Vector3f position = mesh.vertexPosition(vertexId);
+        Vector3f eye = new Vector3f(eyeForward[0], eyeForward[1], eyeForward[2]);
+        Vector3f toVertex = new Vector3f(position).sub(eye);
+        float distance = position.distance(eye);
         float seen = faces(mesh, vertexId, normal, eyeForward) ? 1f : 0f;
         if (seen > 0f && bvh != null) {
             float longestEdge = 0f;
             for (int adjacency = 0; adjacency < mesh.vertexEdgeCount(vertexId); adjacency++) {
                 longestEdge = Math.max(longestEdge, mesh.edgeLength(mesh.vertexEdgeAt(vertexId, adjacency)));
             }
-            seen = bvh.nearestHit(eyeForward, toVertex, 1.0 - slackEdges * longestEdge / distance, bvhStack) >= 0
+            seen = bvh.nearestHit(eye, toVertex, 1.0 - slackEdges * longestEdge / distance, bvhStack) >= 0
                     ? 0f : seen;
         }
         if (seen > 0f && bvh != null && normal == null) {
             Vector3f outward = mesh.vertexNormal(vertexId, new Vector3f());
-            Vector3f along = new Vector3f(toVertex[0], toVertex[1], toVertex[2]).div(distance);
+            Vector3f along = new Vector3f(toVertex).div(distance);
             outward.fma(-outward.dot(along), along);
             seen = INNER_CONTOUR_VISIBILITY;
             if (outward.length() >= SculptStroke.MINIMUM_NORMAL_LENGTH) {
-                outward.normalize(OUTLINE_PROBE_FRACTION * distance).add(toVertex[0], toVertex[1], toVertex[2]);
-                float[] probe = { outward.x, outward.y, outward.z };
-                seen = bvh.nearestHit(eyeForward, probe, Double.POSITIVE_INFINITY, bvhStack) < 0 ? 1f : seen;
+                outward.normalize(OUTLINE_PROBE_FRACTION * distance).add(toVertex);
+                seen = bvh.nearestHit(eye, outward, Double.POSITIVE_INFINITY, bvhStack) < 0 ? 1f : seen;
             }
         }
         stroke.visibilityByActiveVertex[activeVertex] = seen;
@@ -419,7 +418,7 @@ public final class DisplacementSum {
         if (normal == null || normal.length() < SculptStroke.MINIMUM_NORMAL_LENGTH) {
             return true;
         }
-        Vector3f position = mesh.vertexPosition(vertexId, new Vector3f());
+        Vector3f position = mesh.vertexPosition(vertexId);
         return normal.dot(position.x - eyeForward[0], position.y - eyeForward[1], position.z - eyeForward[2]) < 0f;
     }
 

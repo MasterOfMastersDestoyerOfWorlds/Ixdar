@@ -94,9 +94,7 @@ public final class ArrayMesh implements MeshTopology {
                 fn.set(0f, 1f, 0f);
             }
             int fo = fi * FLOATS_PER_VERTEX;
-            faceNormals[fo] = fn.x;
-            faceNormals[fo + 1] = fn.y;
-            faceNormals[fo + 2] = fn.z;
+            PackedPoints.store(faceNormals, fo, fn);
             int n = faceVertexCount(fi);
             for (int j = 0; j < n; j++) {
                 int vid = faceVertexAt(fi, j);

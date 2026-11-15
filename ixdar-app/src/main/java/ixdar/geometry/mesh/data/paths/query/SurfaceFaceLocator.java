@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data.paths.query;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.render.model.LineSet;
@@ -47,9 +48,7 @@ public final class SurfaceFaceLocator {
         for (int vertex = 0; vertex < mesh.vertexCount(); vertex++) {
             int vertexId = mesh.vertexIdAt(vertex);
             mesh.vertexPosition(vertexId, position);
-            positions[vertexId * TriangleGeometry.COMPONENTS] = position.x;
-            positions[vertexId * TriangleGeometry.COMPONENTS + 1] = position.y;
-            positions[vertexId * TriangleGeometry.COMPONENTS + 2] = position.z;
+            PackedPoints.store(positions, vertexId * TriangleGeometry.COMPONENTS, position);
             low.min(position);
             high.max(position);
         }

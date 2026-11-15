@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -50,10 +51,11 @@ class RingDslWriterTest {
 
     private static final int TEN_RINGS = 10;
 
-    private static final float[] SQUARE = { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f };
+    private static final List<Vector3f> SQUARE = SurfaceWaypoints.points(
+            new float[] { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f });
 
-    private static final float[] MOVED_SQUARE =
-            { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f, 0f, 0.5f, 0f };
+    private static final List<Vector3f> MOVED_SQUARE = SurfaceWaypoints.points(
+            new float[] { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f, 0f, 0.5f, 0f });
 
     private static final int SQUARE_ANCHORS = 4;
 
@@ -128,7 +130,8 @@ class RingDslWriterTest {
         assertEquals(SECOND_RING, secondId,
                 "a second ring saved in the same pass must not reuse the first ring's id");
 
-        source = RingDslWriter.replaceSpline(source, FIRST_RING, MOVED_SQUARE, MOVED_ANCHORS);
+        source = RingDslWriter.replaceSpline(source, FIRST_RING, MOVED_SQUARE,
+                MOVED_ANCHORS);
         int carrierStatements = PythonParser.parse(RINGS_GRAPH).size();
         List<PythonParser.ParsedNode> statements = PythonParser.parse(source);
         assertEquals(2, statements.size() - carrierStatements,
@@ -145,8 +148,8 @@ class RingDslWriterTest {
                 + ", tighten=false)  # the cut the marks read\n"
                 + "marked = mark_edges(geometry=" + FIRST_RING + ".geometry, left_thigh=true)\n";
 
-        String rewritten = RingDslWriter.replaceSpline(authored, FIRST_RING, MOVED_SQUARE,
-                MOVED_ANCHORS);
+        String rewritten = RingDslWriter.replaceSpline(authored, FIRST_RING,
+                MOVED_SQUARE, MOVED_ANCHORS);
 
         assertTrue(rewritten.contains(AUTHORED_LABEL),
                 "the rewrite renamed the label the downstream node reads: " + rewritten);
@@ -163,7 +166,8 @@ class RingDslWriterTest {
     @Test
     void aRewriteWithNoStatementOfThatIdIsRefused() {
         IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class,
-                () -> RingDslWriter.replaceSpline(CARRIER, FIRST_RING, SQUARE, SQUARE_ANCHORS));
+                () -> RingDslWriter.replaceSpline(CARRIER, FIRST_RING, SQUARE,
+                        SQUARE_ANCHORS));
 
         assertTrue(refusal.getMessage().contains(FIRST_RING), refusal.getMessage());
     }

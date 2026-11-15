@@ -132,8 +132,8 @@ class PixelPickProjectTest {
                     continue;
                 }
                 hits++;
-                assertTrue(scene.projectPoint(picker.pointX, picker.pointY, picker.pointZ, pixel,
-                        occluder), "a picked point projected behind the camera");
+                assertTrue(scene.projectPoint(picker.point, pixel, occluder),
+                        "a picked point projected behind the camera");
                 assertEquals(pixelX, pixel[0], ROUND_TRIP_PIXELS,
                         "pixel " + pixelX + "," + pixelY + " came back at x " + pixel[0]);
                 assertEquals(pixelY, pixel[1], ROUND_TRIP_PIXELS,
@@ -148,11 +148,11 @@ class PixelPickProjectTest {
                     int cornerVertexId = tube.faceVertexAt(picker.faceId, slot);
                     isCorner |= cornerVertexId == vertexId;
                     nearest = Math.min(nearest, tube.vertexPosition(cornerVertexId, corner)
-                            .distance(picker.pointX, picker.pointY, picker.pointZ));
+                            .distance(picker.point));
                 }
                 assertTrue(isCorner, "the nearest vertex is not a corner of the picked face");
                 assertEquals(nearest, tube.vertexPosition(vertexId, corner)
-                        .distance(picker.pointX, picker.pointY, picker.pointZ), SAME_POINT,
+                        .distance(picker.point), SAME_POINT,
                         "the reported vertex is not the face's nearest corner");
             }
         }
@@ -164,13 +164,13 @@ class PixelPickProjectTest {
         SurfacePicker picker = new SurfacePicker();
         assertTrue(scene.pickPixel(FRAMEBUFFER_WIDTH / 2f, FRAMEBUFFER_HEIGHT / 2f, picker),
                 "the middle of the view missed the tube");
-        assertTrue(picker.pointZ > 0f, "the middle pixel landed on the far wall");
+        assertTrue(picker.point.z > 0f, "the middle pixel landed on the far wall");
         float[] pixel = new float[2];
         SurfacePicker occluder = new SurfacePicker();
-        assertTrue(scene.projectPoint(picker.pointX, picker.pointY, -picker.pointZ, pixel,
+        assertTrue(scene.projectPoint(new Vector3f(picker.point.x, picker.point.y, -picker.point.z), pixel,
                 occluder), "the far-wall point projected behind the camera");
         assertTrue(occluder.faceId >= 0, "the far-wall point was reported visible");
-        assertTrue(occluder.pointZ > 0f, "the hiding hit is not on the near wall");
+        assertTrue(occluder.point.z > 0f, "the hiding hit is not on the near wall");
     }
 
     @Test
@@ -180,11 +180,10 @@ class PixelPickProjectTest {
                 "a pixel above the tube hit face " + picker.faceId);
         assertEquals(-1, picker.faceId, "a miss left a face behind");
         scene.pickPixel(FRAMEBUFFER_WIDTH / 2f, FRAMEBUFFER_HEIGHT / 2f, picker);
-        scene.projectPoint(picker.pointX, picker.pointY, picker.pointZ, new float[2],
-                new SurfacePicker());
+        scene.projectPoint(picker.point, new float[2], new SurfacePicker());
         assertSame(scene.orbitTool, scene.activeTool, "picking switched the active tool");
         assertEquals(-1, scene.cursorFaceId, "picking moved the tools' cursor pick");
-        assertEquals(0f, scene.cursorPoint[0], 0f, "picking moved the tools' cursor point");
+        assertEquals(0f, scene.cursorPoint.x, 0f, "picking moved the tools' cursor point");
     }
 
     /**

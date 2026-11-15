@@ -116,8 +116,8 @@ public class OutlineCompare extends AutomationEndpoint implements AutomationRout
         int captureWidth = captured.get("cellWidth").getAsInt();
         int captureHeight = captured.get("cellHeight").getAsInt();
         JsonArray capturedCentre = captured.getAsJsonArray(MultiviewScreenshot.CENTER);
-        float[] centreShift = { capturedCentre.get(0).getAsFloat() - template.center[0],
-            capturedCentre.get(1).getAsFloat() - template.center[1], capturedCentre.get(2).getAsFloat() - template.center[2] };
+        Vector3f centreShift = new Vector3f(capturedCentre.get(0).getAsFloat(), capturedCentre.get(1).getAsFloat(),
+                capturedCentre.get(2).getAsFloat()).sub(template.center);
         float capturedDistance = captured.get(Frame.DISTANCE).getAsFloat();
         float capturedFieldOfView = captured.get(MultiviewScreenshot.FIELD_OF_VIEW).getAsFloat();
         double templateScale = 2.0 * template.distance * Math.tan(half) / cellHeight;
@@ -148,10 +148,9 @@ public class OutlineCompare extends AutomationEndpoint implements AutomationRout
                 continue;
             }
             Matrix4f view = template.cellCamera(cell).view;
-            float shiftX = (float) ((centreShift[0] * view.m00() + centreShift[1] * view.m10() + centreShift[2] * view.m20())
-                    / templateScale);
-            float shiftY = (float) (-(centreShift[0] * view.m01() + centreShift[1] * view.m11() + centreShift[2] * view.m21())
-                    / templateScale);
+            Vector3f viewShift = view.transformDirection(centreShift, new Vector3f());
+            float shiftX = (float) (viewShift.x / templateScale);
+            float shiftY = (float) (-viewShift.y / templateScale);
             int left = cell % MultiviewScreenshot.GRID_COLUMNS * captureWidth;
             int top = cell / MultiviewScreenshot.GRID_COLUMNS * captureHeight;
             boolean[] shape = new boolean[cellWidth * cellHeight];

@@ -133,8 +133,8 @@ public class RingScene extends MeshNodeViewerScene {
      */
     public boolean showRingsExploded;
 
-    /** Surface point under the cursor at the active tool's last {@link #pickCursor}, packed xyz. */
-    public final float[] cursorPoint = new float[COORDINATES_PER_POINT];
+    /** Surface point under the cursor at the active tool's last {@link #pickCursor}. */
+    public Vector3f cursorPoint = new Vector3f();
 
     /** The labels drawn this frame over the surface: ring numbers and region labels as shown. */
     public final List<HyperString> shownLabels = new ArrayList<>();
@@ -145,8 +145,8 @@ public class RingScene extends MeshNodeViewerScene {
      */
     public boolean cameraStill;
 
-    /** Direction of the view ray through the cursor at the last pick, packed xyz. */
-    public final float[] cursorRayDirection = new float[COORDINATES_PER_POINT];
+    /** Direction of the view ray through the cursor at the last pick. */
+    public Vector3f cursorRayDirection = new Vector3f();
 
     /** Face the last pick hit, or -1 when it missed or the camera was moving. */
     public int cursorFaceId = -1;
@@ -165,8 +165,8 @@ public class RingScene extends MeshNodeViewerScene {
 
     private final SurfacePicker cursorPicker = new SurfacePicker();
     private final Matrix4f lastFrameView = new Matrix4f();
-    private final float[] cursorRayOrigin = new float[COORDINATES_PER_POINT];
-    private final float[] anchorPixel = new float[COORDINATES_PER_POINT];
+    private final Vector3f cursorRayOrigin = new Vector3f();
+    private final Vector3f anchorPixel = new Vector3f();
     private final Vector3f anchorPosition = new Vector3f();
 
     /** Host the ring, region and connection tools on ctrl+R, ctrl+T and ctrl+J, after the model scene's. */
@@ -316,16 +316,14 @@ public class RingScene extends MeshNodeViewerScene {
             return false;
         }
         cursorFaceId = cursorPicker.faceId;
-        cursorPoint[0] = cursorPicker.pointX;
-        cursorPoint[1] = cursorPicker.pointY;
-        cursorPoint[2] = cursorPicker.pointZ;
+        cursorPoint = cursorPicker.point;
         cursorVertexId = cursorPicker.nearestCornerVertexId(surface);
         return cursorVertexId >= 0;
     }
 
     /**
-     * The viewer's refusal, or the region tool's view when it does not draw the surface where it
-     * lies: an exploded view or a shown extraction.
+     * The viewer's refusal, or the region tool's view when it does not draw the
+     * surface where it lies: an exploded view or a shown extraction.
      *
      * @return the reason, or empty when the shown surface can be picked
      */
@@ -356,7 +354,7 @@ public class RingScene extends MeshNodeViewerScene {
         }
         int hovered = -1;
         double nearestPixels = Double.POSITIVE_INFINITY;
-        double eyeToHit = camera.position.distance(cursorPoint[0], cursorPoint[1], cursorPoint[2]);
+        double eyeToHit = camera.position.distance(cursorPoint);
         double depthReach = ANCHOR_HIT_RADIUS_PIXELS * worldPerPixel();
         for (int anchor = 0; anchor < anchorVertexId.length; anchor++) {
             int vertexId = anchorVertexId[anchor];
@@ -365,13 +363,14 @@ public class RingScene extends MeshNodeViewerScene {
             for (int corner = 0; corner < surface.faceVertexCount(cursorFaceId); corner++) {
                 onCursorFace |= surface.faceVertexAt(cursorFaceId, corner) == vertexId;
             }
-            if (!onCursorFace && camera.position.distance(anchorPosition) > eyeToHit + depthReach
-                    || !runtime.projectToPixels(camera, anchorPosition.x, anchorPosition.y,
-                            anchorPosition.z, anchorPixel)) {
+            Vector3f projected = !onCursorFace && camera.position.distance(anchorPosition) > eyeToHit + depthReach
+                    ? null : runtime.projectToPixels(camera, anchorPosition);
+            if (projected == null) {
                 continue;
             }
-            double pixels = Math.hypot(Math.floor(anchorPixel[0]) - cursorFramebufferX,
-                    Math.floor(anchorPixel[1]) - cursorFramebufferY);
+            anchorPixel.set(projected);
+            double pixels = Math.hypot(Math.floor(anchorPixel.x) - cursorFramebufferX,
+                    Math.floor(anchorPixel.y) - cursorFramebufferY);
             if (pixels <= ANCHOR_HIT_RADIUS_PIXELS && pixels < nearestPixels) {
                 nearestPixels = pixels;
                 hovered = anchor;
@@ -381,18 +380,18 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * Model units one screen pixel spans at the cursor's surface point, the scale a pixel reach
-     * is in.
+     * Model units one screen pixel spans at the cursor's surface point, the scale a
+     * pixel reach is in.
      *
      * @return the span, or 0 before the framebuffer has a size
      */
     public double worldPerPixel() {
-        return camera.worldPerPixel(cursorPoint[0], cursorPoint[1], cursorPoint[2]);
+        return camera.worldPerPixel(cursorPoint);
     }
 
     /**
-     * Draw the surface, then the ring overlays and their markers over it; while the region tool
-     * shows an extraction, draw that mesh on its own instead.
+     * Draw the surface, then the ring overlays and their markers over it; while the
+     * region tool shows an extraction, draw that mesh on its own instead.
      */
     @Override
     public void renderScene() {

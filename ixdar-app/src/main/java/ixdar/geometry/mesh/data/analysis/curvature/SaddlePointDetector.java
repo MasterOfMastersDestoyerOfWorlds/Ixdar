@@ -6,10 +6,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangleSoup;
 
 /**
@@ -74,9 +77,8 @@ public final class SaddlePointDetector {
         }
 
         Set<Long> out = new HashSet<>();
-        float[] dir = new float[3];
         for (int seed : seeds) {
-            pdf.dirMax(seed, dir);
+            Vector3f dir = pdf.dirMax(seed);
             walk(seed, dir, +1, STEPS_PER_SIDE, ring, positions, out);
             walk(seed, dir, -1, STEPS_PER_SIDE, ring, positions, out);
         }
@@ -93,37 +95,29 @@ public final class SaddlePointDetector {
      * running direction, then updates direction to the traveled edge so
      * the cut follows the actual mesh geometry across the valley.
      */
-    private static void walk(int seed, float[] initialDir, int sign, int maxSteps,
+    private static void walk(int seed, Vector3f initialDir, int sign, int maxSteps,
                              int[][] ring, float[] positions, Set<Long> out) {
         int v = seed;
-        float dx = sign * initialDir[0];
-        float dy = sign * initialDir[1];
-        float dz = sign * initialDir[2];
+        Vector3f dir = new Vector3f(initialDir).mul(sign);
         for (int step = 0; step < maxSteps; step++) {
             int best = -1;
             float bestDot = MIN_DOT;
+            Vector3f bestEdge = null;
+            Vector3f origin = PackedPoints.at(positions, v * 3);
             for (int u : ring[v]) {
-                float ex = positions[u * 3]     - positions[v * 3];
-                float ey = positions[u * 3 + 1] - positions[v * 3 + 1];
-                float ez = positions[u * 3 + 2] - positions[v * 3 + 2];
-                float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
+                Vector3f edge = PackedPoints.at(positions, u * 3).sub(origin);
+                float elen = edge.length();
                 if (elen < EPSILON) continue;
-                float dot = (ex * dx + ey * dy + ez * dz) / elen;
+                float dot = edge.dot(dir) / elen;
                 if (dot > bestDot) {
                     bestDot = dot;
                     best = u;
+                    bestEdge = edge;
                 }
             }
             if (best < 0) break;
             out.add(( EdgeKey.undirected(v, best)));
-            float ex = positions[best * 3]     - positions[v * 3];
-            float ey = positions[best * 3 + 1] - positions[v * 3 + 1];
-            float ez = positions[best * 3 + 2] - positions[v * 3 + 2];
-            float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-            if (elen < EPSILON) break;
-            dx = ex / elen;
-            dy = ey / elen;
-            dz = ez / elen;
+            dir = bestEdge.div(bestEdge.length());
             v = best;
         }
     }

@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * One copy of a stroke a sculpt pass applies, its own or a reflection: depth, radius, lifted points
@@ -224,16 +225,17 @@ public abstract class SculptStroke {
             return;
         }
         float depthReach = radius * GATHER_REACH + Math.abs(depth);
-        float[] low = { Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY };
-        float[] high = { Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY };
+        Vector3f low = new Vector3f(Float.POSITIVE_INFINITY);
+        Vector3f high = new Vector3f(Float.NEGATIVE_INFINITY);
+        Vector3f reach = new Vector3f(depthReach);
         Vector3f direction = new Vector3f();
         Vector3f normal = new Vector3f();
-        for (int coordinate = 0; coordinate < pointXyz.length; coordinate++) {
-            low[coordinate % 3] = Math.min(low[coordinate % 3], pointXyz[coordinate] - depthReach);
-            high[coordinate % 3] = Math.max(high[coordinate % 3], pointXyz[coordinate] + depthReach);
-            if (coordinate % 3 == 2 && mesh.vertexNormal(nearestVertex.nearest(pointXyz[coordinate - 2],
-                    pointXyz[coordinate - 1], pointXyz[coordinate], Float.POSITIVE_INFINITY), normal).length()
-                    >= MINIMUM_NORMAL_LENGTH) {
+        for (int coordinate = 0; coordinate + 2 < pointXyz.length; coordinate += 3) {
+            Vector3f point = PackedPoints.at(pointXyz, coordinate);
+            low.min(new Vector3f(point).sub(reach));
+            high.max(new Vector3f(point).add(reach));
+            if (mesh.vertexNormal(nearestVertex.nearest(point.x, point.y, point.z, Float.POSITIVE_INFINITY),
+                    normal).length() >= MINIMUM_NORMAL_LENGTH) {
                 direction.add(normal.normalize());
             }
         }
@@ -245,9 +247,9 @@ public abstract class SculptStroke {
         StrokeElementGrid grid = elementGrid(direction);
         for (int activeVertex = 0; activeVertex < requiredByActiveVertex.length; activeVertex++) {
             int at = activeVertex * 3;
-            if (requiredByActiveVertex[activeVertex] <= refineTarget || vertexXyz[at] < low[0]
-                    || vertexXyz[at] > high[0] || vertexXyz[at + 1] < low[1] || vertexXyz[at + 1] > high[1]
-                    || vertexXyz[at + 2] < low[2] || vertexXyz[at + 2] > high[2]) {
+            if (requiredByActiveVertex[activeVertex] <= refineTarget || vertexXyz[at] < low.x
+                    || vertexXyz[at] > high.x || vertexXyz[at + 1] < low.y || vertexXyz[at + 1] > high.y
+                    || vertexXyz[at + 2] < low.z || vertexXyz[at + 2] > high.z) {
                 continue;
             }
             int cell = grid == null ? 0 : grid.cellOf(vertexXyz[at], vertexXyz[at + 1], vertexXyz[at + 2]);

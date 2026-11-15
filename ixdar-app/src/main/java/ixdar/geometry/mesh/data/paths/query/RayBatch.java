@@ -2,6 +2,8 @@ package ixdar.geometry.mesh.data.paths.query;
 
 import java.util.stream.IntStream;
 
+import org.joml.Vector3f;
+
 /**
  * Casts many independent rays against one triangle tree in parallel: each worker keeps its own
  * scratch (corner marks, node stack, ray), allocated once and reused across batches.
@@ -20,11 +22,11 @@ public final class RayBatch {
         /** Node stack for the tree's searches. */
         public final int[] stack;
 
-        /** The ray's origin xyz. */
-        public final float[] origin = new float[3];
+        /** The ray's origin, refilled for every ray the worker casts. */
+        public final Vector3f origin = new Vector3f();
 
-        /** The ray's direction xyz. */
-        public final float[] direction = new float[3];
+        /** The ray's direction, refilled for every ray the worker casts. */
+        public final Vector3f direction = new Vector3f();
 
         /** The last search's hit parameter, in its first entry. */
         public final double[] parameter = new double[1];

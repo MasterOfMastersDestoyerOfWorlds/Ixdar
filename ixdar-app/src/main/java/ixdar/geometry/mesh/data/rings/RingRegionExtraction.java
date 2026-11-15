@@ -10,6 +10,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.csg.QuadTriangulation;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
@@ -251,9 +252,7 @@ public final class RingRegionExtraction {
         cutPositions = new float[XYZ * (sourceVertexCount + crossingCount + insidePointCount)];
         for (int activeVertex = 0; activeVertex < sourceVertexCount; activeVertex++) {
             mesh.vertexPosition(mesh.vertexIdAt(activeVertex), tail);
-            cutPositions[XYZ * activeVertex] = tail.x;
-            cutPositions[XYZ * activeVertex + 1] = tail.y;
-            cutPositions[XYZ * activeVertex + 2] = tail.z;
+            PackedPoints.store(cutPositions, XYZ * activeVertex, tail);
         }
         cutVertexCount = sourceVertexCount;
         snappedCrossingCount = 0;
@@ -284,9 +283,7 @@ public final class RingRegionExtraction {
                 mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), tail);
                 mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), head);
                 tail.lerp(head, (float) fraction);
-                cutPositions[XYZ * vertex] = tail.x;
-                cutPositions[XYZ * vertex + 1] = tail.y;
-                cutPositions[XYZ * vertex + 2] = tail.z;
+                PackedPoints.store(cutPositions, XYZ * vertex, tail);
                 edgeIdOfInserted[vertex - sourceVertexCount] = edgeId;
                 insertedCountByEdgeId[edgeId]++;
                 snappedCrossingCount += clusterEnd - clusterStart - 1;
@@ -327,9 +324,7 @@ public final class RingRegionExtraction {
                 }
                 if (vertex == MeshTopology.NONE) {
                     vertex = cutVertexCount++;
-                    cutPositions[XYZ * vertex] = head.x;
-                    cutPositions[XYZ * vertex + 1] = head.y;
-                    cutPositions[XYZ * vertex + 2] = head.z;
+                    PackedPoints.store(cutPositions, XYZ * vertex, head);
                     faceIdOfInside[vertex - sourceVertexCount - insertedVertexCount] = faceId;
                 }
                 insideVertexOfPoint[ring][point] = vertex;

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 import org.joml.Vector3f;
@@ -63,7 +64,7 @@ class SurfaceSplineTest {
 
     private static final double TAPER_CUT_TILT = 0.6;
 
-    private static final float[] AXIS = { 1f, 0f, 0f };
+    private static final Vector3f AXIS = new Vector3f(1f, 0f, 0f);
 
     private static final int NEAR_SIDE_RING = 30;
 
@@ -142,7 +143,7 @@ class SurfaceSplineTest {
     @Test
     void aRoundCrossSectionNeedsNoAnchorBeyondTheFourItStartsWith() {
         MeshTopology tube = tube(1f);
-        SplineAnchorFit fit = fitTo(tube, new float[] { 1f, 0f, 0f }, new float[] { 0f, 0f, 0f });
+        SplineAnchorFit fit = fitTo(tube, new Vector3f(1f, 0f, 0f), new Vector3f());
 
         assertEquals(SplineAnchorFit.STARTING_ANCHORS, fit.anchorCount,
                 "a circular cut needed more than four anchors, deviation " + fit.deviation
@@ -154,9 +155,8 @@ class SurfaceSplineTest {
     @Test
     void aTaperedCrossSectionGainsAnchorsAndStaysInsideTheTolerance() {
         MeshTopology tube = tube(TAPER_GROWTH);
-        float[] normal = {
-            (float) Math.cos(TAPER_CUT_TILT), (float) Math.sin(TAPER_CUT_TILT), 0f };
-        SplineAnchorFit fit = fitTo(tube, normal, new float[] { 0.5f, 0f, 0f });
+        Vector3f normal = new Vector3f((float) Math.cos(TAPER_CUT_TILT), (float) Math.sin(TAPER_CUT_TILT), 0f);
+        SplineAnchorFit fit = fitTo(tube, normal, new Vector3f(0.5f, 0f, 0f));
 
         assertTrue(fit.anchorCount > SplineAnchorFit.STARTING_ANCHORS,
                 "the tapered cut kept four anchors, deviation " + fit.deviation);
@@ -167,7 +167,7 @@ class SurfaceSplineTest {
                 "sharpest corner " + spline.minimumInteriorAngleDegrees + " degrees");
     }
 
-    private static SplineAnchorFit fitTo(MeshTopology mesh, float[] normal, float[] point) {
+    private static SplineAnchorFit fitTo(MeshTopology mesh, Vector3f normal, Vector3f point) {
         PlaneSurfaceLoop cut = new PlaneSurfaceLoop();
         int startEdgeId = cut.nearestCrossingEdge(mesh, point, normal);
         assertTrue(startEdgeId >= 0, "the plane missed the tube");
@@ -282,8 +282,8 @@ class SurfaceSplineTest {
     @Test
     void theWrittenStatementReloadsTheSameRing() {
         MeshTopology tube = tube(TAPER_GROWTH);
-        float[] normal = SurfaceWaypoints.parse(SurfaceWaypoints.format(new float[] {
-            (float) Math.cos(TAPER_CUT_TILT), (float) Math.sin(TAPER_CUT_TILT), 0f }, 1));
+        Vector3f normal = SurfaceWaypoints.point(SurfaceWaypoints.format(new Vector3f(
+                (float) Math.cos(TAPER_CUT_TILT), (float) Math.sin(TAPER_CUT_TILT), 0f)));
         int[] authored = tubeVertices(tube, NEAR_SIDE_RING, 0, FAR_SIDE_RING, TUBE_SIDES / 2);
         AuthoredSplineRing ring =
                 new AuthoredSplineRing(SurfaceGeodesics.over(SurfaceMetric.of(tube)));
@@ -298,7 +298,7 @@ class SurfaceSplineTest {
         ctx.setInput(SplineRingNode.GEOMETRY.name, GeometryBundle.ofMesh(tube));
         ctx.setInput(SplineRingNode.POINTS.name,
                 SurfaceWaypoints.format(authoredXyz, authoredAnchors));
-        ctx.setInput(SplineRingNode.NORMAL.name, SurfaceWaypoints.format(normal, 1));
+        ctx.setInput(SplineRingNode.NORMAL.name, SurfaceWaypoints.format(normal));
         ctx.setInput(SplineRingNode.METRIC.name, SurfaceMetric.of(tube));
         node.evaluate(ctx);
         GeometryBundle reloaded =
@@ -419,7 +419,8 @@ class SurfaceSplineTest {
     @Test
     void theWriterIsByteStableAndRewritesInPlace() {
         String graph = "carrier = load_mesh(path=\"x.off\")";
-        float[] anchors = { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f };
+        List<Vector3f> anchors = SurfaceWaypoints.points(
+                new float[] { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f });
         String appended = RingDslWriter.appendSpline(graph, anchors, SplineAnchorFit.STARTING_ANCHORS);
 
         assertEquals(appended, RingDslWriter.appendSpline(graph, anchors,
@@ -427,7 +428,7 @@ class SurfaceSplineTest {
         String id = RingDslWriter.nextRingId(graph);
         assertTrue(appended.contains(id + " = spline_ring(geometry=carrier.geometry"), appended);
         float[] moved = { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f, 0f, 0.5f, 0f };
-        String rewritten = RingDslWriter.replaceSpline(appended, id, moved,
+        String rewritten = RingDslWriter.replaceSpline(appended, id, SurfaceWaypoints.points(moved),
                 SplineAnchorFit.STARTING_ANCHORS + 1);
         assertEquals(appended.lines().count(), rewritten.lines().count(),
                 "rewriting a ring in place should not add a statement");

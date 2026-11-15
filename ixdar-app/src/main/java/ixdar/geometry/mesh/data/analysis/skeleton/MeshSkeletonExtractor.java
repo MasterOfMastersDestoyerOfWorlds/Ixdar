@@ -1,13 +1,13 @@
 package ixdar.geometry.mesh.data.analysis.skeleton;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.Dijkstra;
@@ -78,8 +78,8 @@ public final class MeshSkeletonExtractor {
 
     private int idx(int x, int y, int z) { return x + y * rx + z * rx * ry; }
     private boolean ok(int x, int y, int z) { return x >= 0 && x < rx && y >= 0 && y < ry && z >= 0 && z < rz; }
-    private float[] toWorld(int x, int y, int z) {
-        return new float[]{ox + (x + 0.5f) * vs, oy + (y + 0.5f) * vs, oz + (z + 0.5f) * vs};
+    private Vector3f toWorld(int x, int y, int z) {
+        return new Vector3f(ox + (x + 0.5f) * vs, oy + (y + 0.5f) * vs, oz + (z + 0.5f) * vs);
     }
 
 
@@ -109,7 +109,7 @@ public final class MeshSkeletonExtractor {
         Vector3f bmax = mesh.boundsMax(new Vector3f());
         float extX = bmax.x - bmin.x, extY = bmax.y - bmin.y, extZ = bmax.z - bmin.z;
         float maxExt = Math.max(extX, Math.max(extY, extZ));
-        if (maxExt < EPSILON) return new SkeletonResult(resolution, 0, new float[MIN_PATH_LENGTH], List.of(), List.of());
+        if (maxExt < EPSILON) return new SkeletonResult(resolution, 0, new Vector3f(), List.of(), List.of());
 
         float vs = maxExt / resolution;
         float pad = 2 * vs;
@@ -133,9 +133,7 @@ public final class MeshSkeletonExtractor {
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
             mesh.vertexPosition(vertexId, position);
-            pos[vertexId * MIN_PATH_LENGTH] = position.x;
-            pos[vertexId * MIN_PATH_LENGTH + 1] = position.y;
-            pos[vertexId * MIN_PATH_LENGTH + 2] = position.z;
+            PackedPoints.store(pos, vertexId * MIN_PATH_LENGTH, position);
         }
 
         @SuppressWarnings("unchecked")
@@ -355,28 +353,28 @@ public final class MeshSkeletonExtractor {
                 rootIdx = i;
             }
         }
-        float[] rootPos = rootIdx >= 0
+        Vector3f rootPos = rootIdx >= 0
                 ? toWorld(rootIdx % rx, (rootIdx / rx) % ry, rootIdx / (rx * ry))
-                : new float[MIN_PATH_LENGTH];
+                : new Vector3f();
 
         List<SkeletonBranch> branches = new ArrayList<>();
         List<List<int[]>> validBranches = new ArrayList<>();
         for (int bi = 0; bi < rawPaths.size(); bi++) {
             List<int[]> path = rawPaths.get(bi);
 
-            float[][] worldPos = new float[path.size()][];
+            Vector3f[] worldPos = new Vector3f[path.size()];
             for (int i = 0; i < path.size(); i++) {
                 worldPos[i] = toWorld(path.get(i)[0], path.get(i)[1], path.get(i)[2]);
             }
 
             float rawLength = 0;
-            for (int j = 1; j < worldPos.length; j++) rawLength += dist3(worldPos[j - 1], worldPos[j]);
+            for (int j = 1; j < worldPos.length; j++) rawLength += worldPos[j - 1].distance(worldPos[j]);
             if (rawLength < vs * MIN_BRANCH_VOXELS) continue;  // skip branches shorter than ~15 voxels
 
             float[] packedPath = new float[worldPos.length * 3];
             float[] radius = new float[worldPos.length];
             for (int i = 0; i < worldPos.length; i++) {
-                System.arraycopy(worldPos[i], 0, packedPath, i * 3, 3);
+                PackedPoints.store(packedPath, i * 3, worldPos[i]);
                 float r = dfb[path.get(i)[MIN_PATH_LENGTH]];
                 radius[i] = (r == Float.MAX_VALUE ? 0 : r) * vs;
             }
@@ -385,34 +383,33 @@ public final class MeshSkeletonExtractor {
 
             List<SkeletonJoint> joints = new ArrayList<>();
             for (int k = 0; k < simplified.pointCount(); k++) {
-                joints.add(new SkeletonJoint(Arrays.copyOfRange(simplified.positions, k * 3, k * 3 + 3),
+                joints.add(new SkeletonJoint(PackedPoints.at(simplified.positions, k * 3),
                         simplified.pointAttributes.get(RADIUS)[k]));
             }
 
-            float[] dir = new float[]{0, 0, 0};
+            Vector3f dir = new Vector3f();
             float length = 0;
             if (joints.size() >= 2) {
-                float[] first = joints.get(0).position;
-                float[] last = joints.get(joints.size() - 1).position;
-                float dx = last[0] - first[0], dy = last[1] - first[1], dz = last[2] - first[2];
-                float mag = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                if (mag > ZERO_LENGTH_EPSILON) { dir[0] = dx / mag; dir[1] = dy / mag; dir[2] = dz / mag; }
+                dir.set(joints.get(joints.size() - 1).position).sub(joints.get(0).position);
+                float mag = dir.length();
+                if (mag > ZERO_LENGTH_EPSILON) {
+                    dir.div(mag);
+                } else {
+                    dir.zero();
+                }
                 for (int j = 1; j < joints.size(); j++) {
-                    float[] a = joints.get(j - 1).position;
-                    float[] b = joints.get(j).position;
-                    float sx = b[0] - a[0], sy = b[1] - a[1], sz = b[2] - a[2];
-                    length += (float) Math.sqrt(sx * sx + sy * sy + sz * sz);
+                    length += joints.get(j - 1).position.distance(joints.get(j).position);
                 }
             }
 
             int parentBranch = -1;
             if (path.size() > 0) {
-                float[] connPos = worldPos[worldPos.length - 1];
+                Vector3f connPos = worldPos[worldPos.length - 1];
                 float minD = Float.MAX_VALUE;
                 for (int pi = 0; pi < validBranches.size(); pi++) {
                     List<int[]> prevPath = validBranches.get(pi);
                     for (int[] pv : prevPath) {
-                        float d = dist3(connPos, toWorld(pv[0], pv[1], pv[2]));
+                        float d = connPos.distance(toWorld(pv[0], pv[1], pv[2]));
                         if (d < minD) { minD = d; parentBranch = pi; }
                     }
                 }
@@ -428,10 +425,10 @@ public final class MeshSkeletonExtractor {
         for (int bi = 0; bi < branches.size(); bi++) {
             SkeletonBranch b = branches.get(bi);
             if (b.parentBranch >= 0 && !b.joints.isEmpty()) {
-                float[] bpPos = b.joints.get(b.joints.size() - 1).position;
+                Vector3f bpPos = b.joints.get(b.joints.size() - 1).position;
                 boolean found = false;
                 for (BranchPoint bp : branchPoints) {
-                    if (dist3(bp.position, bpPos) < vs * MIN_PATH_LENGTH) {
+                    if (bp.position.distance(bpPos) < vs * MIN_PATH_LENGTH) {
                         bp.connectedBranches.add(bi);
                         found = true;
                         break;
@@ -450,15 +447,10 @@ public final class MeshSkeletonExtractor {
     }
 
 
-    private static float dist3(float[] a, float[] b) {
-        float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
-        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    public record SkeletonJoint(float[] position, float radius) {}
+    public record SkeletonJoint(Vector3f position, float radius) {}
     public record SkeletonBranch(int id, String label, int parentBranch,
-                                 List<SkeletonJoint> joints, float[] direction, float length) {}
-    public record BranchPoint(float[] position, List<Integer> connectedBranches) {}
-    public record SkeletonResult(int resolution, float voxelSize, float[] root,
+                                 List<SkeletonJoint> joints, Vector3f direction, float length) {}
+    public record BranchPoint(Vector3f position, List<Integer> connectedBranches) {}
+    public record SkeletonResult(int resolution, float voxelSize, Vector3f root,
                                  List<SkeletonBranch> branches, List<BranchPoint> branchPoints) {}
 }

@@ -6,6 +6,7 @@ import java.util.HashMap;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 
 /**
@@ -81,9 +82,7 @@ public final class MarchingTetrahedra {
                             positions = Arrays.copyOf(positions, positions.length * 2);
                         }
                         grid.position(inner, from).lerp(grid.position(outer, to), fraction);
-                        positions[vertexCount * 3] = from.x;
-                        positions[vertexCount * 3 + 1] = from.y;
-                        positions[vertexCount * 3 + 2] = from.z;
+                        PackedPoints.store(positions, vertexCount * 3, from);
                         known = vertexCount++;
                         crossingVertex.put(key, known);
                     }

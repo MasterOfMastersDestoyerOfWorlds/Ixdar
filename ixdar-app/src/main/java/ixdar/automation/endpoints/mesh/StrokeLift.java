@@ -85,10 +85,11 @@ public class StrokeLift extends AutomationEndpoint implements AutomationRoute {
                         Camera3D camera = sketch.cellCamera(view);
                         Vector3f target = camera.orbitTarget;
                         double worldPerPixel = lifted.length == 0
-                                ? camera.worldPerPixel(target.x, target.y, target.z, sketch.cellHeight) : 0.0;
+                                ? camera.worldPerPixel(target, sketch.cellHeight) : 0.0;
+                        Vector3f liftedPoint = new Vector3f();
                         for (int point = 0; point < lifted.length; point += 3) {
-                            worldPerPixel += camera.worldPerPixel(lifted[point], lifted[point + 1], lifted[point + 2],
-                                    sketch.cellHeight) * 3.0 / lifted.length;
+                            worldPerPixel += camera.worldPerPixel(liftedPoint.set(lifted[point], lifted[point + 1],
+                                    lifted[point + 2]), sketch.cellHeight) * 3.0 / lifted.length;
                         }
                         row.addProperty("strokeWidthRadius",
                                 Float.parseFloat(width.group(1)) * sketch.svgScaleY * worldPerPixel);

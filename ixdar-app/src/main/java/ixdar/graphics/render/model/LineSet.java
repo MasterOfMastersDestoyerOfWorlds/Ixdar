@@ -3,6 +3,7 @@ package ixdar.graphics.render.model;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * GL_LINES vertices drawn on a surface, filled front to back: per endpoint its xyz, then the
@@ -157,9 +158,7 @@ public final class LineSet {
     public void segment(Vector3f segmentStart, Vector3f segmentEnd, Vector3f surfaceA,
             Vector3f surfaceB) {
         for (Vector3f point : new Vector3f[] { segmentStart, segmentEnd }) {
-            vertices[cursor] = point.x;
-            vertices[cursor + 1] = point.y;
-            vertices[cursor + 2] = point.z;
+            PackedPoints.store(vertices, cursor, point);
             vertices[cursor + 3] = surfaceA.x;
             vertices[cursor + 4] = surfaceA.y;
             vertices[cursor + 5] = surfaceA.z;

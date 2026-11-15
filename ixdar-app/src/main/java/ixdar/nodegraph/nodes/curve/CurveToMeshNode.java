@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -128,7 +129,7 @@ public class CurveToMeshNode implements MeshNode {
             Vector3f[] pts = new Vector3f[nPts];
             for (int i = 0; i < nPts; i++) {
                 int b = 3 * (off0 + i);
-                pts[i] = new Vector3f(pos[b], pos[b + 1], pos[b + 2]);
+                pts[i] = PackedPoints.at(pos, b);
             }
 
             boolean closed = cg.closed[ci] && nPts > 2;

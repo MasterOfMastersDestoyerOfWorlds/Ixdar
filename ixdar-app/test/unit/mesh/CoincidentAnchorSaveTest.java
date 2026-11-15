@@ -56,7 +56,7 @@ class CoincidentAnchorSaveTest {
 
     private static final String OTHER_RING = "ring_01";
 
-    private static final float[] MERIDIAN_NORMAL = { 0f, 0f, 1f };
+    private static final Vector3f MERIDIAN_NORMAL = new Vector3f(0f, 0f, 1f);
 
     private static final float[] POLES = { 0f, 1f, 0f, 0f, -1f, 0f };
 
@@ -92,7 +92,8 @@ class CoincidentAnchorSaveTest {
 
         float[] written = SurfaceWaypoints.resolvingPoints(grid, held, ANCHORS);
         String saved = RingDslWriter.wireRingInputs(SPHERES + RingDslWriter.splineStatement(
-                RING, SURFACE_GEOMETRY, written, ANCHORS, MERIDIAN_NORMAL) + "\n");
+                RING, SURFACE_GEOMETRY, SurfaceWaypoints.points(written), ANCHORS,
+                MERIDIAN_NORMAL) + "\n");
         NodeGraphRuntime reloading = NodeGraphRuntime.fromSource(saved);
         GeometryBundle reloaded = (GeometryBundle) reloading.executeGraphResult(
                 RING, RingDslWriter.DEFAULT_UPSTREAM_PORT);
@@ -134,7 +135,8 @@ class CoincidentAnchorSaveTest {
                     "the pole point told the overlapping copies apart by itself");
             assertTrue(alone.getMessage().contains("on top of each other"), alone.getMessage());
             String saved = RingDslWriter.wireRingInputs(NESTED + RingDslWriter.splineStatement(
-                    RING, SURFACE_GEOMETRY, written, ANCHORS, MERIDIAN_NORMAL) + "\n");
+                    RING, SURFACE_GEOMETRY, SurfaceWaypoints.points(written), ANCHORS,
+                    MERIDIAN_NORMAL) + "\n");
             NodeGraphRuntime reloading = NodeGraphRuntime.fromSource(saved);
             GeometryBundle reloaded = (GeometryBundle) reloading.executeGraphResult(
                     RING, RingDslWriter.DEFAULT_UPSTREAM_PORT);
@@ -156,7 +158,7 @@ class CoincidentAnchorSaveTest {
             POLES[0], POLES[1], POLES[2], EQUATOR[0], EQUATOR[1], EQUATOR[2],
             POLES[3], POLES[4], POLES[5], EQUATOR[3], EQUATOR[4], EQUATOR[5],
         }, ANCHORS);
-        String normal = SurfaceWaypoints.format(MERIDIAN_NORMAL, 1);
+        String normal = SurfaceWaypoints.format(MERIDIAN_NORMAL);
         String rings = RING + " = spline_ring(geometry=surface.geometry, metric=surface.metric, "
                 + "points=\"" + onPoles + "\", normal=\"" + normal + "\", label=\"" + RING + "\")\n"
                 + OTHER_RING + " = spline_ring(geometry=" + RING + ".geometry, "

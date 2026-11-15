@@ -15,9 +15,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
 
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.SlotCarry;
@@ -341,9 +343,7 @@ public final class MeshRepair {
             int vertexId = mesh.vertexIdAt(index);
             denseOfVertexId[vertexId] = index;
             mesh.vertexPosition(vertexId, scratchPosition);
-            positions[index * TRIANGLE_CORNERS] = scratchPosition.x;
-            positions[index * TRIANGLE_CORNERS + 1] = scratchPosition.y;
-            positions[index * TRIANGLE_CORNERS + 2] = scratchPosition.z;
+            PackedPoints.store(positions, index * TRIANGLE_CORNERS, scratchPosition);
             originalOfVertex[index] = index;
         }
         vertexCount = meshVertexCount;
@@ -1386,20 +1386,18 @@ public final class MeshRepair {
      */
     private boolean insideAnother(int shell, int firstFace) {
         int covered = Math.min(faceCount, columnSoup.firstExposureOnly);
-        double[] origin = new double[TRIANGLE_CORNERS];
+        Vector3d origin = new Vector3d();
         for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-            int vertex = faceCorners[firstFace * TRIANGLE_CORNERS + corner];
-            for (int axis = 0; axis < TRIANGLE_CORNERS; axis++) {
-                origin[axis] += positions[vertex * TRIANGLE_CORNERS + axis] / (double) TRIANGLE_CORNERS;
-            }
+            int vertex = faceCorners[firstFace * TRIANGLE_CORNERS + corner] * TRIANGLE_CORNERS;
+            origin.add(positions[vertex] / (double) TRIANGLE_CORNERS, positions[vertex + 1] / (double) TRIANGLE_CORNERS,
+                    positions[vertex + 2] / (double) TRIANGLE_CORNERS);
         }
         int odd = 0;
         for (int axis = 0; axis < CONTAINMENT_RAYS; axis++) {
             int crossings = columnSoup.columnRayCrossings(axis, origin, shellOfFace, shell);
             for (int face = covered; face < faceCount; face++) {
                 if (shellOfFace[face] >= 0 && shellOfFace[face] != shell
-                        && TriangleGeometry.positiveAxisRayCrosses(axis, origin[0], origin[1], origin[2],
-                                positions, faceCorners[face * TRIANGLE_CORNERS],
+                        && TriangleGeometry.positiveAxisRayCrosses(axis, origin, positions, faceCorners[face * TRIANGLE_CORNERS],
                                 faceCorners[face * TRIANGLE_CORNERS + 1], faceCorners[face * TRIANGLE_CORNERS + 2])) {
                     crossings++;
                 }
@@ -2442,14 +2440,14 @@ public final class MeshRepair {
      * @return true when the face is hidden from both sides
      */
     private boolean sealedIn(TriangleBvh tree, int face, int[] stack) {
-        float[] normal = new float[TRIANGLE_CORNERS];
-        float[] centroid = new float[TRIANGLE_CORNERS];
-        unitNormal(faceCorners, positions, face, normal, 0);
+        float[] normalXyz = new float[TRIANGLE_CORNERS];
+        unitNormal(faceCorners, positions, face, normalXyz, 0);
+        Vector3f normal = new Vector3f(normalXyz);
+        Vector3f centroid = new Vector3f();
         for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
             int at = faceCorners[face * TRIANGLE_CORNERS + corner] * TRIANGLE_CORNERS;
-            for (int axis = 0; axis < TRIANGLE_CORNERS; axis++) {
-                centroid[axis] += positions[at + axis] / TRIANGLE_CORNERS;
-            }
+            centroid.add(positions[at] / TRIANGLE_CORNERS, positions[at + 1] / TRIANGLE_CORNERS,
+                    positions[at + 2] / TRIANGLE_CORNERS);
         }
         return tree.agreedWinding(centroid, normal, stack) != 0 && !tree.hemisphereEscapes(centroid, normal, stack);
     }
@@ -2536,8 +2534,8 @@ public final class MeshRepair {
             rayStacks.set(stack);
         }
         int[] verdict = state.verdict();
-        float[] centroid = new float[TRIANGLE_CORNERS];
-        float[] back = new float[TRIANGLE_CORNERS];
+        Vector3f centroid = new Vector3f();
+        Vector3f back = new Vector3f();
         int[] nearby = new int[CORNER_FACES_TRIED_FIRST];
         for (int index = first; index < end; index++) {
             int face = state.candidates() == null ? index : state.candidates()[index];
@@ -2565,12 +2563,10 @@ public final class MeshRepair {
             if (length == 0.0) {
                 continue;
             }
-            for (int axis = 0; axis < TRIANGLE_CORNERS; axis++) {
-                centroid[axis] = (positions[a + axis] + positions[b + axis] + positions[c + axis]) / TRIANGLE_CORNERS;
-            }
-            back[0] = (float) (-normalX / length);
-            back[1] = (float) (-normalY / length);
-            back[2] = (float) (-normalZ / length);
+            centroid.set((positions[a] + positions[b] + positions[c]) / TRIANGLE_CORNERS,
+                    (positions[a + 1] + positions[b + 1] + positions[c + 1]) / TRIANGLE_CORNERS,
+                    (positions[a + 2] + positions[b + 2] + positions[c + 2]) / TRIANGLE_CORNERS);
+            back.set((float) (-normalX / length), (float) (-normalY / length), (float) (-normalZ / length));
             double longest = Math.max(alongX * alongX + alongY * alongY + alongZ * alongZ,
                     Math.max(acrossX * acrossX + acrossY * acrossY + acrossZ * acrossZ,
                             (acrossX - alongX) * (acrossX - alongX) + (acrossY - alongY) * (acrossY - alongY)
@@ -2637,17 +2633,16 @@ public final class MeshRepair {
      * @param stack       scratch node stack
      * @return true when either half of the line meets a triangle
      */
-    private static boolean meetsAxisLine(TriangleBvh grid, TriangleBvh tree, int[] treeColumns, float[] centroid,
+    private static boolean meetsAxisLine(TriangleBvh grid, TriangleBvh tree, int[] treeColumns, Vector3f centroid,
             int axis, int[] stack) {
         if (!columnMarked(treeColumns, grid.columnAt(axis, centroid) * TRIANGLE_CORNERS + axis)) {
             return false;
         }
-        float[] along = new float[TRIANGLE_CORNERS];
-        along[axis] = 1;
+        Vector3f along = new Vector3f().setComponent(axis, 1);
         if (tree.anyHit(centroid, along, stack) >= 0) {
             return true;
         }
-        along[axis] = -1;
+        along.setComponent(axis, -1);
         return tree.anyHit(centroid, along, stack) >= 0;
     }
 

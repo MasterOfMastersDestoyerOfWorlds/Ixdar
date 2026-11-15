@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
@@ -70,9 +71,7 @@ public final class QuadTriangulation {
             int vertexId = mesh.vertexIdAt(activeVertex);
             activeVertexByVertexId[vertexId] = activeVertex;
             mesh.vertexPosition(vertexId, position);
-            positions[activeVertex * THREE] = position.x;
-            positions[activeVertex * THREE + 1] = position.y;
-            positions[activeVertex * THREE + 2] = position.z;
+            PackedPoints.store(positions, activeVertex * THREE, position);
         }
 
         triangleSourceFace = new int[mesh.triangleCount()];

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -144,12 +145,13 @@ public final class CrawfishOrientationCheckBenchmark {
         if (length == 0.0) {
             return 0;
         }
-        float[] centroid = new float[3];
+        Vector3f centroid = new Vector3f();
         for (int axis = 0; axis < 3; axis++) {
-            centroid[axis] = (p[cornerA + axis] + p[cornerB + axis] + p[cornerC + axis]) / 3f;
+            centroid.setComponent(axis, (p[cornerA + axis] + p[cornerB + axis] + p[cornerC + axis]) / 3f);
         }
-        float[] front = {(float) (normalX / length), (float) (normalY / length), (float) (normalZ / length)};
-        float[] back = {-front[0], -front[1], -front[2]};
+        Vector3f front = new Vector3f((float) (normalX / length), (float) (normalY / length),
+                (float) (normalZ / length));
+        Vector3f back = new Vector3f(front).negate();
         int verdict = bvh.anyHit(centroid, front, stack) < 0 ? FRONT_OUT : 0;
         if (bvh.anyHit(centroid, back, stack) < 0) {
             verdict |= BACK_OUT | BACK_SEEN;

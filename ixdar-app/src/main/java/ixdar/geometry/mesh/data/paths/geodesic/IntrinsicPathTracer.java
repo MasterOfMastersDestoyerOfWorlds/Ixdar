@@ -4,6 +4,8 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+
 /**
  * Traces an intrinsic path back onto its surface, unfolding the metric's own triangles along each
  * intrinsic half-edge to find the source edges it crosses and the polygon splits it passes.
@@ -221,9 +223,7 @@ public final class IntrinsicPathTracer {
         int vertexId = metric.sourceVertexId[intrinsicVertex];
         metric.sourceMesh.vertexPosition(vertexId, scratchPosition);
         int base = 3 * pointCount;
-        positions[base] = scratchPosition.x;
-        positions[base + 1] = scratchPosition.y;
-        positions[base + 2] = scratchPosition.z;
+        PackedPoints.store(positions, base, scratchPosition);
         pointVertexId[pointCount] = vertexId;
         pointEdgeId[pointCount] = -1;
         pointFaceId[pointCount] = -1;

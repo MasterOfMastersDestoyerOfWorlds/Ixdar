@@ -6,9 +6,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangleSoup;
 
 /**
@@ -66,18 +69,17 @@ public final class CrestLineDetector {
 
         boolean[] isRidgePoint = new boolean[vertexIdBound];
         boolean[] isValleyPoint = new boolean[vertexIdBound];
-        float[] dir = new float[3];
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
             if (isRidgeCandidate[vertexId]) {
-                pdf.dirMax(vertexId, dir);
-                if (isLocalExtremum(vertexId, ring[vertexId], positions, pdf, dir, /*forRidge=*/true)) {
+                if (isLocalExtremum(vertexId, ring[vertexId], positions, pdf, pdf.dirMax(vertexId),
+                        /*forRidge=*/true)) {
                     isRidgePoint[vertexId] = true;
                 }
             }
             if (isValleyCandidate[vertexId]) {
-                pdf.dirMin(vertexId, dir);
-                if (isLocalExtremum(vertexId, ring[vertexId], positions, pdf, dir, /*forRidge=*/false)) {
+                if (isLocalExtremum(vertexId, ring[vertexId], positions, pdf, pdf.dirMin(vertexId),
+                        /*forRidge=*/false)) {
                     isValleyPoint[vertexId] = true;
                 }
             }
@@ -112,18 +114,17 @@ public final class CrestLineDetector {
      * would admit every vertex on the trace.
      */
     private static boolean isLocalExtremum(int v, int[] ring, float[] positions,
-                                           PrincipalDirectionField pdf, float[] dir,
+                                           PrincipalDirectionField pdf, Vector3f dir,
                                            boolean forRidge) {
         float myVal = forRidge ? Math.abs(pdf.kappaMax(v)) : -pdf.kappaMin(v);
         int posBest = -1, negBest = -1;
         float posBestDot = 0, negBestDot = 0;
+        Vector3f origin = PackedPoints.at(positions, v * 3);
         for (int u : ring) {
-            float ex = positions[u * 3]     - positions[v * 3];
-            float ey = positions[u * 3 + 1] - positions[v * 3 + 1];
-            float ez = positions[u * 3 + 2] - positions[v * 3 + 2];
-            float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
+            Vector3f edge = PackedPoints.at(positions, u * 3).sub(origin);
+            float elen = edge.length();
             if (elen < EPSILON) continue;
-            float dot = (ex * dir[0] + ey * dir[1] + ez * dir[2]) / elen;
+            float dot = edge.dot(dir) / elen;
             if (dot > posBestDot) { posBestDot = dot; posBest = u; }
             if (dot < negBestDot) { negBestDot = dot; negBest = u; }
         }
@@ -144,12 +145,11 @@ public final class CrestLineDetector {
                                               float[] positions, boolean forRidge) {
         boolean[] visited = new boolean[isPoint.length];
         List<int[]> out = new ArrayList<>();
-        float[] dir = new float[3];
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int seed = mesh.vertexIdAt(activeVertex);
             if (!isPoint[seed] || visited[seed]) continue;
-            List<Integer> forward = traceOneDirection(seed, +1, isPoint, ring, pdf, positions, visited, dir, forRidge);
-            List<Integer> backward = traceOneDirection(seed, -1, isPoint, ring, pdf, positions, visited, dir, forRidge);
+            List<Integer> forward = traceOneDirection(seed, +1, isPoint, ring, pdf, positions, visited, forRidge);
+            List<Integer> backward = traceOneDirection(seed, -1, isPoint, ring, pdf, positions, visited, forRidge);
             List<Integer> full = new ArrayList<>(backward.size() + forward.size());
             for (int i = backward.size() - 1; i >= 0; i--) full.add(backward.get(i));
             full.add(seed);
@@ -167,49 +167,42 @@ public final class CrestLineDetector {
     private static List<Integer> traceOneDirection(int seed, int sign, boolean[] isPoint,
                                                    int[][] ring, PrincipalDirectionField pdf,
                                                    float[] positions, boolean[] visited,
-                                                   float[] dir, boolean forRidge) {
+                                                   boolean forRidge) {
         List<Integer> out = new ArrayList<>();
         int v = seed;
-        float prevStepX = 0, prevStepY = 0, prevStepZ = 0;
-        boolean havePrevStep = false;
+        Vector3f prevStep = null;
         for (int step = 0; step < MAX_TRACE_STEPS; step++) {
-            if (forRidge) pdf.dirMin(v, dir);  // ridge runs along min-curvature dir
-            else          pdf.dirMax(v, dir);  // valley runs along max-curvature dir
-            if (havePrevStep) {
-                float d = dir[0] * prevStepX + dir[1] * prevStepY + dir[2] * prevStepZ;
+            // A ridge runs along the min-curvature direction, a valley along the max.
+            Vector3f dir = forRidge ? pdf.dirMin(v) : pdf.dirMax(v);
+            if (prevStep != null) {
+                float d = dir.dot(prevStep);
                 if ((sign > 0 && d < 0) || (sign < 0 && d > 0)) {
-                    dir[0] = -dir[0]; dir[1] = -dir[1]; dir[2] = -dir[2];
+                    dir.negate();
                 }
             } else if (sign < 0) {
-                dir[0] = -dir[0]; dir[1] = -dir[1]; dir[2] = -dir[2];
+                dir.negate();
             }
             int bestU = -1;
             float bestDot = MIN_FORWARD_PROGRESS;  // require some forward progress
-            float bestEx = 0, bestEy = 0, bestEz = 0;
+            Vector3f bestStep = null;
+            Vector3f origin = PackedPoints.at(positions, v * 3);
             for (int u : ring[v]) {
                 if (!isPoint[u]) continue;
                 if (visited[u]) continue;
-                float ex = positions[u * 3]     - positions[v * 3];
-                float ey = positions[u * 3 + 1] - positions[v * 3 + 1];
-                float ez = positions[u * 3 + 2] - positions[v * 3 + 2];
-                float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
+                Vector3f edge = PackedPoints.at(positions, u * 3).sub(origin);
+                float elen = edge.length();
                 if (elen < EPSILON) continue;
-                float dot = (ex * dir[0] + ey * dir[1] + ez * dir[2]) / elen;
+                float dot = edge.dot(dir) / elen;
                 if (dot > bestDot) {
                     bestDot = dot;
                     bestU = u;
-                    bestEx = ex / elen;
-                    bestEy = ey / elen;
-                    bestEz = ez / elen;
+                    bestStep = edge.div(elen);
                 }
             }
             if (bestU < 0) break;
             visited[bestU] = true;
             out.add(bestU);
-            prevStepX = bestEx;
-            prevStepY = bestEy;
-            prevStepZ = bestEz;
-            havePrevStep = true;
+            prevStep = bestStep;
             v = bestU;
         }
         return out;

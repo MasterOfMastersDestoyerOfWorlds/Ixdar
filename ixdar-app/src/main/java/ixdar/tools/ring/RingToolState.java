@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+
+import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
@@ -30,7 +33,7 @@ public final class RingToolState {
     public final int[] draftAuthoredVertexId;
 
     /** Base normal the draft's plane leans toward. */
-    public final float[] draftBaseNormal;
+    public final Vector3f draftBaseNormal;
 
     /** Segment mode the draft was traced in. */
     public final RingSegmentMode draftMode;
@@ -84,7 +87,7 @@ public final class RingToolState {
         activeSubTool = tool.activeSubTool;
         draftOwner = tool.draftOwner;
         draftAuthoredVertexId = tool.draftAuthoredVertexId;
-        draftBaseNormal = Arrays.copyOf(tool.draftBaseNormal, tool.draftBaseNormal.length);
+        draftBaseNormal = new Vector3f(tool.draftBaseNormal);
         draftMode = tool.draftMode;
         draftSourceRing = tool.draftSourceRing;
         draftSourceLabel = tool.draftSourceLabel;
@@ -108,7 +111,7 @@ public final class RingToolState {
         return draft == other.draft && draftSourceRing == other.draftSourceRing
                 && bisectorStartVertexId == other.bisectorStartVertexId
                 && Arrays.equals(draftAuthoredVertexId, other.draftAuthoredVertexId)
-                && Arrays.equals(draftBaseNormal, other.draftBaseNormal)
+                && draftBaseNormal.equals(other.draftBaseNormal)
                 && draftMode == other.draftMode
                 && sameRings
                 && convertedGraphLabels.equals(other.convertedGraphLabels);
@@ -143,7 +146,8 @@ public final class RingToolState {
             } else if (tool.savedAuthoredByStatement.containsKey(statementId)) {
                 unsaved = !Arrays.equals(ring.authoredVertexId,
                         tool.savedAuthoredByStatement.get(statementId))
-                        || !Arrays.equals(ring.baseNormal, tool.savedNormalByStatement.get(statementId))
+                        || !Objects.equals(ring.baseNormal,
+                                tool.savedNormalByStatement.get(statementId))
                         || ring.mode != tool.savedModeByStatement.get(statementId);
             } else {
                 unsaved = ring.unsaved;
@@ -157,7 +161,7 @@ public final class RingToolState {
         tool.convertedGraphLabels.addAll(convertedGraphLabels);
         tool.draft = draft;
         tool.draftAuthoredVertexId = draftAuthoredVertexId;
-        System.arraycopy(draftBaseNormal, 0, tool.draftBaseNormal, 0, draftBaseNormal.length);
+        tool.draftBaseNormal.set(draftBaseNormal);
         tool.draftMode = draftMode;
         tool.draftSourceRing = draftSourceRing;
         tool.draftSourceLabel = draftSourceLabel;

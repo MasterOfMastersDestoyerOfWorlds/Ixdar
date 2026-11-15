@@ -4,6 +4,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
@@ -107,10 +108,10 @@ public final class CoonsHandleBuilder {
         int ca = mesh.halfEdgeVertex(he);
         int cb = mesh.halfEdgeEndVertex(he);
         int o = eid * 3;
-        Vector3f posCa = mesh.vertexPosition(ca, new Vector3f());
-        Vector3f posCb = mesh.vertexPosition(cb, new Vector3f());
-        Vector3f offS = new Vector3f(hStart[o], hStart[o + 1], hStart[o + 2]);
-        Vector3f offE = new Vector3f(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
+        Vector3f posCa = mesh.vertexPosition(ca);
+        Vector3f posCb = mesh.vertexPosition(cb);
+        Vector3f offS = PackedPoints.at(hStart, o);
+        Vector3f offE = PackedPoints.at(hEnd, o);
         if (fromVid == ca) {
             return new Vector3f[]{
                     new Vector3f(posCa),
@@ -162,7 +163,7 @@ public final class CoonsHandleBuilder {
      * @return float[] array of length 2: {@code [0] = hStart, [1] = hEnd}, both
      *         indexed by {@code eid * 3}.
      */
-    public static float[][] flushDirectedHandles(MeshTopology outMesh, Map<Long, float[]> dh) {
+    public static float[][] flushDirectedHandles(MeshTopology outMesh, Map<Long, Vector3f> dh) {
         int outMaxEid = maxEdgeId(outMesh);
         float[] hs = new float[(outMaxEid + 1) * 3];
         float[] he = new float[(outMaxEid + 1) * 3];
@@ -172,13 +173,13 @@ public final class CoonsHandleBuilder {
             int ca = outMesh.halfEdgeVertex(ohe);
             int cb = outMesh.halfEdgeEndVertex(ohe);
             int o = eid * 3;
-            float[] s = dh.get(dirPack(ca, cb));
+            Vector3f s = dh.get(dirPack(ca, cb));
             if (s != null) {
-                hs[o] = s[0]; hs[o + 1] = s[1]; hs[o + 2] = s[2];
+                PackedPoints.store(hs, o, s);
             }
-            float[] e = dh.get(dirPack(cb, ca));
+            Vector3f e = dh.get(dirPack(cb, ca));
             if (e != null) {
-                he[o] = e[0]; he[o + 1] = e[1]; he[o + 2] = e[2];
+                PackedPoints.store(he, o, e);
             }
         }
         return new float[][]{hs, he};
@@ -249,8 +250,8 @@ public final class CoonsHandleBuilder {
         int ca = mesh.halfEdgeVertex(he);
         int cb = mesh.halfEdgeEndVertex(he);
         int o = eid * 3;
-        Vector3f posCa = mesh.vertexPosition(ca, new Vector3f());
-        Vector3f posCb = mesh.vertexPosition(cb, new Vector3f());
+        Vector3f posCa = mesh.vertexPosition(ca);
+        Vector3f posCb = mesh.vertexPosition(cb);
         Vector3f p1 = new Vector3f(posCa).add(hStart[o], hStart[o + 1], hStart[o + 2]);
         Vector3f p2 = new Vector3f(posCb).add(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
         float evalT = (expectedStartVid == cb) ? 1f - t : t;
@@ -309,9 +310,9 @@ public final class CoonsHandleBuilder {
         Vector3f n = new Vector3f();
         dS_du.cross(dS_dv, n);
 
-        Vector3f p0 = mesh.vertexPosition(v0, new Vector3f());
-        Vector3f p1 = mesh.vertexPosition(v1, new Vector3f());
-        Vector3f p3 = mesh.vertexPosition(v3, new Vector3f());
+        Vector3f p0 = mesh.vertexPosition(v0);
+        Vector3f p1 = mesh.vertexPosition(v1);
+        Vector3f p3 = mesh.vertexPosition(v3);
         Vector3f flatN = new Vector3f(p1).sub(p0).cross(new Vector3f(p3).sub(p0));
         if (n.dot(flatN) < 0f) n.negate();
 

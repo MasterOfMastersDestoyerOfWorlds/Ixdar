@@ -98,7 +98,7 @@ class RingRegionExtractionTest {
             if (!extraction.openMesh.isBoundaryVertex(vertexId)) {
                 continue;
             }
-            float z = extraction.openMesh.vertexPosition(vertexId, new Vector3f()).z;
+            float z = extraction.openMesh.vertexPosition(vertexId).z;
             boolean nearLow = Math.abs(z - LOW_RING_HEIGHT) <= RING_TILT + ROW_SPACING;
             boolean nearHigh = Math.abs(z - HIGH_RING_HEIGHT) <= RING_TILT + ROW_SPACING;
             assertTrue(nearLow || nearHigh, "boundary vertex at z=" + z + LINE_BREAK + report);

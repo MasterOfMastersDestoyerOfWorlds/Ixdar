@@ -2,6 +2,8 @@ package ixdar.geometry.mesh.data.patches;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+
 /**
  * Least-squares fit of a cubic Bezier curve to a polyline sample.
  *
@@ -113,6 +115,6 @@ public final class BezierFit {
     }
 
     private static Vector3f point(int idx, float[] positions) {
-        return new Vector3f(positions[idx * 3], positions[idx * 3 + 1], positions[idx * 3 + 2]);
+        return PackedPoints.at(positions, idx * 3);
     }
 }

@@ -6,6 +6,7 @@ import org.joml.Vector3f;
 
 import java.util.Map;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.FloatField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -127,9 +128,7 @@ public class VectorMathNode implements MeshNode {
                     case CROSS_PRODUCT, CROSS -> outVec.set(a).cross(b);
                     default -> outVec.set(a).add(b);
                 }
-                out[3 * i] = outVec.x;
-                out[3 * i + 1] = outVec.y;
-                out[3 * i + 2] = outVec.z;
+                PackedPoints.store(out, 3 * i, outVec);
                 lengths[i] = outVec.length();
             }
             ctx.setOutput(VECTOR.name, new Vector3Field(out));

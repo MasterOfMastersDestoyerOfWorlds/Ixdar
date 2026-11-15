@@ -11,6 +11,7 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.quadlayout.embedding.EarClipping;
 import ixdar.numeric.exact.ExactBarycentricOrient;
@@ -124,9 +125,7 @@ public final class EmbeddedMeshTopology {
         for (int dense = 0; dense < vertexCount; dense++) {
             int sourceVertexId = sourceMesh.vertexIdAt(dense);
             sourceMesh.vertexPosition(sourceVertexId, position);
-            positions[dense * HalfEdgeMesh.FLOATS_PER_VERTEX] = position.x;
-            positions[dense * HalfEdgeMesh.FLOATS_PER_VERTEX + 1] = position.y;
-            positions[dense * HalfEdgeMesh.FLOATS_PER_VERTEX + 2] = position.z;
+            PackedPoints.store(positions, dense * HalfEdgeMesh.FLOATS_PER_VERTEX, position);
             denseBySourceVertexId.put(sourceVertexId, dense);
             copyVertexBySourceVertexId.put(sourceVertexId, dense);
         }

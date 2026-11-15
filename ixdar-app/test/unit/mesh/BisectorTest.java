@@ -780,7 +780,7 @@ class BisectorTest {
                         adopted.sourceLabel + " runs another path than its trace");
                 assertArrayEquals(traced.authoredVertexId, adopted.authoredVertexId,
                         adopted.sourceLabel + " holds other anchors than its trace");
-                assertArrayEquals(traced.baseNormal, adopted.baseNormal,
+                assertEquals(traced.baseNormal, adopted.baseNormal,
                         adopted.sourceLabel + " leans toward another normal than its trace");
                 assertArrayEquals(traced.bisectorEnds, adopted.bisectorEnds);
                 assertEquals(traced.mode, adopted.mode);
@@ -985,9 +985,7 @@ class BisectorTest {
         Vector3f position = new Vector3f();
         tool.geodesics.mesh.vertexPosition(vertexId, position);
         tool.scene.cursorVertexId = vertexId;
-        tool.scene.cursorPoint[0] = position.x;
-        tool.scene.cursorPoint[1] = position.y;
-        tool.scene.cursorPoint[2] = position.z;
+        tool.scene.cursorPoint = position;
         tool.lastError = "";
         return tool.bisector.onClick(0f, 0f);
     }

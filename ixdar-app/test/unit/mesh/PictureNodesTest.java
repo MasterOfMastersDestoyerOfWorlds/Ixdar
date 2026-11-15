@@ -92,9 +92,9 @@ class PictureNodesTest {
                 .slots().get(ReferenceOutlines.SLOT);
         String svg = fit.output(FitReferencesNode.SVG, String.class);
 
-        assertEquals(2 * HALF_WIDTH, traced.extents[0], 2 * HALF_WIDTH * SHARE, "width from front and top");
-        assertEquals(HEIGHT, traced.extents[1], HEIGHT * SHARE, "height as given");
-        assertEquals(2 * HALF_DEPTH, traced.extents[2], 2 * HALF_DEPTH * SHARE, "depth from side and top");
+        assertEquals(2 * HALF_WIDTH, traced.extents.x, 2 * HALF_WIDTH * SHARE, "width from front and top");
+        assertEquals(HEIGHT, traced.extents.y, HEIGHT * SHARE, "height as given");
+        assertEquals(2 * HALF_DEPTH, traced.extents.z, 2 * HALF_DEPTH * SHARE, "depth from side and top");
         assertEquals(3, svg.split("data-kind=\"silhouette\"").length - 1, "one silhouette per picture");
     }
 

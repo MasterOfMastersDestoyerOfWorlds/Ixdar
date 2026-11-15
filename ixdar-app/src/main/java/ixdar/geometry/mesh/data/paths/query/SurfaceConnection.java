@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.numeric.graph.Dijkstra;
@@ -89,8 +90,8 @@ public final class SurfaceConnection {
     /** Position along {@link #pathActiveFace} of the neck, or -1. */
     public int narrowestPathIndex = -1;
 
-    /** Where the neck crosses the path, packed xyz. */
-    public final float[] narrowestPoint = new float[COORDINATES_PER_POINT];
+    /** Where the neck crosses the path. */
+    public final Vector3f narrowestPoint = new Vector3f();
 
     /** The neck snapped to the mesh edges nearest it, by edge id. */
     public boolean[] narrowestMarkedByEdgeId = new boolean[0];
@@ -206,23 +207,20 @@ public final class SurfaceConnection {
         int reach = Math.max(1, steps / (2 * GIRTH_SAMPLES));
         double[] sampleGirth = new double[samples];
         int[] samplePathIndex = new int[samples];
-        float[] samplePoint = new float[COORDINATES_PER_POINT * samples];
-        float[] sampleAlong = new float[COORDINATES_PER_POINT * samples];
+        Vector3f[] samplePoint = new Vector3f[samples];
+        Vector3f[] sampleAlong = new Vector3f[samples];
         int kept = 0;
         for (int sample = 0; sample < samples; sample++) {
             int index = samples == 1 ? 0 : Math.round(sample * (steps - 1f) / (samples - 1f));
             int ahead = pathActiveFace[Math.min(steps - 1, index + reach)];
             int behind = pathActiveFace[Math.max(0, index - reach)];
-            int base = COORDINATES_PER_POINT * kept;
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                samplePoint[base + axis] =
-                        centroidXyz[COORDINATES_PER_POINT * pathActiveFace[index] + axis];
-                sampleAlong[base + axis] = centroidXyz[COORDINATES_PER_POINT * ahead + axis]
-                        - centroidXyz[COORDINATES_PER_POINT * behind + axis];
-            }
-            if (!girdle.find(mesh, mesh.faceIdAt(pathActiveFace[index]),
-                    Arrays.copyOfRange(samplePoint, base, base + COORDINATES_PER_POINT),
-                    Arrays.copyOfRange(sampleAlong, base, base + COORDINATES_PER_POINT))) {
+            Vector3f centre = PackedPoints.at(centroidXyz, COORDINATES_PER_POINT * pathActiveFace[index]);
+            Vector3f axis = PackedPoints.at(centroidXyz, COORDINATES_PER_POINT * ahead)
+                    .sub(PackedPoints.at(centroidXyz, COORDINATES_PER_POINT * behind));
+            samplePoint[kept] = centre;
+            sampleAlong[kept] = axis;
+            if (!girdle.find(mesh, mesh.faceIdAt(pathActiveFace[index]), new Vector3f(centre),
+                    new Vector3f(axis))) {
                 continue;
             }
             TracedSurfacePath girth = girdle.cut.path;
@@ -246,11 +244,8 @@ public final class SurfaceConnection {
             int crossings = 0;
             double previousSide = 0.0;
             for (int point = 0; point < 2 * steps - 1; point++) {
-                double signed = 0.0;
-                for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                    signed += (pathPolyline[COORDINATES_PER_POINT * point + axis]
-                            - samplePoint[base + axis]) * girdle.normal[axis];
-                }
+                double signed = PackedPoints.at(pathPolyline, COORDINATES_PER_POINT * point)
+                        .sub(samplePoint[kept]).dot(girdle.normal);
                 if (point > 0 && signed >= 0.0 != previousSide >= 0.0
                         && loopFaceStamp[pathActiveFace[point / 2]] == loopStamp) {
                     crossings++;
@@ -278,17 +273,13 @@ public final class SurfaceConnection {
             }
             widestBefore = Math.max(widestBefore, sampleGirth[sample]);
         }
-        float[] neckAlong = new float[COORDINATES_PER_POINT];
         if (neck >= 0) {
             narrowestPathIndex = samplePathIndex[neck];
-            System.arraycopy(samplePoint, COORDINATES_PER_POINT * neck, narrowestPoint, 0,
-                    COORDINATES_PER_POINT);
-            System.arraycopy(sampleAlong, COORDINATES_PER_POINT * neck, neckAlong, 0,
-                    COORDINATES_PER_POINT);
+            narrowestPoint.set(samplePoint[neck]);
         }
         boolean snapped = neck >= 0
                 && girdle.find(mesh, mesh.faceIdAt(pathActiveFace[narrowestPathIndex]),
-                        narrowestPoint, neckAlong);
+                        narrowestPoint, sampleAlong[neck]);
         if (snapped) {
             narrowestMarkedByEdgeId = snap.snap(mesh, girdle.cut.path);
             snapped = snap.unresolvedGaps == 0;
@@ -371,9 +362,7 @@ public final class SurfaceConnection {
                 int arc = faceSearch.via(face);
                 mesh.edgeMidpoint(arcEdgeId[arc], midpoint);
                 int base = COORDINATES_PER_POINT * (2 * index - 1);
-                pathPolyline[base] = midpoint.x;
-                pathPolyline[base + 1] = midpoint.y;
-                pathPolyline[base + 2] = midpoint.z;
+                PackedPoints.store(pathPolyline, base, midpoint);
                 face = arcFace[arc];
             }
         }

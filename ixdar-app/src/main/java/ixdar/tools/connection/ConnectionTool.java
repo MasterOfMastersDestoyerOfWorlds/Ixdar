@@ -10,6 +10,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.tool.ToolAnnotation;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
@@ -190,7 +191,7 @@ public final class ConnectionTool extends Tool {
         path.label = "path";
         int middle = connection.pathPolyline.length / XYZ / 2;
         if (middle * XYZ + XYZ <= connection.pathPolyline.length) {
-            System.arraycopy(connection.pathPolyline, middle * XYZ, path.location, 0, XYZ);
+            path.location.set(PackedPoints.at(connection.pathPolyline, middle * XYZ));
         }
         path.size = connection.pathActiveFace.length;
         path.length = connection.pathLength;
@@ -198,7 +199,7 @@ public final class ConnectionTool extends Tool {
         found.add(path);
         Item neck = new Item();
         neck.label = NECK;
-        System.arraycopy(connection.narrowestPoint, 0, neck.location, 0, XYZ);
+        neck.location.set(connection.narrowestPoint);
         neck.size = neckLoopVertexId.length;
         neck.length = connection.narrowestGirth;
         neck.fingerprint = EdgeMarks.fingerprint(connection.mesh,
@@ -379,9 +380,7 @@ public final class ConnectionTool extends Tool {
                 for (int index = 0; index <= neckLoopVertexId.length; index++) {
                     shown.mesh.vertexPosition(neckLoopVertexId[index % neckLoopVertexId.length],
                             position);
-                    neck[XYZ * index] = position.x;
-                    neck[XYZ * index + 1] = position.y;
-                    neck[XYZ * index + 2] = position.z;
+                    PackedPoints.store(neck, XYZ * index, position);
                 }
                 polylines.add(neck);
                 colors.add(palette.selected);
@@ -484,11 +483,12 @@ public final class ConnectionTool extends Tool {
                     + " - drag a pick to try another neck";
         }
         lastRow = String.format(Locale.ROOT, "path %.4f over %d faces%s; neck %.4f around, "
-                + "%d edges, at %s (widest %.4f%s); %.0f ms path, %.0f ms cross-sections",
+                + "%d edges, at %.5f,%.5f,%.5f (widest %.4f%s); %.0f ms path, %.0f ms cross-sections",
                 joined.pathLength, joined.pathActiveFace.length,
                 joined.pathFilledFaceCount == 0 ? ""
                         : " (" + joined.pathFilledFaceCount + " repair_mesh fill faces)",
-                joined.narrowestGirth, neckLoopVertexId.length, xyzText(joined.narrowestPoint),
+                joined.narrowestGirth, neckLoopVertexId.length, joined.narrowestPoint.x,
+                joined.narrowestPoint.y, joined.narrowestPoint.z,
                 joined.widestGirth, joined.girthsCrossingWalls == 0 ? ""
                         : ", " + joined.girthsCrossingWalls + " crossing rings passed over",
                 joined.pathMillis, joined.girthMillis);
@@ -628,15 +628,5 @@ public final class ConnectionTool extends Tool {
             pendingClick = active;
         }
         return click;
-    }
-
-    /**
-     * A point as text.
-     *
-     * @param xyz packed xyz
-     * @return the point as {@code x,y,z} to five places
-     */
-    public static String xyzText(float[] xyz) {
-        return String.format(Locale.ROOT, "%.5f,%.5f,%.5f", xyz[0], xyz[1], xyz[2]);
     }
 }

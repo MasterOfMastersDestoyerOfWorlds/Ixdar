@@ -1,14 +1,16 @@
 package ixdar.geometry.mesh.data.analysis.skeleton;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+
+import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 import ixdar.nodegraph.optimize.SkeletonSensitivityAnalyzer;
 /**
@@ -89,12 +91,12 @@ public final class MeshSkeletonComparator {
         sortedGenFingers.sort(Comparator.comparing(b -> tipZ(b)));
 
         for (SkeletonBranch gb : sortedGenFingers) {
-            float[] gTip = tipPosition(gb);
+            Vector3f gTip = tipPosition(gb);
             int bestRef = -1;
             float bestDist = Float.MAX_VALUE;
             for (int ri = 0; ri < refFingers.size(); ri++) {
                 if (refUsed[ri]) continue;
-                float d = dist3(gTip, tipPosition(refFingers.get(ri)));
+                float d = gTip.distance(tipPosition(refFingers.get(ri)));
                 if (d < bestDist) { bestDist = d; bestRef = ri; }
             }
             if (bestRef >= 0) {
@@ -165,12 +167,12 @@ public final class MeshSkeletonComparator {
         sortedGenFingers.sort(Comparator.comparing(b -> tipZ(b)));
 
         for (SkeletonBranch gb : sortedGenFingers) {
-            float[] gTip = tipPosition(gb);
+            Vector3f gTip = tipPosition(gb);
             int bestRef = -1;
             float bestDist = Float.MAX_VALUE;
             for (int ri = 0; ri < refFingers.size(); ri++) {
                 if (refUsed[ri]) continue;
-                float d = dist3(gTip, tipPosition(refFingers.get(ri)));
+                float d = gTip.distance(tipPosition(refFingers.get(ri)));
                 if (d < bestDist) { bestDist = d; bestRef = ri; }
             }
             if (bestRef >= 0) {
@@ -208,7 +210,9 @@ public final class MeshSkeletonComparator {
 
     private static BranchMatch matchBranches(SkeletonBranch gen, SkeletonBranch ref, String label) {
         float lengthError = gen.length() - ref.length();
-        float dirError = angleBetweenDeg(gen.direction(), ref.direction());
+        // abs ignores a direction flip
+        float dirCosine = Math.abs(Math.max(-1, Math.min(1, gen.direction().dot(ref.direction()))));
+        float dirError = (float) Math.toDegrees(Math.acos(dirCosine));
 
         float genBaseR = gen.joints().isEmpty() ? 0 : gen.joints().get(gen.joints().size() - 1).radius();
         float refBaseR = ref.joints().isEmpty() ? 0 : ref.joints().get(ref.joints().size() - 1).radius();
@@ -241,28 +245,27 @@ public final class MeshSkeletonComparator {
         if (genJoints.isEmpty() || refJoints.isEmpty()) return List.of();
 
         int n = Math.max(genJoints.size(), refJoints.size());
-        float[][] genSampled = resampleJoints(genJoints, n);
-        float[][] refSampled = resampleJoints(refJoints, n);
+        Vector3f[] genSampled = resampleJoints(genJoints, n);
+        Vector3f[] refSampled = resampleJoints(refJoints, n);
 
         List<JointDelta> deltas = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
-            float[] g = genSampled[i];
-            float[] r = refSampled[i];
-            float[] delta = {r[0] - g[0], r[1] - g[1], r[2] - g[2]};
-            deltas.add(new JointDelta(i, g.clone(), r.clone(), delta, dist3(g, r)));
+            Vector3f g = genSampled[i];
+            Vector3f r = refSampled[i];
+            deltas.add(new JointDelta(i, g, r, new Vector3f(r).sub(g), g.distance(r)));
         }
         return deltas;
     }
 
-    private static float[][] resampleJoints(List<SkeletonJoint> joints, int n) {
+    private static Vector3f[] resampleJoints(List<SkeletonJoint> joints, int n) {
         float[] packed = new float[joints.size() * 3];
         for (int joint = 0; joint < joints.size(); joint++) {
-            System.arraycopy(joints.get(joint).position(), 0, packed, joint * 3, 3);
+            PackedPoints.store(packed, joint * 3, joints.get(joint).position());
         }
         float[] sampled = CurveGeometry.singlePolyline(packed, false).resampled(n).positions;
-        float[][] result = new float[n][];
+        Vector3f[] result = new Vector3f[n];
         for (int sample = 0; sample < n; sample++) {
-            result[sample] = Arrays.copyOfRange(sampled, sample * 3, sample * 3 + 3);
+            result[sample] = PackedPoints.at(sampled, sample * 3);
         }
         return result;
     }
@@ -291,7 +294,7 @@ public final class MeshSkeletonComparator {
             float maxXDir = 0;
             SkeletonBranch thumbCandidate = null;
             for (SkeletonBranch b : allFingers) {
-                float bx = Math.abs(b.direction()[0]);
+                float bx = Math.abs(b.direction().x);
                 if (bx > maxXDir) { maxXDir = bx; thumbCandidate = b; }
             }
             if (thumbCandidate == branch) likelyThumb = true;
@@ -421,44 +424,37 @@ public final class MeshSkeletonComparator {
      * @return normalized branches with recomputed direction and length, plus the center/scale used
      */
     private static NormalizedSkeleton normalize(SkeletonResult skel) {
-        float[] min = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
-        float[] max = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+        Vector3f min = new Vector3f(Float.MAX_VALUE);
+        Vector3f max = new Vector3f(-Float.MAX_VALUE);
         for (SkeletonBranch b : skel.branches()) {
             for (SkeletonJoint j : b.joints()) {
-                for (int i = 0; i < 3; i++) {
-                    min[i] = Math.min(min[i], j.position()[i]);
-                    max[i] = Math.max(max[i], j.position()[i]);
-                }
+                min.min(j.position());
+                max.max(j.position());
             }
         }
-        if (min[0] == Float.MAX_VALUE) return new NormalizedSkeleton(skel.branches(), new float[3], 1);
+        if (min.x == Float.MAX_VALUE) return new NormalizedSkeleton(skel.branches(), new Vector3f(), 1);
 
-        float[] center = new float[3];
-        float maxExt = 0;
-        for (int i = 0; i < 3; i++) {
-            center[i] = (min[i] + max[i]) * 0.5f;
-            maxExt = Math.max(maxExt, max[i] - min[i]);
-        }
+        Vector3f center = new Vector3f(min).add(max).mul(0.5f);
+        Vector3f extent = new Vector3f(max).sub(min);
+        float maxExt = Math.max(extent.x, Math.max(extent.y, extent.z));
         float scale = maxExt > EPSILON ? maxExt : 1.0f;
 
         List<SkeletonBranch> normalized = new ArrayList<>();
         for (SkeletonBranch b : skel.branches()) {
             List<SkeletonJoint> normJoints = new ArrayList<>();
             for (SkeletonJoint j : b.joints()) {
-                float[] p = new float[3];
-                for (int i = 0; i < 3; i++) p[i] = (j.position()[i] - center[i]) / scale;
-                normJoints.add(new SkeletonJoint(p, j.radius() / scale));
+                normJoints.add(new SkeletonJoint(new Vector3f(j.position()).sub(center).div(scale),
+                        j.radius() / scale));
             }
-            float[] dir = new float[3];
+            Vector3f dir = new Vector3f();
             float length = 0;
             if (normJoints.size() >= 2) {
-                float[] first = normJoints.get(0).position();
-                float[] last = normJoints.get(normJoints.size() - 1).position();
-                float dx = last[0] - first[0], dy = last[1] - first[1], dz = last[2] - first[2];
-                float mag = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                if (mag > EPSILON) { dir[0] = dx / mag; dir[1] = dy / mag; dir[2] = dz / mag; }
+                Vector3f chord = new Vector3f(normJoints.get(normJoints.size() - 1).position())
+                        .sub(normJoints.get(0).position());
+                float mag = chord.length();
+                if (mag > EPSILON) dir.set(chord).div(mag);
                 for (int j = 1; j < normJoints.size(); j++) {
-                    length += dist3(normJoints.get(j - 1).position(), normJoints.get(j).position());
+                    length += normJoints.get(j - 1).position().distance(normJoints.get(j).position());
                 }
             }
             normalized.add(new SkeletonBranch(b.id(), b.label(), b.parentBranch(), normJoints, dir, length));
@@ -470,11 +466,11 @@ public final class MeshSkeletonComparator {
 
     private static float tipZ(SkeletonBranch b) {
         if (b.joints().isEmpty()) return 0;
-        return b.joints().get(0).position()[2]; // first joint = tip (TEASAR traces tip→root)
+        return b.joints().get(0).position().z; // first joint = tip (TEASAR traces tip→root)
     }
 
-    private static float[] tipPosition(SkeletonBranch b) {
-        if (b.joints().isEmpty()) return new float[3];
+    private static Vector3f tipPosition(SkeletonBranch b) {
+        if (b.joints().isEmpty()) return new Vector3f();
         return b.joints().get(0).position();
     }
 
@@ -483,17 +479,6 @@ public final class MeshSkeletonComparator {
         float sum = 0;
         for (SkeletonJoint j : b.joints()) sum += j.radius();
         return sum / b.joints().size();
-    }
-
-    private static float angleBetweenDeg(float[] a, float[] b) {
-        float dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-        dot = Math.max(-1, Math.min(1, dot));
-        return (float) Math.toDegrees(Math.acos(Math.abs(dot))); // abs to ignore direction flip
-    }
-
-    private static float dist3(float[] a, float[] b) {
-        float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
-        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
 
@@ -518,7 +503,8 @@ public final class MeshSkeletonComparator {
 
 
     /** Per-joint 3D position delta between generated and reference skeleton. */
-    public record JointDelta(int jointIndex, float[] genPosition, float[] refPosition, float[] delta, float distance) {}
+    public record JointDelta(int jointIndex, Vector3f genPosition, Vector3f refPosition, Vector3f delta,
+            float distance) {}
 
     /** Branch match with full per-joint delta vectors (not just the average). */
     public record DetailedBranchMatch(
@@ -534,5 +520,5 @@ public final class MeshSkeletonComparator {
     ) {}
 
 
-    private record NormalizedSkeleton(List<SkeletonBranch> branches, float[] center, float scale) {}
+    private record NormalizedSkeleton(List<SkeletonBranch> branches, Vector3f center, float scale) {}
 }

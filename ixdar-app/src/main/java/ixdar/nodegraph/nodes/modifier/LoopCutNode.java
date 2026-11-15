@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -118,9 +119,7 @@ public class LoopCutNode implements MeshNode {
             int vertexId = mesh.vertexIdAt(activeVertex);
             activeVertexOfId[vertexId] = activeVertex;
             mesh.vertexPosition(vertexId, position);
-            sourcePositions[activeVertex * 3] = position.x;
-            sourcePositions[activeVertex * 3 + 1] = position.y;
-            sourcePositions[activeVertex * 3 + 2] = position.z;
+            PackedPoints.store(sourcePositions, activeVertex * 3, position);
         }
 
         int[] firstCutVertexOfEdge = new int[mesh.edgeIdBound()];

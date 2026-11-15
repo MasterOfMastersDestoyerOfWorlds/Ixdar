@@ -6,6 +6,7 @@ import org.joml.Vector3f;
 
 import java.util.Map;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -147,8 +148,8 @@ public class BirailLoftMeshNode implements MeshNode {
             if (!Float.isFinite(points[at]) || !Float.isFinite(points[at + 1]) || !Float.isFinite(points[at + 2])) {
                 return false;
             }
-            min.min(new Vector3f(points[at], points[at + 1], points[at + 2]));
-            max.max(new Vector3f(points[at], points[at + 1], points[at + 2]));
+            min.min(PackedPoints.at(points, at));
+            max.max(PackedPoints.at(points, at));
         }
         return max.sub(min).length() >= MIN_ARC_LENGTH;
     }

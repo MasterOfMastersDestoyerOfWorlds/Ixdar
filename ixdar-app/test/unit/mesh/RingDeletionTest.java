@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
@@ -35,13 +36,14 @@ class RingDeletionTest {
         { 0.84f, 0.51f, 0.2f },
     };
 
-    private static final float[] LATITUDE_NORMAL = { 0f, 1f, 0f };
+    private static final Vector3f LATITUDE_NORMAL = new Vector3f(0f, 1f, 0f);
 
     @Test
     void deletingSplineRingsKeepsEveryOtherRingElementExact() throws Exception {
         String source = SPHERE;
         for (float[] anchor : ANCHORS) {
-            source = RingDslWriter.appendSpline(source, anchor, 1, LATITUDE_NORMAL, List.of());
+            source = RingDslWriter.appendSpline(source, List.of(new Vector3f(anchor)), 1,
+                    LATITUDE_NORMAL, List.of());
         }
         Map<String, String> saved = fingerprints(run(source));
         assertEquals(List.of(FIRST, MIDDLE, LAST), List.copyOf(saved.keySet()), source);

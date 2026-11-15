@@ -780,8 +780,8 @@ public class MeshNodeViewerScene extends ModelScene {
         HalfEdgeMeshRuntime runtime = surfaceRuntime();
         MeshTopology surface = halfEdgeSurface();
         picker.faceId = -1;
-        float[] origin = new float[SurfacePicker.COORDINATES_PER_POINT];
-        float[] direction = new float[SurfacePicker.COORDINATES_PER_POINT];
+        Vector3f origin = new Vector3f();
+        Vector3f direction = new Vector3f();
         return runtime != null && surface != null && surface.faceCount() > 0
                 && runtime.rayThroughPixel(camera, framebufferX, framebufferY, origin, direction)
                 && picker.pickNearestFace(surface, origin, direction);
@@ -791,29 +791,26 @@ public class MeshNodeViewerScene extends ModelScene {
      * Where a world point lands in the framebuffer and what hides it: the surface hides the point
      * when the view ray to it crosses a face more than one pixel's span in front of it.
      *
-     * @param x         world x
-     * @param y         world y
-     * @param z         world z
+     * @param point     world point
      * @param pixelDest receives framebuffer x and y, whole numbers at pixel centres as
      *                  {@link #pickPixel} takes them
      * @param occluder  receives the hit that hides the point; its face is -1 when none does
      * @return true when the point lies in front of the camera
      */
-    public boolean projectPoint(float x, float y, float z, float[] pixelDest,
-            SurfacePicker occluder) {
+    public boolean projectPoint(Vector3f point, float[] pixelDest, SurfacePicker occluder) {
         occluder.faceId = -1;
         HalfEdgeMeshRuntime runtime = surfaceRuntime();
         MeshTopology surface = halfEdgeSurface();
-        float[] projected = new float[SurfacePicker.COORDINATES_PER_POINT];
-        if (runtime == null || !runtime.projectToPixels(camera, x, y, z, projected)) {
+        Vector3f projected = runtime == null ? null : runtime.projectToPixels(camera, point);
+        if (projected == null) {
             return false;
         }
-        pixelDest[0] = projected[0] - PIXEL_CENTRE;
-        pixelDest[1] = projected[1] - PIXEL_CENTRE;
-        float[] origin = new float[SurfacePicker.COORDINATES_PER_POINT];
-        float[] direction = new float[SurfacePicker.COORDINATES_PER_POINT];
-        float[] besideOrigin = new float[SurfacePicker.COORDINATES_PER_POINT];
-        float[] besideDirection = new float[SurfacePicker.COORDINATES_PER_POINT];
+        pixelDest[0] = projected.x - PIXEL_CENTRE;
+        pixelDest[1] = projected.y - PIXEL_CENTRE;
+        Vector3f origin = new Vector3f();
+        Vector3f direction = new Vector3f();
+        Vector3f besideOrigin = new Vector3f();
+        Vector3f besideDirection = new Vector3f();
         if (surface == null || surface.faceCount() == 0
                 || !runtime.rayThroughPixel(camera, pixelDest[0], pixelDest[1], origin, direction)
                 || !runtime.rayThroughPixel(camera, pixelDest[0] + 1f, pixelDest[1], besideOrigin,
@@ -822,16 +819,11 @@ public class MeshNodeViewerScene extends ModelScene {
             occluder.faceId = -1;
             return true;
         }
-        Vector3f along = new Vector3f(direction[0], direction[1], direction[2]);
-        float pointParameter = along.dot(x - origin[0], y - origin[1], z - origin[2])
-                / along.lengthSquared();
-        float pixelSpan = new Vector3f(besideOrigin[0], besideOrigin[1], besideOrigin[2])
-                .fma(pointParameter, new Vector3f(besideDirection[0], besideDirection[1],
-                        besideDirection[2]))
-                .distance(origin[0] + pointParameter * direction[0],
-                        origin[1] + pointParameter * direction[1],
-                        origin[2] + pointParameter * direction[2]);
-        if ((pointParameter - occluder.distanceAlongRay) * along.length() <= pixelSpan) {
+        float pointParameter = direction.dot(new Vector3f(point).sub(origin))
+                / direction.lengthSquared();
+        float pixelSpan = besideOrigin.fma(pointParameter, besideDirection)
+                .distance(new Vector3f(origin).fma(pointParameter, direction));
+        if ((pointParameter - occluder.distanceAlongRay) * direction.length() <= pixelSpan) {
             occluder.faceId = -1;
         }
         return true;

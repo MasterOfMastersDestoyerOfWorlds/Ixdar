@@ -167,10 +167,10 @@ public final class MeshSmoothing {
                     int halfEdge = mesh.edgeHalfEdge(edgeId);
                     int startId = mesh.halfEdgeVertex(halfEdge);
                     int endId = mesh.halfEdgeEndVertex(halfEdge);
-                    for (int axis = 0; axis < 3; axis++) {
-                        scratch.origin[axis] = to[activeOf[startId] * 3 + axis];
-                        scratch.direction[axis] = to[activeOf[endId] * 3 + axis] - scratch.origin[axis];
-                    }
+                    int start = activeOf[startId] * 3;
+                    int end = activeOf[endId] * 3;
+                    scratch.origin.set(to[start], to[start + 1], to[start + 2]);
+                    scratch.direction.set(to[end], to[end + 1], to[end + 2]).sub(scratch.origin);
                     scratch.markById[startId] = ++scratch.mark;
                     scratch.markById[endId] = scratch.mark;
                     hitByEdgeId[edgeId] = surface.nearestHitAvoiding(scratch.origin, scratch.direction, 1.0,
@@ -204,8 +204,8 @@ public final class MeshSmoothing {
             if (round < 0 && rays != null) {
                 rays.forEach(vertexCount, (scratch, activeVertex) -> {
                     int vertexId = mesh.vertexIdAt(activeVertex);
-                    System.arraycopy(from, activeVertex * 3, scratch.origin, 0, 3);
-                    System.arraycopy(step, activeVertex * 3, scratch.direction, 0, 3);
+                    scratch.origin.set(from[activeVertex * 3], from[activeVertex * 3 + 1], from[activeVertex * 3 + 2]);
+                    scratch.direction.set(step[activeVertex * 3], step[activeVertex * 3 + 1], step[activeVertex * 3 + 2]);
                     if (stepLength[activeVertex] == 0f) {
                         return;
                     }

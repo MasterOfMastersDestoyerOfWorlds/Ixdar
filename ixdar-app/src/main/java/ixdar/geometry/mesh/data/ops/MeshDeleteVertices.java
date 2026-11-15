@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -73,9 +74,7 @@ public final class MeshDeleteVertices {
                 continue;
             }
             mesh.vertexPosition(vertexId, position);
-            positions[survivors * 3] = position.x;
-            positions[survivors * 3 + 1] = position.y;
-            positions[survivors * 3 + 2] = position.z;
+            PackedPoints.store(positions, survivors * 3, position);
             sourceVertex[survivors] = vertexId;
             outVertexOfId[vertexId] = survivors++;
         }

@@ -25,7 +25,7 @@ public final class VoxelGrid {
     public final int strideZ;
 
     /** World position of lattice point (0, 0, 0). */
-    public final float[] origin;
+    public final Vector3f origin;
 
     /** World distance between neighbouring lattice points. */
     public final float spacing;
@@ -40,9 +40,9 @@ public final class VoxelGrid {
      * @param origin  world position of lattice point (0, 0, 0)
      * @param spacing world distance between neighbouring lattice points
      */
-    public VoxelGrid(int[] size, float[] origin, float spacing) {
+    public VoxelGrid(int[] size, Vector3f origin, float spacing) {
         this.size = size.clone();
-        this.origin = origin.clone();
+        this.origin = new Vector3f(origin);
         this.spacing = spacing;
         strideY = size[0];
         strideZ = size[0] * size[1];
@@ -80,8 +80,8 @@ public final class VoxelGrid {
      * @return {@code dest}
      */
     public Vector3f position(int index, Vector3f dest) {
-        return dest.set(origin[0] + coordinate(index, 0) * spacing, origin[1] + coordinate(index, 1) * spacing,
-                origin[2] + coordinate(index, 2) * spacing);
+        return dest.set(origin.x + coordinate(index, 0) * spacing, origin.y + coordinate(index, 1) * spacing,
+                origin.z + coordinate(index, 2) * spacing);
     }
 
     /**
@@ -89,15 +89,15 @@ public final class VoxelGrid {
      * a time through the lattice's bounding sphere.
      *
      * @param set       one flag per lattice point
-     * @param origin    ray origin xyz
-     * @param direction ray direction xyz, any length
+     * @param origin    ray origin
+     * @param direction ray direction, any length
      * @return the lattice index at the middle of the longest run, or -1 when the ray meets none
      */
-    public int longestRunMiddle(boolean[] set, float[] origin, float[] direction) {
-        Vector3f along = new Vector3f(direction[0], direction[1], direction[2]).normalize();
+    public int longestRunMiddle(boolean[] set, Vector3f origin, Vector3f direction) {
+        Vector3f along = new Vector3f(direction).normalize();
         float reach = spacing * (size[0] + size[1] + size[2]);
         Vector3f middle = position(index(size[0] / 2, size[1] / 2, size[2] / 2), new Vector3f());
-        float start = middle.sub(origin[0], origin[1], origin[2]).dot(along) - reach / 2;
+        float start = middle.sub(origin).dot(along) - reach / 2;
         float step = RAY_STEP * spacing;
         int steps = (int) (reach / step);
         int runStart = -1;
@@ -164,15 +164,15 @@ public final class VoxelGrid {
     /**
      * The lattice point nearest a point along a ray.
      *
-     * @param origin ray origin xyz
-     * @param along  unit ray direction
-     * @param at     distance along the ray
+     * @param rayOrigin ray origin
+     * @param along     unit ray direction
+     * @param at        distance along the ray
      * @return its index, or -1 when the point rounds outside the lattice
      */
-    private int nearest(float[] origin, Vector3f along, float at) {
-        int latticeX = Math.round((origin[0] + at * along.x - this.origin[0]) / spacing);
-        int latticeY = Math.round((origin[1] + at * along.y - this.origin[1]) / spacing);
-        int latticeZ = Math.round((origin[2] + at * along.z - this.origin[2]) / spacing);
+    private int nearest(Vector3f rayOrigin, Vector3f along, float at) {
+        int latticeX = Math.round((rayOrigin.x + at * along.x - origin.x) / spacing);
+        int latticeY = Math.round((rayOrigin.y + at * along.y - origin.y) / spacing);
+        int latticeZ = Math.round((rayOrigin.z + at * along.z - origin.z) / spacing);
         return latticeX < 0 || latticeY < 0 || latticeZ < 0 || latticeX >= size[0] || latticeY >= size[1]
                 || latticeZ >= size[2] ? -1 : index(latticeX, latticeY, latticeZ);
     }

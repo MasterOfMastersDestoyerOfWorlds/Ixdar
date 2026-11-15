@@ -8,6 +8,7 @@ import java.util.regex.Matcher;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
@@ -20,8 +21,9 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 
 /**
- * A multiview SVG's drawn shapes as world curves: each shape's points placed on the plane through
- * its cell's orbit centre facing that cell's camera, its stroke attributes kept on the curve.
+ * A multiview SVG's drawn shapes as world curves: each shape's points placed on
+ * the plane through its cell's orbit centre facing that cell's camera, its
+ * stroke attributes kept on the curve.
  */
 @MeshNodeAnnotation(id = SvgToCurvesNode.NODE_ID, category = NodeCategory.CURVE_OPERATIONS)
 public class SvgToCurvesNode implements MeshNode {
@@ -90,9 +92,7 @@ public class SvgToCurvesNode implements MeshNode {
             positions = Arrays.copyOf(positions, (start + points) * CurveGeometry.XYZ);
             for (int at = 0; at < points; at++) {
                 sketch.cellPlanePoint(camera, pixels[at * 2], pixels[at * 2 + 1], point);
-                positions[(start + at) * CurveGeometry.XYZ] = point.x;
-                positions[(start + at) * CurveGeometry.XYZ + 1] = point.y;
-                positions[(start + at) * CurveGeometry.XYZ + 2] = point.z;
+                PackedPoints.store(positions, (start + at) * CurveGeometry.XYZ, point);
             }
             offsets = Arrays.copyOf(offsets, offsets.length + 1);
             offsets[offsets.length - 1] = start + points;
@@ -100,8 +100,8 @@ public class SvgToCurvesNode implements MeshNode {
             closed[closed.length - 1] = loop;
             Matcher kind = StrokeSketch.KIND_ATTRIBUTE.matcher(shape);
             float[] row = { cell, number(StrokeSketch.DEPTH_ATTRIBUTE.matcher(shape)),
-                number(StrokeSketch.RADIUS_ATTRIBUTE.matcher(shape)),
-                kind.find() && StrokeSketch.SILHOUETTE.equals(kind.group(1)) ? 1f : 0f };
+                    number(StrokeSketch.RADIUS_ATTRIBUTE.matcher(shape)),
+                    kind.find() && StrokeSketch.SILHOUETTE.equals(kind.group(1)) ? 1f : 0f };
             for (int field = 0; field < row.length; field++) {
                 attributes[field] = Arrays.copyOf(attributes[field], closed.length);
                 attributes[field][closed.length - 1] = row[field];
@@ -120,7 +120,8 @@ public class SvgToCurvesNode implements MeshNode {
     }
 
     /**
-     * An attribute's number, 0 when the shape does not carry it or it does not parse.
+     * An attribute's number, 0 when the shape does not carry it or it does not
+     * parse.
      *
      * @param attribute the attribute's matcher over the shape
      * @return the value

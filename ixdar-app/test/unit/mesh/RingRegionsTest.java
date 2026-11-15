@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.Map;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
@@ -280,7 +281,7 @@ class RingRegionsTest {
 
     /** The region holding the face nearest the cylinder's surface at height {@code z}. */
     private static int regionAt(RingRegions regions, float z) {
-        int activeFace = regions.nearestActiveFace(1f, 0f, z);
+        int activeFace = regions.nearestActiveFace(new Vector3f(1f, 0f, z));
         return regions.regionByActiveFace[activeFace];
     }
 

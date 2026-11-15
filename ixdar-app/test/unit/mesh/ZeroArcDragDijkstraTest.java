@@ -213,7 +213,7 @@ class ZeroArcDragDijkstraTest {
      * @return a fresh vector holding its position
      */
     private Vector3f position(EmbeddedMeshTopology topology, int copyVertex) {
-        return topology.copy.vertexPosition(copyVertex, new Vector3f());
+        return topology.copy.vertexPosition(copyVertex);
     }
 
     /**

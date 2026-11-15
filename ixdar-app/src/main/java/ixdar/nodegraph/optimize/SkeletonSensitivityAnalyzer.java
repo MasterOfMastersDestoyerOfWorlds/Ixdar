@@ -6,6 +6,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator.DetailedBranchMatch;
 
 import ixdar.nodegraph.api.PortType;
@@ -32,6 +35,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 /**
  * Skeleton-to-parameter sensitivity analyzer for any DSL mesh. Builds a finite-difference Jacobian
  * by perturbing each input parameter and remeasuring joint positions, then solves by damped least
@@ -89,7 +93,7 @@ public final class SkeletonSensitivityAnalyzer {
 
         List<BranchJointIndex> jointIndices = new ArrayList<>();
         List<JointDelta> baselineErrors = new ArrayList<>();
-        List<float[]> baselinePositions = new ArrayList<>();
+        List<Vector3f> baselinePositions = new ArrayList<>();
         Map<String, int[]> branchRanges = new LinkedHashMap<>();
 
         for (int bi = 0; bi < baselineComparison.detailedMatches().size(); bi++) {
@@ -136,10 +140,10 @@ public final class SkeletonSensitivityAnalyzer {
                 DetailedComparisonResult perturbedComparison =
                         MeshSkeletonComparator.compareDetailed(perturbedSkel, refSkel);
 
-                Map<String, List<float[]>> perturbedByLabel = new HashMap<>();
+                Map<String, List<Vector3f>> perturbedByLabel = new HashMap<>();
                 for (DetailedBranchMatch dbm : perturbedComparison.detailedMatches()) {
                     if (dbm.summary().genBranchId() < 0) continue;
-                    List<float[]> positions = new ArrayList<>();
+                    List<Vector3f> positions = new ArrayList<>();
                     for (JointDelta jd : dbm.jointDeltas()) {
                         positions.add(jd.genPosition());
                     }
@@ -151,16 +155,14 @@ public final class SkeletonSensitivityAnalyzer {
                 for (var entry : branchRanges.entrySet()) {
                     String label = entry.getKey();
                     int[] range = entry.getValue();
-                    List<float[]> perturbedPos = perturbedByLabel.get(label);
+                    List<Vector3f> perturbedPos = perturbedByLabel.get(label);
                     if (perturbedPos == null || perturbedPos.size() != (range[1] - range[0])) {
                         continue;
                     }
                     for (int ji = range[0]; ji < range[1]; ji++) {
-                        float[] bp = baselinePositions.get(ji);
-                        float[] pp = perturbedPos.get(ji - range[0]);
-                        jacobian3D[ji][pi][0] = (pp[0] - bp[0]) * invEps;
-                        jacobian3D[ji][pi][1] = (pp[1] - bp[1]) * invEps;
-                        jacobian3D[ji][pi][2] = (pp[2] - bp[2]) * invEps;
+                        Vector3f slope = new Vector3f(perturbedPos.get(ji - range[0]))
+                                .sub(baselinePositions.get(ji)).mul(invEps);
+                        PackedPoints.store(jacobian3D[ji][pi], 0, slope);
                         matchedJoints++;
                     }
                 }
@@ -241,7 +243,7 @@ public final class SkeletonSensitivityAnalyzer {
             SkeletonResult skel = MeshSkeletonExtractor.extract(mesh, resolution);
             DetailedComparisonResult comparison = MeshSkeletonComparator.compareDetailed(skel, refSkel);
 
-            List<float[]> basePositions = new ArrayList<>();
+            List<Vector3f> basePositions = new ArrayList<>();
             List<JointDelta> errors = new ArrayList<>();
             Map<String, int[]> iterBranchRanges = new LinkedHashMap<>();
             for (DetailedBranchMatch dbm : comparison.detailedMatches()) {
@@ -275,10 +277,10 @@ public final class SkeletonSensitivityAnalyzer {
                     DetailedComparisonResult perturbedComparison =
                             MeshSkeletonComparator.compareDetailed(perturbedSkel, refSkel);
 
-                    Map<String, List<float[]>> perturbedByLabel = new HashMap<>();
+                    Map<String, List<Vector3f>> perturbedByLabel = new HashMap<>();
                     for (DetailedBranchMatch dbm : perturbedComparison.detailedMatches()) {
                         if (dbm.summary().genBranchId() < 0) continue;
-                        List<float[]> positions = new ArrayList<>();
+                        List<Vector3f> positions = new ArrayList<>();
                         for (JointDelta jd : dbm.jointDeltas()) {
                             positions.add(jd.genPosition());
                         }
@@ -289,14 +291,12 @@ public final class SkeletonSensitivityAnalyzer {
                     for (var brEntry : iterBranchRanges.entrySet()) {
                         String label = brEntry.getKey();
                         int[] range = brEntry.getValue();
-                        List<float[]> perturbedPos = perturbedByLabel.get(label);
+                        List<Vector3f> perturbedPos = perturbedByLabel.get(label);
                         if (perturbedPos == null || perturbedPos.size() != (range[1] - range[0])) continue;
                         for (int ji = range[0]; ji < range[1]; ji++) {
-                            float[] bp = basePositions.get(ji);
-                            float[] pp = perturbedPos.get(ji - range[0]);
-                            jacobian[ji][pi][0] = (pp[0] - bp[0]) * invEps;
-                            jacobian[ji][pi][1] = (pp[1] - bp[1]) * invEps;
-                            jacobian[ji][pi][2] = (pp[2] - bp[2]) * invEps;
+                            Vector3f slope = new Vector3f(perturbedPos.get(ji - range[0]))
+                                    .sub(basePositions.get(ji)).mul(invEps);
+                            PackedPoints.store(jacobian[ji][pi], 0, slope);
                         }
                     }
                 } catch (Exception e) {
@@ -375,9 +375,7 @@ public final class SkeletonSensitivityAnalyzer {
         float[] e = new float[rows];
         for (int ji = 0; ji < M; ji++) {
             JointDelta jd = errors.get(ji);
-            e[ji * 3] = jd.delta()[0];
-            e[ji * 3 + 1] = jd.delta()[1];
-            e[ji * 3 + 2] = jd.delta()[2];
+            PackedPoints.store(e, ji * 3, jd.delta());
         }
 
         double[] JTe = new double[N];

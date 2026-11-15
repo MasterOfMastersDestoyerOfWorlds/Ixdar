@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -100,9 +101,7 @@ public class ExtrudeMeshNode implements MeshNode {
             int vertexId = in.vertexIdAt(activeVertex);
             activeVertexOfId[vertexId] = activeVertex;
             in.vertexPosition(vertexId, corner);
-            srcPos[activeVertex * 3] = corner.x;
-            srcPos[activeVertex * 3 + 1] = corner.y;
-            srcPos[activeVertex * 3 + 2] = corner.z;
+            PackedPoints.store(srcPos, activeVertex * 3, corner);
         }
         float[] faceNormals = new float[in.faceCount() * 3];
         Vector3f edgeA = new Vector3f();
@@ -119,9 +118,7 @@ public class ExtrudeMeshNode implements MeshNode {
             } else {
                 edgeA.set(0f, 1f, 0f);
             }
-            faceNormals[fi * 3] = edgeA.x;
-            faceNormals[fi * 3 + 1] = edgeA.y;
-            faceNormals[fi * 3 + 2] = edgeA.z;
+            PackedPoints.store(faceNormals, fi * 3, edgeA);
         }
         MeshTopology out = region
                 ? extrudeRegion(in, activeVertexOfId, srcPos, faceNormals, offset, selObj)

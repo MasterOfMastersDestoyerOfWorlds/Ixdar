@@ -668,7 +668,7 @@ public class HalfEdgeMesh implements MeshTopology {
      */
     public Vector3f vertexPosition(int vertexId) {
         int offset = vertexOffset(vertexId);
-        return new Vector3f(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
+        return PackedPoints.at(vertexPositions, offset);
     }
 
     /** {@inheritDoc}. */
@@ -852,7 +852,7 @@ public class HalfEdgeMesh implements MeshTopology {
      */
     public Vector3f faceNormal(int faceId) {
         int offset = faceOffset(faceId);
-        return new Vector3f(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
+        return PackedPoints.at(faceNormals, offset);
     }
 
     /**
@@ -1025,9 +1025,7 @@ public class HalfEdgeMesh implements MeshTopology {
         boundsCache[0] = min.x;
         boundsCache[1] = min.y;
         boundsCache[2] = min.z;
-        boundsCache[FLOATS_PER_VERTEX] = max.x;
-        boundsCache[FLOATS_PER_VERTEX + 1] = max.y;
-        boundsCache[FLOATS_PER_VERTEX + 2] = max.z;
+        PackedPoints.store(boundsCache, FLOATS_PER_VERTEX, max);
         radiusCache = (float) Math.sqrt(farthestSquared);
         boundsVersion = version;
         return boundsCache;

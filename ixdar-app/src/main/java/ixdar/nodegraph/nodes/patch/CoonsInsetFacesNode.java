@@ -10,6 +10,7 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -138,9 +139,7 @@ public class CoonsInsetFacesNode implements MeshNode {
         for (int i = 0; i < origVertCount; i++) {
             int vid = in.vertexIdAt(i);
             in.vertexPosition(vid, tmp);
-            origPos[i * 3] = tmp.x;
-            origPos[i * 3 + 1] = tmp.y;
-            origPos[i * 3 + 2] = tmp.z;
+            PackedPoints.store(origPos, i * 3, tmp);
         }
         Map<Integer, Integer> oldToDense = new HashMap<>();
         for (int i = 0; i < origVertCount; i++) {
@@ -285,7 +284,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             }
         }
 
-        Map<Long, float[]> dh = new HashMap<>();
+        Map<Long, Vector3f> dh = new HashMap<>();
         for (int ei = 0; ei < in.edgeCount(); ei++) {
             int eid = in.edgeIdAt(ei);
             int he = in.edgeHalfEdge(eid);
@@ -295,9 +294,9 @@ public class CoonsInsetFacesNode implements MeshNode {
             int dcb = oldToDense.get(cb);
             int o = eid * 3;
             dh.put(CoonsHandleBuilder.dirPack(dca, dcb),
-                    new float[]{hStart[o], hStart[o + 1], hStart[o + 2]});
+                    PackedPoints.at(hStart, o));
             dh.put(CoonsHandleBuilder.dirPack(dcb, dca),
-                    new float[]{hEnd[o], hEnd[o + 1], hEnd[o + 2]});
+                    PackedPoints.at(hEnd, o));
         }
 
         for (int fi = 0; fi < origFaceCount; fi++) {
@@ -668,7 +667,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             float uStart, float vStart, float uEnd, float vEnd,
             Vector3f pStart, Vector3f pEnd,
             int denseStart, int denseEnd,
-            Map<Long, float[]> dh) {
+            Map<Long, Vector3f> dh) {
         float eps = FINITE_DIFF_EPS;
         float duStart = (uEnd - uStart) * eps;
         float dvStart = (vEnd - vStart) * eps;
@@ -693,10 +692,8 @@ public class CoonsInsetFacesNode implements MeshNode {
         if (tle > MIN_TANGENT_LENGTH) tanEnd.mul(mag / tle);
         else tanEnd.zero();
 
-        dh.put(CoonsHandleBuilder.dirPack(denseStart, denseEnd),
-                new float[]{tanStart.x, tanStart.y, tanStart.z});
-        dh.put(CoonsHandleBuilder.dirPack(denseEnd, denseStart),
-                new float[]{tanEnd.x, tanEnd.y, tanEnd.z});
+        dh.put(CoonsHandleBuilder.dirPack(denseStart, denseEnd), tanStart);
+        dh.put(CoonsHandleBuilder.dirPack(denseEnd, denseStart), tanEnd);
     }
 
     /**
@@ -710,9 +707,9 @@ public class CoonsInsetFacesNode implements MeshNode {
             int v0, int v1, int v3, int e0, int e1, int e2, int e3,
             float uStart, float vStart, float uEnd, float vEnd,
             int denseStart, int denseEnd,
-            Map<Long, float[]> dh) {
+            Map<Long, Vector3f> dh) {
         float eps = FINITE_DIFF_EPS;
-        float du = uEnd - uStart;
+        float du =uEnd - uStart;
         float dv = vEnd - vStart;
         float duEps = du * eps;
         float dvEps = dv * eps;
@@ -742,10 +739,8 @@ public class CoonsInsetFacesNode implements MeshNode {
         if (tle > MIN_TANGENT_LENGTH) tanEnd.mul(mag / tle);
         else tanEnd.zero();
 
-        dh.put(CoonsHandleBuilder.dirPack(denseStart, denseEnd),
-                new float[]{tanStart.x, tanStart.y, tanStart.z});
-        dh.put(CoonsHandleBuilder.dirPack(denseEnd, denseStart),
-                new float[]{tanEnd.x, tanEnd.y, tanEnd.z});
+        dh.put(CoonsHandleBuilder.dirPack(denseStart, denseEnd), tanStart);
+        dh.put(CoonsHandleBuilder.dirPack(denseEnd, denseStart), tanEnd);
     }
 
     /**
@@ -757,9 +752,7 @@ public class CoonsInsetFacesNode implements MeshNode {
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < vn; i++) {
             in.vertexPosition(in.vertexIdAt(i), tmp);
-            positions[i * 3] = tmp.x;
-            positions[i * 3 + 1] = tmp.y;
-            positions[i * 3 + 2] = tmp.z;
+            PackedPoints.store(positions, i * 3, tmp);
         }
         int fn = in.faceCount();
         int vpf = fn == 0 ? 4 : in.faceVertexCount(in.faceIdAt(0));
@@ -786,7 +779,7 @@ public class CoonsInsetFacesNode implements MeshNode {
 
     private static float[][] copyHandles(
             MeshTopology in, MeshTopology out, float[] inHS, float[] inHE) {
-        Map<Long, float[]> dh = new HashMap<>();
+        Map<Long, Vector3f> dh = new HashMap<>();
         Map<Integer, Integer> oldToDense = new HashMap<>();
         for (int i = 0; i < in.vertexCount(); i++) oldToDense.put(in.vertexIdAt(i), i);
         for (int ei = 0; ei < in.edgeCount(); ei++) {
@@ -796,9 +789,9 @@ public class CoonsInsetFacesNode implements MeshNode {
             int dcb = oldToDense.get(in.halfEdgeEndVertex(he));
             int o = eid * 3;
             dh.put(CoonsHandleBuilder.dirPack(dca, dcb),
-                    new float[]{inHS[o], inHS[o + 1], inHS[o + 2]});
+                    PackedPoints.at(inHS, o));
             dh.put(CoonsHandleBuilder.dirPack(dcb, dca),
-                    new float[]{inHE[o], inHE[o + 1], inHE[o + 2]});
+                    PackedPoints.at(inHE, o));
         }
         return CoonsHandleBuilder.flushDirectedHandles(out, dh);
     }

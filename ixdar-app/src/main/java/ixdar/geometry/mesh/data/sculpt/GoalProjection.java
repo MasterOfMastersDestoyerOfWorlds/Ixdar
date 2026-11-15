@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data.sculpt;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.MeshDistance;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.ops.MeshProjection;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -58,9 +59,7 @@ public final class GoalProjection {
         Vector3f unit = new Vector3f();
         for (int at = 0; at < normalXyz.length; at += 3) {
             unit.set(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]).normalize();
-            this.normalXyz[at] = unit.x;
-            this.normalXyz[at + 1] = unit.y;
-            this.normalXyz[at + 2] = unit.z;
+            PackedPoints.store(this.normalXyz, at, unit);
         }
         normalXyz = this.normalXyz;
         area = surface.vertexAreas();

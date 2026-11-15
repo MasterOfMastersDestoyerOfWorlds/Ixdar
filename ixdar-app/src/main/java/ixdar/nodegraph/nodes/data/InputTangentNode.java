@@ -2,6 +2,7 @@ package ixdar.nodegraph.nodes.data;
 
 import java.util.List;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 
 import java.util.Map;
@@ -76,9 +77,7 @@ public class InputTangentNode implements MeshNode {
             } else {
                 tan.normalize();
             }
-            d[3 * vi] = tan.x;
-            d[3 * vi + 1] = tan.y;
-            d[3 * vi + 2] = tan.z;
+            PackedPoints.store(d, 3 * vi, tan);
         }
         ctx.setOutput(VECTOR.name,new Vector3Field(d));
     }

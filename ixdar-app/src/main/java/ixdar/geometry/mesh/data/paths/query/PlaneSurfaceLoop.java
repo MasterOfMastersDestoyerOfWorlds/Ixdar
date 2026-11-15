@@ -41,20 +41,20 @@ public final class PlaneSurfaceLoop {
     private double[] crossedXyz = new double[0];
     private final Vector3f tailPosition = new Vector3f();
     private final Vector3f headPosition = new Vector3f();
-    private float[] planePoint = new float[COORDINATES_PER_POINT];
-    private float[] planeNormal = new float[COORDINATES_PER_POINT];
+    private Vector3f planePoint = new Vector3f();
+    private Vector3f planeNormal = new Vector3f();
 
     /**
      * Walks the plane's intersection with {@code mesh} from {@code startEdgeId}.
      *
      * @param mesh        surface to cut
-     * @param point       a point the plane passes through, packed xyz
-     * @param normal      the plane's unit normal, packed xyz
+     * @param point       a point the plane passes through
+     * @param normal      the plane's unit normal
      * @param startEdgeId an edge whose endpoints the plane separates
      * @return true when the walk closed back onto {@code startEdgeId} within
      *         {@link #maximumLength}
      */
-    public boolean walk(MeshTopology mesh, float[] point, float[] normal, int startEdgeId) {
+    public boolean walk(MeshTopology mesh, Vector3f point, Vector3f normal, int startEdgeId) {
         planePoint = point;
         planeNormal = normal;
         path = null;
@@ -125,12 +125,12 @@ public final class PlaneSurfaceLoop {
      * An edge of {@code faceId} the plane separates the endpoints of, the seed a walk starts from.
      *
      * @param mesh   surface to cut
-     * @param point  a point the plane passes through, packed xyz
-     * @param normal the plane's unit normal, packed xyz
+     * @param point  a point the plane passes through
+     * @param normal the plane's unit normal
      * @param faceId face to look on
      * @return one crossing edge id, or {@code -1} when the plane misses the face
      */
-    public int crossingEdgeOn(MeshTopology mesh, float[] point, float[] normal, int faceId) {
+    public int crossingEdgeOn(MeshTopology mesh, Vector3f point, Vector3f normal, int faceId) {
         planePoint = point;
         planeNormal = normal;
         if (mesh == null || faceId < 0 || !mesh.hasFace(faceId)) {
@@ -150,11 +150,11 @@ public final class PlaneSurfaceLoop {
      * have no face to start from.
      *
      * @param mesh   surface to cut
-     * @param point  a point the plane passes through, packed xyz
-     * @param normal the plane's unit normal, packed xyz
+     * @param point  a point the plane passes through
+     * @param normal the plane's unit normal
      * @return the nearest crossing edge id, or {@code -1} when the plane misses the surface
      */
-    public int nearestCrossingEdge(MeshTopology mesh, float[] point, float[] normal) {
+    public int nearestCrossingEdge(MeshTopology mesh, Vector3f point, Vector3f normal) {
         planePoint = point;
         planeNormal = normal;
         int nearest = -1;
@@ -165,9 +165,9 @@ public final class PlaneSurfaceLoop {
             if (fraction < 0.0) {
                 continue;
             }
-            double x = tailPosition.x + fraction * (headPosition.x - tailPosition.x) - point[0];
-            double y = tailPosition.y + fraction * (headPosition.y - tailPosition.y) - point[1];
-            double z = tailPosition.z + fraction * (headPosition.z - tailPosition.z) - point[2];
+            double x = tailPosition.x + fraction * (headPosition.x - tailPosition.x) - point.x;
+            double y = tailPosition.y + fraction * (headPosition.y - tailPosition.y) - point.y;
+            double z = tailPosition.z + fraction * (headPosition.z - tailPosition.z) - point.z;
             double distance = x * x + y * y + z * z;
             if (distance < nearestDistance) {
                 nearestDistance = distance;
@@ -195,9 +195,9 @@ public final class PlaneSurfaceLoop {
     }
 
     private double signedDistance(Vector3f position) {
-        return (position.x - planePoint[0]) * planeNormal[0]
-                + (position.y - planePoint[1]) * planeNormal[1]
-                + (position.z - planePoint[2]) * planeNormal[2];
+        return (position.x - planePoint.x) * planeNormal.x
+                + (position.y - planePoint.y) * planeNormal.y
+                + (position.z - planePoint.z) * planeNormal.z;
     }
 
     private static int faceAcross(MeshTopology mesh, int edgeId, int faceId) {

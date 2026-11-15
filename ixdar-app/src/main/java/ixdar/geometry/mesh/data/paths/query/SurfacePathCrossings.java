@@ -2,6 +2,9 @@ package ixdar.geometry.mesh.data.paths.query;
 
 import java.util.Arrays;
 
+import org.joml.Vector3d;
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.numeric.exact.ExactBarycentricOrient;
@@ -26,8 +29,8 @@ public final class SurfacePathCrossings {
     /** Mesh vertices the last search found the path passing through more than once. */
     public int revisitedVertices;
 
-    /** Surface point of the first crossing or revisit found, packed xyz. */
-    public final float[] firstCrossingXyz = new float[COORDINATES_PER_POINT];
+    /** Surface point of the first crossing or revisit found. */
+    public final Vector3f firstCrossingXyz = new Vector3f();
 
     private final int[] sharedFaces = new int[MOST_SHARED_FACES];
     private long[] faceSpans = new long[0];
@@ -183,11 +186,13 @@ public final class SurfacePathCrossings {
     }
 
     private void record(TracedSurfacePath path, int point, int otherPoint, double blend) {
-        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-            double here = path.surfacePositions[COORDINATES_PER_POINT * point + axis];
-            double there = otherPoint < 0 ? here
-                    : path.surfacePositions[COORDINATES_PER_POINT * otherPoint + axis];
-            firstCrossingXyz[axis] = (float) (here + blend * (there - here));
-        }
+        Vector3d here = new Vector3d(path.surfacePositions[COORDINATES_PER_POINT * point],
+                path.surfacePositions[COORDINATES_PER_POINT * point + 1],
+                path.surfacePositions[COORDINATES_PER_POINT * point + 2]);
+        Vector3d there = otherPoint < 0 ? here
+                : new Vector3d(path.surfacePositions[COORDINATES_PER_POINT * otherPoint],
+                        path.surfacePositions[COORDINATES_PER_POINT * otherPoint + 1],
+                        path.surfacePositions[COORDINATES_PER_POINT * otherPoint + 2]);
+        firstCrossingXyz.set(new Vector3d(here).lerp(there, blend));
     }
 }

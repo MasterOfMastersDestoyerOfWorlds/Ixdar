@@ -193,7 +193,8 @@ class SliverCollapseTest {
         StringBuilder source = new StringBuilder(SPHERE);
         String input = SURFACE_GEOMETRY;
         for (int ring = 0; ring < labels.length; ring++) {
-            source.append(RingDslWriter.splineStatement(labels[ring], input, points[ring],
+            source.append(RingDslWriter.splineStatement(labels[ring], input,
+                    SurfaceWaypoints.points(points[ring]),
                     points[ring].length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT, null))
                     .append(LINE_BREAK);
             input = labels[ring] + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
@@ -249,9 +250,9 @@ class SliverCollapseTest {
         for (int slot = 0; slot < anchors.length; slot++) {
             anchors[slot] = circleSpline.anchorVertexId[carried.get(slot)];
         }
-        Vector3f before = mesh.vertexPosition(anchors[0], new Vector3f());
-        boolean alongPath = before.distance(mesh.vertexPosition(path[0], new Vector3f()))
-                < before.distance(mesh.vertexPosition(path[length], new Vector3f()));
+        Vector3f before = mesh.vertexPosition(anchors[0]);
+        boolean alongPath = before.distance(mesh.vertexPosition(path[0]))
+                < before.distance(mesh.vertexPosition(path[length]));
         int[] frame = { circleSpline.anchorVertexId[Math.floorMod(carried.get(0) - 1, count)],
             alongPath ? path[0] : path[length], alongPath ? path[length] : path[0],
             circleSpline.anchorVertexId[(carried.get(carried.size() - 1) + 1) % count] };
@@ -437,8 +438,8 @@ class SliverCollapseTest {
             }
             String id = BISECTOR_PREFIX + bisector;
             saved = RingDslWriter.appendBisector(saved, id,
-                    SurfaceWaypoints.resolvingPoints(result.metric.nearestVertex, anchors,
-                            anchors.length), anchors.length, ends,
+                    SurfaceWaypoints.points(SurfaceWaypoints.resolvingPoints(result.metric.nearestVertex,
+                            anchors, anchors.length)), anchors.length, ends,
                     SurfaceWaypoints.resolvingPoints(result.metric.nearestVertex,
                             result.collapse.bisectorStretches.get(bisector),
                             SplineCutNode.STRETCH_POINTS));
@@ -471,8 +472,10 @@ class SliverCollapseTest {
      */
     private static String ringStatement(int ring, String input, float[][] points,
             float[][] normals, RingSegmentMode[] modes) {
-        String statement = RingDslWriter.splineStatement(LABELS[ring], input, points[ring],
-                points[ring].length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT, normals[ring]);
+        String statement = RingDslWriter.splineStatement(LABELS[ring], input,
+                SurfaceWaypoints.points(points[ring]),
+                points[ring].length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT,
+                normals[ring] == null ? null : new Vector3f(normals[ring]));
         return RingDslWriter.withMode(statement, LABELS[ring], modes[ring]);
     }
 

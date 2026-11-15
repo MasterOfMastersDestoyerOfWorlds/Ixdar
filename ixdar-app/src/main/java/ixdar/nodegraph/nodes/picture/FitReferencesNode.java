@@ -8,6 +8,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
@@ -149,7 +150,7 @@ public class FitReferencesNode implements MeshNode {
         int cellHeight = traced.cellHeight;
         int rows = (angles.length + COLUMNS - 1) / COLUMNS;
         String root = StrokeSketch.svgRoot(COLUMNS * cellWidth, rows * cellHeight, COLUMNS * cellWidth,
-                rows * cellHeight, new float[3], distance, FIELD_OF_VIEW, true, cellWidth, cellHeight, COLUMNS,
+                rows * cellHeight, new Vector3f(), distance, FIELD_OF_VIEW, true, cellWidth, cellHeight, COLUMNS,
                 StrokeSketch.angleViews(angles))
                 + String.format(Locale.ROOT, "<!-- Outlines placed by fit_references at one shared scale, subject "
                         + "height %s. Cells:%s%n-->%n", height,
@@ -187,9 +188,7 @@ public class FitReferencesNode implements MeshNode {
                 template.cellPlanePoint(camera, kept.positions[at * CurveGeometry.XYZ] - left,
                         kept.positions[at * CurveGeometry.XYZ + 1] - top, point);
                 int base = (offsets[view] + at) * CurveGeometry.XYZ;
-                world[base] = point.x;
-                world[base + 1] = point.y;
-                world[base + 2] = point.z;
+                PackedPoints.store(world, base, point);
             }
             offsets[view + 1] = offsets[view] + points;
             closed[view] = true;

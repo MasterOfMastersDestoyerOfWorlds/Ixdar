@@ -232,7 +232,7 @@ class SilhouetteHullNodeTest {
             position.x = -position.x;
             for (int axis = 0; axis < VoxelGrid.AXES; axis++) {
                 float coordinate = Math.max(0f, Math.min(volume.size[axis] - 1.001f,
-                        (position.get(axis) - volume.origin[axis]) / volume.spacing));
+                        (position.get(axis) - volume.origin.get(axis)) / volume.spacing));
                 base[axis] = (int) coordinate;
                 fraction[axis] = coordinate - base[axis];
             }

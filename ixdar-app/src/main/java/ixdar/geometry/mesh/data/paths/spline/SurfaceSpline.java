@@ -7,6 +7,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
@@ -170,18 +171,14 @@ public final class SurfaceSpline {
             Vector3f position = new Vector3f();
             for (int point = 0; point < walk.length; point++) {
                 mesh.vertexPosition(walk[point], position);
-                walkXyz[COORDINATES_PER_POINT * point] = position.x;
-                walkXyz[COORDINATES_PER_POINT * point + 1] = position.y;
-                walkXyz[COORDINATES_PER_POINT * point + 2] = position.z;
+                PackedPoints.store(walkXyz, COORDINATES_PER_POINT * point, position);
                 if (point > 0) {
                     snapped[mesh.edgeBetween(walk[point - 1], walk[point])] = true;
                 }
             }
             for (int anchor = 0; anchor < anchorVertexIds.length; anchor++) {
                 mesh.vertexPosition(anchorVertexIds[anchor], position);
-                spline.anchorXyz[COORDINATES_PER_POINT * anchor] = position.x;
-                spline.anchorXyz[COORDINATES_PER_POINT * anchor + 1] = position.y;
-                spline.anchorXyz[COORDINATES_PER_POINT * anchor + 2] = position.z;
+                PackedPoints.store(spline.anchorXyz, COORDINATES_PER_POINT * anchor, position);
             }
             spline.path = new TracedSurfacePath(walkXyz, walk, noEdge, noFraction, walk.length,
                     false).measure();
@@ -371,9 +368,7 @@ public final class SurfaceSpline {
         for (int anchor = 0; anchor < tracer.anchorCount; anchor++) {
             spline.anchorVertexId[anchor] = tracer.anchorVertexId[anchor];
             mesh.vertexPosition(tracer.anchorVertexId[anchor], position);
-            spline.anchorXyz[COORDINATES_PER_POINT * anchor] = position.x;
-            spline.anchorXyz[COORDINATES_PER_POINT * anchor + 1] = position.y;
-            spline.anchorXyz[COORDINATES_PER_POINT * anchor + 2] = position.z;
+            PackedPoints.store(spline.anchorXyz, COORDINATES_PER_POINT * anchor, position);
         }
         for (int segment = 0; segment < tracer.anchorCount; segment++) {
             spline.traceDepth = Math.max(spline.traceDepth, tracer.segmentDepth[segment]);

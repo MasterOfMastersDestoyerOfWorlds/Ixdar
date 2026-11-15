@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -152,9 +153,7 @@ public final class AnchoredStroke {
         Vector3f position = new Vector3f();
         for (int point = 0; point < count; point++) {
             FaceAnchors.position(base, anchors, point * FaceAnchors.FIELDS, position);
-            positions[point * 3] = position.x;
-            positions[point * 3 + 1] = position.y;
-            positions[point * 3 + 2] = position.z;
+            PackedPoints.store(positions, point * 3, position);
             faceIds[point] = (int) anchors[point * FaceAnchors.FIELDS];
         }
         return new TracedSurfacePath(positions, positions, none, none.clone(), faceIds, fractions, count, polygon)

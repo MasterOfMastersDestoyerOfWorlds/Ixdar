@@ -66,7 +66,7 @@ public class SpherizeMeshNode implements MeshNode {
 
         for (int i = 0; i < inputMesh.vertexCount(); i++) {
             int vId = inputMesh.vertexIdAt(i);
-            Vector3f pos = inputMesh.vertexPosition(vId, new Vector3f());
+            Vector3f pos = inputMesh.vertexPosition(vId);
             totalDistance += pos.distance(center);
         }
 
@@ -77,7 +77,7 @@ public class SpherizeMeshNode implements MeshNode {
 
         for (int i = 0; i < inputMesh.vertexCount(); i++) {
             int oldVId = inputMesh.vertexIdAt(i);
-            Vector3f originalPos = inputMesh.vertexPosition(oldVId, new Vector3f());
+            Vector3f originalPos = inputMesh.vertexPosition(oldVId);
 
             Vector3f newPos = new Vector3f(originalPos);
 

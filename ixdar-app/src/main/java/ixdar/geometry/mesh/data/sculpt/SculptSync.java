@@ -16,6 +16,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
 
@@ -304,9 +305,7 @@ public final class SculptSync {
                         (float) onBase[point * 3 + 2], anchor, 0);
                 anchor[0] = sculptedFaceByRefinedFace[(int) anchor[0]];
                 FaceAnchors.position(sculpted, anchor, 0, position);
-                onSculpt[point * 3] = position.x;
-                onSculpt[point * 3 + 1] = position.y;
-                onSculpt[point * 3 + 2] = position.z;
+                PackedPoints.store(onSculpt, point * 3, position);
             }
             for (int cell = 0; cell < drawing.viewCameras.length; cell++) {
                 Camera3D camera = drawing.cellCamera(cell);
@@ -321,15 +320,12 @@ public final class SculptSync {
                     pixels[point * 2 + 1] = pixel[1];
                     Vector3f toEye = drawing.orthographic ? new Vector3f(camera.position).sub(camera.target)
                             : new Vector3f(camera.position).sub(position);
-                    float[] origin = { position.x, position.y, position.z };
-                    float[] direction = { toEye.x, toEye.y, toEye.z };
                     float slack = HIDDEN_SLACK_FRACTION * extent / toEye.length();
-                    for (int axis = 0; axis < 3; axis++) {
-                        origin[axis] += direction[axis] * slack;
-                    }
+                    Vector3f origin = new Vector3f(position.x + toEye.x * slack, position.y + toEye.y * slack,
+                            position.z + toEye.z * slack);
                     state[point] = !inFront || pixel[0] < 0f || pixel[1] < 0f || pixel[0] >= drawing.cellWidth
                             || pixel[1] >= drawing.cellHeight ? OUTSIDE
-                                    : sculptedTriangles.nearestHit(origin, direction, drawing.orthographic
+                                    : sculptedTriangles.nearestHit(origin, toEye, drawing.orthographic
                                             ? Double.POSITIVE_INFINITY : 1.0, stack) >= 0 ? HIDDEN : VISIBLE;
                     seen |= state[point] == VISIBLE;
                 }
@@ -404,8 +400,8 @@ public final class SculptSync {
     private float[] castAll(TriangleBvh surface, int cell, float[] pixels, List<String> refusals, String what) {
         Camera3D camera = sketch.cellCamera(cell);
         float[] hits = new float[pixels.length / 2 * 3];
-        float[] origin = new float[3];
-        float[] direction = new float[3];
+        Vector3f origin = new Vector3f();
+        Vector3f direction = new Vector3f();
         int[] surfaceStack = new int[Math.max(1, surface.nodeCount)];
         for (int point = 0; point < pixels.length / 2; point++) {
             camera.rayThroughPixel(new Matrix4f(), pixels[point * 2], pixels[point * 2 + 1], sketch.cellWidth,
@@ -418,7 +414,7 @@ public final class SculptSync {
                 return new float[0];
             }
             for (int axis = 0; axis < 3; axis++) {
-                hits[point * 3 + axis] = origin[axis] + (float) surface.hitParameter * direction[axis];
+                hits[point * 3 + axis] = origin.get(axis) + (float) surface.hitParameter * direction.get(axis);
             }
         }
         return hits;

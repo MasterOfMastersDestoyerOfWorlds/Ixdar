@@ -11,6 +11,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -136,12 +137,10 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             int vid = in.vertexIdAt(i);
             oldToDense.put(vid, i);
             in.vertexPosition(vid, tmp);
-            origPos[i * 3] = tmp.x;
-            origPos[i * 3 + 1] = tmp.y;
-            origPos[i * 3 + 2] = tmp.z;
+            PackedPoints.store(origPos, i * 3, tmp);
         }
 
-        Map<Long, float[]> dh = new HashMap<>();
+        Map<Long, Vector3f> dh = new HashMap<>();
         seedOriginalEdgeHandles(in, hStart, hEnd, oldToDense, dh);
 
         int newVertsPerFace = 4;
@@ -163,10 +162,10 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             int e3 = in.faceEdgeAt(fid, 3);
 
             Vector3f[] corners = {
-                    in.vertexPosition(v0, new Vector3f()),
-                    in.vertexPosition(v1, new Vector3f()),
-                    in.vertexPosition(v2, new Vector3f()),
-                    in.vertexPosition(v3, new Vector3f()),
+                    in.vertexPosition(v0),
+                    in.vertexPosition(v1),
+                    in.vertexPosition(v2),
+                    in.vertexPosition(v3),
             };
             Vector3f[] normals = {
                     CoonsHandleBuilder.coonsSurfaceNormal(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, 0f, 0f),
@@ -214,8 +213,8 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             for (int k = 0; k < 4; k++) {
                 int origDense = oldToDense.get(origIds[k]);
                 int topVid = tops[k];
-                dh.put(CoonsHandleBuilder.dirPack(origDense, topVid), new float[3]);
-                dh.put(CoonsHandleBuilder.dirPack(topVid, origDense), new float[3]);
+                dh.put(CoonsHandleBuilder.dirPack(origDense, topVid), new Vector3f());
+                dh.put(CoonsHandleBuilder.dirPack(topVid, origDense), new Vector3f());
             }
         }
 
@@ -247,9 +246,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             int vid = in.vertexIdAt(i);
             oldToDense.put(vid, i);
             in.vertexPosition(vid, tmp);
-            origPos[i * 3] = tmp.x;
-            origPos[i * 3 + 1] = tmp.y;
-            origPos[i * 3 + 2] = tmp.z;
+            PackedPoints.store(origPos, i * 3, tmp);
         }
 
         int[] componentId = computeSelectionComponents(in, selected);
@@ -298,14 +295,14 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             float len = avgN.length();
             if (len > MIN_NORMAL_LENGTH) avgN.mul(1f / len);
 
-            Vector3f p = in.vertexPosition(origVid, new Vector3f());
+            Vector3f p = in.vertexPosition(origVid);
             extraPos.add(p.x + avgN.x * offset);
             extraPos.add(p.y + avgN.y * offset);
             extraPos.add(p.z + avgN.z * offset);
             topVidByVidComp.put(key, nextVid++);
         }
 
-        Map<Long, float[]> dh = new HashMap<>();
+        Map<Long, Vector3f> dh = new HashMap<>();
         seedOriginalEdgeHandles(in, hStart, hEnd, oldToDense, dh);
 
         int[][] topVids = new int[origFaceCount][];
@@ -354,10 +351,10 @@ public class CoonsExtrudeMeshNode implements MeshNode {
                     int denseB = oldToDense.get(origB);
                     int topA = topVidByVidComp.get(packVidComp(origA, comp));
                     int topB = topVidByVidComp.get(packVidComp(origB, comp));
-                    dh.put(CoonsHandleBuilder.dirPack(denseA, topA), new float[3]);
-                    dh.put(CoonsHandleBuilder.dirPack(topA, denseA), new float[3]);
-                    dh.put(CoonsHandleBuilder.dirPack(denseB, topB), new float[3]);
-                    dh.put(CoonsHandleBuilder.dirPack(topB, denseB), new float[3]);
+                    dh.put(CoonsHandleBuilder.dirPack(denseA, topA), new Vector3f());
+                    dh.put(CoonsHandleBuilder.dirPack(topA, denseA), new Vector3f());
+                    dh.put(CoonsHandleBuilder.dirPack(denseB, topB), new Vector3f());
+                    dh.put(CoonsHandleBuilder.dirPack(topB, denseB), new Vector3f());
                 }
             }
         }
@@ -420,9 +417,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             int vid = in.vertexIdAt(i);
             oldToDense.put(vid, i);
             in.vertexPosition(vid, tmp);
-            positions[i * 3] = tmp.x;
-            positions[i * 3 + 1] = tmp.y;
-            positions[i * 3 + 2] = tmp.z;
+            PackedPoints.store(positions, i * 3, tmp);
         }
         int fn = in.faceCount();
         ArrayList<Integer> faceIdxList = new ArrayList<>();
@@ -437,7 +432,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         }
         HalfEdgeMesh out = finalizeMixedMesh(positions, faceIdxList, faceVpfList);
         out.computeNormals();
-        Map<Long, float[]> dh = new HashMap<>();
+        Map<Long, Vector3f> dh = new HashMap<>();
         seedOriginalEdgeHandles(in, hStart, hEnd, oldToDense, dh);
         outHandles = CoonsHandleBuilder.flushDirectedHandles(out, dh);
         outGenerated = new boolean[fn];
@@ -446,7 +441,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
 
     private static void seedOriginalEdgeHandles(
             MeshTopology in, float[] hStart, float[] hEnd,
-            Map<Integer, Integer> oldToDense, Map<Long, float[]> dh) {
+            Map<Integer, Integer> oldToDense, Map<Long, Vector3f> dh) {
         for (int ei = 0; ei < in.edgeCount(); ei++) {
             int eid = in.edgeIdAt(ei);
             int he = in.edgeHalfEdge(eid);
@@ -456,9 +451,9 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             int dcb = oldToDense.get(cb);
             int o = eid * 3;
             dh.put(CoonsHandleBuilder.dirPack(dca, dcb),
-                    new float[]{hStart[o], hStart[o + 1], hStart[o + 2]});
+                    PackedPoints.at(hStart, o));
             dh.put(CoonsHandleBuilder.dirPack(dcb, dca),
-                    new float[]{hEnd[o], hEnd[o + 1], hEnd[o + 2]});
+                    PackedPoints.at(hEnd, o));
         }
     }
 
@@ -472,15 +467,15 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             MeshTopology in, float[] hStart, float[] hEnd,
             int eid, int origA, int origB,
             int a, int b,
-            Map<Long, float[]> dh) {
+            Map<Long, Vector3f> dh) {
         int he = in.edgeHalfEdge(eid);
         int ca = in.halfEdgeVertex(he);
         int cb = in.halfEdgeEndVertex(he);
         int o = eid * 3;
-        float[] atStart = {hStart[o], hStart[o + 1], hStart[o + 2]};
-        float[] atEnd = {hEnd[o], hEnd[o + 1], hEnd[o + 2]};
-        float[] atOrigA = (ca == origA) ? atStart : atEnd;
-        float[] atOrigB = (cb == origB) ? atEnd : atStart;
+        Vector3f atStart = PackedPoints.at(hStart, o);
+        Vector3f atEnd = PackedPoints.at(hEnd, o);
+        Vector3f atOrigA = (ca == origA) ? atStart : atEnd;
+        Vector3f atOrigB = (cb == origB) ? atEnd : atStart;
         dh.put(CoonsHandleBuilder.dirPack(a, b), atOrigA);
         dh.put(CoonsHandleBuilder.dirPack(b, a), atOrigB);
     }
@@ -489,7 +484,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     private HalfEdgeMesh buildOutput(
             MeshTopology in, int origVertCount, float[] origPos, ArrayList<Float> extraPos,
             boolean[] selected, int[][] topVids,
-            Map<Long, float[]> dh, Map<Integer, Integer> oldToDense) {
+            Map<Long, Vector3f> dh, Map<Integer, Integer> oldToDense) {
         int totalVerts = origVertCount + extraPos.size() / 3;
         float[] positions = new float[totalVerts * 3];
         System.arraycopy(origPos, 0, positions, 0, origPos.length);
@@ -565,7 +560,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             boolean[] selected, int[][] topVids,
             int[] componentId,
             Map<Long, Integer> topVidByVidComp, Map<Integer, Integer> oldToDense,
-            Map<Long, float[]> dh) {
+            Map<Long, Vector3f> dh) {
         int totalVerts = origVertCount + extraPos.size() / 3;
         float[] positions = new float[totalVerts * 3];
         System.arraycopy(origPos, 0, positions, 0, origPos.length);

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.RingBundle;
@@ -63,8 +64,7 @@ class RegionFlatnessTest {
         regions.measureFlatness(SurfaceCreases.of(tube));
 
         assertEquals(3, regions.regionCount);
-        int middle = regions.regionByActiveFace[regions.nearestActiveFace(BEND_INNER_POINT[0],
-                BEND_INNER_POINT[1], BEND_INNER_POINT[2])];
+        int middle = regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(BEND_INNER_POINT))];
         assertTrue(regions.regionInteriorCreaseShare[middle] > 0.0);
         assertEquals(regions.regionCreaseShare[middle], regions.regionInteriorCreaseShare[middle], 1e-9);
         assertTrue(regions.flatnessCreases.saturation > 0.0 && regions.regionPeakCurvature[middle] > 0.0);

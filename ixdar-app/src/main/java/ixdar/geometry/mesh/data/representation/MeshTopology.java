@@ -150,6 +150,17 @@ public interface MeshTopology {
     Vector3f vertexPosition(int vertexId, Vector3f dest);
 
     /**
+     * The position of a vertex as a new vector, for callers outside per-vertex loops; a loop
+     * reuses one scratch vector through {@link #vertexPosition(int, Vector3f)} instead.
+     *
+     * @param vertexId vertex to read
+     * @return a new vector holding the vertex's position
+     */
+    default Vector3f vertexPosition(int vertexId) {
+        return vertexPosition(vertexId, new Vector3f());
+    }
+
+    /**
      * Every live vertex's position packed xyz by dense index, the {@link #vertexIdAt} order.
      *
      * @param activeVertexById receives each vertex id's dense index when not null; sized to
@@ -165,9 +176,7 @@ public interface MeshTopology {
                 activeVertexById[vertexId] = activeVertex;
             }
             vertexPosition(vertexId, position);
-            xyz[activeVertex * 3] = position.x;
-            xyz[activeVertex * 3 + 1] = position.y;
-            xyz[activeVertex * 3 + 2] = position.z;
+            PackedPoints.store(xyz, activeVertex * 3, position);
         }
         return xyz;
     }
@@ -606,6 +615,37 @@ public interface MeshTopology {
     }
 
     /**
+     * The mean of a face's corner positions, each corner divided by the count before it is summed:
+     * the point a region pick stands for, which the nearest-face lookup maps back to the face.
+     *
+     * @param faceId live face to measure
+     * @return a new vector at the centroid, the origin for a face without corners
+     */
+    default Vector3f faceCentroid(int faceId) {
+        Vector3f centroid = new Vector3f();
+        Vector3f corner = new Vector3f();
+        int corners = faceVertexCount(faceId);
+        for (int slot = 0; slot < corners; slot++) {
+            vertexPosition(faceVertexAt(faceId, slot), corner);
+            centroid.add(corner.x / corners, corner.y / corners, corner.z / corners);
+        }
+        return centroid;
+    }
+
+    /**
+     * The mean length of the live edges.
+     *
+     * @return the mean, 0 for a mesh without edges
+     */
+    default double meanEdgeLength() {
+        double sum = 0.0;
+        for (int activeEdge = 0; activeEdge < edgeCount(); activeEdge++) {
+            sum += edgeLength(edgeIdAt(activeEdge));
+        }
+        return edgeCount() == 0 ? 0.0 : sum / edgeCount();
+    }
+
+    /**
      * Each live vertex's lumped area, a third of every {@link TriangulationRule#FAN} triangle it is
      * a corner of, so the areas sum to the surface area. Recomputed each call unless the
      * implementation caches it.
@@ -731,16 +771,10 @@ public interface MeshTopology {
             Vector3f to = new Vector3f();
             vertexPosition(faceVertexAt(faceId, 0), from);
             vertexPosition(faceVertexAt(faceId, 2), to);
-            float firstX = from.x - to.x;
-            float firstY = from.y - to.y;
-            float firstZ = from.z - to.z;
+            float firstSquared = from.distanceSquared(to);
             vertexPosition(faceVertexAt(faceId, 1), from);
             vertexPosition(faceVertexAt(faceId, 3), to);
-            float secondX = from.x - to.x;
-            float secondY = from.y - to.y;
-            float secondZ = from.z - to.z;
-            firstDiagonalShorter = firstX * firstX + firstY * firstY + firstZ * firstZ
-                    <= secondX * secondX + secondY * secondY + secondZ * secondZ;
+            firstDiagonalShorter = firstSquared <= from.distanceSquared(to);
         }
         return triangleCorners(rule, corners, firstDiagonalShorter, cornerOut);
     }

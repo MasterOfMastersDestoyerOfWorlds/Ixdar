@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data.rings;
 import java.util.Arrays;
 import java.util.Locale;
 
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
@@ -15,6 +16,7 @@ import ixdar.geometry.mesh.data.paths.spline.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.graph.Dijkstra;
 
 /**
@@ -56,7 +58,7 @@ public final class AuthoredSplineRing {
     public final PlaneSurfaceLoop cut = new PlaneSurfaceLoop();
 
     /** Unit normal of the plane the last trace cut with, packed xyz. */
-    public final float[] planeNormal = new float[COORDINATES_PER_POINT];
+    public final Vector3f planeNormal = new Vector3f();
 
     /**
      * The authored anchors the last trace placed, in ring order and led by the one given first;
@@ -87,7 +89,7 @@ public final class AuthoredSplineRing {
     /** The re-fit {@link #refitGeodesic} last ran: its anchors, tolerance and deviation. */
     public final GeodesicRefit refit = new GeodesicRefit();
 
-    private final float[] planePoint = new float[COORDINATES_PER_POINT];
+    private final Vector3f planePoint = new Vector3f();
     private final Vector3f position = new Vector3f();
     private final double[] spread = new double[PLANE_FIT_MATRIX_ENTRIES];
     private final double[] eigenvectors = new double[PLANE_FIT_MATRIX_ENTRIES];
@@ -121,12 +123,12 @@ public final class AuthoredSplineRing {
      * @param anchorVertexIds mesh vertices the user placed, in ring order; the first leads the
      *                        ring, repeats drop
      * @param count           anchors to read from the front of {@code anchorVertexIds}
-     * @param baseNormal      normal the plane leans toward, packed xyz; required under three
-     *                        anchors, {@code null} lets three or more decide alone
+     * @param baseNormal      normal the plane leans toward; required under three anchors,
+     *                        {@code null} lets three or more decide alone
      * @param finalDepth      bisections the finished ring is traced to
      * @return true when a ring was traced; {@link #failure} says why not otherwise
      */
-    public boolean trace(int[] anchorVertexIds, int count, float[] baseNormal, int finalDepth) {
+    public boolean trace(int[] anchorVertexIds, int count, Vector3f baseNormal, int finalDepth) {
         failure = "";
         authoredVertexId = new int[0];
         int[] distinct = new int[count];
@@ -193,41 +195,29 @@ public final class AuthoredSplineRing {
         if (loopPoints < 0) {
             return false;
         }
-        double[] centre = new double[COORDINATES_PER_POINT];
+        Vector3d centre = new Vector3d();
         for (int point = 0; point < loopPoints; point++) {
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                centre[axis] += cut.path.positions[COORDINATES_PER_POINT * point + axis]
-                        / loopPoints;
-            }
+            centre.add(cut.path.positions[COORDINATES_PER_POINT * point] / loopPoints,
+                    cut.path.positions[COORDINATES_PER_POINT * point + 1] / loopPoints,
+                    cut.path.positions[COORDINATES_PER_POINT * point + 2] / loopPoints);
         }
         double band = CREASE_BAND_OF_RADIUS * SplineAnchorFit.meanRadiusOf(cut.path.positions,
                 loopPoints);
+        Vector3d planeAxis = new Vector3d(planeNormal);
         for (int anchor = 0; anchor < distinctCount; anchor++) {
             mesh.vertexPosition(distinct[anchor], position);
-            band = Math.max(band, Math.abs(planeNormal[0] * (position.x - centre[0])
-                    + planeNormal[1] * (position.y - centre[1])
-                    + planeNormal[2] * (position.z - centre[2])));
+            band = Math.max(band, Math.abs(new Vector3d(position).sub(centre).dot(planeAxis)));
         }
         mesh.vertexPosition(distinct[0], position);
-        double[] seam = { position.x - centre[0], position.y - centre[1], position.z - centre[2] };
-        double off = seam[0] * planeNormal[0] + seam[1] * planeNormal[1] + seam[2] * planeNormal[2];
-        double seamLength = 0.0;
-        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-            seam[axis] -= off * planeNormal[axis];
-            seamLength += seam[axis] * seam[axis];
-        }
-        seamLength = Math.sqrt(seamLength);
+        Vector3d seam = new Vector3d(position).sub(centre);
+        seam.fma(-seam.dot(planeAxis), planeAxis);
+        double seamLength = seam.length();
         if (seamLength <= 0.0) {
             failure = "the first anchor sits on the axis of the plane's loop";
             return false;
         }
-        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-            seam[axis] /= seamLength;
-        }
-        double[] across = {
-            planeNormal[1] * seam[2] - planeNormal[2] * seam[1],
-            planeNormal[2] * seam[0] - planeNormal[0] * seam[2],
-            planeNormal[0] * seam[1] - planeNormal[1] * seam[0] };
+        seam.div(seamLength);
+        Vector3d across = planeAxis.cross(seam, new Vector3d());
         int states = SHEETS * tracer.geodesics.metric.vertexIdBound;
         if (sheetBranch.length < states) {
             sheetBranch = new int[states];
@@ -259,11 +249,9 @@ public final class AuthoredSplineRing {
                 int activeVertex = state / SHEETS;
                 int sheet = state % SHEETS;
                 mesh.vertexPosition(metric.sourceVertexId[activeVertex], position);
-                double hereAlong = (position.x - centre[0]) * seam[0]
-                        + (position.y - centre[1]) * seam[1] + (position.z - centre[2]) * seam[2];
-                double hereAcross = (position.x - centre[0]) * across[0]
-                        + (position.y - centre[1]) * across[1]
-                        + (position.z - centre[2]) * across[2];
+                Vector3d here = new Vector3d(position).sub(centre);
+                double hereAlong = here.dot(seam);
+                double hereAcross = here.dot(across);
                 int reference = metric.vertexReferenceHalfEdge[activeVertex];
                 int halfEdge = reference;
                 while (halfEdge >= 0) {
@@ -277,15 +265,12 @@ public final class AuthoredSplineRing {
                     }
                     int otherActive = metric.halfEdgeTail[spoke ^ 1];
                     mesh.vertexPosition(metric.sourceVertexId[otherActive], neighbour);
-                    double dx = neighbour.x - centre[0];
-                    double dy = neighbour.y - centre[1];
-                    double dz = neighbour.z - centre[2];
-                    if (Math.abs(dx * planeNormal[0] + dy * planeNormal[1] + dz * planeNormal[2])
-                            > band) {
+                    Vector3d there = new Vector3d(neighbour).sub(centre);
+                    if (Math.abs(there.dot(planeAxis)) > band) {
                         continue;
                     }
-                    double thereAlong = dx * seam[0] + dy * seam[1] + dz * seam[2];
-                    double thereAcross = dx * across[0] + dy * across[1] + dz * across[2];
+                    double thereAlong = there.dot(seam);
+                    double thereAcross = there.dot(across);
                     boolean crosses = (hereAcross < 0.0) != (thereAcross < 0.0)
                             && hereAlong + (thereAlong - hereAlong) * hereAcross
                                     / (hereAcross - thereAcross) > 0.0;
@@ -387,9 +372,7 @@ public final class AuthoredSplineRing {
                 laidPointByState[state] = points;
                 referenceVertexId[points] = path[step];
                 mesh.vertexPosition(path[step], position);
-                cycleXyz[COORDINATES_PER_POINT * points] = position.x;
-                cycleXyz[COORDINATES_PER_POINT * points + 1] = position.y;
-                cycleXyz[COORDINATES_PER_POINT * points + 2] = position.z;
+                PackedPoints.store(cycleXyz, COORDINATES_PER_POINT * points, position);
                 points++;
             }
         }
@@ -495,10 +478,7 @@ public final class AuthoredSplineRing {
      */
     private int planeLoopReference(MeshTopology mesh) {
         int[] distinct = fit.authoredVertexId;
-        mesh.vertexPosition(distinct[0], position);
-        planePoint[0] = position.x;
-        planePoint[1] = position.y;
-        planePoint[2] = position.z;
+        mesh.vertexPosition(distinct[0], planePoint);
         int startEdgeId = -1;
         for (int face = 0; face < mesh.vertexFaceCount(distinct[0]) && startEdgeId < 0; face++) {
             startEdgeId = cut.crossingEdgeOn(mesh, planePoint, planeNormal,
@@ -583,7 +563,7 @@ public final class AuthoredSplineRing {
      * @param finalDepth bisections the finished ring is traced to
      * @return true when the ring is now geodesic; {@link #failure} says why not otherwise
      */
-    public boolean refitGeodesic(float[] baseNormal, int finalDepth) {
+    public boolean refitGeodesic(Vector3f baseNormal, int finalDepth) {
         if (mode != RingSegmentMode.CREASE || authoredVertexId.length == 0
                 || referencePoints == 0) {
             failure = "only a traced crease ring re-fits as a geodesic ring";
@@ -621,7 +601,7 @@ public final class AuthoredSplineRing {
      * @return true when the anchor was placed; otherwise the ring is traced back as it was and
      *         {@link #failure} says why
      */
-    public boolean insert(int vertexId, float[] baseNormal, int finalDepth) {
+    public boolean insert(int vertexId, Vector3f baseNormal, int finalDepth) {
         int[] before = authoredVertexId;
         boolean wasSimple = simple;
         int[] slots = before.length < PLANE_STARTED_ANCHORS ? new int[] { before.length - 1 }
@@ -638,8 +618,8 @@ public final class AuthoredSplineRing {
             if (refusal.isEmpty()) {
                 refusal = !failure.isEmpty() ? failure
                         : String.format(Locale.ROOT, "the ring would cross itself near %.4f,%.4f,%.4f",
-                                crossings.firstCrossingXyz[0], crossings.firstCrossingXyz[1],
-                                crossings.firstCrossingXyz[2]);
+                                crossings.firstCrossingXyz.x, crossings.firstCrossingXyz.y,
+                                crossings.firstCrossingXyz.z);
             }
         }
         trace(before, before.length, baseNormal, finalDepth);
@@ -720,21 +700,19 @@ public final class AuthoredSplineRing {
      * @param baseNormal    normal the plane leans toward, or {@code null}
      */
     public void fitPlane(MeshTopology mesh, int[] distinct, int distinctCount,
-            float[] baseNormal) {
+            Vector3f baseNormal) {
         double baseX = 0.0;
         double baseY = 0.0;
         double baseZ = 0.0;
         if (baseNormal != null) {
-            double length = Math.sqrt(baseNormal[0] * (double) baseNormal[0]
-                    + baseNormal[1] * (double) baseNormal[1] + baseNormal[2] * (double) baseNormal[2]);
-            baseX = length > 0.0 ? baseNormal[0] / length : 0.0;
-            baseY = length > 0.0 ? baseNormal[1] / length : 0.0;
-            baseZ = length > 0.0 ? baseNormal[2] / length : 0.0;
+            double length = Math.sqrt(baseNormal.x * (double) baseNormal.x
+                    + baseNormal.y * (double) baseNormal.y + baseNormal.z * (double) baseNormal.z);
+            baseX = length > 0.0 ? baseNormal.x / length : 0.0;
+            baseY = length > 0.0 ? baseNormal.y / length : 0.0;
+            baseZ = length > 0.0 ? baseNormal.z / length : 0.0;
         }
         if (distinctCount == 1) {
-            planeNormal[0] = (float) baseX;
-            planeNormal[1] = (float) baseY;
-            planeNormal[2] = (float) baseZ;
+            planeNormal.set(baseX, baseY, baseZ);
             return;
         }
         if (distinctCount == 2 && baseNormal != null) {
@@ -753,9 +731,7 @@ public final class AuthoredSplineRing {
             double normalZ = baseZ - along * chordZ;
             double length = Math.sqrt(normalX * normalX + normalY * normalY + normalZ * normalZ);
             if (length > Math.sqrt(Double.MIN_NORMAL)) {
-                planeNormal[0] = (float) (normalX / length);
-                planeNormal[1] = (float) (normalY / length);
-                planeNormal[2] = (float) (normalZ / length);
+                planeNormal.set(normalX / length, normalY / length, normalZ / length);
                 return;
             }
         }
@@ -765,9 +741,7 @@ public final class AuthoredSplineRing {
         double[] centre = new double[COORDINATES_PER_POINT];
         for (int anchor = 0; anchor < distinctCount; anchor++) {
             mesh.vertexPosition(sorted[anchor], position);
-            xyz[COORDINATES_PER_POINT * anchor] = position.x;
-            xyz[COORDINATES_PER_POINT * anchor + 1] = position.y;
-            xyz[COORDINATES_PER_POINT * anchor + 2] = position.z;
+            PackedPoints.store(xyz, COORDINATES_PER_POINT * anchor, position);
             for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
                 centre[axis] += xyz[COORDINATES_PER_POINT * anchor + axis] / distinctCount;
             }
@@ -851,8 +825,7 @@ public final class AuthoredSplineRing {
                 : Math.signum(normal[largestAxis]);
         double length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1]
                 + normal[2] * normal[2]);
-        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-            planeNormal[axis] = (float) ((sign < 0.0 ? -1.0 : 1.0) * normal[axis] / length);
-        }
+        double scale = (sign < 0.0 ? -1.0 : 1.0) / length;
+        planeNormal.set(normal[0] * scale, normal[1] * scale, normal[2] * scale);
     }
 }

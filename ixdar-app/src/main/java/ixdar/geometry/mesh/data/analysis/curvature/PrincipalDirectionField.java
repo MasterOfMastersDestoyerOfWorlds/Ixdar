@@ -2,9 +2,12 @@ package ixdar.geometry.mesh.data.analysis.curvature;
 
 import java.util.stream.IntStream;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangleSoup;
 
 /**
@@ -51,39 +54,33 @@ public final class PrincipalDirectionField {
     public float kappaMin(int vertexId) { return kappaMin[vertexId]; }
 
     /**
-     * Write the direction of maximum curvature at a vertex into {@code out} (indices 0..2).
+     * Direction of maximum curvature at a vertex.
      *
      * @param vertexId vertex id in the mesh the field was computed on
-     * @param out length-3 array to receive the unit tangent direction of maximum curvature
+     * @return the unit tangent direction of maximum curvature, as a new vector
      */
-    public void dirMax(int vertexId, float[] out) {
-        out[0] = dirMax[vertexId * 3];
-        out[1] = dirMax[vertexId * 3 + 1];
-        out[2] = dirMax[vertexId * 3 + 2];
+    public Vector3f dirMax(int vertexId) {
+        return PackedPoints.at(dirMax, vertexId * 3);
     }
 
     /**
-     * Write the direction of minimum curvature at a vertex into {@code out} (indices 0..2).
+     * Direction of minimum curvature at a vertex.
      *
      * @param vertexId vertex id in the mesh the field was computed on
-     * @param out length-3 array to receive the unit tangent direction of minimum curvature
+     * @return the unit tangent direction of minimum curvature, as a new vector
      */
-    public void dirMin(int vertexId, float[] out) {
-        out[0] = dirMin[vertexId * 3];
-        out[1] = dirMin[vertexId * 3 + 1];
-        out[2] = dirMin[vertexId * 3 + 2];
+    public Vector3f dirMin(int vertexId) {
+        return PackedPoints.at(dirMin, vertexId * 3);
     }
 
     /**
-     * Write the unit vertex normal at a vertex into {@code out} (indices 0..2).
+     * Unit vertex normal at a vertex.
      *
      * @param vertexId vertex id in the mesh the field was computed on
-     * @param out length-3 array to receive the area-weighted vertex normal
+     * @return the area-weighted vertex normal, as a new vector
      */
-    public void vertexNormal(int vertexId, float[] out) {
-        out[0] = vertexNormals[vertexId * 3];
-        out[1] = vertexNormals[vertexId * 3 + 1];
-        out[2] = vertexNormals[vertexId * 3 + 2];
+    public Vector3f vertexNormal(int vertexId) {
+        return PackedPoints.at(vertexNormals, vertexId * 3);
     }
 
     /**
@@ -134,9 +131,6 @@ public final class PrincipalDirectionField {
         int vertexCount = mesh.vertexCount();
         IntStream.range(0, (vertexCount + VERTICES_PER_TASK - 1) / VERTICES_PER_TASK).parallel()
                 .forEach(task -> {
-            float[] t1 = new float[3];
-            float[] t2 = new float[3];
-            float[] nv_ = new float[3];
             for (int activeVertex = task * VERTICES_PER_TASK;
                     activeVertex < Math.min(vertexCount, (task + 1) * VERTICES_PER_TASK);
                     activeVertex++) {
@@ -144,34 +138,37 @@ public final class PrincipalDirectionField {
                 int[] neighbours = ring[vertexId];
                 if (neighbours == null || neighbours.length < 2) continue;
 
-                nv_[0] = vertexNormals[vertexId * 3];
-                nv_[1] = vertexNormals[vertexId * 3 + 1];
-                nv_[2] = vertexNormals[vertexId * 3 + 2];
-                buildTangentBasis(nv_, t1, t2);
+                Vector3f normal = PackedPoints.at(vertexNormals, vertexId * 3);
+                // First tangent: the normal's least dominant axis crossed with the normal.
+                float ax = Math.abs(normal.x);
+                float ay = Math.abs(normal.y);
+                float az = Math.abs(normal.z);
+                Vector3f t1 = (ax < ay && ax < az ? new Vector3f(1, 0, 0)
+                        : ay < az ? new Vector3f(0, 1, 0) : new Vector3f(0, 0, 1)).cross(normal);
+                float l1 = t1.length();
+                if (l1 < ZERO_VECTOR_EPSILON) {
+                    t1.set(1, 0, 0);
+                } else {
+                    t1.div(l1);
+                }
+                Vector3f t2 = normal.cross(t1, new Vector3f());
+                Vector3f position = PackedPoints.at(positions, vertexId * 3);
 
                 float m00 = 0, m01 = 0, m11 = 0;
                 float wTotal = 0;
                 for (int neighbourId : neighbours) {
-                    float ex = positions[neighbourId * 3]     - positions[vertexId * 3];
-                    float ey = positions[neighbourId * 3 + 1] - positions[vertexId * 3 + 1];
-                    float ez = positions[neighbourId * 3 + 2] - positions[vertexId * 3 + 2];
-                    float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
+                    Vector3f edge = PackedPoints.at(positions, neighbourId * 3).sub(position);
+                    float elen = edge.length();
                     if (elen < MIN_WEIGHT_EPSILON) continue;
-                    float edn = ex * nv_[0] + ey * nv_[1] + ez * nv_[2];
-                    float tx = ex - edn * nv_[0];
-                    float ty = ey - edn * nv_[1];
-                    float tz = ez - edn * nv_[2];
-                    float tlen = (float) Math.sqrt(tx * tx + ty * ty + tz * tz);
-                    if (tlen < MIN_WEIGHT_EPSILON) continue;
-                    tx /= tlen; ty /= tlen; tz /= tlen;
+                    Vector3f along = new Vector3f(normal).mul(-edge.dot(normal)).add(edge);
+                    if (along.length() < MIN_WEIGHT_EPSILON) continue;
+                    along.normalize();
 
-                    float nux = vertexNormals[neighbourId * 3]     - nv_[0];
-                    float nuy = vertexNormals[neighbourId * 3 + 1] - nv_[1];
-                    float nuz = vertexNormals[neighbourId * 3 + 2] - nv_[2];
-                    float kEdge = -(nux * tx + nuy * ty + nuz * tz) / elen;
+                    Vector3f normalChange = PackedPoints.at(vertexNormals, neighbourId * 3).sub(normal);
+                    float kEdge = -normalChange.dot(along) / elen;
 
-                    float a = tx * t1[0] + ty * t1[1] + tz * t1[2];
-                    float b = tx * t2[0] + ty * t2[1] + tz * t2[2];
+                    float a = along.dot(t1);
+                    float b = along.dot(t2);
 
                     float w = elen;
                     m00 += w * a * a * kEdge;
@@ -216,41 +213,11 @@ public final class PrincipalDirectionField {
                 kappaMax[vertexId] = kmax;
                 kappaMin[vertexId] = kmin;
 
-                dirMax[vertexId * 3]     = maxAx * t1[0] + maxAy * t2[0];
-                dirMax[vertexId * 3 + 1] = maxAx * t1[1] + maxAy * t2[1];
-                dirMax[vertexId * 3 + 2] = maxAx * t1[2] + maxAy * t2[2];
-                dirMin[vertexId * 3]     = minAx * t1[0] + minAy * t2[0];
-                dirMin[vertexId * 3 + 1] = minAx * t1[1] + minAy * t2[1];
-                dirMin[vertexId * 3 + 2] = minAx * t1[2] + minAy * t2[2];
+                PackedPoints.store(dirMax, vertexId * 3, new Vector3f(t1).mul(maxAx).fma(maxAy, t2));
+                PackedPoints.store(dirMin, vertexId * 3, new Vector3f(t1).mul(minAx).fma(minAy, t2));
             }
         });
 
         return new PrincipalDirectionField(kappaMax, kappaMin, dirMax, dirMin, vertexNormals);
-    }
-
-    /**
-     * Builds an orthonormal 2D tangent basis (t1, t2) perpendicular to n.
-     *
-     * @param n unit normal (length-3)
-     * @param t1 length-3 output for the first tangent axis
-     * @param t2 length-3 output for the second tangent axis ({@code n x t1})
-     */
-    private static void buildTangentBasis(float[] n, float[] t1, float[] t2) {
-        float ax = Math.abs(n[0]);
-        float ay = Math.abs(n[1]);
-        float az = Math.abs(n[2]);
-        float helperX, helperY, helperZ;
-        if (ax < ay && ax < az) { helperX = 1; helperY = 0; helperZ = 0; }
-        else if (ay < az)        { helperX = 0; helperY = 1; helperZ = 0; }
-        else                     { helperX = 0; helperY = 0; helperZ = 1; }
-        t1[0] = helperY * n[2] - helperZ * n[1];
-        t1[1] = helperZ * n[0] - helperX * n[2];
-        t1[2] = helperX * n[1] - helperY * n[0];
-        float l1 = (float) Math.sqrt(t1[0] * t1[0] + t1[1] * t1[1] + t1[2] * t1[2]);
-        if (l1 < ZERO_VECTOR_EPSILON) { t1[0] = 1; t1[1] = 0; t1[2] = 0; l1 = 1; }
-        t1[0] /= l1; t1[1] /= l1; t1[2] /= l1;
-        t2[0] = n[1] * t1[2] - n[2] * t1[1];
-        t2[1] = n[2] * t1[0] - n[0] * t1[2];
-        t2[2] = n[0] * t1[1] - n[1] * t1[0];
     }
 }

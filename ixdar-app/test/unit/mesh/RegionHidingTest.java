@@ -10,6 +10,7 @@ import java.lang.reflect.Proxy;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -174,8 +175,7 @@ class RegionHidingTest {
         assertEquals(allFaces(), pickedFaces(), "nothing hidden: every face picks");
 
         select(MIDDLE_POINT);
-        int middle = regions.regionByActiveFace[regions.nearestActiveFace(MIDDLE_POINT[0],
-                MIDDLE_POINT[1], MIDDLE_POINT[2])];
+        int middle = regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(MIDDLE_POINT))];
         scene.regionLayer.hideSelection(true);
         scene.updateScene();
         assertEquals(facesOf(regions, middle), pickedFaces(), "isolated: only the middle picks");
@@ -200,8 +200,7 @@ class RegionHidingTest {
 
         scene.regionLayer.showAll();
         select(BOTTOM_POINT);
-        int bottom = regions.regionByActiveFace[regions.nearestActiveFace(BOTTOM_POINT[0],
-                BOTTOM_POINT[1], BOTTOM_POINT[2])];
+        int bottom = regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(BOTTOM_POINT))];
         scene.regionLayer.hideSelection(true);
         scene.updateScene();
         assertEquals(facesOf(regions, bottom), pickedFaces(), "isolated: only the bottom picks");
@@ -218,7 +217,7 @@ class RegionHidingTest {
 
     private void select(float[] point) {
         scene.regionTool.pickedPoints.clear();
-        scene.regionTool.pickedPoints.add(point.clone());
+        scene.regionTool.pickedPoints.add(new Vector3f(point));
         scene.regionTool.reselect();
     }
 

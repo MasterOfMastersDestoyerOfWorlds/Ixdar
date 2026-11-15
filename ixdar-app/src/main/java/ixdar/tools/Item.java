@@ -1,5 +1,7 @@
 package ixdar.tools;
 
+import org.joml.Vector3f;
+
 /**
  * A handle on one thing a {@link Tool} holds or works over, such as a confirmed ring, a route
  * segment or a region, in the one shape every holder reports; the thing's own data is its
@@ -10,8 +12,8 @@ public class Item {
     /** The label it is shown under. */
     public String label = "";
 
-    /** Where it sits, xyz: its centroid or midpoint. */
-    public float[] location = new float[Draft.COORDINATES_PER_POINT];
+    /** Where it sits: its centroid or midpoint. */
+    public final Vector3f location = new Vector3f();
 
     /** A fingerprint of its geometry, empty when it has none. */
     public String fingerprint = "";

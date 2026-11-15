@@ -2,6 +2,7 @@ package ixdar.nodegraph.nodes.control;
 
 import java.util.List;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.BoolField;
 
 import java.util.Map;
@@ -77,9 +78,7 @@ public class SwitchVectorNode implements MeshNode {
                 FieldBroadcast.vec3At(fa, i, ZERO, a);
                 FieldBroadcast.vec3At(tr, i, ZERO, b);
                 Vector3f pick = on ? b : a;
-                out[3 * i] = pick.x;
-                out[3 * i + 1] = pick.y;
-                out[3 * i + 2] = pick.z;
+                PackedPoints.store(out, 3 * i, pick);
             }
             ctx.setOutput(VECTOR.name,new Vector3Field(out));
             return;

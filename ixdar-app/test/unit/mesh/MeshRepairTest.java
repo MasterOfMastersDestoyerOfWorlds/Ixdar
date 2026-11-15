@@ -235,8 +235,8 @@ class MeshRepairTest {
 
         RingRegions regions = new RingRegions(cube, new String[] { "middle" }, marks).build();
 
-        int top = regions.regionByActiveFace[regions.nearestActiveFace(0, 0, 1)];
-        int bottom = regions.regionByActiveFace[regions.nearestActiveFace(0, 0, -1)];
+        int top = regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(0, 0, 1))];
+        int bottom = regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(0, 0, -1))];
         assertTrue(top != bottom, "the ring separates the top half from the bottom");
         for (int activeFace = 0; activeFace < cube.faceCount(); activeFace++) {
             if (regions.regionByActiveFace[activeFace] == top) {
@@ -307,8 +307,7 @@ class MeshRepairTest {
                     .cross(new Vector3f(corners[1]).sub(corners[0])).normalize();
             Vector3f centroid = new Vector3f(corners[0]).add(corners[1]).add(corners[2])
                     .div(TRIANGLE_CORNERS);
-            assertFalse(bvh.hemisphereEscapes(new float[] {centroid.x, centroid.y, centroid.z},
-                    new float[] {back.x, back.y, back.z}, stack),
+            assertFalse(bvh.hemisphereEscapes(centroid, back, stack),
                     "face " + faceId + " shows its back to the outside, straight on or at a slant");
         }
         assertEquals(0, repair.report.refillOpenHoleCount, "every loop the pruning opened is closed");
@@ -326,7 +325,7 @@ class MeshRepairTest {
     private static boolean facesOutOfTheCube(MeshTopology cube, int faceId) {
         Vector3f[] corners = new Vector3f[TRIANGLE_CORNERS];
         for (int index = 0; index < TRIANGLE_CORNERS; index++) {
-            corners[index] = cube.vertexPosition(cube.faceVertexAt(faceId, index), new Vector3f());
+            corners[index] = cube.vertexPosition(cube.faceVertexAt(faceId, index));
         }
         Vector3f normal = new Vector3f(corners[1]).sub(corners[0])
                 .cross(new Vector3f(corners[2]).sub(corners[0]));

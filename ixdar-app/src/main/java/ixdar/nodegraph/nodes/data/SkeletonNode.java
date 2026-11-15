@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.Skeleton
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
@@ -110,8 +111,7 @@ public class SkeletonNode implements MeshNode {
             List<MeshSkeletonExtractor.SkeletonJoint> joints = branches.get(branch).joints();
             for (int joint = 0; joint < joints.size(); joint++) {
                 int point = offsets[branch] + joint;
-                System.arraycopy(joints.get(joint).position(), 0, positions,
-                        CurveGeometry.XYZ * point, CurveGeometry.XYZ);
+                PackedPoints.store(positions, CurveGeometry.XYZ * point, joints.get(joint).position());
                 radii[point] = joints.get(joint).radius();
             }
             lengths[branch] = branches.get(branch).length();

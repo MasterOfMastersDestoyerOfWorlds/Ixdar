@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.numeric.graph.UnionFind;
@@ -64,9 +65,7 @@ public final class MeshLargestPart {
                 int vertex = activeOf[mesh.faceVertexAt(faceId, corner)];
                 if (kept[vertex] < 0) {
                     mesh.vertexPosition(mesh.vertexIdAt(vertex), position);
-                    positions[keptVertices * 3] = position.x;
-                    positions[keptVertices * 3 + 1] = position.y;
-                    positions[keptVertices * 3 + 2] = position.z;
+                    PackedPoints.store(positions, keptVertices * 3, position);
                     kept[vertex] = keptVertices++;
                 }
                 corners[keptCorners++] = kept[vertex];

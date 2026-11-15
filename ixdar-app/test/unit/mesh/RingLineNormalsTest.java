@@ -58,7 +58,7 @@ class RingLineNormalsTest {
                     points.length / SurfaceSpline.COORDINATES_PER_POINT);
             AuthoredSplineRing ring = new AuthoredSplineRing(geodesics);
             assertTrue(ring.trace(anchors, anchors.length,
-                    SurfaceWaypoints.parse(statement.group(NORMAL_OFFSET)),
+                    SurfaceWaypoints.point(statement.group(NORMAL_OFFSET)),
                     SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), statement.group(1));
             LineSet lines = RingTool.splineLines(mesh, SurfaceSpline.of(ring.tracer));
             int unknownSurface = 0;

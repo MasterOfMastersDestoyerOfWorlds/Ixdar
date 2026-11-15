@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.bundle.CornerUvSplit;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -128,13 +129,9 @@ public final class MeshExport {
             denseOfVertexId[vertexId] = index;
             int offset = index * FLOATS_PER_VERTEX;
             mesh.vertexPosition(vertexId, scratch);
-            positions[offset] = scratch.x;
-            positions[offset + 1] = scratch.y;
-            positions[offset + 2] = scratch.z;
+            PackedPoints.store(positions, offset, scratch);
             mesh.vertexNormal(vertexId, scratch);
-            normals[offset] = scratch.x;
-            normals[offset + 1] = scratch.y;
-            normals[offset + 2] = scratch.z;
+            PackedPoints.store(normals, offset, scratch);
         }
 
         int faceCount = mesh.faceCount();

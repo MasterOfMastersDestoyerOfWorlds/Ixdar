@@ -1,5 +1,7 @@
 package ixdar.tools.ring;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.rings.GeodesicRefit;
 import ixdar.tools.Draft;
 import ixdar.tools.Tool;
@@ -99,9 +101,9 @@ public abstract class RingSubTool extends Tool {
     /**
      * Where the draft crosses or touches itself.
      *
-     * @return packed xyz of the first crossing, or {@code null} while it runs simple
+     * @return the first crossing, or {@code null} while it runs simple
      */
-    public abstract float[] draftCrossing();
+    public abstract Vector3f draftCrossing();
 
     /**
      * Whether the draft, or the hover preview with no draft open, is drawn as invalid.

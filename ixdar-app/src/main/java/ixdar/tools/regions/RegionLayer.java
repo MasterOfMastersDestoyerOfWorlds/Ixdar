@@ -197,7 +197,7 @@ public final class RegionLayer {
                         regions.regionLabelPoint[RingRegions.TRIANGLE_CORNERS * region + 2]);
                 regionLabel.anchorCamera = scene.camera;
                 regionLabel.anchorDepthLift = (float) (RingTool.NUMBER_DEPTH_TIE_PIXELS * scene.camera
-                        .worldPerPixel(regionLabel.anchor.x, regionLabel.anchor.y, regionLabel.anchor.z));
+                        .worldPerPixel(regionLabel.anchor));
                 regionLabels.add(regionLabel);
             }
         }
@@ -293,7 +293,7 @@ public final class RegionLayer {
             labelsTiedView.set(scene.camera.view);
             for (HyperString label : regionLabels) {
                 label.anchorDepthLift = (float) (RingTool.NUMBER_DEPTH_TIE_PIXELS
-                        * scene.camera.worldPerPixel(label.anchor.x, label.anchor.y, label.anchor.z));
+                        * scene.camera.worldPerPixel(label.anchor));
             }
         }
         boolean ready = runtime != null && surface != null && surface.faceCount() > 0;

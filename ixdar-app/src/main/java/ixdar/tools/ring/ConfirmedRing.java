@@ -1,5 +1,7 @@
 package ixdar.tools.ring;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 
@@ -16,7 +18,7 @@ public final class ConfirmedRing {
     public int[] authoredVertexId;
 
     /** Base normal the ring's plane leans toward, at the precision a save writes. */
-    public float[] baseNormal;
+    public Vector3f baseNormal;
 
     /** How the ring runs between its authored anchors, what a save writes as mode. */
     public RingSegmentMode mode;
@@ -65,7 +67,7 @@ public final class ConfirmedRing {
      * @param serial           identity bisectors name it by
      * @param bisectorEnds     wall serials a bisector ends on, or {@code null} for a ring
      */
-    public ConfirmedRing(SurfaceSpline spline, int[] authoredVertexId, float[] baseNormal,
+    public ConfirmedRing(SurfaceSpline spline, int[] authoredVertexId, Vector3f baseNormal,
             RingSegmentMode mode, String statementId, boolean unsaved, String sourceLabel, int serial,
             int[] bisectorEnds) {
         this.spline = spline;

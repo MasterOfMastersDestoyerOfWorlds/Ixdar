@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.joml.Vector3f;
+
 /**
  * Walks a patch's boundary into an ordered ring and slices it at corners into the four sides a Coons
  * fit expects. Of several disconnected rings only the largest is kept, and junctions resolve to the
@@ -68,9 +70,9 @@ public final class PatchBoundaryWalker {
             int at = bestRing[i];
             int before = bestRing[(i - 1 + total) % total];
             int after = bestRing[(i + 1) % total];
-            float[] da = unitDir(positions, at, before);
-            float[] db = unitDir(positions, at, after);
-            float dot = da[0] * db[0] + da[1] * db[1] + da[2] * db[2];
+            Vector3f da = unitDir(positions, at, before);
+            Vector3f db = unitDir(positions, at, after);
+            float dot = da.dot(db);
             dot = Math.max(-1f, Math.min(1f, dot));
             float deviation = Math.abs((float) Math.acos(dot) - (float) Math.PI);
             deviationStrength[i] = deviation;
@@ -161,7 +163,7 @@ public final class PatchBoundaryWalker {
      */
     private static int pickNext(int cur, int prev, List<Integer> nbs,
                                  Set<Integer> ringVisited, int start, float[] positions) {
-        float[] incoming = prev >= 0 ? unitDir(positions, cur, prev) : null;
+        Vector3f incoming = prev >= 0 ? unitDir(positions, cur, prev) : null;
         int bestUnvisited = -1;
         float bestUnvisitedDot = Float.NEGATIVE_INFINITY;
         boolean startReachable = false;
@@ -176,10 +178,8 @@ public final class PatchBoundaryWalker {
             if (incoming == null) {
                 score = 0f;
             } else {
-                float[] outgoing = unitDir(positions, cur, n);
-                float dot = incoming[0] * outgoing[0] + incoming[1] * outgoing[1]
-                        + incoming[2] * outgoing[2];
-                score = -dot;
+                Vector3f outgoing = unitDir(positions, cur, n);
+                score = -incoming.dot(outgoing);
             }
             if (score > bestUnvisitedDot) {
                 bestUnvisitedDot = score;
@@ -196,13 +196,13 @@ public final class PatchBoundaryWalker {
         if (!list.contains(other)) list.add(other);
     }
 
-    private static float[] unitDir(float[] positions, int from, int to) {
+    private static Vector3f unitDir(float[] positions, int from, int to) {
         float dx = positions[to * 3]     - positions[from * 3];
         float dy = positions[to * 3 + 1] - positions[from * 3 + 1];
         float dz = positions[to * 3 + 2] - positions[from * 3 + 2];
         float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (len < EPSILON) return new float[]{0f, 0f, 0f};
-        return new float[]{dx / len, dy / len, dz / len};
+        if (len < EPSILON) return new Vector3f();
+        return new Vector3f(dx / len, dy / len, dz / len);
     }
 
     public record BoundarySides(List<int[]> sides, int[] cornerVertices) {}

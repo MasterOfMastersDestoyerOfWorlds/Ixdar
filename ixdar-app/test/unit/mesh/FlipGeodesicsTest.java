@@ -80,8 +80,8 @@ class FlipGeodesicsTest {
         NearestVertex grid = NearestVertex.over(sphere);
         int startVertexId = grid.find(0f, SPHERE_RADIUS, 0f);
         int endVertexId = grid.find(0.83f, 0.21f, 0.51f);
-        Vector3f startPosition = sphere.vertexPosition(startVertexId, new Vector3f());
-        Vector3f endPosition = sphere.vertexPosition(endVertexId, new Vector3f());
+        Vector3f startPosition = sphere.vertexPosition(startVertexId);
+        Vector3f endPosition = sphere.vertexPosition(endVertexId);
         int[] seed = GeodesicSeedPath.throughVertices(intrinsic,
                 new int[] { startVertexId, endVertexId }, false);
         FlipGeodesics flipper = new FlipGeodesics();

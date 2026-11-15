@@ -1,5 +1,7 @@
 package ixdar.gui.terminal.commands;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.Subsystem;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
@@ -100,9 +102,8 @@ public class LabelCommand extends TerminalCommand {
             return null;
         }
         int named = 0;
-        for (float[] point : tool.pickedPoints) {
-            int region = regions.regionByActiveFace[regions.nearestActiveFace(point[0], point[1],
-                    point[2])];
+        for (Vector3f point : tool.pickedPoints) {
+            int region = regions.regionByActiveFace[regions.nearestActiveFace(point)];
             layer.partLabels.unlabel(regions, region);
             layer.partLabels.add(name, point);
             named++;

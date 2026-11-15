@@ -1079,12 +1079,10 @@ public final class RingRegions {
     /**
      * The face whose centroid lies nearest a point, the region a surface point names.
      *
-     * @param x point x
-     * @param y point y
-     * @param z point z
+     * @param point point
      * @return dense index of the nearest face, or {@link MeshTopology#NONE} on an empty surface
      */
-    public int nearestActiveFace(float x, float y, float z) {
+    public int nearestActiveFace(Vector3f point) {
         int faceCount = faceCentroid.length / TRIANGLE_CORNERS;
         int tasks = (faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK;
         int[] nearestOfTask = new int[tasks];
@@ -1094,9 +1092,9 @@ public final class RingRegions {
             double nearestDistance = Double.POSITIVE_INFINITY;
             for (int activeFace = task * FACES_PER_TASK;
                     activeFace < Math.min(faceCount, (task + 1) * FACES_PER_TASK); activeFace++) {
-                double dx = faceCentroid[TRIANGLE_CORNERS * activeFace] - x;
-                double dy = faceCentroid[TRIANGLE_CORNERS * activeFace + 1] - y;
-                double dz = faceCentroid[TRIANGLE_CORNERS * activeFace + 2] - z;
+                double dx = faceCentroid[TRIANGLE_CORNERS * activeFace] - point.x;
+                double dy = faceCentroid[TRIANGLE_CORNERS * activeFace + 1] - point.y;
+                double dz = faceCentroid[TRIANGLE_CORNERS * activeFace + 2] - point.z;
                 double distance = dx * dx + dy * dy + dz * dz;
                 if (distance < nearestDistance) {
                     nearestDistance = distance;
@@ -1151,8 +1149,9 @@ public final class RingRegions {
                     throw new IllegalArgumentException("ring_regions: point takes x,y,z, not "
                             + argument);
                 }
-                int activeFace = nearestActiveFace(Float.parseFloat(coordinates[0]),
+                Vector3f coords = new Vector3f(Float.parseFloat(coordinates[0]),
                         Float.parseFloat(coordinates[1]), Float.parseFloat(coordinates[2]));
+                int activeFace = nearestActiveFace(coords);
                 if (activeFace != MeshTopology.NONE) {
                     selected[regionByActiveFace[activeFace]] = true;
                 }

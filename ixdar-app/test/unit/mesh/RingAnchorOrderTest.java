@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.Random;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
@@ -193,9 +194,9 @@ class RingAnchorOrderTest {
         RingTool tool = scene.ringTool;
         tool.geodesics = SurfaceGeodesics.over(metric);
         AuthoredSplineRing first = new AuthoredSplineRing(tool.geodesics);
-        assertTrue(first.trace(new int[] { firstAnchor }, 1, normal,
+        assertTrue(first.trace(new int[] { firstAnchor }, 1, new Vector3f(normal),
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), first.failure);
-        System.arraycopy(normal, 0, tool.draftBaseNormal, 0, XYZ);
+        tool.draftBaseNormal.set(normal);
         tool.draftAuthoredVertexId = first.authoredVertexId;
         tool.draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
         tool.draft = SurfaceSpline.of(first.tracer);

@@ -5,6 +5,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 import java.util.HashMap;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -93,9 +94,7 @@ public final class MeshAppend {
             for (int activeVertex = 0; activeVertex < part.vertexCount(); activeVertex++) {
                 int vertexId = part.vertexIdAt(activeVertex);
                 part.vertexPosition(vertexId, position);
-                positions[outVertex * 3] = position.x;
-                positions[outVertex * 3 + 1] = position.y;
-                positions[outVertex * 3 + 2] = position.z;
+                PackedPoints.store(positions, outVertex * 3, position);
                 sourceVertex[outVertex] = vertexId;
                 vertexOperand[outVertex] = operand;
                 outVertexOfId[vertexId] = outVertex++;

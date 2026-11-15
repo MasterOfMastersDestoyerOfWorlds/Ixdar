@@ -115,7 +115,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 float radius = selected.sphere(center);
                 if (cameraTemplate != null) {
                     double half = Math.toRadians(cameraTemplate.fieldOfViewDegrees) / 2.0;
-                    center.set(cameraTemplate.center[0], cameraTemplate.center[1], cameraTemplate.center[2]);
+                    center.set(cameraTemplate.center);
                     radius = (float) (cameraTemplate.distance * Math.sin(Math.min(half,
                             Math.atan(Math.tan(half) * orbit.aspectRatio()))) / (1.0 + padding));
                 }
@@ -291,8 +291,8 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             if (!svgPath.isBlank()) {
                 JsonArray center = framing.getAsJsonArray(CENTER);
                 String template = StrokeSketch.svgRoot(GRID_COLUMNS * cellW, 2 * cellH, GRID_COLUMNS * cellW,
-                        2 * cellH, new float[] { center.get(0).getAsFloat(), center.get(1).getAsFloat(),
-                            center.get(2).getAsFloat() }, viewDist, framing.get(FIELD_OF_VIEW).getAsFloat(),
+                        2 * cellH, new Vector3f(center.get(0).getAsFloat(), center.get(1).getAsFloat(),
+                            center.get(2).getAsFloat()), viewDist, framing.get(FIELD_OF_VIEW).getAsFloat(),
                         framing.get(StrokeSketch.ORTHOGRAPHIC).getAsBoolean(), cellW, cellH, GRID_COLUMNS,
                         StrokeSketch.angleViews(VIEW_AZIMUTH_ELEVATION_RADIANS))
                         + String.format(Locale.ROOT,

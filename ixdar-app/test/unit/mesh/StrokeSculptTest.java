@@ -365,8 +365,8 @@ class StrokeSculptTest {
         }
         StrokeSketch saved = StrokeSketch.parse(drawn.toSvg(), "live strokes");
         saved.lift(ball);
-        float[] origin = new float[3];
-        float[] direction = new float[3];
+        Vector3f origin = new Vector3f();
+        Vector3f direction = new Vector3f();
         for (int view = 0; view < orbits.length; view++) {
             assertArrayEquals(drawn.viewCameras[view], saved.viewCameras[view], 1e-4f, "view " + view + " round trips");
             assertEquals(saved.radiusByShape[view] * 0.5f, saved.depthByShape[view], 1e-4f,
@@ -380,8 +380,8 @@ class StrokeSculptTest {
                 for (int pixel = 0; pixel < LIVE_STROKE_PIXELS.length; pixel += 2) {
                     views[view].rayThroughPixel(new Matrix4f(), LIVE_STROKE_PIXELS[pixel], LIVE_STROKE_PIXELS[pixel + 1],
                             LIVE_WIDTH, LIVE_HEIGHT, origin, direction);
-                    Vector3f along = new Vector3f(direction[0], direction[1], direction[2]).normalize();
-                    nearestRay = Math.min(nearestRay, new Vector3f(hit).sub(origin[0], origin[1], origin[2])
+                    Vector3f along = new Vector3f(direction).normalize();
+                    nearestRay = Math.min(nearestRay, new Vector3f(hit).sub(origin)
                             .cross(along).length());
                 }
                 assertTrue(nearestRay < RAY_TOLERANCE, "a point lifted from view " + view + " lies "

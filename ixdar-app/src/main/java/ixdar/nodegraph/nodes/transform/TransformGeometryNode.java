@@ -8,6 +8,7 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -112,9 +113,7 @@ public class TransformGeometryNode implements MeshNode {
                 activeVertexOfId[vertexId] = activeVertex;
                 mesh.vertexPosition(vertexId, tmp);
                 mat.transformPosition(tmp);
-                newPositions[activeVertex * VECTOR_STRIDE] = tmp.x;
-                newPositions[activeVertex * VECTOR_STRIDE + 1] = tmp.y;
-                newPositions[activeVertex * VECTOR_STRIDE + 2] = tmp.z;
+                PackedPoints.store(newPositions, activeVertex * VECTOR_STRIDE, tmp);
             }
             int[] faceSizes = new int[fc];
             int cornerCount = 0;
@@ -169,9 +168,7 @@ public class TransformGeometryNode implements MeshNode {
             for (int ci = 0; ci < srcPos.length / VECTOR_STRIDE; ci++) {
                 tmp.set(srcPos[ci * VECTOR_STRIDE], srcPos[ci * VECTOR_STRIDE + 1], srcPos[ci * VECTOR_STRIDE + 2]);
                 mat.transformPosition(tmp);
-                dstPos[ci * VECTOR_STRIDE] = tmp.x;
-                dstPos[ci * VECTOR_STRIDE + 1] = tmp.y;
-                dstPos[ci * VECTOR_STRIDE + 2] = tmp.z;
+                PackedPoints.store(dstPos, ci * VECTOR_STRIDE, tmp);
             }
             result = result.withSlot(CurveGeometry.SLOT, cg.withPositions(dstPos));
         }
@@ -197,9 +194,7 @@ public class TransformGeometryNode implements MeshNode {
             int b = i * VECTOR_STRIDE;
             tmp.set(src[b], src[b + 1], src[b + 2]);
             mat.transformDirection(tmp);
-            dst[b] = tmp.x;
-            dst[b + 1] = tmp.y;
-            dst[b + 2] = tmp.z;
+            PackedPoints.store(dst, b, tmp);
         }
         return bundle.withSlot(slotName, dst);
     }

@@ -10,6 +10,7 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -535,9 +536,7 @@ public class InsetFacesNode implements MeshNode {
             int vertexId = topology.vertexIdAt(activeVertex);
             activeVertexOfId[vertexId] = activeVertex;
             topology.vertexPosition(vertexId, position);
-            srcPos[vertexId * 3] = position.x;
-            srcPos[vertexId * 3 + 1] = position.y;
-            srcPos[vertexId * 3 + 2] = position.z;
+            PackedPoints.store(srcPos, vertexId * 3, position);
         }
 
         boolean[] selected = new boolean[faceCount];

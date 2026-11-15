@@ -16,6 +16,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
@@ -83,19 +85,19 @@ public final class RingDslWriter {
      * The DSL source with one more ring statement, chained onto the graph's last statement.
      *
      * @param dslSource     working graph the ring is added to
-     * @param packedXyz     ring waypoints as packed xyz
-     * @param waypointCount waypoints to write from the front of the array
+     * @param waypoints     ring waypoints
+     * @param waypointCount waypoints to write from the front of the list
      * @param tighten       whether the written statement tightens the ring with FlipOut
      * @param pin           whether the written statement holds the ring on its waypoints
      * @throws IllegalArgumentException when the source holds no statement to chain onto, or when
      *                                  the id the ring would take is already bound
      * @return the source with the statement and a trailing newline appended
      */
-    public static String append(String dslSource, float[] packedXyz, int waypointCount,
+    public static String append(String dslSource, List<Vector3f> waypoints, int waypointCount,
             boolean tighten, boolean pin) {
         List<PythonParser.ParsedNode> statements = upstreamStatements(dslSource);
         String id = mintRingId(statements, dslSource, List.of());
-        return appended(dslSource, statement(id, lastGeometry(statements), packedXyz,
+        return appended(dslSource, statement(id, lastGeometry(statements), waypoints,
                 waypointCount, tighten, pin));
     }
 
@@ -103,14 +105,14 @@ public final class RingDslWriter {
      * The DSL source with one more spline ring appended, chained onto the graph's last statement.
      *
      * @param dslSource   working graph the ring is added to
-     * @param packedXyz   spline anchors as packed xyz
-     * @param anchorCount anchors to write from the front of the array
+     * @param anchors     spline anchors
+     * @param anchorCount anchors to write from the front of the list
      * @throws IllegalArgumentException when the source holds no statement to chain onto, or when
      *                                  the id the ring would take is already bound
      * @return the source with the statement and a trailing newline appended
      */
-    public static String appendSpline(String dslSource, float[] packedXyz, int anchorCount) {
-        return appendSpline(dslSource, packedXyz, anchorCount, List.of());
+    public static String appendSpline(String dslSource, List<Vector3f> anchors, int anchorCount) {
+        return appendSpline(dslSource, anchors, anchorCount, List.of());
     }
 
     /**
@@ -118,16 +120,16 @@ public final class RingDslWriter {
      * running graph produced without naming them in the text.
      *
      * @param dslSource   working graph the ring is added to
-     * @param packedXyz   spline anchors as packed xyz
-     * @param anchorCount anchors to write from the front of the array
+     * @param anchors     spline anchors
+     * @param anchorCount anchors to write from the front of the list
      * @param liveLabels  ring labels the running graph holds that the text may not name
      * @throws IllegalArgumentException when the source holds no statement to chain onto, or when
      *                                  the id the ring would take is already bound
      * @return the source with the statement and a trailing newline appended
      */
-    public static String appendSpline(String dslSource, float[] packedXyz, int anchorCount,
+    public static String appendSpline(String dslSource, List<Vector3f> anchors, int anchorCount,
             Collection<String> liveLabels) {
-        return appendSpline(dslSource, packedXyz, anchorCount, null, liveLabels);
+        return appendSpline(dslSource, anchors, anchorCount, null, liveLabels);
     }
 
     /**
@@ -135,19 +137,19 @@ public final class RingDslWriter {
      * normal its plane leans toward, its id clear of the running graph's ring labels.
      *
      * @param dslSource   working graph the ring is added to
-     * @param packedXyz   authored anchors as packed xyz
-     * @param anchorCount anchors to write from the front of the array
-     * @param baseNormal  the ring's base normal as packed xyz, or {@code null} to write none
+     * @param anchors     authored anchors
+     * @param anchorCount anchors to write from the front of the list
+     * @param baseNormal  the ring's base normal, or {@code null} to write none
      * @param liveLabels  ring labels the running graph holds that the text may not name
      * @throws IllegalArgumentException when the source holds no statement to chain onto, or when
      *                                  the id the ring would take is already bound
      * @return the source with the statement and a trailing newline appended
      */
-    public static String appendSpline(String dslSource, float[] packedXyz, int anchorCount,
-            float[] baseNormal, Collection<String> liveLabels) {
+    public static String appendSpline(String dslSource, List<Vector3f> anchors, int anchorCount,
+            Vector3f baseNormal, Collection<String> liveLabels) {
         List<PythonParser.ParsedNode> statements = upstreamStatements(dslSource);
         String id = mintRingId(statements, dslSource, liveLabels);
-        return appended(dslSource, splineStatement(id, lastGeometry(statements), packedXyz,
+        return appended(dslSource, splineStatement(id, lastGeometry(statements), anchors,
                 anchorCount, baseNormal));
     }
 
@@ -165,7 +167,7 @@ public final class RingDslWriter {
      * @throws IllegalArgumentException when the source holds no statement to chain onto
      * @return the source with the statement and a trailing newline appended
      */
-    public static String appendBisector(String dslSource, String id, float[] packedXyz,
+    public static String appendBisector(String dslSource, String id, List<Vector3f> packedXyz,
             int anchorCount, String[] ends, float[] stretchXyz) {
         return appended(dslSource, id + " = " + SplineCutNode.NODE_ID + "(geometry="
                 + lastGeometry(upstreamStatements(dslSource)) + ", " + POINTS_ARGUMENT
@@ -226,7 +228,7 @@ public final class RingDslWriter {
      *                                  the line carries no points argument
      * @return the source with that one argument rewritten
      */
-    public static String replaceSpline(String dslSource, String id, float[] packedXyz,
+    public static String replaceSpline(String dslSource, String id, List<Vector3f> packedXyz,
             int anchorCount) {
         return replaceSpline(dslSource, id, packedXyz, anchorCount, null);
     }
@@ -244,8 +246,8 @@ public final class RingDslWriter {
      *                                  the line carries no points argument
      * @return the source with those arguments rewritten
      */
-    public static String replaceSpline(String dslSource, String id, float[] packedXyz,
-            int anchorCount, float[] baseNormal) {
+    public static String replaceSpline(String dslSource, String id, List<Vector3f> packedXyz,
+            int anchorCount, Vector3f baseNormal) {
         String[] lines = dslSource.split(LINE_BREAK, -1);
         int target = bindingLine(lines, id);
         int opening = lines[target].indexOf(POINTS_ARGUMENT);
@@ -259,7 +261,7 @@ public final class RingDslWriter {
                 + SurfaceWaypoints.format(packedXyz, anchorCount)
                 + lines[target].substring(closing);
         if (baseNormal != null) {
-            String normal = SurfaceWaypoints.format(baseNormal, 1);
+            String normal = SurfaceWaypoints.format(baseNormal);
             int normalOpening = lines[target].indexOf(NORMAL_ARGUMENT);
             if (normalOpening < 0) {
                 int pointsEnd = lines[target].indexOf('"', start) + 1;
@@ -596,13 +598,13 @@ public final class RingDslWriter {
      *
      * @param id            statement id to bind the ring to
      * @param geometryInput reference the ring reads its geometry from, as {@code node.port}
-     * @param packedXyz     spline anchors as packed xyz
-     * @param anchorCount   anchors to write from the front of the array
+     * @param anchors       spline anchors
+     * @param anchorCount   anchors to write from the front of the list
      * @return the statement text, without a trailing newline
      */
-    public static String splineStatement(String id, String geometryInput, float[] packedXyz,
+    public static String splineStatement(String id, String geometryInput, List<Vector3f> anchors,
             int anchorCount) {
-        return splineStatement(id, geometryInput, packedXyz, anchorCount, null);
+        return splineStatement(id, geometryInput, anchors, anchorCount, null);
     }
 
     /**
@@ -611,17 +613,17 @@ public final class RingDslWriter {
      *
      * @param id            statement id to bind the ring to
      * @param geometryInput reference the ring reads its geometry from, as {@code node.port}
-     * @param packedXyz     authored anchors as packed xyz
-     * @param anchorCount   anchors to write from the front of the array
-     * @param baseNormal    the base normal as packed xyz, or {@code null} to write none
+     * @param anchors       authored anchors
+     * @param anchorCount   anchors to write from the front of the list
+     * @param baseNormal    the base normal, or {@code null} to write none
      * @return the statement text, without a trailing newline
      */
-    public static String splineStatement(String id, String geometryInput, float[] packedXyz,
-            int anchorCount, float[] baseNormal) {
+    public static String splineStatement(String id, String geometryInput, List<Vector3f> anchors,
+            int anchorCount, Vector3f baseNormal) {
         return id + " = spline_ring(geometry=" + geometryInput
-                + ", " + POINTS_ARGUMENT + SurfaceWaypoints.format(packedXyz, anchorCount)
+                + ", " + POINTS_ARGUMENT + SurfaceWaypoints.format(anchors, anchorCount)
                 + (baseNormal == null ? ""
-                        : "\", " + NORMAL_ARGUMENT + SurfaceWaypoints.format(baseNormal, 1))
+                        : "\", " + NORMAL_ARGUMENT + SurfaceWaypoints.format(baseNormal))
                 + "\", label=\"" + id + "\")";
     }
 
@@ -641,16 +643,16 @@ public final class RingDslWriter {
      *
      * @param id            statement id to bind the ring to
      * @param geometryInput reference the ring reads its geometry from, as {@code node.port}
-     * @param packedXyz     ring waypoints as packed xyz
-     * @param waypointCount waypoints to write from the front of the array
+     * @param waypoints     ring waypoints
+     * @param waypointCount waypoints to write from the front of the list
      * @param tighten       whether the written statement tightens the ring with FlipOut
      * @param pin           whether the written statement holds the ring on its waypoints
      * @return the statement text, without a trailing newline
      */
-    public static String statement(String id, String geometryInput, float[] packedXyz,
+    public static String statement(String id, String geometryInput, List<Vector3f> waypoints,
             int waypointCount, boolean tighten, boolean pin) {
         return id + " = loop_through_points(geometry=" + geometryInput
-                + ", " + POINTS_ARGUMENT + SurfaceWaypoints.format(packedXyz, waypointCount)
+                + ", " + POINTS_ARGUMENT + SurfaceWaypoints.format(waypoints, waypointCount)
                 + "\", tighten=" + tighten
                 + ", pin=" + pin
                 + ", label=\"" + id + "\")";

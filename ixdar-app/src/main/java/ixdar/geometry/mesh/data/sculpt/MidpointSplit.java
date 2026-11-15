@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.ops.MeshSmoothing;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
@@ -233,9 +234,7 @@ public final class MidpointSplit {
             liftY -= height * normal.y;
             liftZ -= height * normal.z;
         }
-        flatXyz[flatAt] = dest.x;
-        flatXyz[flatAt + 1] = dest.y;
-        flatXyz[flatAt + 2] = dest.z;
+        PackedPoints.store(flatXyz, flatAt, dest);
         return dest.add(liftX * 0.5f / count, liftY * 0.5f / count, liftZ * 0.5f / count);
     }
 }

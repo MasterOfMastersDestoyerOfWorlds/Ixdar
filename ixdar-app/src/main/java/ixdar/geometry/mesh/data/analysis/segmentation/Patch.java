@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.data.analysis.segmentation;
 
+import org.joml.Vector3f;
+
 import ixdar.graphics.render.color.Color;
 
 public record Patch(
@@ -7,7 +9,7 @@ public record Patch(
         int[] vertexIndices,
         int[] faceIndices,
         int branchId,
-        float[] centroid,
+        Vector3f centroid,
         float curvatureMean,
         Color color) {
 }

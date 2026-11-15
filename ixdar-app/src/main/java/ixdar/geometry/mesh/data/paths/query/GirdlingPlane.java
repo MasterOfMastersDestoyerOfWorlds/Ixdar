@@ -34,10 +34,10 @@ public final class GirdlingPlane {
     public float tiltAboutTangent;
 
     /** Direction the viewer looks along, the axis the first tilt turns about. */
-    public final float[] viewDirection = new float[COORDINATES_PER_POINT];
+    public final Vector3f viewDirection = new Vector3f();
 
-    /** Normal of the plane the last search settled on, packed xyz. */
-    public final float[] normal = new float[COORDINATES_PER_POINT];
+    /** Normal of the plane the last search settled on. */
+    public final Vector3f normal = new Vector3f();
 
     /**
      * The walk the last search settled on: its {@link PlaneSurfaceLoop#path} is the cut, one point
@@ -57,11 +57,11 @@ public final class GirdlingPlane {
      *
      * @param mesh     surface to cut
      * @param faceId   face the point lies on, which the walk starts from
-     * @param point    the point the plane passes through, packed xyz
+     * @param point    the point the plane passes through
      * @param seedAxis a first guess at the limb axis the scan starts from, or null for none
      * @return true when a closed cut was found
      */
-    public boolean find(MeshTopology mesh, int faceId, float[] point, float[] seedAxis) {
+    public boolean find(MeshTopology mesh, int faceId, Vector3f point, Vector3f seedAxis) {
         cut.path = null;
         if (mesh == null || faceId < 0 || !mesh.hasFace(faceId)) {
             return false;
@@ -77,10 +77,7 @@ public final class GirdlingPlane {
         surfaceNormal.cross(firstTangent, secondTangent).normalize();
 
         double seedAngle = seedAxis == null ? 0.0
-                : Math.atan2(seedAxis[0] * secondTangent.x + seedAxis[1] * secondTangent.y
-                        + seedAxis[2] * secondTangent.z,
-                        seedAxis[0] * firstTangent.x + seedAxis[1] * firstTangent.y
-                                + seedAxis[2] * firstTangent.z);
+                : Math.atan2(seedAxis.dot(secondTangent), seedAxis.dot(firstTangent));
 
         double step = Math.PI / scanDirections;
         double bestAngle = seedAngle;
@@ -119,12 +116,12 @@ public final class GirdlingPlane {
      * Cut with the plane whose normal sits at {@code angle} in the surface's tangent plane and
      * report the loop's length; a walk that passes {@code budget} is abandoned unfinished.
      */
-    private double walkAt(MeshTopology mesh, int faceId, float[] point, double angle,
+    private double walkAt(MeshTopology mesh, int faceId, Vector3f point, double angle,
             boolean applyTilt, double budget) {
         candidate.set(firstTangent).mul((float) Math.cos(angle))
                 .fma((float) Math.sin(angle), secondTangent);
         if (applyTilt && (tiltAboutView != 0f || tiltAboutTangent != 0f)) {
-            viewVector.set(viewDirection[0], viewDirection[1], viewDirection[2]);
+            viewVector.set(viewDirection);
             if (viewVector.lengthSquared() > 0f) {
                 viewVector.normalize();
                 candidate.rotateAxis(tiltAboutView, viewVector.x, viewVector.y, viewVector.z);
@@ -140,9 +137,7 @@ public final class GirdlingPlane {
             return Double.POSITIVE_INFINITY;
         }
         candidate.normalize();
-        normal[0] = candidate.x;
-        normal[1] = candidate.y;
-        normal[2] = candidate.z;
+        normal.set(candidate);
         int startEdgeId = cut.crossingEdgeOn(mesh, point, normal, faceId);
         cut.maximumLength = budget;
         if (startEdgeId < 0 || !cut.walk(mesh, point, normal, startEdgeId)) {

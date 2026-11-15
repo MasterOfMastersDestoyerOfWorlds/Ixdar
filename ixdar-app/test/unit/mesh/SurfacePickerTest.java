@@ -56,15 +56,15 @@ public class SurfacePickerTest {
         MeshTopology cube = unitCube();
         SurfacePicker picker = new SurfacePicker();
 
-        float[] origin = { 0.25f, RAY_START, 0.1f };
-        float[] direction = { 0f, -1f, 0f };
+        Vector3f origin = new Vector3f(0.25f, RAY_START, 0.1f);
+        Vector3f direction = new Vector3f(0f, -1f, 0f);
         assertTrue(picker.pickNearestFace(cube, origin, direction),
                 "a ray straight down the middle of the cube hit nothing");
 
-        assertEquals(HALF_SIDE, picker.pointY, WEIGHT_TOLERANCE,
+        assertEquals(HALF_SIDE, picker.point.y, WEIGHT_TOLERANCE,
                 "the hit is not on the cube's top face");
-        assertEquals(origin[0], picker.pointX, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_X);
-        assertEquals(origin[2], picker.pointZ, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_Z);
+        assertEquals(origin.x, picker.point.x, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_X);
+        assertEquals(origin.z, picker.point.z, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_Z);
         assertEquals(RAY_START - HALF_SIDE, picker.distanceAlongRay, WEIGHT_TOLERANCE,
                 "the hit is not at the expected distance along the ray");
 
@@ -81,11 +81,11 @@ public class SurfacePickerTest {
             weightSum += weights[slot];
         }
         assertEquals(1.0, weightSum, WEIGHT_TOLERANCE, "the barycentric weights do not sum to one");
-        assertEquals(picker.pointX, interpolated[0], WEIGHT_TOLERANCE,
+        assertEquals(picker.point.x, interpolated[0], WEIGHT_TOLERANCE,
                 "the weights do not interpolate the hit's x");
-        assertEquals(picker.pointY, interpolated[1], WEIGHT_TOLERANCE,
+        assertEquals(picker.point.y, interpolated[1], WEIGHT_TOLERANCE,
                 "the weights do not interpolate the hit's y");
-        assertEquals(picker.pointZ, interpolated[2], WEIGHT_TOLERANCE,
+        assertEquals(picker.point.z, interpolated[2], WEIGHT_TOLERANCE,
                 "the weights do not interpolate the hit's z");
 
         assertTrue(picker.hitFace(cube, picker.faceId, origin, direction),
@@ -97,8 +97,8 @@ public class SurfacePickerTest {
         MeshTopology cube = unitCube();
         SurfacePicker picker = new SurfacePicker();
 
-        assertFalse(picker.pickNearestFace(cube, new float[] { 2f, RAY_START, 0f },
-                new float[] { 0f, -1f, 0f }), "a ray beside the cube claimed a hit");
+        assertFalse(picker.pickNearestFace(cube, new Vector3f(2f, RAY_START, 0f),
+                new Vector3f(0f, -1f, 0f)), "a ray beside the cube claimed a hit");
         assertEquals(-1, picker.faceId, "a miss left a face id behind");
     }
 
@@ -106,16 +106,15 @@ public class SurfacePickerTest {
     void theGirdlingPlaneOnATubeIsPerpendicularToItsAxis() {
         MeshTopology tube = tube();
         SurfacePicker picker = new SurfacePicker();
-        float[] origin = { 0.37f, RAY_START, 0f };
-        float[] direction = { 0f, -1f, 0f };
+        Vector3f origin = new Vector3f(0.37f, RAY_START, 0f);
+        Vector3f direction = new Vector3f(0f, -1f, 0f);
         assertTrue(picker.pickNearestFace(tube, origin, direction), "the ray missed the tube");
 
         GirdlingPlane girdle = new GirdlingPlane();
-        float[] hit = { picker.pointX, picker.pointY, picker.pointZ };
-        assertTrue(girdle.find(tube, picker.faceId, hit, null),
+        assertTrue(girdle.find(tube, picker.faceId, new Vector3f(picker.point), null),
                 "no girdling plane was found on the tube");
 
-        double alongAxis = Math.abs(girdle.normal[0]);
+        double alongAxis = Math.abs(girdle.normal.x);
         double missDegrees = Math.toDegrees(Math.acos(Math.min(1.0, alongAxis)));
         assertTrue(missDegrees < AXIS_TOLERANCE_DEGREES,
                 "the girdling plane's normal misses the tube's axis by " + missDegrees
@@ -168,9 +167,9 @@ public class SurfacePickerTest {
         for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
             target[axis] = 0.5f * (first[axis] + second[axis]);
         }
-        float[] direction = { -target[0], 0f, -target[2] };
-        float[] origin = {
-            target[0] - RAY_START * direction[0], target[1], target[2] - RAY_START * direction[2] };
+        Vector3f direction = new Vector3f(-target[0], 0f, -target[2]);
+        Vector3f origin = new Vector3f(target[0] - RAY_START * direction.x, target[1],
+                target[2] - RAY_START * direction.z);
         SurfacePicker picker = new SurfacePicker();
         GirdlingPlane girdle = new GirdlingPlane();
         Vector3f corner = new Vector3f();
@@ -191,11 +190,10 @@ public class SurfacePickerTest {
             assertTrue(picker.pickNear(mesh, faceId, origin, direction),
                     "a ray exactly onto the shared segment, hinted at face " + faceId
                             + ", missed the surface");
-            assertEquals(target[0], picker.pointX, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_X);
-            assertEquals(target[1], picker.pointY, WEIGHT_TOLERANCE, "the hit drifted in y");
-            assertEquals(target[2], picker.pointZ, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_Z);
-            float[] hit = { picker.pointX, picker.pointY, picker.pointZ };
-            assertTrue(girdle.find(mesh, picker.faceId, hit, new float[] { 0f, 1f, 0f }),
+            assertEquals(target[0], picker.point.x, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_X);
+            assertEquals(target[1], picker.point.y, WEIGHT_TOLERANCE, "the hit drifted in y");
+            assertEquals(target[2], picker.point.z, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_Z);
+            assertTrue(girdle.find(mesh, picker.faceId, new Vector3f(picker.point), new Vector3f(0f, 1f, 0f)),
                     "no girdle was found through the hit on face " + picker.faceId);
         }
         assertTrue(picker.pickNearestFace(mesh, origin, direction),

@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 
 import java.util.Map;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -116,14 +117,10 @@ public class AssignBezierHandlesNode implements MeshNode {
 
             handleOffsetAtVertex(mesh, eid, v0, meshCenter, handleMag, outDir);
             int o = eid * 3;
-            hStart[o] = outDir.x;
-            hStart[o + 1] = outDir.y;
-            hStart[o + 2] = outDir.z;
+            PackedPoints.store(hStart, o, outDir);
 
             handleOffsetAtVertex(mesh, eid, v1, meshCenter, handleMag, outDir);
-            hEnd[o] = outDir.x;
-            hEnd[o + 1] = outDir.y;
-            hEnd[o + 2] = outDir.z;
+            PackedPoints.store(hEnd, o, outDir);
         }
 
         return base
@@ -165,8 +162,7 @@ public class AssignBezierHandlesNode implements MeshNode {
             Vector3f meshCenter,
             float handleMag,
             Vector3f dest) {
-        Vector3f vertPos = new Vector3f();
-        mesh.vertexPosition(vert, vertPos);
+        Vector3f vertPos = mesh.vertexPosition(vert);
 
         Vector3f avg = new Vector3f();
         int count = 0;

@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -14,9 +16,10 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.RegionColouring;
 
 /**
- * Named labels on a mesh, each kept as the surface points that select it, never as element
- * numbers: a point picks its nearest face and so the ring region holding it, which stays true when
- * rings are reordered, added or edited elsewhere. Labels keep the order they were first given.
+ * Named labels on a mesh, each kept as the surface points that select it, never
+ * as element numbers: a point picks its nearest face and so the ring region
+ * holding it, which stays true when rings are reordered, added or edited
+ * elsewhere. Labels keep the order they were first given.
  */
 public final class MeshLabels {
 
@@ -35,15 +38,20 @@ public final class MeshLabels {
     public final List<float[]> pointsByLabel = new ArrayList<>();
 
     /**
-     * Label of each ring region as last {@link #resolve resolved}, {@link #UNLABELLED} where no
-     * point falls; empty before.
+     * Label of each ring region as last {@link #resolve resolved},
+     * {@link #UNLABELLED} where no point falls; empty before.
      */
     public int[] labelByRegion = new int[0];
 
-    /** Labels whose regions touch each label's regions, ascending, as last resolved. */
+    /**
+     * Labels whose regions touch each label's regions, ascending, as last resolved.
+     */
     public int[][] neighboursByLabel = new int[0][];
 
-    /** Palette colour of each label as last resolved: touching labels never share one. */
+    /**
+     * Palette colour of each label as last resolved: touching labels never share
+     * one.
+     */
     public final RegionColouring colouring = new RegionColouring();
 
     /** An empty label set. */
@@ -51,7 +59,8 @@ public final class MeshLabels {
     }
 
     /**
-     * A copy that shares no arrays with {@code other}, so editing it leaves the original alone.
+     * A copy that shares no arrays with {@code other}, so editing it leaves the
+     * original alone.
      *
      * @param other labels to copy
      */
@@ -74,8 +83,9 @@ public final class MeshLabels {
     }
 
     /**
-     * Why a name cannot be a label: it must be one identifier, a letter then letters, digits and
-     * underscores, since a saved label statement is bound under it.
+     * Why a name cannot be a label: it must be one identifier, a letter then
+     * letters, digits and underscores, since a saved label statement is bound under
+     * it.
      *
      * @param name candidate name
      * @return the refusal, or empty when the name is fine
@@ -93,7 +103,8 @@ public final class MeshLabels {
      *
      * @param name      label name
      * @param packedXyz the points, packed xyz
-     * @throws IllegalArgumentException when the name is refused or the points are not whole xyz
+     * @throws IllegalArgumentException when the name is refused or the points are
+     *                                  not whole xyz
      */
     public void add(String name, float[] packedXyz) {
         String refusal = nameRefusal(name);
@@ -117,9 +128,21 @@ public final class MeshLabels {
     }
 
     /**
-     * Resolve the labels against ring regions and colour them: each region takes the last label
-     * with a point whose nearest face lies in it, labels touch where their regions do, and touching
-     * labels take different palette entries, each keeping its colour while no neighbour takes it.
+     * Add one surface point to a label, creating it after the others when it is new.
+     *
+     * @param name  label name
+     * @param point the point
+     * @throws IllegalArgumentException when the name is refused
+     */
+    public void add(String name, Vector3f point) {
+        add(name, new float[] { point.x, point.y, point.z });
+    }
+
+    /**
+     * Resolve the labels against ring regions and colour them: each region takes
+     * the last label with a point whose nearest face lies in it, labels touch where
+     * their regions do, and touching labels take different palette entries, each
+     * keeping its colour while no neighbour takes it.
      *
      * @param regions the regions the points are resolved against
      * @param cycle   the palette cycle whose entries {@link #colouring} hands out
@@ -127,11 +150,12 @@ public final class MeshLabels {
     public void resolve(RingRegions regions, Color[] cycle) {
         int[] labelOf = new int[regions.regionCount];
         Arrays.fill(labelOf, UNLABELLED);
+        Vector3f position = new Vector3f();
         for (int label = 0; label < names.size(); label++) {
             float[] points = pointsByLabel.get(label);
             for (int point = 0; point < points.length / XYZ; point++) {
-                int activeFace = regions.nearestActiveFace(points[XYZ * point],
-                        points[XYZ * point + 1], points[XYZ * point + 2]);
+                int activeFace = regions.nearestActiveFace(position.set(points[XYZ * point],
+                        points[XYZ * point + 1], points[XYZ * point + 2]));
                 if (activeFace != MeshTopology.NONE) {
                     labelOf[regions.regionByActiveFace[activeFace]] = label;
                 }
@@ -162,9 +186,9 @@ public final class MeshLabels {
     }
 
     /**
-     * Colour the labels as last resolved from another palette cycle, without resolving their
-     * points again: touching labels take different entries, each keeping its colour while no
-     * neighbour takes it.
+     * Colour the labels as last resolved from another palette cycle, without
+     * resolving their points again: touching labels take different entries, each
+     * keeping its colour while no neighbour takes it.
      *
      * @param cycle the palette cycle whose entries {@link #colouring} hands out
      */
@@ -183,8 +207,8 @@ public final class MeshLabels {
     }
 
     /**
-     * Drop every point that selects one ring region, from whichever labels hold one, and the
-     * labels left with no point.
+     * Drop every point that selects one ring region, from whichever labels hold
+     * one, and the labels left with no point.
      *
      * @param regions the regions the points are resolved against
      * @param region  the region to clear
@@ -192,13 +216,14 @@ public final class MeshLabels {
      */
     public int unlabel(RingRegions regions, int region) {
         int dropped = 0;
+        Vector3f position = new Vector3f();
         for (int label = names.size() - 1; label >= 0; label--) {
             float[] points = pointsByLabel.get(label);
             float[] kept = new float[points.length];
             int keptCount = 0;
             for (int point = 0; point < points.length / XYZ; point++) {
-                int activeFace = regions.nearestActiveFace(points[XYZ * point],
-                        points[XYZ * point + 1], points[XYZ * point + 2]);
+                int activeFace = regions.nearestActiveFace(position.set(points[XYZ * point],
+                        points[XYZ * point + 1], points[XYZ * point + 2]));
                 if (activeFace != MeshTopology.NONE
                         && regions.regionByActiveFace[activeFace] == region) {
                     dropped++;

@@ -73,7 +73,7 @@ class CreaseRingTest {
 
     private static final double ACROSS_NOTCH = 0.2;
 
-    private static final float[] AXIS = { 1f, 0f, 0f };
+    private static final Vector3f AXIS = new Vector3f(1f, 0f, 0f);
 
     private static final double PLANE_SLACK = 1e-6;
 
@@ -100,8 +100,7 @@ class CreaseRingTest {
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), crease.failure);
         assertArrayEquals(new int[] { clicked }, crease.authoredVertexId,
                 "the crease ring moved its anchor off the click");
-        assertEquals(1.0, Math.abs(AXIS[0] * crease.planeNormal[0]
-                + AXIS[1] * crease.planeNormal[1] + AXIS[2] * crease.planeNormal[2]), PLANE_SLACK,
+        assertEquals(1.0, Math.abs(AXIS.dot(crease.planeNormal)), PLANE_SLACK,
                 "the crease ring left the click's girdling plane");
         double creaseOff = meanOffNotch(SurfaceSpline.of(crease.tracer));
 
@@ -138,8 +137,8 @@ class CreaseRingTest {
                 assertTrue(crease.trace(new int[] { clicked }, 1, AXIS,
                         SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), crease.failure + at);
                 assertTrue(crease.simple, String.format(Locale.ROOT, "the crease ring crosses "
-                        + "itself near %.3f,%.3f,%.3f", crease.crossings.firstCrossingXyz[0],
-                        crease.crossings.firstCrossingXyz[1], crease.crossings.firstCrossingXyz[2])
+                        + "itself near %.3f,%.3f,%.3f", crease.crossings.firstCrossingXyz.x,
+                        crease.crossings.firstCrossingXyz.y, crease.crossings.firstCrossingXyz.z)
                         + at);
                 assertArrayEquals(new int[] { clicked }, crease.authoredVertexId, at);
             }
@@ -168,7 +167,7 @@ class CreaseRingTest {
         MapNodeContext ctx = new MapNodeContext(node);
         ctx.setInput(SplineRingNode.GEOMETRY.name, GeometryBundle.ofMesh(tube));
         ctx.setInput(SplineRingNode.POINTS.name, SurfaceWaypoints.format(anchorXyz, 1));
-        ctx.setInput(SplineRingNode.NORMAL.name, SurfaceWaypoints.format(AXIS, 1));
+        ctx.setInput(SplineRingNode.NORMAL.name, SurfaceWaypoints.format(AXIS));
         ctx.setInput(SplineRingNode.METRIC.name, metric);
         ctx.setInput(SplineRingNode.MODE.name, RingSegmentMode.CREASE.dslName);
         ctx.setInput(SplineRingNode.CREASES.name, creases);
@@ -208,7 +207,7 @@ class CreaseRingTest {
             assertEquals("", tool.lastError);
             assertArrayEquals(new int[] { hovered }, tool.draftAuthoredVertexId,
                     "the click anchored the ring off the cursor");
-            assertArrayEquals(tool.closedRing.previewPlaneNormal, tool.draftBaseNormal,
+            assertEquals(tool.closedRing.previewPlaneNormal, tool.draftBaseNormal,
                     "the click drafted on another plane than the hover");
             assertEquals(RingSegmentMode.CREASE, tool.draftMode);
             assertTrue(meanOffNotch(tool.draft) < IN_NOTCH,
@@ -295,12 +294,8 @@ class CreaseRingTest {
             public boolean pickCursor(HalfEdgeMeshRuntime pickRuntime, MeshTopology surface) {
                 cursorVertexId = hoveredVertexId;
                 cursorFaceId = surface.vertexFaceAt(hoveredVertexId, 0);
-                cursorPoint[0] = position.x;
-                cursorPoint[1] = position.y;
-                cursorPoint[2] = position.z;
-                cursorRayDirection[0] = 0f;
-                cursorRayDirection[1] = -position.y / radial;
-                cursorRayDirection[2] = -position.z / radial;
+                cursorPoint.set(position);
+                cursorRayDirection.set(0f, -position.y / radial, -position.z / radial);
                 return true;
             }
 

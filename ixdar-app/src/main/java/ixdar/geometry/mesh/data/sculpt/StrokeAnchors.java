@@ -13,6 +13,7 @@ import java.util.function.Supplier;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
@@ -301,9 +302,7 @@ public final class StrokeAnchors {
             Camera3D cellCamera = sketch.cellCamera(stroke.cell);
             for (int point = 0; point < count && !stroke.silhouette(); point++) {
                 FaceAnchors.position(base, stroke.anchors, point * FaceAnchors.FIELDS, position);
-                xyz[point * 3] = position.x;
-                xyz[point * 3 + 1] = position.y;
-                xyz[point * 3 + 2] = position.z;
+                PackedPoints.store(xyz, point * 3, position);
                 sketch.cellPixel(cellCamera, position, pixel);
                 pixels[point * 2] = Math.max(0f, Math.min(sketch.cellWidth - 1f, pixel[0]));
                 pixels[point * 2 + 1] = Math.max(0f, Math.min(sketch.cellHeight - 1f, pixel[1]));

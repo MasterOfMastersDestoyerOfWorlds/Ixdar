@@ -9,6 +9,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.grid2d.PolygonScan;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.graphics.cameras.Camera3D;
 
 /**
@@ -102,7 +103,7 @@ public final class ReferenceOutlines {
     public float[][] centreByView = new float[0][];
 
     /** The subject's world extent along x, y and z, once fitted. */
-    public final float[] extents = new float[3];
+    public final Vector3f extents = new Vector3f();
 
     /**
      * Add a picture's subject in a cell whose orbit camera looks from an azimuth and elevation.
@@ -131,12 +132,8 @@ public final class ReferenceOutlines {
         float[] axes = { viewMatrix.m00(), viewMatrix.m10(), viewMatrix.m20(), viewMatrix.m01(), viewMatrix.m11(),
             viewMatrix.m21() };
         axesByView[view] = axes;
-        float[] forward = { viewMatrix.m02(), viewMatrix.m12(), viewMatrix.m22() };
-        int along = 0;
-        for (int axis = 1; axis < 3; axis++) {
-            along = Math.abs(forward[axis]) > Math.abs(forward[along]) ? axis : along;
-        }
-        measuredByView[view] = Math.abs(forward[along]) >= AXIS_ALIGNED
+        Vector3f forward = new Vector3f(viewMatrix.m02(), viewMatrix.m12(), viewMatrix.m22()).absolute();
+        measuredByView[view] = forward.get(forward.maxComponent()) >= AXIS_ALIGNED
                 ? new int[] { largestAxis(axes, RIGHT), largestAxis(axes, UP) } : null;
     }
 
@@ -211,7 +208,7 @@ public final class ReferenceOutlines {
                     count++;
                 }
             }
-            extents[axis] = count == 0 ? height : sum / count;
+            extents.setComponent(axis, count == 0 ? height : sum / count);
         }
         for (int view = 0; view < views; view++) {
             if (measuredByView[view] != null) {
@@ -235,7 +232,7 @@ public final class ReferenceOutlines {
             masks[view] = measuredByView[view] == null ? null
                     : PolygonScan.covered(placedOutline(view), 0f, 0f, 1f, cellWidth, cellHeight);
         }
-        float[] point = new float[3];
+        Vector3f point = new Vector3f();
         for (int view = 0; view < views; view++) {
             if (measuredByView[view] != null) {
                 continue;
@@ -244,8 +241,8 @@ public final class ReferenceOutlines {
             for (int lattice = 0; lattice < HULL_LATTICE * HULL_LATTICE * HULL_LATTICE; lattice++) {
                 int remaining = lattice;
                 for (int axis = 2; axis >= 0; axis--) {
-                    point[axis] = (-HULL_REACH + 2f * HULL_REACH * (remaining % HULL_LATTICE) / (HULL_LATTICE - 1))
-                            * extents[axis];
+                    point.setComponent(axis, (-HULL_REACH
+                            + 2f * HULL_REACH * (remaining % HULL_LATTICE) / (HULL_LATTICE - 1)) * extents.get(axis));
                     remaining /= HULL_LATTICE;
                 }
                 boolean kept = true;
@@ -368,9 +365,8 @@ public final class ReferenceOutlines {
      * @param offset {@link #RIGHT} or {@link #UP}
      * @return the dot product
      */
-    private float along(float[] point, int view, int offset) {
-        float[] axes = axesByView[view];
-        return point[0] * axes[offset] + point[1] * axes[offset + 1] + point[2] * axes[offset + 2];
+    private float along(Vector3f point, int view, int offset) {
+        return point.dot(PackedPoints.at(axesByView[view], offset));
     }
 
     /**
@@ -381,10 +377,6 @@ public final class ReferenceOutlines {
      * @return 0, 1 or 2
      */
     private static int largestAxis(float[] axes, int offset) {
-        int largest = 0;
-        for (int axis = 1; axis < 3; axis++) {
-            largest = Math.abs(axes[offset + axis]) > Math.abs(axes[offset + largest]) ? axis : largest;
-        }
-        return largest;
+        return PackedPoints.at(axes, offset).absolute().maxComponent();
     }
 }

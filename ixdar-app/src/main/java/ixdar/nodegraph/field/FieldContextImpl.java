@@ -3,6 +3,7 @@ package ixdar.nodegraph.field;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Vertex-domain field context built from a {@link MeshTopology}.
@@ -65,9 +66,7 @@ public final class FieldContextImpl implements MeshFieldContext {
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexPosition(vid, tmp);
-            d[3 * i] = tmp.x;
-            d[3 * i + 1] = tmp.y;
-            d[3 * i + 2] = tmp.z;
+            PackedPoints.store(d, 3 * i, tmp);
         }
         return new Vector3Field(d);
     }
@@ -82,9 +81,7 @@ public final class FieldContextImpl implements MeshFieldContext {
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexNormal(vid, tmp);
-            d[3 * i] = tmp.x;
-            d[3 * i + 1] = tmp.y;
-            d[3 * i + 2] = tmp.z;
+            PackedPoints.store(d, 3 * i, tmp);
         }
         return new Vector3Field(d);
     }

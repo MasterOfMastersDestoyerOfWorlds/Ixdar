@@ -2,6 +2,8 @@ package ixdar.automation.endpoints.ring;
 
 import java.io.IOException;
 
+import org.joml.Vector3f;
+
 import com.google.gson.JsonObject;
 
 import ixdar.annotations.automation.APIMethod;
@@ -41,8 +43,7 @@ public class Project extends AutomationEndpoint implements AutomationRoute {
                 }
                 float[] pixel = new float[2];
                 SurfacePicker occluder = new SurfacePicker();
-                boolean inFront = viewer.projectPoint(point[0], point[1], point[2], pixel,
-                        occluder);
+                boolean inFront = viewer.projectPoint(new Vector3f(point), pixel, occluder);
                 boolean onScreen = inFront && pixel[0] > -MeshNodeViewerScene.PIXEL_CENTRE
                         && pixel[1] > -MeshNodeViewerScene.PIXEL_CENTRE
                         && pixel[0] < Platforms.get().getFrameBufferWidth()
@@ -62,8 +63,7 @@ public class Project extends AutomationEndpoint implements AutomationRoute {
                 result.addProperty("visible", onScreen && !occluded);
                 if (occluded) {
                     result.addProperty("occluderFaceId", occluder.faceId);
-                    result.addProperty("occluderPoint", SurfaceWaypoints.format(new float[] {
-                        occluder.pointX, occluder.pointY, occluder.pointZ }, 1));
+                    result.addProperty("occluderPoint", SurfaceWaypoints.format(occluder.point));
                 }
                 return result;
             });

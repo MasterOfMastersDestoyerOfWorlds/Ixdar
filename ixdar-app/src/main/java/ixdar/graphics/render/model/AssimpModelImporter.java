@@ -13,6 +13,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+
 public class AssimpModelImporter {
     public static final int VERTEX_STRIDE = 8;
     public static final float MIN_RADIUS = 0.001f;
@@ -117,7 +119,7 @@ public class AssimpModelImporter {
         Vector3f center = new Vector3f(min).add(max).mul(0.5f);
         float radius = 0f;
         for (int i = 0; i < verts.length; i += VERTEX_STRIDE) {
-            radius = Math.max(radius, new Vector3f(verts[i], verts[i + 1], verts[i + 2]).sub(center).length());
+            radius = Math.max(radius, PackedPoints.at(verts, i).sub(center).length());
         }
         if (radius < MIN_RADIUS) {
             radius = 1f;

@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangleSoup;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
@@ -133,7 +135,7 @@ public final class MscCellAssembly {
             if (faceList.isEmpty()) continue;
             boolean[] seen = new boolean[nv];
             int[] faces = SemanticPatchDecomposer.patchFaceIds(faceList, triangleFaces, faceLabels);
-            float[] centroid = new float[3];
+            Vector3f centroid = new Vector3f();
             int vertCount = 0;
             for (int i = 0; i < faceList.size(); i++) {
                 int f = faceList.get(i);
@@ -141,9 +143,7 @@ public final class MscCellAssembly {
                     int v = faceIdx[f * 3 + k];
                     if (!seen[v]) {
                         seen[v] = true;
-                        centroid[0] += positions[v * 3];
-                        centroid[1] += positions[v * 3 + 1];
-                        centroid[2] += positions[v * 3 + 2];
+                        centroid.add(positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]);
                         vertCount++;
                     }
                 }
@@ -152,9 +152,7 @@ public final class MscCellAssembly {
             int[] verts = new int[vertCount];
             int idx = 0;
             for (int v = 0; v < nv; v++) if (seen[v]) verts[idx++] = v;
-            centroid[0] /= vertCount;
-            centroid[1] /= vertCount;
-            centroid[2] /= vertCount;
+            centroid.set(centroid.x / vertCount, centroid.y / vertCount, centroid.z / vertCount);
             Color color = Palette.shadedEntry(Palettes.DARK.patch, patchId);
             patches.add(new Patch(patchId++, verts, faces, /*branch=*/-1,
                     centroid, /*meanCurvature=*/0f, color));

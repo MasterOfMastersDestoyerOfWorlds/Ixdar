@@ -20,6 +20,7 @@ import com.google.gson.JsonObject;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.curvature.CrestLineDetector;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.analysis.segmentation.MeshSegmenter;
@@ -177,7 +178,9 @@ public final class PatchDecomposerCLI {
                     Palette.shadedEntry(flatCycle, flatColouring.colourByNode[index])));
             pj.addProperty("curvature_mean", p.curvatureMean());
             JsonArray centroid = new JsonArray();
-            for (float c : p.centroid()) centroid.add(c);
+            centroid.add(p.centroid().x);
+            centroid.add(p.centroid().y);
+            centroid.add(p.centroid().z);
             pj.add("centroid", centroid);
             JsonArray verts = new JsonArray();
             for (int v : p.vertexIndices()) verts.add(v);
@@ -235,9 +238,7 @@ public final class PatchDecomposerCLI {
             int vertexId = mesh.vertexIdAt(activeVertex);
             defectByVertexId[vertexId] = (float) (2 * Math.PI);
             mesh.vertexPosition(vertexId, position);
-            positionByVertexId[3 * vertexId] = position.x;
-            positionByVertexId[3 * vertexId + 1] = position.y;
-            positionByVertexId[3 * vertexId + 2] = position.z;
+            PackedPoints.store(positionByVertexId, 3 * vertexId, position);
         }
         for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
             int faceId = mesh.faceIdAt(activeFace);

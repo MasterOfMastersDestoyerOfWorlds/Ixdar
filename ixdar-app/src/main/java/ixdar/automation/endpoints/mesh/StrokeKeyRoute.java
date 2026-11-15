@@ -266,15 +266,15 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
                 pictures.columns = shots.size();
                 pictures.viewCameras = new float[shots.size()][];
                 for (int axis = 0; axis < 3; axis++) {
-                    pictures.center[axis] = center.get(axis).getAsFloat();
+                    pictures.center.setComponent(axis, center.get(axis).getAsFloat());
                 }
                 for (int shot = 0; shot < shots.size(); shot++) {
                     JsonObject camera = shots.get(shot).getAsJsonObject();
                     pictures.viewCameras[shot] = new float[] { (float) Math.toRadians(camera.get("azimuth_deg")
                             .getAsDouble()), (float) Math.toRadians(camera.get("elevation_deg").getAsDouble()),
                         camera.get("distance").getAsFloat(), (float) Math.toRadians(camera.get("roll_deg")
-                                .getAsDouble()), camera.get("fov_deg").getAsFloat(), pictures.center[0],
-                        pictures.center[1], pictures.center[2] };
+                                .getAsDouble()), camera.get("fov_deg").getAsFloat(), pictures.center.x,
+                        pictures.center.y, pictures.center.z };
                 }
                 pictures.distance = pictures.viewCameras[0][StrokeSketch.VIEW_DISTANCE];
                 pictures.fieldOfViewDegrees = pictures.viewCameras[0][StrokeSketch.VIEW_FIELD_OF_VIEW];
@@ -283,7 +283,7 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
                 StrokeAnchors moved = StrokeAnchors.parse(largest.toText());
                 Path overReferences = out.resolve(String.format(Locale.ROOT, "key_%03d_references.svg",
                         key.counts[key.counts.length - 1]));
-                Vector3f frameCenter = new Vector3f(pictures.center[0], pictures.center[1], pictures.center[2]);
+                Vector3f frameCenter = new Vector3f(pictures.center);
                 float frameRadius = manifest.get("radius").getAsFloat();
                 Files.write(overReferences, new SculptSync(pictures, GoalProjection.moved(baseMesh, baseMesh,
                         frameCenter, frameRadius), GoalProjection.moved(((StrokeSculpt) sculpted.slots().get(

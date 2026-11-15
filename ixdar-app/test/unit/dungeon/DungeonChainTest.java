@@ -108,7 +108,7 @@ class DungeonChainTest {
         int n = roomsMesh.vertexCount();
         assertTrue(n >= 3, "enough rooms placed to triangulate, got " + n);
         assertEquals(n, DungeonGrids.halfExtents(rooms).length(), HALF_EXTENT_PER_ROOM);
-        Vector3f start = roomsMesh.vertexPosition(roomsMesh.vertexIdAt(0), new Vector3f());
+        Vector3f start = roomsMesh.vertexPosition(roomsMesh.vertexIdAt(0));
         assertEquals(15f, start.x, 1f, START_ROOM_CENTERED);
         assertEquals(15f, start.z, 1f, START_ROOM_CENTERED);
 

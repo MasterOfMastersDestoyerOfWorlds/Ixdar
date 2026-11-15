@@ -39,7 +39,7 @@ public final class PlayerSpawner {
         if (rooms.vertexCount() == 0) {
             throw new IllegalArgumentException("cannot spawn into an empty room list");
         }
-        Vector3f start = rooms.vertexPosition(rooms.vertexIdAt(0), new Vector3f());
+        Vector3f start = rooms.vertexPosition(rooms.vertexIdAt(0));
         float offsetX = -gridW * cellSize * 0.5f;
         float offsetY = -gridH * cellSize * 0.5f;
         float offsetZ = -gridD * cellSize * 0.5f;
@@ -50,7 +50,7 @@ public final class PlayerSpawner {
 
         float yawDeg = 0f;
         if (rooms.vertexCount() >= 2) {
-            Vector3f target = rooms.vertexPosition(rooms.vertexIdAt(1), new Vector3f());
+            Vector3f target = rooms.vertexPosition(rooms.vertexIdAt(1));
             float tx = offsetX + target.x * cellSize;
             float tz = offsetZ + target.z * cellSize;
             float dx = tx - wx;

@@ -210,9 +210,7 @@ class RegionControlAutomationTest {
                 surface.vertexPosition(cursorOnVertex[0], position);
                 cursorVertexId = cursorOnVertex[0];
                 cursorFaceId = surface.vertexFaceAt(cursorVertexId, 0);
-                cursorPoint[0] = position.x;
-                cursorPoint[1] = position.y;
-                cursorPoint[2] = position.z;
+                cursorPoint.set(position);
                 return true;
             }
         };
@@ -299,7 +297,7 @@ class RegionControlAutomationTest {
     @Test
     void selectPicksRegionsByNumberFromAnotherToolAndFramesThem() {
         RingRegions regions = scene.regionLayer.regions;
-        int top = regions.regionByActiveFace[regions.nearestActiveFace(TOP_POINT[0], TOP_POINT[1], TOP_POINT[2])];
+        int top = regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(TOP_POINT))];
         scene.switchTool(scene.orbitTool);
         terminal.run(SELECT + top);
         assertSame(scene.regionTool, scene.activeTool, "sel did not switch to the region tool");
@@ -329,9 +327,8 @@ class RegionControlAutomationTest {
         scene.updateScene();
         terminal.run(SELECT + PART);
         boolean[] expected = new boolean[regions.regionCount];
-        expected[regions.regionByActiveFace[regions.nearestActiveFace(TOP_POINT[0], TOP_POINT[1], TOP_POINT[2])]] = true;
-        expected[regions.regionByActiveFace[regions.nearestActiveFace(BOTTOM_POINT[0], BOTTOM_POINT[1],
-                BOTTOM_POINT[2])]] = true;
+        expected[regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(TOP_POINT))]] = true;
+        expected[regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(BOTTOM_POINT))]] = true;
         assertArrayEquals(expected, scene.regionTool.selectedRegions, scene.regionTool.lastError);
 
         terminal.run(SELECT + "claw");
@@ -342,8 +339,8 @@ class RegionControlAutomationTest {
     @Test
     void aClickWithShiftAddsARegionToTheSelection() throws Exception {
         RingRegions regions = scene.regionLayer.regions;
-        int bottomFace = regions.nearestActiveFace(BOTTOM_POINT[0], BOTTOM_POINT[1], BOTTOM_POINT[2]);
-        int topFace = regions.nearestActiveFace(TOP_POINT[0], TOP_POINT[1], TOP_POINT[2]);
+        int bottomFace = regions.nearestActiveFace(new Vector3f(BOTTOM_POINT));
+        int topFace = regions.nearestActiveFace(new Vector3f(TOP_POINT));
         faceUnderCursor[0] = bottomFace;
         JsonObject reply = click("");
         assertTrue(reply.get(OK).getAsBoolean(), reply.toString());
@@ -381,13 +378,12 @@ class RegionControlAutomationTest {
             int region = (Integer) label.getData();
             assertEquals(RegionLayer.REGION_NUMBER_PREFIX + region, label.plainLines().get(0));
             assertSame(scene.camera, label.anchorCamera, "a region number is not anchored in 3D");
-            assertEquals(region, regions.regionByActiveFace[regions.nearestActiveFace(label.anchor.x,
-                    label.anchor.y, label.anchor.z)], "R" + region + " sits outside its region");
+            assertEquals(region, regions.regionByActiveFace[regions.nearestActiveFace(label.anchor)], "R" + region + " sits outside its region");
             anchors[RingRegions.TRIANGLE_CORNERS * region] = label.anchor.x;
             anchors[RingRegions.TRIANGLE_CORNERS * region + 1] = label.anchor.y;
             anchors[RingRegions.TRIANGLE_CORNERS * region + 2] = label.anchor.z;
         }
-        int between = regions.regionByActiveFace[regions.nearestActiveFace(1f, 0f, BAND_MIDDLE_Z)];
+        int between = regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(1f, 0f, BAND_MIDDLE_Z))];
         assertEquals(BAND_MIDDLE_Z, anchors[RingRegions.TRIANGLE_CORNERS * between + 2], ROW_HEIGHT,
                 "the band's number is not at its middle row");
 
@@ -411,8 +407,7 @@ class RegionControlAutomationTest {
     @Test
     void aNamedRegionDrawsOneLabelWithItsNumberAndPartName() throws Exception {
         RingRegions regions = scene.regionLayer.regions;
-        int below = regions.regionByActiveFace[regions.nearestActiveFace(BOTTOM_POINT[0], BOTTOM_POINT[1],
-                BOTTOM_POINT[2])];
+        int below = regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(BOTTOM_POINT))];
         scene.regionLayer.partLabels.add(PART, BOTTOM_POINT.clone());
         scene.regionLayer.labelsChanged();
         scene.updateScene();
@@ -425,8 +420,7 @@ class RegionControlAutomationTest {
         HyperString named = scene.shownLabels.get(0);
         assertEquals(PART, named.plainLines().get(0));
         assertEquals(below, named.getData());
-        assertEquals(below, regions.regionByActiveFace[regions.nearestActiveFace(named.anchor.x,
-                named.anchor.y, named.anchor.z)], "the name left its region");
+        assertEquals(below, regions.regionByActiveFace[regions.nearestActiveFace(named.anchor)], "the name left its region");
         assertEquals(scene.palette.background, named.getWord(0).borderColor,
                 "a label draws in its own bordered style");
 
@@ -456,11 +450,9 @@ class RegionControlAutomationTest {
         number.anchor.set(1f, 2f, 3f);
         boolean[] seen = { true };
         float[] askedLift = { -1f };
-        scene.camera.pointVisibility = (camera, x, y, z, depthLift, pixel) -> {
-            pixel[0] = SEEN_PIXEL_X;
-            pixel[1] = SEEN_PIXEL_FROM_TOP;
+        scene.camera.pointVisibility = (camera, point, depthLift) -> {
             askedLift[0] = depthLift;
-            return seen[0];
+            return seen[0] ? new Vector3f(SEEN_PIXEL_X, SEEN_PIXEL_FROM_TOP, 0f) : null;
         };
         number.anchorDepthLift = DEPTH_LIFT;
 
@@ -486,8 +478,8 @@ class RegionControlAutomationTest {
         assertTrue(!scene.ringTool.ringNumbers.isEmpty(), "the rings have no numbers");
         Vector3f eye = new Vector3f();
         boolean[] surfaceHidesAll = { false };
-        scene.camera.pointVisibility = (camera, x, y, z, depthLift, pixel) -> camera.projectToPixels(
-                new Matrix4f(), x, y, z, pixel) && !surfaceHidesAll[0] && x * eye.x + y * eye.y > 0f;
+        scene.camera.pointVisibility = (camera, point, depthLift) -> surfaceHidesAll[0]
+                || point.x * eye.x + point.y * eye.y <= 0f ? null : camera.projectToPixels(new Matrix4f(), point);
         scene.camera.setTarget(new Vector3f(0f, 0f, 1f));
 
         scene.camera.setOrbit(0f, ORBIT_ELEVATION, OUTSIDE_DISTANCE);
@@ -780,7 +772,7 @@ class RegionControlAutomationTest {
         scene.camera.frame(centre, 1f, Camera3D.DEFAULT_FRAME_PADDING, scene.camera.aspectRatio());
         scene.updateScene();
         float[] pixel = new float[BOTTOM_POINT.length];
-        assertTrue(scene.projectPoint(centre.x, centre.y, centre.z, pixel, new SurfacePicker()),
+        assertTrue(scene.projectPoint(centre, pixel, new SurfacePicker()),
                 "the framed point is behind the camera");
         JsonObject body = new JsonObject();
         body.addProperty(InjectHover.X, pixel[0]);

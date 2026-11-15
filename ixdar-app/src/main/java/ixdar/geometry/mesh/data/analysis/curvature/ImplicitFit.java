@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.volume.VoxelGrid;
 import ixdar.numeric.DenseLinearSystem;
 import ixdar.numeric.sparse.DirectSolver;
@@ -111,7 +113,7 @@ public final class ImplicitFit {
         public Buckets(double[] xyz, double step, double low, double reach) {
             this.xyz = xyz;
             int side = (int) Math.ceil(reach / step) + 1;
-            lattice = new VoxelGrid(new int[] { side, side, side }, new float[] { (float) low, (float) low, (float) low },
+            lattice = new VoxelGrid(new int[] { side, side, side }, new Vector3f((float) low),
                     (float) step);
             int count = xyz.length / 3;
             int[] cellOf = new int[count];
@@ -144,7 +146,7 @@ public final class ImplicitFit {
             int count = 0;
             int[] at = new int[3];
             for (int axis = 0; axis < 3; axis++) {
-                at[axis] = (int) Math.floor((place[offset + axis] - lattice.origin[axis]) / lattice.spacing);
+                at[axis] = (int) Math.floor((place[offset + axis] - lattice.origin.get(axis)) / lattice.spacing);
             }
             for (int near = 0; near < NEIGHBOUR_CELLS; near++) {
                 int x = at[0] + near % 3 - 1;

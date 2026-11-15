@@ -25,8 +25,6 @@ import ixdar.scenes.Scene;
 public class HyperString {
     public static final int TOOLTIP_CHAR_WRAP = 30;
 
-    private static final int ANCHOR_PIXEL_VALUES = 3;
-
     public ArrayList<HyperWord> words;
     public HashMap<Integer, String> strMap;
     public ArrayList<Integer> lineStartMap;
@@ -63,7 +61,6 @@ public class HyperString {
 
     private int wrappedLines;
     private Font font;
-    private final float[] anchorPixel = new float[ANCHOR_PIXEL_VALUES];
 
     /**
      * Build an empty rich-text string with one blank starting line, using
@@ -688,10 +685,12 @@ public class HyperString {
         float x = anchor.x;
         float y = anchor.y;
         if (anchorCamera instanceof Camera3D world) {
-            shown = world.pointVisibility.visiblePixel(world, anchor.x, anchor.y, anchor.z, anchorDepthLift,
-                    anchorPixel);
-            x = anchorPixel[0];
-            y = Platforms.get().getFrameBufferHeight() - anchorPixel[1];
+            Vector3f pixel = world.pointVisibility.visiblePixel(world, anchor, anchorDepthLift);
+            shown = pixel != null;
+            if (shown) {
+                x = pixel.x;
+                y = Platforms.get().getFrameBufferHeight() - pixel.y;
+            }
         }
         if (shown) {
             setLineOffsetCentered(screen, x, y, font, rowHeight, 0);

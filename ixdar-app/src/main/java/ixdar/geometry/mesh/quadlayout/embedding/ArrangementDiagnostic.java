@@ -6,6 +6,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Named groups of copy-mesh geometry a failure or step wants shown: face groups drawn as dot
@@ -152,8 +153,6 @@ public final class ArrangementDiagnostic {
      * @param position point to write
      */
     private static void write(float[] target, int at, Vector3f position) {
-        target[at] = position.x;
-        target[at + 1] = position.y;
-        target[at + 2] = position.z;
+        PackedPoints.store(target, at, position);
     }
 }

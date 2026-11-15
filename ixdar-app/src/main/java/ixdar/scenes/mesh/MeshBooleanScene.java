@@ -7,6 +7,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
@@ -237,9 +238,7 @@ public class MeshBooleanScene extends ModelScene {
             for (int corner = 0; corner < CORNERS_PER_TRIANGLE; corner++) {
                 int displayVertex = activeFace * CORNERS_PER_TRIANGLE + corner;
                 mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), position);
-                positions[displayVertex * CORNERS_PER_TRIANGLE] = position.x;
-                positions[displayVertex * CORNERS_PER_TRIANGLE + 1] = position.y;
-                positions[displayVertex * CORNERS_PER_TRIANGLE + 2] = position.z;
+                PackedPoints.store(positions, displayVertex * CORNERS_PER_TRIANGLE, position);
                 triangles[displayVertex] = displayVertex;
                 fromA[displayVertex] = origin == MeshBooleanResult.ORIGIN_A;
                 fromB[displayVertex] = origin == MeshBooleanResult.ORIGIN_B;

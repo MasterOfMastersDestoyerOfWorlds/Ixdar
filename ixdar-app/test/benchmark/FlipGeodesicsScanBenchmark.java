@@ -105,7 +105,7 @@ public final class FlipGeodesicsScanBenchmark {
         Vector3f position = new Vector3f();
         int hitVertexId = NearestVertex.over(mesh).find(point[0], point[1], point[2]);
         mesh.vertexPosition(hitVertexId, position);
-        float[] hitPoint = { position.x, position.y, position.z };
+        Vector3f hitPoint = new Vector3f(position);
         int faceId = mesh.vertexFaceAt(hitVertexId, 0);
 
         GirdlingPlane girdle = new GirdlingPlane();
@@ -135,9 +135,9 @@ public final class FlipGeodesicsScanBenchmark {
                         ? mesh.halfEdgeVertex(halfEdge)
                         : mesh.halfEdgeEndVertex(halfEdge);
                 int base = POSITION_STRIDE * step;
-                double dx = cut.positions[base] - hitPoint[0];
-                double dy = cut.positions[base + 1] - hitPoint[1];
-                double dz = cut.positions[base + 2] - hitPoint[2];
+                double dx = cut.positions[base] - hitPoint.x;
+                double dy = cut.positions[base + 1] - hitPoint.y;
+                double dz = cut.positions[base + 2] - hitPoint.z;
                 if (dx * dx + dy * dy + dz * dz < nearest) {
                     nearest = dx * dx + dy * dy + dz * dz;
                     firstStep = step;

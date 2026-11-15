@@ -719,7 +719,7 @@ public final class SliverCollapse {
                                     wallMarks(candidate, standingMarks), endPosition.x,
                                     endPosition.y, endPosition.z);
                             double away = attached < 0 ? Double.POSITIVE_INFINITY
-                                    : mesh.vertexPosition(attached, new Vector3f())
+                                    : mesh.vertexPosition(attached)
                                             .distance(endPosition);
                             if (away < nearest) {
                                 nearest = away;

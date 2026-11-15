@@ -23,8 +23,9 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.ring.RingScene;
 
 /**
- * Names the surface under a screenshot pixel: the point, its face, nearest vertex and normal, and
- * the ring region it lies in with that region's part name, without touching any tool.
+ * Names the surface under a screenshot pixel: the point, its face, nearest
+ * vertex and normal, and the ring region it lies in with that region's part
+ * name, without touching any tool.
  */
 @AutomationRouteAnnotation(path = "/mesh/pick", method = APIMethod.POST)
 public class Pick extends AutomationEndpoint implements AutomationRoute {
@@ -41,21 +42,24 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
         float pixelY = body.has(Y) ? body.get(Y).getAsFloat() : 0f;
         try {
             return runtime.runOnMainThread(() -> runtime.canvas instanceof MeshNodeViewerScene viewer
-                    ? surfaceAt(viewer, pixelX, pixelY) : failure("no mesh viewer scene is active"));
+                    ? surfaceAt(viewer, pixelX, pixelY)
+                    : failure("no mesh viewer scene is active"));
         } catch (Exception failure) {
             return failure(String.valueOf(failure.getMessage()));
         }
     }
 
     /**
-     * The surface under a framebuffer pixel, as {@code pick} and {@code hover} report it: point,
-     * normal, face, nearest vertex, and in the editing scene its ring region, part name and the
-     * crease strength the ring tool's crease mode follows there.
+     * The surface under a framebuffer pixel, as {@code pick} and {@code hover}
+     * report it: point, normal, face, nearest vertex, and in the editing scene its
+     * ring region, part name and the crease strength the ring tool's crease mode
+     * follows there.
      *
      * @param viewer the active mesh viewer, run on its render thread
      * @param pixelX framebuffer x from the left, whole numbers at pixel centres
      * @param pixelY framebuffer y from the top
-     * @return {@code {ok, hit, point, ...}}, or a failure naming why the view cannot be picked
+     * @return {@code {ok, hit, point, ...}}, or a failure naming why the view
+     *         cannot be picked
      */
     public static JsonObject surfaceAt(MeshNodeViewerScene viewer, float pixelX, float pixelY) {
         String refusal = viewer.pickRefusal();
@@ -70,8 +74,7 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
         if (!hit) {
             return result;
         }
-        float[] point = { picker.pointX, picker.pointY, picker.pointZ };
-        result.addProperty("point", SurfaceWaypoints.format(point, 1));
+        result.addProperty("point", SurfaceWaypoints.format(picker.point));
         Vector3f normal = surface.faceNormal(picker.faceId, new Vector3f());
         JsonArray normalRow = new JsonArray();
         normalRow.add(normal.x);
@@ -80,10 +83,9 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
         result.add("normal", normalRow);
         result.addProperty("faceId", picker.faceId);
         int vertexId = picker.nearestCornerVertexId(surface);
-        Vector3f vertex = surface.vertexPosition(vertexId, new Vector3f());
+        Vector3f vertex = surface.vertexPosition(vertexId);
         result.addProperty("vertexId", vertexId);
-        result.addProperty("vertex", SurfaceWaypoints.format(
-                new float[] { vertex.x, vertex.y, vertex.z }, 1));
+        result.addProperty("vertex", SurfaceWaypoints.format(vertex));
         if (!(viewer instanceof RingScene scene)) {
             return result;
         }
@@ -106,7 +108,8 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
                     region < 0 ? "" : regions.boundingRingText(region));
             int[] labelByRegion = scene.regionLayer.partLabels.labelByRegion;
             int label = region < 0 || region >= labelByRegion.length
-                    ? MeshLabels.UNLABELLED : labelByRegion[region];
+                    ? MeshLabels.UNLABELLED
+                    : labelByRegion[region];
             result.addProperty("part", label == MeshLabels.UNLABELLED ? ""
                     : scene.regionLayer.partLabels.names.get(label));
         }
@@ -122,7 +125,8 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
                         + "no hover.")
                 .param(X, RouteParamType.FLOAT, true, NO_DEFAULT,
                         "Framebuffer x from the left, as in a screenshot; whole numbers are "
-                                + "pixel centres.", "512")
+                                + "pixel centres.",
+                        "512")
                 .param(Y, RouteParamType.FLOAT, true, NO_DEFAULT,
                         "Framebuffer y from the top, as in a screenshot.", "384")
                 .responseHint("{ok, hit, point:\"x,y,z\", normal:[x,y,z], faceId, vertexId, "

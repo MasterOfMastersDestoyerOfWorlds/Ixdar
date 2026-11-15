@@ -7,6 +7,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.fields.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -349,9 +350,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             int vertexId = mesh.vertexIdAt(dense);
             denseOf[vertexId] = dense;
             mesh.vertexPosition(vertexId, position);
-            gridVertices[dense * 3] = position.x;
-            gridVertices[dense * 3 + 1] = position.y;
-            gridVertices[dense * 3 + 2] = position.z;
+            PackedPoints.store(gridVertices, dense * 3, position);
             if (mesh.vertexFaceCount(vertexId) == 1) {
                 layoutCorners.addVertex(mesh, vertexId, palette.accent, CORNER_DOT_PIXELS);
             }
@@ -513,9 +512,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                     center.add(copy.vertexPosition(copy.faceVertexAt(faceId, cornerIndex), corner));
                 }
                 center.div(Math.max(1, corners));
-                centers[face * 3] = center.x;
-                centers[face * 3 + 1] = center.y;
-                centers[face * 3 + 2] = center.z;
+                PackedPoints.store(centers, face * 3, center);
             }
             clouds.add(centers);
         }
@@ -717,10 +714,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         float twoArea = (float) Math.sqrt(crX * crX + crY * crY + crZ * crZ);
         float lenA = (float) Math.sqrt(ax * ax + ay * ay + az * az);
         float lenB = (float) Math.sqrt(bx * bx + by * by + bz * bz);
-        float ex = p2.x - p1.x;
-        float ey = p2.y - p1.y;
-        float ez = p2.z - p1.z;
-        float lenC = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
+        float lenC = p2.distance(p1);
         float perim = lenA + lenB + lenC;
         float incircleR = perim > 0f ? twoArea / perim : 0f;
         float armLength = Math.max(crossScale * incircleR, 1.0e-8f);
@@ -773,9 +767,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
 
     private static void writePositionNormal(float[] buffer, int offset, Vector3f position,
             Vector3f normal) {
-        buffer[offset] = position.x;
-        buffer[offset + 1] = position.y;
-        buffer[offset + 2] = position.z;
+        PackedPoints.store(buffer, offset, position);
         buffer[offset + 3] = normal.x;
         buffer[offset + 4] = normal.y;
         buffer[offset + 5] = normal.z;

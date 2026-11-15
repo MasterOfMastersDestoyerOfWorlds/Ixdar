@@ -131,7 +131,7 @@ public class SelectCommand extends TerminalCommand {
             int region = regions.regionByActiveFace[activeFace];
             if (region >= 0 && wanted[region]) {
                 wanted[region] = false;
-                tool.pickedPoints.add(RingRegionTool.faceCentroid(surface, surface.faceIdAt(activeFace)));
+                tool.pickedPoints.add(surface.faceCentroid(surface.faceIdAt(activeFace)));
             }
         }
         tool.reselect();

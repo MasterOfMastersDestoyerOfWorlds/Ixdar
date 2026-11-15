@@ -39,10 +39,9 @@ public final class MeshProjection {
         new RayBatch(tree, 0).forEach(projection.offset.length, (rays, point) -> {
             double nearest = Double.POSITIVE_INFINITY;
             for (int sign = 1; sign >= -1; sign -= 2) {
-                for (int axis = 0; axis < 3; axis++) {
-                    rays.origin[axis] = originXyz[point * 3 + axis];
-                    rays.direction[axis] = sign * directionXyz[point * 3 + axis];
-                }
+                rays.origin.set(originXyz[point * 3], originXyz[point * 3 + 1], originXyz[point * 3 + 2]);
+                rays.direction.set(sign * directionXyz[point * 3], sign * directionXyz[point * 3 + 1],
+                        sign * directionXyz[point * 3 + 2]);
                 int triangle = tree.nearestHitAvoiding(rays.origin, rays.direction, nearest, null, 0, rays.stack,
                         rays.parameter);
                 if (triangle >= 0) {

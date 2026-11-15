@@ -1,16 +1,20 @@
 package ixdar.geometry.mesh.data.paths.spline;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
- * The authored form of a surface path: {@code "x,y,z; x,y,z; ..."} parsed to packed coordinates,
- * printed back byte-stably, and snapped to the mesh vertices a walk runs through.
+ * The authored form of a surface path: {@code "x,y,z; x,y,z; ..."} parsed to
+ * packed coordinates, printed back byte-stably, and snapped to the mesh
+ * vertices a walk runs through.
  */
 public final class SurfaceWaypoints {
 
@@ -52,8 +56,7 @@ public final class SurfaceWaypoints {
                         + "' needs three comma-separated coordinates");
             }
             for (int axis = 0; axis < COORDINATES_PER_WAYPOINT; axis++) {
-                packed[COORDINATES_PER_WAYPOINT * waypointCount + axis] =
-                        Float.parseFloat(parts[axis].trim());
+                packed[COORDINATES_PER_WAYPOINT * waypointCount + axis] = Float.parseFloat(parts[axis].trim());
             }
             waypointCount++;
         }
@@ -63,38 +66,93 @@ public final class SurfaceWaypoints {
     }
 
     /**
-     * Prints packed coordinates back as the authored string, at fixed precision.
+     * Reads an authored single point or direction, such as a ring's base normal.
+     *
+     * @param text the point as {@code "x,y,z"}, or null for none
+     * @throws IllegalArgumentException when a waypoint does not carry three numbers
+     * @return the point, or {@code null} when the text holds no point or more than one
+     */
+    public static Vector3f point(String text) {
+        float[] packed = parse(text);
+        return packed.length == COORDINATES_PER_WAYPOINT
+                ? new Vector3f(packed[0], packed[1], packed[2]) : null;
+    }
+
+    /**
+     * Prints points back as the authored string, at fixed precision.
+     *
+     * @param points        the waypoints
+     * @param waypointCount waypoints to print from the front of the list
+     * @return the waypoint list {@code "x,y,z; x,y,z; ..."}
+     */
+    public static String format(List<Vector3f> points, int waypointCount) {
+        StringBuilder text = new StringBuilder();
+        for (int waypoint = 0; waypoint < waypointCount; waypoint++) {
+            if (waypoint > 0) {
+                text.append("; ");
+            }
+            text.append(format(points.get(waypoint)));
+        }
+        return text.toString();
+    }
+
+    /**
+     * Prints packed coordinates back as the authored string, at fixed precision; the form a
+     * packed n-point array such as a saved ring's anchors is printed in.
      *
      * @param packedXyz     packed xyz, three floats per waypoint
      * @param waypointCount waypoints to print from the front of the array
      * @return the waypoint list {@code "x,y,z; x,y,z; ..."}
      */
     public static String format(float[] packedXyz, int waypointCount) {
+        return format(points(packedXyz), waypointCount);
+    }
+
+    /**
+     * Prints one point as the authored {@code "x,y,z"}, at fixed precision.
+     *
+     * @param point the point
+     * @return the point as {@code "x,y,z"}
+     */
+    public static String format(Vector3f point) {
         StringBuilder text = new StringBuilder();
-        for (int waypoint = 0; waypoint < waypointCount; waypoint++) {
-            if (waypoint > 0) {
-                text.append("; ");
+        for (int axis = 0; axis < COORDINATES_PER_WAYPOINT; axis++) {
+            if (axis > 0) {
+                text.append(',');
             }
-            for (int axis = 0; axis < COORDINATES_PER_WAYPOINT; axis++) {
-                if (axis > 0) {
-                    text.append(',');
-                }
-                text.append(String.format(Locale.ROOT, COORDINATE_FORMAT,
-                        packedXyz[COORDINATES_PER_WAYPOINT * waypoint + axis]));
-            }
+            text.append(String.format(Locale.ROOT, COORDINATE_FORMAT, point.get(axis)));
+
         }
         return text.toString();
     }
 
     /**
-     * Snaps each waypoint to the mesh vertex nearest it, the geometric selection rings are
-     * re-evaluated through on another scan. A point on coincident copies whose faces overlap
-     * takes the copy {@link NearestVertex#byNeighbours} picks from its neighbours.
+     * The points of a packed xyz array, one new vector each.
      *
-     * @param grid          vertex grid of the mesh the waypoints are snapped against
+     * @param packedXyz packed xyz, three floats per point
+     * @return the points in order
+     */
+    public static List<Vector3f> points(float[] packedXyz) {
+        List<Vector3f> points = new ArrayList<>(packedXyz.length / COORDINATES_PER_WAYPOINT);
+        for (int start = 0; start + COORDINATES_PER_WAYPOINT <= packedXyz.length;
+                start += COORDINATES_PER_WAYPOINT) {
+            points.add(PackedPoints.at(packedXyz, start));
+        }
+        return points;
+    }
+
+    /**
+     * Snaps each waypoint to the mesh vertex nearest it, the geometric selection
+     * rings are re-evaluated through on another scan. A point on coincident copies
+     * whose faces overlap takes the copy {@link NearestVertex#byNeighbours} picks
+     * from its neighbours.
+     *
+     * @param grid          vertex grid of the mesh the waypoints are snapped
+     *                      against
      * @param packedXyz     packed xyz, three floats per waypoint
      * @param waypointCount waypoints to snap from the front of the array
-     * @throws IllegalStateException naming every waypoint the grid refuses, one per line
+     * @throws IllegalStateException naming every waypoint the grid refuses, one per
+     *                               line
      * @return mesh vertex ids in waypoint order
      */
     public static int[] snap(NearestVertex grid, float[] packedXyz, int waypointCount) {
@@ -131,13 +189,15 @@ public final class SurfaceWaypoints {
     }
 
     /**
-     * Points to write for a ring's held vertices, each resolving back to its own vertex through
-     * {@link #snap} after printing: the vertex's position, or a point inside one of its faces.
+     * Points to write for a ring's held vertices, each resolving back to its own
+     * vertex through {@link #snap} after printing: the vertex's position, or a
+     * point inside one of its faces.
      *
      * @param grid        vertex grid of the mesh the vertices belong to
      * @param vertexIds   the held vertices, in writing order, a closed ring
      * @param vertexCount vertices to place from the front of the array
-     * @throws IllegalArgumentException naming every vertex no written point resolves to
+     * @throws IllegalArgumentException naming every vertex no written point
+     *                                  resolves to
      * @return packed xyz, three floats per vertex
      */
     public static float[] resolvingPoints(NearestVertex grid, int[] vertexIds, int vertexCount) {
@@ -153,8 +213,7 @@ public final class SurfaceWaypoints {
             mesh.vertexPosition(vertexId, position);
             boolean placed = false;
             int faceCount = mesh.vertexFaceCount(vertexId);
-            for (int candidate = -1; !placed && candidate < FACE_STEPS.length * faceCount;
-                    candidate++) {
+            for (int candidate = -1; !placed && candidate < FACE_STEPS.length * faceCount; candidate++) {
                 centroid.set(position);
                 if (candidate >= 0) {
                     int faceId = mesh.vertexFaceAt(vertexId, candidate % faceCount);
@@ -197,7 +256,7 @@ public final class SurfaceWaypoints {
                 unplaced.append(unplaced.length() > 0 ? ", " : "").append("anchor ")
                         .append(anchor + 1).append(" (vertex ").append(vertexIds[anchor])
                         .append(" at ")
-                        .append(format(new float[] { position.x, position.y, position.z }, 1))
+                        .append(format(position))
                         .append(')');
             }
         }

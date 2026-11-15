@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,8 @@ class LoopThroughPointsTest {
         1.350000f, 0.000000f, 0.000000f,
         0.445749f, 0.303109f, 0.694214f,
         0.512828f, -0.303109f, -0.646245f };
+
+    private static final List<Vector3f> TUBE_WAYPOINTS = SurfaceWaypoints.points(TUBE_POINTS);
 
     private static final int TUBE_POINT_COUNT = 3;
 
@@ -129,7 +132,7 @@ class LoopThroughPointsTest {
         SurfaceRing live = SurfaceRing.through(torus, TUBE_POINTS, TUBE_POINT_COUNT, true, 0, -1);
 
         String saved =
-                RingDslWriter.append(TORUS_GRAPH, TUBE_POINTS, TUBE_POINT_COUNT, true, false);
+                RingDslWriter.append(TORUS_GRAPH, TUBE_WAYPOINTS, TUBE_POINT_COUNT, true, false);
         System.out.println("[ring] saved statement: " + saved.substring(TORUS_GRAPH.length()));
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(saved);
         runtime.executeGraphResult(runtime.lastId(), LoopThroughPointsNode.GEOMETRY.name);
@@ -142,7 +145,7 @@ class LoopThroughPointsTest {
         assertEquals(EdgeMarks.fingerprint(torus, live.marks.markedByEdgeId),
                 EdgeMarks.fingerprint(reloaded.mesh(), marks));
         assertEquals(saved,
-                RingDslWriter.append(TORUS_GRAPH, TUBE_POINTS, TUBE_POINT_COUNT, true, false),
+                RingDslWriter.append(TORUS_GRAPH, TUBE_WAYPOINTS, TUBE_POINT_COUNT, true, false),
                 NOT_BYTE_STABLE);
     }
 
@@ -197,11 +200,12 @@ class LoopThroughPointsTest {
 
     @Test
     void theWrittenStatementCarriesThePinFlag() {
-        String saved = RingDslWriter.append(TORUS_GRAPH, TUBE_POINTS, TUBE_POINT_COUNT, true, true);
+        String saved =
+                RingDslWriter.append(TORUS_GRAPH, TUBE_WAYPOINTS, TUBE_POINT_COUNT, true, true);
 
         System.out.println("[pin] saved statement: " + saved.substring(TORUS_GRAPH.length()));
         assertTrue(saved.contains("pin=true"), "the pinned statement does not say so: " + saved);
-        assertEquals(saved, RingDslWriter.append(TORUS_GRAPH, TUBE_POINTS, TUBE_POINT_COUNT, true,
+        assertEquals(saved, RingDslWriter.append(TORUS_GRAPH, TUBE_WAYPOINTS, TUBE_POINT_COUNT, true,
                 true), NOT_BYTE_STABLE);
     }
 

@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -205,9 +206,7 @@ public final class SurfaceMetric {
                 int[] cornerSlot = new int[remaining];
                 for (int corner = 0; corner < remaining; corner++) {
                     mesh.vertexPosition(sourceVertexId[halfEdgeTail[ring[corner]]], cornerPosition);
-                    xyz[TRIANGLE_SIDES * corner] = cornerPosition.x;
-                    xyz[TRIANGLE_SIDES * corner + 1] = cornerPosition.y;
-                    xyz[TRIANGLE_SIDES * corner + 2] = cornerPosition.z;
+                    PackedPoints.store(xyz, TRIANGLE_SIDES * corner, cornerPosition);
                     cornerSlot[corner] = corner;
                 }
                 for (int corner = 0; corner < remaining; corner++) {

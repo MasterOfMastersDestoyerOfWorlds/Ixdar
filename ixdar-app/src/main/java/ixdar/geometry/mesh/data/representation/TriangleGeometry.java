@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.data.representation;
 
+import org.joml.Vector3d;
+
 /**
  * Triangle measurements over a flat {@code float[]} of xyz positions addressed by corner index,
  * the representation every mesh op holds before it commits to a topology.
@@ -46,19 +48,17 @@ public final class TriangleGeometry {
      * that origin, by an axis-span reject and then Moller-Trumbore.
      *
      * @param axis 0, 1 or 2 for the {@code +x}, {@code +y} or {@code +z} ray
-     * @param originX ray origin x
-     * @param originY ray origin y
-     * @param originZ ray origin z
+     * @param origin ray origin
      * @param positions xyz triples
      * @param cornerA first corner's position index
      * @param cornerB second corner's position index
      * @param cornerC third corner's position index
      * @return true when the ray crosses the triangle
      */
-    public static boolean positiveAxisRayCrosses(int axis, double originX, double originY,
-            double originZ, float[] positions, int cornerA, int cornerB, int cornerC) {
-        double along = axis == 0 ? originX : axis == 1 ? originY : originZ;
-        return (positiveAxisRaysCross(axis, originX, originY, originZ, along, positions, cornerA,
+    public static boolean positiveAxisRayCrosses(int axis, Vector3d origin, float[] positions, int cornerA,
+            int cornerB, int cornerC) {
+        double along = axis == 0 ? origin.x : axis == 1 ? origin.y : origin.z;
+        return (positiveAxisRaysCross(axis, origin, along, positions, cornerA,
                 cornerB, cornerC, positiveAxisInverseDeterminant(axis, positions, cornerA, cornerB,
                         cornerC)) & CROSSES_FROM_ORIGIN) != 0;
     }
@@ -100,9 +100,7 @@ public final class TriangleGeometry {
      * starting further back along the axis; they share every test but the last.
      *
      * @param axis 0, 1 or 2 for the {@code +x}, {@code +y} or {@code +z} rays
-     * @param originX first ray's origin x
-     * @param originY first ray's origin y
-     * @param originZ first ray's origin z
+     * @param origin first ray's origin
      * @param behind the second ray's origin coordinate along the axis
      * @param positions xyz triples
      * @param cornerA first corner's position index
@@ -112,9 +110,8 @@ public final class TriangleGeometry {
      * @return {@link #CROSSES_FROM_ORIGIN} and {@link #CROSSES_FROM_BEHIND} for the rays that
      *         cross the triangle
      */
-    public static int positiveAxisRaysCross(int axis, double originX, double originY,
-            double originZ, double behind, float[] positions, int cornerA, int cornerB,
-            int cornerC, double inverse) {
+    public static int positiveAxisRaysCross(int axis, Vector3d origin, double behind, float[] positions,
+            int cornerA, int cornerB, int cornerC, double inverse) {
         double cornerAX = positions[cornerA * COMPONENTS];
         double cornerAY = positions[cornerA * COMPONENTS + 1];
         double cornerAZ = positions[cornerA * COMPONENTS + 2];
@@ -124,13 +121,13 @@ public final class TriangleGeometry {
         double cornerCX = positions[cornerC * COMPONENTS];
         double cornerCY = positions[cornerC * COMPONENTS + 1];
         double cornerCZ = positions[cornerC * COMPONENTS + 2];
-        if (axis != 0 && outsideSpan(cornerAX, cornerBX, cornerCX, originX)) {
+        if (axis != 0 && outsideSpan(cornerAX, cornerBX, cornerCX, origin.x)) {
             return 0;
         }
-        if (axis != 1 && outsideSpan(cornerAY, cornerBY, cornerCY, originY)) {
+        if (axis != 1 && outsideSpan(cornerAY, cornerBY, cornerCY, origin.y)) {
             return 0;
         }
-        if (axis != 2 && outsideSpan(cornerAZ, cornerBZ, cornerCZ, originZ)
+        if (axis != 2 && outsideSpan(cornerAZ, cornerBZ, cornerCZ, origin.z)
                 || Double.isNaN(inverse)) {
             return 0;
         }
@@ -146,9 +143,9 @@ public final class TriangleGeometry {
         double normalX = directionY * edge2Z - directionZ * edge2Y;
         double normalY = directionZ * edge2X - directionX * edge2Z;
         double normalZ = directionX * edge2Y - directionY * edge2X;
-        double toX = originX - cornerAX;
-        double toY = originY - cornerAY;
-        double toZ = originZ - cornerAZ;
+        double toX = origin.x - cornerAX;
+        double toY = origin.y - cornerAY;
+        double toZ = origin.z - cornerAZ;
         double barycentricU = inverse * (toX * normalX + toY * normalY + toZ * normalZ);
         if (barycentricU < 0 || barycentricU > 1) {
             return 0;
@@ -163,9 +160,9 @@ public final class TriangleGeometry {
         }
         int crosses = inverse * (edge2X * crossX + edge2Y * crossY + edge2Z * crossZ) > 0
                 ? CROSSES_FROM_ORIGIN : 0;
-        toX = (axis == 0 ? behind : originX) - cornerAX;
-        toY = (axis == 1 ? behind : originY) - cornerAY;
-        toZ = (axis == 2 ? behind : originZ) - cornerAZ;
+        toX = (axis == 0 ? behind : origin.x) - cornerAX;
+        toY = (axis == 1 ? behind : origin.y) - cornerAY;
+        toZ = (axis == 2 ? behind : origin.z) - cornerAZ;
         crossX = toY * edge1Z - toZ * edge1Y;
         crossY = toZ * edge1X - toX * edge1Z;
         crossZ = toX * edge1Y - toY * edge1X;

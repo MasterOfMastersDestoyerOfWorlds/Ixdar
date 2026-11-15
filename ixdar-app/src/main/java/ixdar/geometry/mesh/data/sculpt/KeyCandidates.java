@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import org.joml.Vector3f;
 
 import ixdar.geometry.grid2d.PolygonScan;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.analysis.curvature.ImplicitFit;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
@@ -453,9 +454,7 @@ public final class KeyCandidates {
         Vector3f centre = new Vector3f();
         for (int point = 0; point < count; point++) {
             FaceAnchors.position(base, stroke.anchors, point * FaceAnchors.FIELDS, position);
-            xyz[point * 3] = position.x;
-            xyz[point * 3 + 1] = position.y;
-            xyz[point * 3 + 2] = position.z;
+            PackedPoints.store(xyz, point * 3, position);
             centre.add(position.div(count));
         }
         float radius = radius(stroke);
@@ -539,8 +538,6 @@ public final class KeyCandidates {
      */
     public int squarestCell(float[] pointXyz, int count) {
         int[] stack = new int[Math.max(1, baseTriangles.nodeCount)];
-        float[] origin = new float[3];
-        float[] direction = new float[3];
         float[] pixel = new float[2];
         Vector3f point = new Vector3f();
         Vector3f normal = new Vector3f();
@@ -559,12 +556,9 @@ public final class KeyCandidates {
                 base.vertexNormal(baseAnchors.nearestVertex.nearest(point.x, point.y, point.z,
                         Float.POSITIVE_INFINITY), normal).normalize();
                 point.sub(camera.position);
-                for (int axis = 0; axis < 3; axis++) {
-                    origin[axis] = camera.position.get(axis);
-                    direction[axis] = point.get(axis);
-                }
                 float facing = -normal.dot(point) / Math.max(SculptStroke.MINIMUM_NORMAL_LENGTH, point.length());
-                if (facing > 0f && baseTriangles.nearestHit(origin, direction, 1.0 - VISIBILITY_SLACK, stack) < 0) {
+                if (facing > 0f && baseTriangles.nearestHit(camera.position, point, 1.0 - VISIBILITY_SLACK,
+                        stack) < 0) {
                     score += facing;
                 }
             }

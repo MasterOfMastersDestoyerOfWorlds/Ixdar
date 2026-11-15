@@ -25,6 +25,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
@@ -234,12 +235,13 @@ class SliverCollapseToolTest {
             rings[1][3 * index + 1] = (float) Math.sin(lat);
             rings[1][3 * index + 2] = (float) (Math.cos(lat) * Math.sin(lon));
         }
-        float[][] ringNormals = { { 0f, 1f, 0f }, null, { -sine, 0f, cosine } };
+        Vector3f[] ringNormals = { new Vector3f(0f, 1f, 0f), null, new Vector3f(-sine, 0f, cosine) };
         StringBuilder source = new StringBuilder(SPHERE);
         String input = SURFACE_GEOMETRY;
         for (int ring = 0; ring < LABELS.length; ring++) {
-            source.append(RingDslWriter.splineStatement(LABELS[ring], input, rings[ring],
-                    rings[ring].length / 3, ringNormals[ring])).append(LINE_BREAK);
+            source.append(RingDslWriter.splineStatement(LABELS[ring], input,
+                    SurfaceWaypoints.points(rings[ring]), rings[ring].length / 3,
+                    ringNormals[ring])).append(LINE_BREAK);
             input = LABELS[ring] + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
         }
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(
@@ -312,7 +314,7 @@ class SliverCollapseToolTest {
         Vector3f[] planeNormals = { normalA, normalB, normalC };
         float[] distances = { 0f, distanceB, distanceC };
         float[][] points = new float[LABELS.length][];
-        float[][] normals = new float[LABELS.length][];
+        Vector3f[] normals = new Vector3f[LABELS.length];
         for (int ring = 0; ring < LABELS.length; ring++) {
             Vector3f normal = planeNormals[ring];
             float radius = (float) Math.sqrt(1 - distances[ring] * distances[ring]);
@@ -329,13 +331,14 @@ class SliverCollapseToolTest {
                 points[ring][3 * anchor + 1] = point.y;
                 points[ring][3 * anchor + 2] = point.z;
             }
-            normals[ring] = new float[] { normal.x, normal.y, normal.z };
+            normals[ring] = new Vector3f(normal);
         }
         StringBuilder source = new StringBuilder(SPHERE);
         String input = SURFACE_GEOMETRY;
         for (int ring = 0; ring < LABELS.length; ring++) {
-            source.append(RingDslWriter.splineStatement(LABELS[ring], input, points[ring],
-                    ANCHORS[ring], normals[ring])).append(LINE_BREAK);
+            source.append(RingDslWriter.splineStatement(LABELS[ring], input,
+                    SurfaceWaypoints.points(points[ring]), ANCHORS[ring], normals[ring]))
+                    .append(LINE_BREAK);
             input = LABELS[ring] + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
         }
         String graph = RingDslWriter.wireRingInputs(source.toString());
@@ -413,7 +416,7 @@ class SliverCollapseToolTest {
         SurfaceSpline traced = tool.bisector.traced(anchors, ends, RingSegmentMode.GEODESIC, null);
         assertNotNull(traced, tool.lastError);
         assertTrue(traced.marks.markedEdgeCount > 0, "the bisector walls nothing");
-        tool.confirmedRings.add(new ConfirmedRing(traced, anchors, new float[3],
+        tool.confirmedRings.add(new ConfirmedRing(traced, anchors, new Vector3f(),
                 RingSegmentMode.GEODESIC, null, true, null, LABELS.length, ends));
         tool.nextRingSerial = LABELS.length + 1;
         tool.invalidateRings();

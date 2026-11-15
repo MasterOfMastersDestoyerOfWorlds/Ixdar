@@ -8,6 +8,7 @@ import java.util.TreeMap;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
@@ -111,7 +112,7 @@ public class PlaceInCellNode implements MeshNode {
         }
         Camera3D camera = template.cellCamera(cell);
         Vector3f target = camera.orbitTarget;
-        float worldPerPixel = (float) camera.worldPerPixel(target.x, target.y, target.z, template.cellHeight);
+        float worldPerPixel = (float) camera.worldPerPixel(target, template.cellHeight);
         float scale = height / worldPerPixel / Math.max(1e-6f, box[3]);
         float[] centre = new float[2];
         template.cellPixel(camera, new Vector3f(target), centre);
@@ -122,9 +123,7 @@ public class PlaceInCellNode implements MeshNode {
         for (int at = 0; at < curves.pointCount(); at++) {
             template.cellPlanePoint(camera, curves.positions[at * CurveGeometry.XYZ] * scale + offsetX,
                     curves.positions[at * CurveGeometry.XYZ + 1] * scale + offsetY, point);
-            world[at * CurveGeometry.XYZ] = point.x;
-            world[at * CurveGeometry.XYZ + 1] = point.y;
-            world[at * CurveGeometry.XYZ + 2] = point.z;
+            PackedPoints.store(world, at * CurveGeometry.XYZ, point);
         }
         Map<String, float[]> attributes = new TreeMap<>(curves.curveAttributes);
         float[] views = new float[curves.curveCount()];

@@ -8,6 +8,7 @@ import java.util.Map;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -106,9 +107,7 @@ public class InstanceOnPointsNode implements MeshNode {
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < m.vertexCount(); i++) {
             m.vertexPosition(m.vertexIdAt(i), tmp);
-            p[3 * i] = tmp.x;
-            p[3 * i + 1] = tmp.y;
-            p[3 * i + 2] = tmp.z;
+            PackedPoints.store(p, 3 * i, tmp);
         }
         return p;
     }

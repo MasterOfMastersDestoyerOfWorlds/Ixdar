@@ -199,7 +199,7 @@ class QuadRingToolTest {
         scene.ringMarksByLabel.put(RING_LABEL, rowLoop(quads, RING_ROW));
         tool.adoptGraphRings(surface);
         int[] authored = tool.confirmedRings.get(0).authoredVertexId;
-        float[] normal = tool.confirmedRings.get(0).baseNormal;
+        Vector3f normal = tool.confirmedRings.get(0).baseNormal;
 
         assertToolAndGraphAgree(quads, scene, tool.positionsOf(authored), authored.length,
                 normal);
@@ -333,7 +333,7 @@ class QuadRingToolTest {
      * @throws Exception when the statement fails to run
      */
     private static boolean[] assertToolAndGraphAgree(MeshTopology quads, RingScene scene,
-            float[] points, int anchorCount, float[] normal) throws Exception {
+            float[] points, int anchorCount, Vector3f normal) throws Exception {
         MeshTopology surface = scene.halfEdgeSurface();
         if (scene.ringTool.geodesics == null) {
             scene.ringTool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(surface));
@@ -350,7 +350,7 @@ class QuadRingToolTest {
         String statement = RingDslWriter.wireRingInputs(RingDslWriter.METRIC_STATEMENT_ID
                 + " = " + RingDslWriter.SURFACE_METRIC_NODE + "(geometry=" + FIXTURE + ")"
                 + RingDslWriter.LINE_BREAK + RingDslWriter.splineStatement(SAVED_LABEL,
-                        measuredSurface, points, anchorCount, normal));
+                        measuredSurface, SurfaceWaypoints.points(points), anchorCount, normal));
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(statement);
         Object result = runtime.executeGraphResult(SAVED_LABEL,
                 RingDslWriter.DEFAULT_UPSTREAM_PORT,

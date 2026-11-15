@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 
 import java.util.Map;
@@ -89,9 +90,7 @@ public class SolidifyMeshNode implements MeshNode {
             int vertexId = in.vertexIdAt(activeVertex);
             outputVertexOfId[vertexId] = activeVertex;
             in.vertexPosition(vertexId, position);
-            positions[activeVertex * 3] = position.x;
-            positions[activeVertex * 3 + 1] = position.y;
-            positions[activeVertex * 3 + 2] = position.z;
+            PackedPoints.store(positions, activeVertex * 3, position);
         }
 
         float[] normalSums = new float[vertexCount * 3];
