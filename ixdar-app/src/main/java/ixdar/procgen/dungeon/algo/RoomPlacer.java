@@ -2,7 +2,10 @@ package ixdar.procgen.dungeon.algo;
 
 import java.util.Random;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Deterministic seeded random placement of non-overlapping rooms on an integer grid with a
@@ -40,52 +43,22 @@ public final class RoomPlacer {
         }
 
         Random rng = new Random(seed);
-        float[] centers = new float[roomCount * 3];
-        float[] halfExtents = new float[roomCount * 3];
-        int placed = 0;
+        PackedPoints centers = new PackedPoints();
+        PackedPoints halfExtents = new PackedPoints();
         int attempts = 0;
-        while (placed < roomCount && attempts < maxAttempts) {
+        while (centers.size() < roomCount && attempts < maxAttempts) {
             attempts++;
             int w = minSize + rng.nextInt(maxSize - minSize + 1);
             int h = minSize + rng.nextInt(maxSize - minSize + 1);
             int x = rng.nextInt(gridW - w + 1);
             int y = rng.nextInt(gridH - h + 1);
-            float cx = x + w / 2f;
-            float cy = y + h / 2f;
-            float hx = w / 2f;
-            float hy = h / 2f;
-            if (!collidesAny(centers, halfExtents, placed, cx, cy, hx, hy)) {
-                centers[placed * 3] = cx;
-                centers[placed * 3 + 1] = cy;
-                halfExtents[placed * 3] = hx;
-                halfExtents[placed * 3 + 1] = hy;
-                placed++;
+            Vector3f centre = new Vector3f(x + w / 2f, y + h / 2f, 0f);
+            Vector3f half = new Vector3f(w / 2f, h / 2f, 0f);
+            if (!RoomPlacer3D.collidesAny(centers, halfExtents, centre, half)) {
+                centers.append(centre);
+                halfExtents.append(half);
             }
         }
-        int len = placed * 3;
-        float[] c = new float[len];
-        float[] he = new float[len];
-        System.arraycopy(centers, 0, c, 0, len);
-        System.arraycopy(halfExtents, 0, he, 0, len);
-        return DungeonGrids.pointBundle(c, he);
-    }
-
-    private static boolean collidesAny(float[] centers, float[] halfExtents, int placed,
-                                       float cx, float cy, float hx, float hy) {
-        float buf = 0.5f;
-        for (int i = 0; i < placed; i++) {
-            float ox = centers[i * 3];
-            float oy = centers[i * 3 + 1];
-            float ohx = halfExtents[i * 3];
-            float ohy = halfExtents[i * 3 + 1];
-            boolean collides = ox - ohx - buf < cx + hx + buf
-                    && ox + ohx + buf > cx - hx - buf
-                    && oy - ohy - buf < cy + hy + buf
-                    && oy + ohy + buf > cy - hy - buf;
-            if (collides) {
-                return true;
-            }
-        }
-        return false;
+        return DungeonGrids.pointBundle(centers, halfExtents);
     }
 }

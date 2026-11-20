@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.annotations.tool.ToolAnnotation;
@@ -114,8 +115,6 @@ public final class RingTool extends Tool {
     public static final int ANCHOR_DOTS_ORDER = 10;
 
     public static final int COORDINATES_PER_POINT = 3;
-
-    public static final int SEGMENT_FLOATS = 2 * COORDINATES_PER_POINT;
 
     public static final float HALF = 0.5f;
 
@@ -276,8 +275,11 @@ public final class RingTool extends Tool {
     /** Surface point the hover preview was last fitted for. */
     final Vector3f previewedHit = new Vector3f();
 
-    /** Segment endpoints of each graph ring drawn from the graph's marks, the ring hover's targets. */
-    List<float[]> graphRingSegments = new ArrayList<>();
+    /**
+     * Segment endpoints of each graph ring drawn from the graph's marks, the ring hover's targets:
+     * segment {@code s} runs from point {@code 2s} to point {@code 2s + 1}.
+     */
+    List<PackedPoints> graphRingSegments = new ArrayList<>();
 
     /** Label of each of {@link #graphRingSegments}. */
     List<String> graphRingLabels = new ArrayList<>();
@@ -289,7 +291,7 @@ public final class RingTool extends Tool {
     private RingToolState dragBefore;
     private LineSet ringLines = new LineSet(0);
     private int[] ringSegmentStart = { 0 };
-    private float[] ringLabelXyz = new float[0];
+    private PackedPoints ringLabels = new PackedPoints(0);
     private final Matrix4f ringNumbersPlacedView = new Matrix4f().zero();
     private int numbersPlacedWidth;
     private int numbersPlacedHeight;
@@ -354,17 +356,15 @@ public final class RingTool extends Tool {
             return activeRingSubTool().pendingDraft();
         }
         Draft shown = new Draft();
-        float[] authored = positionsOf(draftAuthoredVertexId);
-        int authoredCount = authored.length / COORDINATES_PER_POINT;
-        shown.points = Arrays.copyOf(authored, COORDINATES_PER_POINT * (authoredCount
-                + draft.anchorCount - draft.authoredCount()));
-        shown.pointLabels = new String[shown.points.length / COORDINATES_PER_POINT];
+        shown.points = positionsOf(draftAuthoredVertexId);
+        int authoredCount = shown.points.size();
+        shown.points.resize(authoredCount + draft.anchorCount - draft.authoredCount());
+        shown.pointLabels = new String[shown.points.size()];
         Arrays.fill(shown.pointLabels, 0, authoredCount, "authored");
         int point = authoredCount;
         for (int anchor = 0; anchor < draft.anchorCount && point < shown.pointLabels.length; anchor++) {
             if (!draft.anchorAuthored[anchor]) {
-                System.arraycopy(draft.anchorXyz, COORDINATES_PER_POINT * anchor, shown.points,
-                        COORDINATES_PER_POINT * point, COORDINATES_PER_POINT);
+                shown.points.set(point, draft.anchorPositions.at(anchor));
                 shown.pointLabels[point++] = "supporting";
             }
         }
@@ -424,7 +424,7 @@ public final class RingTool extends Tool {
      * @param detail the short line the item shows
      */
     private void fillFromTrace(Item item, SurfaceSpline ring, String detail) {
-        item.location.set(ring.path.centroid[0], ring.path.centroid[1], ring.path.centroid[2]);
+        item.location.set(ring.path.centroid);
         item.size = ring.marks.markedEdgeCount;
         item.length = ring.path.length;
         MeshTopology surface = scene.halfEdgeSurface();
@@ -1326,8 +1326,8 @@ public final class RingTool extends Tool {
                 owner.toolName(), drawnRingNumber(ring),
                 spline.authoredCount(),
                 spline.anchorCount - spline.authoredCount(), spline.marks.markedEdgeCount,
-                spline.path.length, spline.path.centroid[0], spline.path.centroid[1],
-                spline.path.centroid[2], spline.minimumInteriorAngleDegrees,
+                spline.path.length, spline.path.centroid.x, spline.path.centroid.y,
+                spline.path.centroid.z, spline.minimumInteriorAngleDegrees,
                 (System.nanoTime() - start) / 1e6,
                 confirmedRings.get(ring).unsaved ? "unsaved" : "saved");
         Platforms.get().log(LOG_PREFIX + lastRow + ", fingerprint "
@@ -1547,14 +1547,13 @@ public final class RingTool extends Tool {
      * Packed xyz of a list of mesh vertices, the form a statement stores anchors in.
      *
      * @param vertexIds mesh vertices
-     * @return their positions, three floats each
+     * @return their positions, the origin while no surface is shown
      */
-    public float[] positionsOf(int[] vertexIds) {
-        float[] xyz = new float[COORDINATES_PER_POINT * vertexIds.length];
+    public PackedPoints positionsOf(int[] vertexIds) {
+        PackedPoints xyz = new PackedPoints(vertexIds.length);
         MeshTopology surface = scene.halfEdgeSurface();
         for (int anchor = 0; surface != null && anchor < vertexIds.length; anchor++) {
-            surface.vertexPosition(vertexIds[anchor], scratchPosition);
-            PackedPoints.store(xyz, COORDINATES_PER_POINT * anchor, scratchPosition);
+            xyz.set(anchor, surface.vertexPosition(vertexIds[anchor], scratchPosition));
         }
         return xyz;
     }
@@ -1568,20 +1567,6 @@ public final class RingTool extends Tool {
     public Vector3f positionOf(int vertexId) {
         MeshTopology surface = scene.halfEdgeSurface();
         return surface == null ? new Vector3f() : surface.vertexPosition(vertexId);
-    }
-
-    /**
-     * Packed xyz of a vertex loop, the reference a fit runs against and the path a ring authored
-     * as an edge mask follows.
-     */
-    private double[] loopPositionsOf(int[] loop) {
-        double[] xyz = new double[COORDINATES_PER_POINT * loop.length];
-        MeshTopology surface = scene.halfEdgeSurface();
-        for (int point = 0; surface != null && point < loop.length; point++) {
-            surface.vertexPosition(loop[point], scratchPosition);
-            PackedPoints.store(xyz, COORDINATES_PER_POINT * point, scratchPosition);
-        }
-        return xyz;
     }
 
     /**
@@ -1642,7 +1627,7 @@ public final class RingTool extends Tool {
                     continue;
                 }
                 int[] authored = held.authoredVertexId;
-                float[] authoredXyz = SurfaceWaypoints.resolvingPoints(
+                PackedPoints authoredXyz = SurfaceWaypoints.resolvingPoints(
                         geodesics.metric.nearestVertex, authored, authored.length);
                 if (held.isBisector()) {
                     savedId[ring] = owner != null ? owner.id : savedId[ring];
@@ -1864,7 +1849,7 @@ public final class RingTool extends Tool {
                 }
             }
             if (statement != null && SplineCutNode.NODE_ID.equals(statement.type)) {
-                float[] points = SurfaceWaypoints.parse(
+                PackedPoints points = SurfaceWaypoints.parse(
                         String.valueOf(statement.inputSources.get(SplineCutNode.POINTS.name)));
                 String[] endLabels = EdgeMarks.parseLabels(String.valueOf(
                         statement.inputSources.get(SplineCutNode.ENDS.name)));
@@ -1876,15 +1861,14 @@ public final class RingTool extends Tool {
                 boolean walled = ends.length == 2 && ends[0] >= 0 && ends[1] >= 0;
                 int[] anchors = walled && graphSpline != null ? graphAuthored
                         : SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
-                                points.length / COORDINATES_PER_POINT);
+                                points.size());
                 Object modeArgument = statement.inputSources.get(SplineCutNode.MODE.name);
                 RingSegmentMode bisectorMode = RingSegmentMode.named(
                         modeArgument instanceof String text ? text : null);
                 Object stretchArgument = statement.inputSources.get(SplineCutNode.STRETCH.name);
-                float[] stretchPoints = SurfaceWaypoints.parse(
+                PackedPoints stretchPoints = SurfaceWaypoints.parse(
                         stretchArgument instanceof String text ? text : null);
-                int[] stretch = stretchPoints.length
-                        == SplineCutNode.STRETCH_POINTS * COORDINATES_PER_POINT
+                int[] stretch = stretchPoints.size() == SplineCutNode.STRETCH_POINTS
                                 ? SurfaceWaypoints.snap(geodesics.metric.nearestVertex,
                                         stretchPoints, SplineCutNode.STRETCH_POINTS)
                                 : null;
@@ -1913,7 +1897,7 @@ public final class RingTool extends Tool {
             Vector3f normal = null;
             int[] anchors;
             if (spline) {
-                float[] points = SurfaceWaypoints.parse(
+                PackedPoints points = SurfaceWaypoints.parse(
                         String.valueOf(statement.inputSources.get(SplineRingNode.POINTS.name)));
                 Object normalArgument = statement.inputSources.get(SplineRingNode.NORMAL.name);
                 normal = SurfaceWaypoints.point(normalArgument instanceof String text ? text : null);
@@ -1926,7 +1910,7 @@ public final class RingTool extends Tool {
                 }
                 anchors = graphSpline != null ? graphAuthored
                         : SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
-                                points.length / COORDINATES_PER_POINT);
+                                points.size());
             } else {
                 graphSpline = null;
                 anchors = fitLoop(EdgeMarks.orderedLoop(surface, entry.getValue()), anchored,
@@ -1952,8 +1936,8 @@ public final class RingTool extends Tool {
                 double[] noFraction = new double[loop.length];
                 Arrays.fill(noEdge, -1);
                 Arrays.fill(noFraction, -1.0);
-                traced.path = new TracedSurfacePath(loopPositionsOf(loop), loop, noEdge,
-                        noFraction, loop.length, true).measure();
+                traced.path = new TracedSurfacePath(positionsOf(loop), loop, noEdge,
+                        noFraction, true).measure();
                 traced.marks = new EdgeMarks(entry.getValue(), 0);
             }
             if (spline) {
@@ -1991,7 +1975,7 @@ public final class RingTool extends Tool {
         }
         int[] anchors = loop.clone();
         if (loop.length >= SplineAnchorFit.STARTING_ANCHORS) {
-            if (!ring.fit.fit(loopPositionsOf(loop), loop.length, loop, 0)) {
+            if (!ring.fit.fit(positionsOf(loop), loop.length, loop, 0)) {
                 lastError = "no anchors fit " + name;
                 return new int[0];
             }
@@ -2417,12 +2401,14 @@ public final class RingTool extends Tool {
         numbersPlacedWidth = width;
         numbersPlacedHeight = height;
         int stride = 2 * LineSet.FLOATS_PER_VERTEX;
+        PackedPoints segmentStarts = PackedPoints.view(ringLines.vertices, 0, stride);
+        PackedPoints startNormalsA = PackedPoints.view(ringLines.vertices, COORDINATES_PER_POINT, stride);
+        PackedPoints startNormalsB = PackedPoints.view(ringLines.vertices, 2 * COORDINATES_PER_POINT, stride);
         for (HyperString number : ringNumbers) {
             int ring = (Integer) number.getData();
             number.anchorCamera = null;
             number.shown = false;
-            Vector3f centre = camera.projectToPixels(identityModel,
-                    PackedPoints.at(ringLabelXyz, COORDINATES_PER_POINT * ring));
+            Vector3f centre = camera.projectToPixels(identityModel, ringLabels.at(ring));
             if (centre == null) {
                 continue;
             }
@@ -2430,14 +2416,10 @@ public final class RingTool extends Tool {
             int segments = ringSegmentStart[ring + 1] - first;
             double[] offCentre = new double[segments];
             for (int segment = 0; segment < segments; segment++) {
-                int base = (first + segment) * stride;
-                float[] vertex = ringLines.vertices;
-                Vector3f start = PackedPoints.at(vertex, base);
+                Vector3f start = segmentStarts.at(first + segment);
                 Vector3f toEye = new Vector3f(camera.position).sub(start);
-                boolean facing = true;
-                for (int side = 1; side <= 2; side++) {
-                    facing &= PackedPoints.at(vertex, base + side * COORDINATES_PER_POINT).dot(toEye) > 0f;
-                }
+                boolean facing = startNormalsA.at(first + segment).dot(toEye) > 0f
+                        && startNormalsB.at(first + segment).dot(toEye) > 0f;
                 Vector3f pixel = facing ? camera.projectToPixels(identityModel, start) : null;
                 offCentre[segment] = pixel != null ? Math.hypot(pixel.x - centre.x, pixel.y - centre.y)
                         : Double.POSITIVE_INFINITY;
@@ -2454,11 +2436,8 @@ public final class RingTool extends Tool {
                     break;
                 }
                 offCentre[nearest] = Double.POSITIVE_INFINITY;
-                int base = (first + nearest) * stride;
-                float[] vertex = ringLines.vertices;
-                float lift = (float) (NUMBER_DEPTH_TIE_PIXELS
-                        * camera.worldPerPixel(PackedPoints.at(vertex, base)));
-                Vector3f start = PackedPoints.at(vertex, base);
+                Vector3f start = segmentStarts.at(first + nearest);
+                float lift = (float) (NUMBER_DEPTH_TIE_PIXELS * camera.worldPerPixel(start));
                 if (camera.pointVisibility.visiblePixel(camera, start, lift) != null) {
                     number.anchor.set(start);
                     number.anchorDepthLift = lift;
@@ -2492,7 +2471,7 @@ public final class RingTool extends Tool {
     private void rebuildRings() {
         ringsStale = false;
         MeshTopology surface = scene.halfEdgeSurface();
-        List<float[]> perRing = new ArrayList<>();
+        List<PackedPoints> perRing = new ArrayList<>();
         List<LineSet> perRingLines = new ArrayList<>();
         List<String> perRingLiveLabel = new ArrayList<>();
         Map<String, boolean[]> graphMarks = scene.ringMarksByLabel;
@@ -2506,12 +2485,21 @@ public final class RingTool extends Tool {
                 }
                 boolean undrawn = convertedGraphLabels.contains(entry.getKey())
                         || hiddenRingLabels.contains(entry.getKey());
-                float[] ringSegments = undrawn ? new float[0]
-                        : markedEdgeSegments(surface, entry.getValue());
-                perRing.add(ringSegments);
-                perRingLiveLabel.add(entry.getKey());
-                LineSet edges = new LineSet(ringSegments.length / SEGMENT_FLOATS);
                 boolean[] marks = entry.getValue();
+                // Every marked edge as one endpoint pair, the shape the thick overlay draws, so a ring
+                // authored as an edge mask needs no ordering to render.
+                PackedPoints segments = new PackedPoints();
+                for (int index = 0; !undrawn && index < surface.edgeCount(); index++) {
+                    int edgeId = surface.edgeIdAt(index);
+                    if (edgeId < marks.length && marks[edgeId]) {
+                        int halfEdge = surface.edgeHalfEdge(edgeId);
+                        segments.append(surface.vertexPosition(surface.halfEdgeVertex(halfEdge)));
+                        segments.append(surface.vertexPosition(surface.halfEdgeEndVertex(halfEdge)));
+                    }
+                }
+                perRing.add(segments);
+                perRingLiveLabel.add(entry.getKey());
+                LineSet edges = new LineSet(segments.size() / 2);
                 for (int index = 0; !undrawn && index < surface.edgeCount(); index++) {
                     int edgeId = surface.edgeIdAt(index);
                     if (edgeId < marks.length && marks[edgeId]) {
@@ -2520,7 +2508,7 @@ public final class RingTool extends Tool {
                 }
                 perRingLines.add(edges);
                 if (!undrawn) {
-                    graphRingSegments.add(ringSegments);
+                    graphRingSegments.add(segments);
                     graphRingLabels.add(entry.getKey());
                 }
             }
@@ -2532,8 +2520,13 @@ public final class RingTool extends Tool {
             boolean hidden = ring == draftSourceRing && draft != null
                     || confirmedRings.get(ring).deleted || hiddenRingLabels.contains(liveLabel);
             SurfaceSpline spline = confirmedRings.get(ring).spline;
-            perRing.add(hidden ? new float[0] : closedPolylineSegments(
-                    spline.path.curve(spline.path.surfacePositions).drawnPositions(0)));
+            // The drawn loop as the endpoint pairs the line overlay draws, including the span that
+            // closes the last point back onto the first.
+            PackedPoints loop = hidden ? new PackedPoints() : spline.path.curve(spline.path.surfacePositions)
+                    .drawnPositions(0);
+            int[] pairs = new int[loop.size() >= 2 ? 2 * loop.size() : 0];
+            Arrays.setAll(pairs, slot -> (slot / 2 + slot % 2) % loop.size());
+            perRing.add(loop.gather(pairs));
             perRingLines.add(hidden ? new LineSet(0) : splineLines(surface, spline));
             perRingLiveLabel.add(liveLabel);
         }
@@ -2546,10 +2539,10 @@ public final class RingTool extends Tool {
         ringLines = new LineSet(total);
         ringSegmentStart = new int[perRing.size() + 1];
         drawnRingColors = new Color[perRing.size()];
-        ringLabelXyz = new float[COORDINATES_PER_POINT * perRing.size()];
+        ringLabels = new PackedPoints(perRing.size());
         Palette palette = scene.palette;
         for (int ring = 0; ring < perRing.size(); ring++) {
-            float[] ringSegments = perRing.get(ring);
+            PackedPoints ringSegments = perRing.get(ring);
             LineSet lines = perRingLines.get(ring);
             System.arraycopy(lines.vertices, 0, ringLines.vertices, ringLines.cursor,
                     lines.cursor);
@@ -2557,7 +2550,7 @@ public final class RingTool extends Tool {
             ringSegmentStart[ring + 1] = ringLines.vertexCount() / 2;
             String note = ringNoteByLabel.get(perRingLiveLabel.get(ring));
             drawnRingColors[ring] = note != null ? palette.highlight : Palette.entry(palette.ring, ring);
-            if (ringSegments.length == 0 && ring < drawnRingLabel.length) {
+            if (ringSegments.size() == 0 && ring < drawnRingLabel.length) {
                 drawnRingLabel[ring] = "";
             } else if (note != null && ring < drawnRingLabel.length) {
                 drawnRingLabel[ring] += " " + note;
@@ -2570,54 +2563,23 @@ public final class RingTool extends Tool {
      * Measure one ring's length-weighted centroid, the point on screen its number is placed
      * nearest to.
      *
-     * @param segments the ring's packed segment endpoints
+     * @param segments the ring's segment endpoints, segment {@code s} from point {@code 2s} to
+     *                 point {@code 2s + 1}
      * @param ring     the ring's position in the overlay
      */
-    private void measureLoop(float[] segments, int ring) {
-        double weightedX = 0.0;
-        double weightedY = 0.0;
-        double weightedZ = 0.0;
+    private void measureLoop(PackedPoints segments, int ring) {
+        Vector3d weighted = new Vector3d();
         double totalSpan = 0.0;
-        for (int base = 0; base + SEGMENT_FLOATS <= segments.length; base += SEGMENT_FLOATS) {
-            double spanX = segments[base + COORDINATES_PER_POINT] - segments[base];
-            double spanY = segments[base + COORDINATES_PER_POINT + 1] - segments[base + 1];
-            double spanZ = segments[base + COORDINATES_PER_POINT + 2] - segments[base + 2];
-            double span = Math.sqrt(spanX * spanX + spanY * spanY + spanZ * spanZ);
-            weightedX += span * (segments[base] + HALF * spanX);
-            weightedY += span * (segments[base + 1] + HALF * spanY);
-            weightedZ += span * (segments[base + 2] + HALF * spanZ);
+        for (int segment = 0; segment < segments.size() / 2; segment++) {
+            Vector3f near = segments.at(2 * segment);
+            double span = Math.sqrt(segments.distanceSquared(2 * segment + 1, near));
+            weighted.fma(span * HALF, new Vector3d(near).add(segments.at(2 * segment + 1)));
             totalSpan += span;
         }
         if (totalSpan <= 0.0) {
             return;
         }
-        float centroidX = (float) (weightedX / totalSpan);
-        float centroidY = (float) (weightedY / totalSpan);
-        float centroidZ = (float) (weightedZ / totalSpan);
-        ringLabelXyz[COORDINATES_PER_POINT * ring] = centroidX;
-        ringLabelXyz[COORDINATES_PER_POINT * ring + 1] = centroidY;
-        ringLabelXyz[COORDINATES_PER_POINT * ring + 2] = centroidZ;
-    }
-
-    /**
-     * A closed polyline as the packed endpoint pairs the line overlay draws, including the span
-     * that closes the last point back onto the first.
-     */
-    private static float[] closedPolylineSegments(float[] polyline) {
-        int points = polyline.length / COORDINATES_PER_POINT;
-        if (points < 2) {
-            return new float[0];
-        }
-        float[] segments = new float[SEGMENT_FLOATS * points];
-        for (int point = 0; point < points; point++) {
-            int next = (point + 1) % points;
-            int target = SEGMENT_FLOATS * point;
-            System.arraycopy(polyline, COORDINATES_PER_POINT * point, segments, target,
-                    COORDINATES_PER_POINT);
-            System.arraycopy(polyline, COORDINATES_PER_POINT * next, segments,
-                    target + COORDINATES_PER_POINT, COORDINATES_PER_POINT);
-        }
-        return segments;
+        ringLabels.set(ring, new Vector3f(weighted.div(totalSpan)));
     }
 
     /**
@@ -2642,41 +2604,4 @@ public final class RingTool extends Tool {
         return lines;
     }
 
-    /**
-     * Every marked mesh edge as one packed endpoint pair, the shape the thick overlay draws, so a
-     * ring authored as an edge mask needs no ordering to render.
-     *
-     * @param mesh          surface the mask indexes by edge id
-     * @param marksByEdgeId edge-id-indexed mask
-     * @return packed segment endpoints, six floats per marked edge
-     */
-    public static float[] markedEdgeSegments(MeshTopology mesh, boolean[] marksByEdgeId) {
-        int marked = 0;
-        for (int index = 0; marksByEdgeId != null && index < mesh.edgeCount(); index++) {
-            int edgeId = mesh.edgeIdAt(index);
-            if (edgeId < marksByEdgeId.length && marksByEdgeId[edgeId]) {
-                marked++;
-            }
-        }
-        float[] segments = new float[SEGMENT_FLOATS * marked];
-        Vector3f tail = new Vector3f();
-        Vector3f head = new Vector3f();
-        int cursor = 0;
-        for (int index = 0; marksByEdgeId != null && index < mesh.edgeCount(); index++) {
-            int edgeId = mesh.edgeIdAt(index);
-            if (edgeId >= marksByEdgeId.length || !marksByEdgeId[edgeId]) {
-                continue;
-            }
-            int halfEdge = mesh.edgeHalfEdge(edgeId);
-            mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), tail);
-            mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), head);
-            segments[cursor++] = tail.x;
-            segments[cursor++] = tail.y;
-            segments[cursor++] = tail.z;
-            segments[cursor++] = head.x;
-            segments[cursor++] = head.y;
-            segments[cursor++] = head.z;
-        }
-        return segments;
-    }
 }

@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * The quad mesh extracted from the relaxed integer grid map: one vertex per
@@ -31,8 +32,8 @@ public final class ExtractedQuadMesh {
     /** Quad mesh vertices. */
     public int quadVertexCount;
 
-    /** Vertex positions on the surface, packed xyz per vertex. */
-    public float[] positions;
+    /** Vertex positions on the surface, one per vertex. */
+    public PackedPoints positions;
 
     /** One of the {@code KIND_*} constants per vertex. */
     public int[] vertexKind;
@@ -83,8 +84,7 @@ public final class ExtractedQuadMesh {
      * @return the quad mesh, normals computed
      */
     public HalfEdgeMesh toMesh() {
-        HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(
-                Arrays.copyOf(positions, quadVertexCount * POSITION_FLOATS),
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(positions.copy(),
                 Arrays.copyOf(quadCorner, quadCount * QUAD_CORNERS), QUAD_CORNERS);
         mesh.computeNormals();
         return mesh;

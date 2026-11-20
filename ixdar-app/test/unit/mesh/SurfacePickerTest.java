@@ -12,6 +12,7 @@ import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * CRAW-28: the two pieces the ring tool's hover rests on, on hand-authored surfaces — where the
@@ -225,13 +226,11 @@ public class SurfacePickerTest {
      * @return the open diamond tube as a quad half-edge mesh
      */
     private static HalfEdgeMesh diamondTube() {
-        float[] positions = new float[COORDINATES_PER_POINT * DIAMOND_SIDES
-                * DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW];
+        PackedPoints positions = new PackedPoints(DIAMOND_SIDES * DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW);
         for (int row = 0; row < DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW; row++) {
             for (int side = 0; side < DIAMOND_SIDES; side++) {
-                System.arraycopy(diamondVertex(row, side), 0, positions,
-                        COORDINATES_PER_POINT * (DIAMOND_SIDES * row + side),
-                        COORDINATES_PER_POINT);
+                float[] vertex = diamondVertex(row, side);
+                positions.set(DIAMOND_SIDES * row + side, vertex[0], vertex[1], vertex[2]);
             }
         }
         int[] faces =
@@ -257,11 +256,12 @@ public class SurfacePickerTest {
      * @return the cube as a half-edge mesh
      */
     private static HalfEdgeMesh unitCube() {
-        float[] positions = {
-            -HALF_SIDE, -HALF_SIDE, -HALF_SIDE, HALF_SIDE, -HALF_SIDE, -HALF_SIDE,
-            HALF_SIDE, HALF_SIDE, -HALF_SIDE, -HALF_SIDE, HALF_SIDE, -HALF_SIDE,
-            -HALF_SIDE, -HALF_SIDE, HALF_SIDE, HALF_SIDE, -HALF_SIDE, HALF_SIDE,
-            HALF_SIDE, HALF_SIDE, HALF_SIDE, -HALF_SIDE, HALF_SIDE, HALF_SIDE };
+        PackedPoints positions = new PackedPoints(8);
+        for (int corner = 0; corner < 8; corner++) {
+            float x = (corner + 1) % 4 < 2 ? -HALF_SIDE : HALF_SIDE;
+            float y = corner % 4 < 2 ? -HALF_SIDE : HALF_SIDE;
+            positions.set(corner, x, y, corner < 4 ? -HALF_SIDE : HALF_SIDE);
+        }
         int[] faces = {
             0, 2, 1, 0, 3, 2,
             4, 5, 6, 4, 6, 7,
@@ -278,15 +278,13 @@ public class SurfacePickerTest {
      * @return the tube as a half-edge mesh
      */
     private static HalfEdgeMesh tube() {
-        float[] positions = new float[COORDINATES_PER_POINT * TUBE_SIDES * TUBE_RINGS];
+        PackedPoints positions = new PackedPoints(TUBE_SIDES * TUBE_RINGS);
         for (int ring = 0; ring < TUBE_RINGS; ring++) {
             float x = -HALF_SIDE * TUBE_LENGTH + TUBE_LENGTH * ring / (TUBE_RINGS - 1);
             for (int side = 0; side < TUBE_SIDES; side++) {
                 double angle = 2.0 * Math.PI * side / TUBE_SIDES;
-                int base = COORDINATES_PER_POINT * (TUBE_SIDES * ring + side);
-                positions[base] = x;
-                positions[base + 1] = (float) (TUBE_RADIUS * Math.cos(angle));
-                positions[base + 2] = (float) (TUBE_RADIUS * Math.sin(angle));
+                positions.set(TUBE_SIDES * ring + side, x, (float) (TUBE_RADIUS * Math.cos(angle)),
+                        (float) (TUBE_RADIUS * Math.sin(angle)));
             }
         }
         int[] faces = new int[2 * COORDINATES_PER_POINT * TUBE_SIDES * (TUBE_RINGS - 1)];

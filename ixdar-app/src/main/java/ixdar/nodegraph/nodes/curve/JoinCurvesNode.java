@@ -16,6 +16,7 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
@@ -81,35 +82,19 @@ public class JoinCurvesNode implements MeshNode {
         Object dedupObj = FieldBroadcast.getInputOrDefault(ctx, DEDUPLICATE.name, DEDUPLICATE.defaultValue);
         if (dedupObj instanceof Boolean b) dedup = b;
 
-        float[] posA = cgA.positions;
+        PackedPoints posA = cgA.positions;
         int offA0 = cgA.firstPoint(0);
         int nA = cgA.pointCount(0);
 
-        float[] posB = cgB.positions;
+        PackedPoints posB = cgB.positions;
         int offB0 = cgB.firstPoint(0);
         int nB = cgB.pointCount(0);
 
-        int skipB = 0;
-        if (dedup && nA > 0 && nB > 0) {
-            int lastA = 3 * (offA0 + nA - 1);
-            int firstB = 3 * offB0;
-            float dx = posA[lastA] - posB[firstB];
-            float dy = posA[lastA + 1] - posB[firstB + 1];
-            float dz = posA[lastA + 2] - posB[firstB + 2];
-            if (dx * dx + dy * dy + dz * dz < DEDUP_DISTANCE_SQUARED) {
-                skipB = 1;
-            }
-        }
+        int skipB = dedup && nA > 0 && nB > 0 && posA.at(offA0 + nA - 1)
+                .distanceSquared(posB.at(offB0)) < DEDUP_DISTANCE_SQUARED ? 1 : 0;
 
         int totalPoints = nA + nB - skipB;
-        float[] combined = new float[totalPoints * 3];
-
-        System.arraycopy(posA, offA0 * 3, combined, 0, nA * 3);
-
-        int srcOffset = (offB0 + skipB) * 3;
-        int dstOffset = nA * 3;
-        int copyCount = (nB - skipB) * 3;
-        System.arraycopy(posB, srcOffset, combined, dstOffset, copyCount);
+        PackedPoints combined = PackedPoints.concat(posA.slice(offA0, nA), posB.slice(offB0 + skipB, nB - skipB));
 
         Map<String, float[]> pointAttributes = new TreeMap<>();
         Map<String, float[]> curveAttributes = new TreeMap<>();

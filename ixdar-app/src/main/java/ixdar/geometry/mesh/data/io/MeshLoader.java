@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Loads OBJ, PLY, OFF and glTF mesh files into a {@link HalfEdgeMesh}, or an {@link ArrayMesh} when
@@ -76,21 +77,21 @@ public final class MeshLoader {
      * The mesh a file's flat arrays describe: a {@link HalfEdgeMesh} keeping the file's vertex and
      * face order, or an {@link ArrayMesh} over the arrays when the faces have no half-edge form.
      *
-     * @param positions    packed xyz triples
-     * @param normals      packed vertex normals matching {@code positions}, or {@code null} to compute
-     *                     them from the faces
+     * @param positions    one point per vertex; the mesh keeps it
+     * @param normals      one normal per vertex of {@code positions}, or {@code null} to compute them
+     *                     from the faces; an indexed mesh keeps it
      * @param faceIndices  vertex indices grouped by {@code vertsPerFace}
      * @param vertsPerFace corners per face
      * @return the half-edge mesh, else the indexed mesh of a non-manifold or degenerate file
      */
-    public static MeshTopology indexedMesh(float[] positions, float[] normals, int[] faceIndices,
+    public static MeshTopology indexedMesh(PackedPoints positions, PackedPoints normals, int[] faceIndices,
             int vertsPerFace) {
         try {
             HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(positions, faceIndices, vertsPerFace);
             mesh.computeNormals();
             if (normals != null) {
-                System.arraycopy(normals, 0, mesh.vertexNormals, 0, Math.min(normals.length,
-                        mesh.vertexNormals.length));
+                int given = Math.min(normals.size(), mesh.vertexNormals.size());
+                mesh.vertexNormals.slice(0, given).copyFrom(normals.slice(0, given));
             }
             return mesh;
         } catch (InvalidMeshTopologyException noHalfEdgeForm) {

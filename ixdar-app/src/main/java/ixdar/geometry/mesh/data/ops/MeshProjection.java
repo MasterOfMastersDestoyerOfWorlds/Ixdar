@@ -5,6 +5,7 @@ import java.util.Arrays;
 import ixdar.geometry.mesh.data.paths.query.RayBatch;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Points carried onto a target mesh along a direction each, cast both ways in parallel and kept at
@@ -27,21 +28,21 @@ public final class MeshProjection {
     /**
      * Cast every point's ray forward and backward against the target.
      *
-     * @param originXyz    packed ray origins, in the target's coordinates
-     * @param directionXyz packed ray directions, unit length so offsets are distances
-     * @param target       the mesh projected onto
+     * @param origins    ray origins, in the target's coordinates
+     * @param directions ray directions, one per origin, unit length so offsets are distances
+     * @param target     the mesh projected onto
      * @return the nearer hit per point
      */
-    public static MeshProjection along(float[] originXyz, float[] directionXyz, MeshTopology target) {
-        MeshProjection projection = new MeshProjection(originXyz.length / 3);
+    public static MeshProjection along(PackedPoints origins, PackedPoints directions, MeshTopology target) {
+        MeshProjection projection = new MeshProjection(origins.size());
         int[] faceOfTriangle = new int[target.triangleCount()];
         TriangleBvh tree = TriangleBvh.over(target, faceOfTriangle);
         new RayBatch(tree, 0).forEach(projection.offset.length, (rays, point) -> {
             double nearest = Double.POSITIVE_INFINITY;
             for (int sign = 1; sign >= -1; sign -= 2) {
-                rays.origin.set(originXyz[point * 3], originXyz[point * 3 + 1], originXyz[point * 3 + 2]);
-                rays.direction.set(sign * directionXyz[point * 3], sign * directionXyz[point * 3 + 1],
-                        sign * directionXyz[point * 3 + 2]);
+                rays.origin.set(origins.get(point, 0), origins.get(point, 1), origins.get(point, 2));
+                rays.direction.set(directions.get(point, 0), directions.get(point, 1), directions.get(point, 2))
+                        .mul(sign);
                 int triangle = tree.nearestHitAvoiding(rays.origin, rays.direction, nearest, null, 0, rays.stack,
                         rays.parameter);
                 if (triangle >= 0) {

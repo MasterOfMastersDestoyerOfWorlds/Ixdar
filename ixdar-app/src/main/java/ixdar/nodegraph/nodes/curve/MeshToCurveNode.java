@@ -61,7 +61,7 @@ public class MeshToCurveNode implements MeshNode {
         }
         MeshTopology mesh = gb.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput(GEOMETRY.name,gb.withSlot(CurveGeometry.SLOT, CurveGeometry.singlePolyline(new float[0], false)));
+            ctx.setOutput(GEOMETRY.name,gb.withSlot(CurveGeometry.SLOT, CurveGeometry.singlePolyline(new PackedPoints(), false)));
             return;
         }
 
@@ -78,32 +78,18 @@ public class MeshToCurveNode implements MeshNode {
         }
 
         int nSeg = mesh.edgeCount();
-        ArrayList<Float> pts = new ArrayList<>(nSeg * 6);
+        PackedPoints pts = new PackedPoints(2 * nSeg);
         Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
         for (int ei = 0; ei < nSeg; ei++) {
-            int eid = mesh.edgeIdAt(ei);
-            int he = mesh.edgeHalfEdge(eid);
-            int va = mesh.halfEdgeVertex(he);
-            int vb = mesh.halfEdgeEndVertex(he);
-            mesh.vertexPosition(va, a);
-            mesh.vertexPosition(vb, b);
-            pts.add(a.x);
-            pts.add(a.y);
-            pts.add(a.z);
-            pts.add(b.x);
-            pts.add(b.y);
-            pts.add(b.z);
-        }
-        float[] pos = new float[pts.size()];
-        for (int i = 0; i < pts.size(); i++) {
-            pos[i] = pts.get(i);
+            int he = mesh.edgeHalfEdge(mesh.edgeIdAt(ei));
+            pts.set(2 * ei, mesh.vertexPosition(mesh.halfEdgeVertex(he), a));
+            pts.set(2 * ei + 1, mesh.vertexPosition(mesh.halfEdgeEndVertex(he), a));
         }
         int[] off = new int[nSeg + 1];
         for (int i = 0; i <= nSeg; i++) {
             off[i] = 2 * i;
         }
-        CurveGeometry curve = new CurveGeometry(pos, off);
+        CurveGeometry curve = new CurveGeometry(pts, off);
         ctx.setOutput(GEOMETRY.name,gb.withSlot(CurveGeometry.SLOT, curve));
     }
 
@@ -175,12 +161,10 @@ public class MeshToCurveNode implements MeshNode {
         if (order.size() < 2) {
             return null;
         }
-        float[] pos = new float[order.size() * 3];
+        PackedPoints pos = new PackedPoints(order.size());
         Vector3f p = new Vector3f();
         for (int i = 0; i < order.size(); i++) {
-            mesh.vertexPosition(order.get(i), p);
-            int b = 3 * i;
-            PackedPoints.store(pos, b, p);
+            pos.set(i, mesh.vertexPosition(order.get(i), p));
         }
         return CurveGeometry.singlePolyline(pos, closed);
     }

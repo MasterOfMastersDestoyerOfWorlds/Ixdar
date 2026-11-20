@@ -12,6 +12,7 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.FloatField;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.nodes.data.TagGeometryNode;
@@ -23,8 +24,6 @@ import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
  * recorded on that {@link HalfEdgeMesh}. Slots that are not per-element are copied whole.
  */
 public final class SlotCarry {
-
-    public static final int HANDLE_COMPONENTS = 3;
 
     /** The op's inputs; the operand layers index this list. */
     public final List<GeometryBundle> inputs;
@@ -367,27 +366,27 @@ public final class SlotCarry {
                 slots.put(EdgeMarks.SLOT, carried);
             }
             if (anyHandles && !slots.containsKey(AssignBezierHandlesNode.SLOT_HANDLES_START)) {
-                float[] start = new float[edgeBound * HANDLE_COMPONENTS];
-                float[] end = new float[start.length];
+                PackedPoints start = new PackedPoints(edgeBound);
+                PackedPoints end = new PackedPoints(edgeBound);
                 for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
                     int edgeId = mesh.edgeIdAt(activeEdge);
                     GeometryBundle input = inputs.get(trace.edgeOperand[edgeId]);
-                    int source = trace.edgeSource[edgeId] * HANDLE_COMPONENTS;
+                    int source = trace.edgeSource[edgeId];
                     if (!trace.edgeDirected[edgeId]
                             || !(input.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START)
-                                    instanceof float[] sourceStart)
+                                    instanceof PackedPoints sourceStart)
                             || !(input.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_END)
-                                    instanceof float[] sourceEnd)
-                            || source + HANDLE_COMPONENTS > sourceStart.length
-                            || source + HANDLE_COMPONENTS > sourceEnd.length) {
+                                    instanceof PackedPoints sourceEnd)
+                            || source >= sourceStart.size() || source >= sourceEnd.size()) {
                         continue;
                     }
-                    int target = edgeId * HANDLE_COMPONENTS;
                     boolean reversed = trace.edgeReversed[edgeId];
-                    System.arraycopy(reversed ? sourceEnd : sourceStart, source, start, target,
-                            HANDLE_COMPONENTS);
-                    System.arraycopy(reversed ? sourceStart : sourceEnd, source, end, target,
-                            HANDLE_COMPONENTS);
+                    PackedPoints startSource = reversed ? sourceEnd : sourceStart;
+                    PackedPoints endSource = reversed ? sourceStart : sourceEnd;
+                    start.set(edgeId, startSource.get(source, 0), startSource.get(source, 1),
+                            startSource.get(source, 2));
+                    end.set(edgeId, endSource.get(source, 0), endSource.get(source, 1),
+                            endSource.get(source, 2));
                 }
                 slots.put(AssignBezierHandlesNode.SLOT_HANDLES_START, start);
                 slots.put(AssignBezierHandlesNode.SLOT_HANDLES_END, end);

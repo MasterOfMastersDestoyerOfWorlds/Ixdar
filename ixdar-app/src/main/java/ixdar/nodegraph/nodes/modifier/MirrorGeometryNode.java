@@ -23,6 +23,7 @@ import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.bundle.SlotCarry;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
 
 /**
@@ -134,18 +135,20 @@ public class MirrorGeometryNode implements MeshNode {
         combined.computeNormals();
         GeometryBundle doubled = SlotCarry.carry(List.of(base, base), GeometryBundle.ofMesh(combined));
 
-        if (doubled.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START) instanceof float[] start
-                && doubled.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_END) instanceof float[] end) {
-            int axisIndex = switch (axis.toUpperCase()) {
-                case Y -> 1;
-                case Z -> 2;
-                default -> 0;
+        if (doubled.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START) instanceof PackedPoints start
+                && doubled.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_END) instanceof PackedPoints end) {
+            Vector3f flip = switch (axis.toUpperCase()) {
+                case Y -> new Vector3f(1f, -1f, 1f);
+                case Z -> new Vector3f(1f, 1f, -1f);
+                default -> new Vector3f(-1f, 1f, 1f);
             };
             for (int edge = 0; edge < combined.edgeCount(); edge++) {
                 int edgeId = combined.edgeIdAt(edge);
                 if (vertexOperand[combined.halfEdgeVertex(combined.edgeHalfEdge(edgeId))] == 1) {
-                    start[edgeId * SlotCarry.HANDLE_COMPONENTS + axisIndex] *= -1f;
-                    end[edgeId * SlotCarry.HANDLE_COMPONENTS + axisIndex] *= -1f;
+                    start.set(edgeId, start.get(edgeId, 0) * flip.x, start.get(edgeId, 1) * flip.y,
+                            start.get(edgeId, 2) * flip.z);
+                    end.set(edgeId, end.get(edgeId, 0) * flip.x, end.get(edgeId, 1) * flip.y,
+                            end.get(edgeId, 2) * flip.z);
                 }
             }
         }

@@ -2,6 +2,7 @@ package ixdar.nodegraph.nodes.math;
 
 import java.util.List;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.FloatField;
 
 import java.util.Map;
@@ -56,11 +57,10 @@ public class CombineXyzNode implements MeshNode {
 
         if (xo instanceof FloatField || yo instanceof FloatField || zo instanceof FloatField) {
             int n = FieldBroadcast.floatFieldLength3(xo, yo, zo);
-            float[] d = new float[n * 3];
+            PackedPoints d = new PackedPoints(n);
             for (int i = 0; i < n; i++) {
-                d[3 * i] = FieldBroadcast.floatAt(xo, i, 0f);
-                d[3 * i + 1] = FieldBroadcast.floatAt(yo, i, 0f);
-                d[3 * i + 2] = FieldBroadcast.floatAt(zo, i, 0f);
+                d.set(i, FieldBroadcast.floatAt(xo, i, 0f), FieldBroadcast.floatAt(yo, i, 0f),
+                        FieldBroadcast.floatAt(zo, i, 0f));
             }
             ctx.setOutput(VECTOR.name, new Vector3Field(d));
             return;

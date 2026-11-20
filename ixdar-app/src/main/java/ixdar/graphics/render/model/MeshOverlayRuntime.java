@@ -9,7 +9,7 @@ import java.util.Map;
 import org.joml.Matrix4f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.TriangleGeometry;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
@@ -176,15 +176,15 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
 
     /**
      * Upload one diagnostic's geometry groups, palette-coloured in this order: face groups as
-     * dot clouds, path groups as lines, marker groups as large markers. Every argument is
-     * world-space flat xyz, as {@code ArrangementDiagnostic}'s resolve methods produce.
+     * dot clouds, path groups as lines, marker groups as large markers. Every point is world
+     * space, as {@code ArrangementDiagnostic}'s resolve methods produce.
      *
      * @param faceGroupCenters one dot cloud per face group
      * @param markerPositions  one point set per marker group
      * @param polylines        one point sequence per path group
      */
-    public void setDiagnostic(List<float[]> faceGroupCenters, List<float[]> markerPositions,
-            List<float[]> polylines) {
+    public void setDiagnostic(List<PackedPoints> faceGroupCenters,
+            List<PackedPoints> markerPositions, List<PackedPoints> polylines) {
         List<Color> palette = new ArrayList<>();
         Color[] cycle = Scene.activePalette().overlayGroup;
         int groups = faceGroupCenters.size() + polylines.size() + markerPositions.size();
@@ -203,24 +203,26 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      * @param polylines        one point sequence per path group
      * @param groupColors      one colour per group, face groups first, then paths, then markers
      */
-    public void setDiagnostic(List<float[]> faceGroupCenters, List<float[]> markerPositions,
-            List<float[]> polylines, List<Color> groupColors) {
+    public void setDiagnostic(List<PackedPoints> faceGroupCenters,
+            List<PackedPoints> markerPositions, List<PackedPoints> polylines,
+            List<Color> groupColors) {
         clearDiagnostic();
         int palette = 0;
         SurfaceDots regions = new SurfaceDots();
-        for (float[] centers : faceGroupCenters) {
+        for (PackedPoints centers : faceGroupCenters) {
             regions.addCloud(centers, groupColors.get(palette++), REGION_DOT_PIXELS);
         }
         SurfaceFaceLocator locator = surfaceFaceLocator();
-        for (float[] polyline : polylines) {
-            int points = polyline.length / TriangleGeometry.COMPONENTS;
-            float[] endpoints = new float[Math.max(0, points - 1) * 2 * TriangleGeometry.COMPONENTS];
-            for (int point = 1; point < points; point++) {
-                System.arraycopy(polyline, (point - 1) * TriangleGeometry.COMPONENTS, endpoints,
-                        (point - 1) * 2 * TriangleGeometry.COMPONENTS,
-                        2 * TriangleGeometry.COMPONENTS);
+        for (PackedPoints polyline : polylines) {
+            int spans = Math.max(0, polyline.size() - 1);
+            PackedPoints endpoints = new PackedPoints(2 * spans);
+            for (int span = 0; span < spans; span++) {
+                endpoints.set(2 * span, polyline.get(span, 0), polyline.get(span, 1),
+                        polyline.get(span, 2));
+                endpoints.set(2 * span + 1, polyline.get(span + 1, 0), polyline.get(span + 1, 1),
+                        polyline.get(span + 1, 2));
             }
-            LineSet segments = new LineSet(Math.max(0, points - 1));
+            LineSet segments = new LineSet(spans);
             if (locator != null) {
                 locator.appendSegments(endpoints, segments);
             }
@@ -230,7 +232,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             diagnosticLineColors.add(groupColors.get(palette++));
         }
         SurfaceDots markers = new SurfaceDots();
-        for (float[] markerGroup : markerPositions) {
+        for (PackedPoints markerGroup : markerPositions) {
             markers.addCloud(markerGroup, groupColors.get(palette++), MARKER_DOT_PIXELS);
         }
         setDots(DIAGNOSTIC_REGION_DOTS, 0, regions);
@@ -254,9 +256,9 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      * Shows one dot cloud per updated patch cover, coloured in palette order; an empty list
      * hides the clouds.
      *
-     * @param clouds one flat-xyz dot cloud per patch, in the order to colour
+     * @param clouds one dot cloud per patch, in the order to colour
      */
-    public void setPatchClouds(List<float[]> clouds) {
+    public void setPatchClouds(List<PackedPoints> clouds) {
         Color[] cycle = Scene.activePalette().overlayGroup;
         SurfaceDots dots = new SurfaceDots();
         for (int index = 0; index < clouds.size(); index++) {

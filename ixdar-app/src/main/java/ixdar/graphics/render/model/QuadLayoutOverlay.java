@@ -8,6 +8,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.fields.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -342,15 +343,11 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             maxVertexId = Math.max(maxVertexId, mesh.vertexIdAt(dense));
         }
         int[] denseOf = new int[maxVertexId + 1];
-        float[] gridVertices = new float[vertexCount * 3];
+        PackedPoints gridVertices = mesh.packedPositions(denseOf);
         SurfaceDots layoutCorners = new SurfaceDots();
         Palette palette = Scene.activePalette();
-        Vector3f position = new Vector3f();
         for (int dense = 0; dense < vertexCount; dense++) {
             int vertexId = mesh.vertexIdAt(dense);
-            denseOf[vertexId] = dense;
-            mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(gridVertices, dense * 3, position);
             if (mesh.vertexFaceCount(vertexId) == 1) {
                 layoutCorners.addVertex(mesh, vertexId, palette.accent, CORNER_DOT_PIXELS);
             }
@@ -416,7 +413,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             fillIndices[cursor++] = corner01;
             layoutPatchIndexCount[patchCursor] = cursor - layoutPatchIndexStart[patchCursor];
         }
-        layoutFill.upload(POSITION_LAYOUT, gridVertices, fillIndices);
+        layoutFill.upload(POSITION_LAYOUT, gridVertices.array(), fillIndices);
     }
 
     /**
@@ -498,12 +495,12 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
      */
     public void showPatchCovers(ArcNetwork tmesh, List<Integer> patchIds) {
         HalfEdgeMesh copy = tmesh.topology.copy;
-        List<float[]> clouds = new ArrayList<>();
+        List<PackedPoints> clouds = new ArrayList<>();
         Vector3f corner = new Vector3f();
         Vector3f center = new Vector3f();
         for (int index = 0; index < patchIds.size(); index++) {
             IntIdList faces = tmesh.corridor.patchFaces(patchIds.get(index));
-            float[] centers = new float[faces.size() * 3];
+            PackedPoints centers = new PackedPoints(faces.size());
             for (int face = 0; face < faces.size(); face++) {
                 int faceId = faces.get(face);
                 int corners = copy.faceHalfEdgeCount(faceId);
@@ -511,8 +508,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                 for (int cornerIndex = 0; cornerIndex < corners; cornerIndex++) {
                     center.add(copy.vertexPosition(copy.faceVertexAt(faceId, cornerIndex), corner));
                 }
-                center.div(Math.max(1, corners));
-                PackedPoints.store(centers, face * 3, center);
+                centers.set(face, center.div(Math.max(1, corners)));
             }
             clouds.add(centers);
         }
@@ -639,16 +635,13 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         int faceCount = mesh.faceCount();
         int floatsPerCorner = ISO_CORNER_LAYOUT.floatsPerVertex;
         float[] corners = new float[faceCount * CORNERS_PER_FACE * floatsPerCorner];
-        Vector3f p0 = new Vector3f();
-        Vector3f p1 = new Vector3f();
-        Vector3f p2 = new Vector3f();
-        Vector3f normal = new Vector3f();
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             int faceId = mesh.faceIdAt(activeFace);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
-            faceNormal(p0, p1, p2, normal);
+            PackedPoints face = mesh.facePoints(faceId);
+            Vector3f p0 = face.at(0);
+            Vector3f p1 = face.at(1);
+            Vector3f p2 = face.at(2);
+            Vector3f normal = TriangleGeometry.normal(face, 0, 1, 2);
             double u0 = uv.u(faceId, 0);
             double v0 = uv.v(faceId, 0);
             double u1 = uv.u(faceId, 1);
@@ -691,29 +684,17 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             float crossScale, float normalLiftFraction, float[] glyphs, int cornerBase) {
         HalfEdgeMesh mesh = field.mesh;
         int faceId = mesh.faceIdAt(activeFace);
-        Vector3f p0 = new Vector3f();
-        Vector3f p1 = new Vector3f();
-        Vector3f p2 = new Vector3f();
-        Vector3f normal = new Vector3f();
-        mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
-        mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
-        mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
-        faceNormal(p0, p1, p2, normal);
+        PackedPoints face = mesh.facePoints(faceId);
+        Vector3f p0 = face.at(0);
+        Vector3f p1 = face.at(1);
+        Vector3f p2 = face.at(2);
+        Vector3f normal = TriangleGeometry.normal(face, 0, 1, 2);
         float cx = (p0.x + p1.x + p2.x) * ONE_THIRD;
         float cy = (p0.y + p1.y + p2.y) * ONE_THIRD;
         float cz = (p0.z + p1.z + p2.z) * ONE_THIRD;
-        float ax = p1.x - p0.x;
-        float ay = p1.y - p0.y;
-        float az = p1.z - p0.z;
-        float bx = p2.x - p0.x;
-        float by = p2.y - p0.y;
-        float bz = p2.z - p0.z;
-        float crX = ay * bz - az * by;
-        float crY = az * bx - ax * bz;
-        float crZ = ax * by - ay * bx;
-        float twoArea = (float) Math.sqrt(crX * crX + crY * crY + crZ * crZ);
-        float lenA = (float) Math.sqrt(ax * ax + ay * ay + az * az);
-        float lenB = (float) Math.sqrt(bx * bx + by * by + bz * bz);
+        float twoArea = (float) (2.0 * TriangleGeometry.area(face, 0, 1, 2));
+        float lenA = p1.distance(p0);
+        float lenB = p2.distance(p0);
         float lenC = p2.distance(p1);
         float perim = lenA + lenB + lenC;
         float incircleR = perim > 0f ? twoArea / perim : 0f;
@@ -767,27 +748,12 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
 
     private static void writePositionNormal(float[] buffer, int offset, Vector3f position,
             Vector3f normal) {
-        PackedPoints.store(buffer, offset, position);
+        buffer[offset] = position.x;
+        buffer[offset + 1] = position.y;
+        buffer[offset + 2] = position.z;
         buffer[offset + 3] = normal.x;
         buffer[offset + 4] = normal.y;
         buffer[offset + 5] = normal.z;
-    }
-
-    private static void faceNormal(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f result) {
-        float ax = p1.x - p0.x;
-        float ay = p1.y - p0.y;
-        float az = p1.z - p0.z;
-        float bx = p2.x - p0.x;
-        float by = p2.y - p0.y;
-        float bz = p2.z - p0.z;
-        result.set(
-                ay * bz - az * by,
-                az * bx - ax * bz,
-                ax * by - ay * bx);
-        float length = result.length();
-        if (length > 0f) {
-            result.div(length);
-        }
     }
 
     private static int[] identityIndices(int count) {

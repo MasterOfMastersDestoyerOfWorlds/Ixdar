@@ -21,7 +21,6 @@ import ixdar.numeric.sparse.system.DofSystem;
  */
 public class CrossField {
     public static final float EPSILON = 1e-12f;
-    public static final float BASIS_AXIS_PICK_THRESHOLD = 0.9f;
     public static final float HALF_PI = (float) (Math.PI / 2.0);
 
     /**
@@ -202,26 +201,6 @@ public class CrossField {
             }
         }
         return false;
-    }
-
-    /**
-     * Pick an arbitrary unit vector in the tangent plane defined by {@code n}. Used
-     * as a fallback when the natural x-axis collapses to zero length.
-     *
-     * @param normal unit face normal
-     * @param out    scratch vector overwritten with a unit tangent perpendicular to
-     *               {@code n}
-     */
-    public static void arbitraryTangent(Vector3f normal, Vector3f out) {
-        if (Math.abs(normal.x) < BASIS_AXIS_PICK_THRESHOLD)
-            out.set(1f, 0f, 0f);
-        else
-            out.set(0f, 1f, 0f);
-        float dot = out.dot(normal);
-        out.x -= dot * normal.x;
-        out.y -= dot * normal.y;
-        out.z -= dot * normal.z;
-        out.normalize();
     }
 
     /**

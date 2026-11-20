@@ -9,13 +9,13 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshSmoothing;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.FieldBroadcast;
-import ixdar.nodegraph.field.Vector3Field;
 
 /** Taubin lambda/mu smoothing of a mesh over its own edge adjacency. */
 @MeshNodeAnnotation(id = "smooth_mesh", category = NodeCategory.MODIFIERS)
@@ -66,8 +66,13 @@ public class SmoothMeshNode implements MeshNode {
                 FieldBroadcast.getInputOrDefault(ctx, LAMBDA.name, LAMBDA.defaultValue), 0.5f);
         float mu = FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, MU.name, MU.defaultValue), -0.53f);
-        float[] displacement = MeshSmoothing.umbrella(base.mesh(), lambda, mu, passes, null);
-        ctx.setOutput(GEOMETRY_OUT.name, base.withMesh(MeshVertexOffset.apply(base.mesh(),
-                new Vector3Field(displacement))));
+        PackedPoints displacement = MeshSmoothing.umbrella(base.mesh(), lambda, mu, passes, null);
+        PackedPoints positions = base.mesh().packedPositions(null);
+        for (int activeVertex = 0; activeVertex < positions.size(); activeVertex++) {
+            positions.set(activeVertex, positions.get(activeVertex, 0) + displacement.get(activeVertex, 0),
+                    positions.get(activeVertex, 1) + displacement.get(activeVertex, 1),
+                    positions.get(activeVertex, 2) + displacement.get(activeVertex, 2));
+        }
+        ctx.setOutput(GEOMETRY_OUT.name, base.withMesh(MeshVertexOffset.atPositions(base.mesh(), positions)));
     }
 }

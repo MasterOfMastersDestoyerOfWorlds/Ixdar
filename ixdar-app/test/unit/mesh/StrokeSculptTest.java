@@ -23,6 +23,7 @@ import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.sculpt.DisplacementSum;
 import ixdar.geometry.mesh.data.sculpt.FillStroke;
 import ixdar.geometry.mesh.data.sculpt.SculptStroke;
@@ -201,16 +202,16 @@ class StrokeSculptTest {
         Vector3f to = new Vector3f();
         for (int shape = 0; shape < sketch.shapes.size(); shape++) {
             float radius = sketch.radiusByShape[shape];
-            float[] lifted = sketch.liftedXyzByShape[shape];
-            assertTrue(lifted.length > 0, "tooth " + shape + " lifts onto the sphere");
+            PackedPoints lifted = sketch.liftedXyzByShape[shape];
+            assertTrue(lifted.size() > 0, "tooth " + shape + " lifts onto the sphere");
             float target = Math.max(MINIMUM_EDGE, radius / 3f) * EDGE_SLACK;
             for (int index = 0; index < refined.edgeCount(); index++) {
                 int halfEdge = refined.edgeHalfEdge(refined.edgeIdAt(index));
                 refined.vertexPosition(refined.halfEdgeVertex(halfEdge), from);
                 refined.vertexPosition(refined.halfEdgeEndVertex(halfEdge), to);
-                for (int point = 0; point < lifted.length; point += 3) {
-                    if (from.distance(lifted[point], lifted[point + 1], lifted[point + 2]) < radius / 2
-                            && to.distance(lifted[point], lifted[point + 1], lifted[point + 2]) < radius / 2) {
+                for (int point = 0; point < lifted.size(); point++) {
+                    Vector3f at = lifted.at(point);
+                    if (from.distance(at) < radius / 2 && to.distance(at) < radius / 2) {
                         assertTrue(from.distance(to) <= target, "edge of length " + from.distance(to)
                                 + " under a tooth of radius " + radius);
                     }
@@ -371,11 +372,11 @@ class StrokeSculptTest {
             assertArrayEquals(drawn.viewCameras[view], saved.viewCameras[view], 1e-4f, "view " + view + " round trips");
             assertEquals(saved.radiusByShape[view] * 0.5f, saved.depthByShape[view], 1e-4f,
                     "a live stroke's strength is its depth over its world radius");
-            float[] lifted = saved.liftedXyzByShape[view];
-            assertTrue(lifted.length > 0, "the stroke on view " + view + " lifts onto the sphere");
+            PackedPoints lifted = saved.liftedXyzByShape[view];
+            assertTrue(lifted.size() > 0, "the stroke on view " + view + " lifts onto the sphere");
             views[view].updateProjection(false, LIVE_WIDTH / (float) LIVE_HEIGHT, 0.01f, 100f);
-            for (int point = 0; point < lifted.length; point += 3) {
-                Vector3f hit = new Vector3f(lifted[point], lifted[point + 1], lifted[point + 2]);
+            for (int point = 0; point < lifted.size(); point++) {
+                Vector3f hit = lifted.at(point);
                 float nearestRay = Float.POSITIVE_INFINITY;
                 for (int pixel = 0; pixel < LIVE_STROKE_PIXELS.length; pixel += 2) {
                     views[view].rayThroughPixel(new Matrix4f(), LIVE_STROKE_PIXELS[pixel], LIVE_STROKE_PIXELS[pixel + 1],
@@ -434,17 +435,15 @@ class StrokeSculptTest {
         triangle.addVertex(0f, 5f, 0f);
         triangle.addFace(0, 1, 2);
         NearestVertex index = NearestVertex.over(triangle);
-        assertThrows(IllegalStateException.class, () -> index.find(0f, 0f, 0f), "an authored point on a tie is refused");
-        assertTrue(index.nearest(0f, 0f, 0f, Float.POSITIVE_INFINITY) >= 0, "a sculpt sample on a tie takes either");
-        assertEquals(-1, index.nearest(0f, 0f, 0f, 0.5f), "no vertex lies within half a unit");
+        assertThrows(IllegalStateException.class, () -> index.find(new Vector3f()), "an authored point on a tie is refused");
+        assertTrue(index.nearest(new Vector3f(), Float.POSITIVE_INFINITY) >= 0, "a sculpt sample on a tie takes either");
+        assertEquals(-1, index.nearest(new Vector3f(), 0.5f), "no vertex lies within half a unit");
 
         MeshTopology ball = sphere().mesh();
-        float[] turn = positions(ball);
-        for (int vertex = 0; vertex < turn.length; vertex += 3) {
-            Vector3f turned = new Vector3f(turn[vertex], turn[vertex + 1], turn[vertex + 2]).rotateY(0.03f);
-            turn[vertex] = turned.x - turn[vertex];
-            turn[vertex + 1] = turned.y - turn[vertex + 1];
-            turn[vertex + 2] = turned.z - turn[vertex + 2];
+        PackedPoints turn = ball.packedPositions(null);
+        for (int vertex = 0; vertex < turn.size(); vertex++) {
+            Vector3f position = turn.at(vertex);
+            turn.set(vertex, new Vector3f(position).rotateY(0.03f).sub(position));
         }
         MeshTopology turnedMesh = MeshVertexOffset.apply(ball, Vector3Field.copyOf(turn));
         StrokeSculpt sculpt = new StrokeSculpt();
@@ -594,7 +593,7 @@ class StrokeSculptTest {
         Vector3f twin = new Vector3f();
         double total = 0.0;
         for (int vertex = 0; vertex < xyz.length; vertex += 3) {
-            mesh.vertexPosition(grid.nearest(-xyz[vertex], xyz[vertex + 1], xyz[vertex + 2], Float.POSITIVE_INFINITY),
+            mesh.vertexPosition(grid.nearest(new Vector3f(-xyz[vertex], xyz[vertex + 1], xyz[vertex + 2]), Float.POSITIVE_INFINITY),
                     twin);
             total += twin.distance(-xyz[vertex], xyz[vertex + 1], xyz[vertex + 2]);
         }

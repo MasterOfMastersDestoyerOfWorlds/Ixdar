@@ -289,7 +289,7 @@ public final class StrokeAnchors {
     public StrokeSketch sketch(StrokeSketch camera, MeshTopology base) {
         StrokeSketch sketch = StrokeSketch.parse(camera.text, "sidecar sketch");
         sketch.shapes = new ArrayList<>();
-        sketch.anchoredXyzByShape = new float[strokes.size()][];
+        sketch.anchoredXyzByShape = new PackedPoints[strokes.size()];
         sketch.idByShape = new String[strokes.size()];
         float[] pixel = new float[2];
         Vector3f position = new Vector3f();
@@ -298,16 +298,16 @@ public final class StrokeAnchors {
             sketch.idByShape[index] = stroke.id;
             int count = stroke.pointCount();
             float[] pixels = stroke.silhouette() ? stroke.pixels : new float[count * 2];
-            float[] xyz = new float[count * 3];
+            PackedPoints points = new PackedPoints(count);
             Camera3D cellCamera = sketch.cellCamera(stroke.cell);
             for (int point = 0; point < count && !stroke.silhouette(); point++) {
                 FaceAnchors.position(base, stroke.anchors, point * FaceAnchors.FIELDS, position);
-                PackedPoints.store(xyz, point * 3, position);
+                points.set(point, position);
                 sketch.cellPixel(cellCamera, position, pixel);
                 pixels[point * 2] = Math.max(0f, Math.min(sketch.cellWidth - 1f, pixel[0]));
                 pixels[point * 2 + 1] = Math.max(0f, Math.min(sketch.cellHeight - 1f, pixel[1]));
             }
-            sketch.anchoredXyzByShape[index] = stroke.silhouette() || stroke.polygon ? null : xyz;
+            sketch.anchoredXyzByShape[index] = stroke.silhouette() || stroke.polygon ? null : points;
             sketch.shapes.add("<" + (stroke.polygon ? POLYGON : POLYLINE) + " " + stroke.attributes + " points=\""
                     + sketch.gridPoints(stroke.cell, pixels, count) + "\"/>");
         }

@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 
 /**
@@ -36,8 +37,7 @@ public final class MarchingTetrahedra {
     public static HalfEdgeMesh extract(VoxelGrid grid, float level) {
         float[] field = grid.values;
         HashMap<Long, Integer> crossingVertex = new HashMap<>();
-        float[] positions = new float[INITIAL_CAPACITY];
-        int vertexCount = 0;
+        PackedPoints positions = new PackedPoints();
         int[] triangles = new int[INITIAL_CAPACITY];
         int triangleCorners = 0;
         int[] corner = new int[CUBE_CORNERS];
@@ -78,12 +78,7 @@ public final class MarchingTetrahedra {
                     if (known == null) {
                         float fraction = Math.max(EDGE_CLAMP, Math.min(1f - EDGE_CLAMP,
                                 (field[inner] - level) / (field[inner] - field[outer])));
-                        if (positions.length < (vertexCount + 1) * 3) {
-                            positions = Arrays.copyOf(positions, positions.length * 2);
-                        }
-                        grid.position(inner, from).lerp(grid.position(outer, to), fraction);
-                        PackedPoints.store(positions, vertexCount * 3, from);
-                        known = vertexCount++;
+                        known = positions.append(grid.position(inner, from).lerp(grid.position(outer, to), fraction));
                         crossingVertex.put(key, known);
                     }
                     ring[index] = known;
@@ -96,14 +91,8 @@ public final class MarchingTetrahedra {
                     outward.add(from);
                 }
                 for (int fan = 1; fan + 1 < ringSize; fan++) {
-                    int a = ring[0] * 3;
-                    int b = ring[fan] * 3;
-                    int c = ring[fan + 1] * 3;
-                    from.set(positions[b] - positions[a], positions[b + 1] - positions[a + 1],
-                            positions[b + 2] - positions[a + 2]);
-                    to.set(positions[c] - positions[a], positions[c + 1] - positions[a + 1],
-                            positions[c + 2] - positions[a + 2]);
-                    boolean flip = from.cross(to).dot(outward) < 0f;
+                    boolean flip = TriangleGeometry.normal(positions, ring[0], ring[fan], ring[fan + 1])
+                            .dot(outward) < 0f;
                     if (triangles.length < triangleCorners + 3) {
                         triangles = Arrays.copyOf(triangles, triangles.length * 2);
                     }
@@ -113,7 +102,7 @@ public final class MarchingTetrahedra {
                 }
             }
         }
-        HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(Arrays.copyOf(positions, vertexCount * 3),
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(positions,
                 Arrays.copyOf(triangles, triangleCorners), 3);
         mesh.computeNormals();
         return mesh;

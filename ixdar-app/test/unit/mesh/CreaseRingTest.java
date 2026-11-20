@@ -27,6 +27,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -156,17 +157,13 @@ class CreaseRingTest {
         assertTrue(crease.trace(new int[] { vertexAt(TUBE_RINGS / 2 + CLICK_RING_OFFSET,
                 CLICK_SIDE) }, 1, AXIS, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), crease.failure);
         SurfaceSpline live = SurfaceSpline.of(crease.tracer);
-        float[] anchorXyz = new float[XYZ];
         Vector3f position = new Vector3f();
         tube.vertexPosition(crease.authoredVertexId[0], position);
-        anchorXyz[0] = position.x;
-        anchorXyz[1] = position.y;
-        anchorXyz[2] = position.z;
 
         SplineRingNode node = new SplineRingNode();
         MapNodeContext ctx = new MapNodeContext(node);
         ctx.setInput(SplineRingNode.GEOMETRY.name, GeometryBundle.ofMesh(tube));
-        ctx.setInput(SplineRingNode.POINTS.name, SurfaceWaypoints.format(anchorXyz, 1));
+        ctx.setInput(SplineRingNode.POINTS.name, SurfaceWaypoints.format(position));
         ctx.setInput(SplineRingNode.NORMAL.name, SurfaceWaypoints.format(AXIS));
         ctx.setInput(SplineRingNode.METRIC.name, metric);
         ctx.setInput(SplineRingNode.MODE.name, RingSegmentMode.CREASE.dslName);
@@ -340,17 +337,15 @@ class CreaseRingTest {
      * {@link #WAVE_LOBES} lobes round it, a groove no plane follows.
      */
     private static MeshTopology wavedTube(double depth, double wave) {
-        float[] positions = new float[XYZ * TUBE_SIDES * TUBE_RINGS];
+        PackedPoints positions = new PackedPoints(TUBE_SIDES * TUBE_RINGS);
         for (int ring = 0; ring < TUBE_RINGS; ring++) {
             double x = -TUBE_HALF_LENGTH + 2.0 * TUBE_HALF_LENGTH * ring / (TUBE_RINGS - 1);
             for (int side = 0; side < TUBE_SIDES; side++) {
                 double angle = 2.0 * Math.PI * side / TUBE_SIDES;
                 double fromNotch = (x - notchX(angle, wave)) / NOTCH_WIDTH;
                 double radius = TUBE_RADIUS - depth * Math.exp(-fromNotch * fromNotch);
-                int base = XYZ * (TUBE_SIDES * ring + side);
-                positions[base] = (float) x;
-                positions[base + 1] = (float) (radius * Math.cos(angle));
-                positions[base + 2] = (float) (radius * Math.sin(angle));
+                positions.set(TUBE_SIDES * ring + side, (float) x,
+                        (float) (radius * Math.cos(angle)), (float) (radius * Math.sin(angle)));
             }
         }
         int[] faces = new int[2 * XYZ * TUBE_SIDES * (TUBE_RINGS - 1)];
@@ -393,12 +388,12 @@ class CreaseRingTest {
 
     /** Mean distance along the tube from each traced point to the waved notch's centre line. */
     private static double meanOffWave(SurfaceSpline spline, double wave) {
-        double[] polyline = spline.path.positions;
+        PackedPoints polyline = spline.path.positions;
         int points = spline.path.pointCount;
         double total = 0.0;
         for (int point = 0; point < points; point++) {
-            double angle = Math.atan2(polyline[XYZ * point + 2], polyline[XYZ * point + 1]);
-            total += Math.abs(polyline[XYZ * point] - notchX(angle, wave));
+            double angle = Math.atan2(polyline.get(point, 2), polyline.get(point, 1));
+            total += Math.abs(polyline.get(point, 0) - notchX(angle, wave));
         }
         return total / points;
     }
@@ -462,9 +457,16 @@ class CreaseRingTest {
     /** A curve no spline the trace allows comes near: the re-fit refuses and says why. */
     @Test
     void theRefitRefusesWhenNoGeodesicSplineReachesTheTolerance() {
-        double[] square = { 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0 };
-        TracedSurfacePath far = new TracedSurfacePath(new double[] { 5, 5, 5, 6, 5, 5, 6, 6, 5 },
-                new int[] { -1, -1, -1 }, new int[] { -1, -1, -1 }, new double[3], 3, true);
+        PackedPoints square = new PackedPoints(4);
+        square.set(1, 1, 0, 0);
+        square.set(2, 1, 1, 0);
+        square.set(3, 0, 1, 0);
+        PackedPoints farPoints = new PackedPoints(3);
+        farPoints.set(0, 5, 5, 5);
+        farPoints.set(1, 6, 5, 5);
+        farPoints.set(2, 6, 6, 5);
+        TracedSurfacePath far = new TracedSurfacePath(farPoints, new int[] { -1, -1, -1 },
+                new int[] { -1, -1, -1 }, new double[3], true);
         GeodesicRefit refit = new GeodesicRefit();
         assertFalse(refit.refit(square, new int[] { 10, 11, 12, 13 }, true, new int[] { 10 },
                 PLANE_SLACK, anchors -> far));

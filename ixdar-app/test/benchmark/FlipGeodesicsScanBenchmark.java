@@ -57,8 +57,6 @@ public final class FlipGeodesicsScanBenchmark {
 
     private static final int WARMUP_ROUNDS = 2;
 
-    private static final int POSITION_STRIDE = 3;
-
     private static final double NANOS_PER_MILLI = 1e6;
 
     private static final double HALF = 0.5;
@@ -103,7 +101,7 @@ public final class FlipGeodesicsScanBenchmark {
     private static void timeHover(String name, HalfEdgeMesh mesh, SurfaceGeodesics geodesics,
             float[] point) {
         Vector3f position = new Vector3f();
-        int hitVertexId = NearestVertex.over(mesh).find(point[0], point[1], point[2]);
+        int hitVertexId = NearestVertex.over(mesh).find(new Vector3f(point[0], point[1], point[2]));
         mesh.vertexPosition(hitVertexId, position);
         Vector3f hitPoint = new Vector3f(position);
         int faceId = mesh.vertexFaceAt(hitVertexId, 0);
@@ -134,10 +132,9 @@ public final class FlipGeodesicsScanBenchmark {
                 girdleVertexId[step] = cut.fraction[step] <= HALF
                         ? mesh.halfEdgeVertex(halfEdge)
                         : mesh.halfEdgeEndVertex(halfEdge);
-                int base = POSITION_STRIDE * step;
-                double dx = cut.positions[base] - hitPoint.x;
-                double dy = cut.positions[base + 1] - hitPoint.y;
-                double dz = cut.positions[base + 2] - hitPoint.z;
+                double dx = cut.positions.get(step, 0) - hitPoint.x;
+                double dy = cut.positions.get(step, 1) - hitPoint.y;
+                double dz = cut.positions.get(step, 2) - hitPoint.z;
                 if (dx * dx + dy * dy + dz * dz < nearest) {
                     nearest = dx * dx + dy * dy + dz * dz;
                     firstStep = step;

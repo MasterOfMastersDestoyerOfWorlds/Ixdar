@@ -9,7 +9,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.grid2d.PolygonScan;
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.graphics.cameras.Camera3D;
 
 /**
@@ -31,7 +30,7 @@ public final class ReferenceOutlines {
 
     public static final int RIGHT = 0;
 
-    public static final int UP = 3;
+    public static final int UP = 1;
 
     public static final String PICTURE_SEPARATOR = "=";
 
@@ -87,8 +86,8 @@ public final class ReferenceOutlines {
     /** Each picture's subject. */
     public SubjectOutline[] subjectByView = new SubjectOutline[0];
 
-    /** Each picture's cell axes in world space, right then up, packed xyz. */
-    public float[][] axesByView = new float[0][];
+    /** Each picture's cell axes in world space, indexed by {@link #RIGHT} and {@link #UP}. */
+    public Vector3f[][] axesByView = new Vector3f[0][];
 
     /** The world axes a view's box width and height measure, or null for an oblique view. */
     public int[][] measuredByView = new int[0][];
@@ -129,12 +128,13 @@ public final class ReferenceOutlines {
         camera.setOrbit(azimuth, elevation, 1f);
         camera.updateProjection(true, 1f, NEAR_PLANE_FRACTION, 2f);
         Matrix4f viewMatrix = camera.view;
-        float[] axes = { viewMatrix.m00(), viewMatrix.m10(), viewMatrix.m20(), viewMatrix.m01(), viewMatrix.m11(),
-            viewMatrix.m21() };
+        Vector3f[] axes = { new Vector3f(viewMatrix.m00(), viewMatrix.m10(), viewMatrix.m20()),
+            new Vector3f(viewMatrix.m01(), viewMatrix.m11(), viewMatrix.m21()) };
         axesByView[view] = axes;
         Vector3f forward = new Vector3f(viewMatrix.m02(), viewMatrix.m12(), viewMatrix.m22()).absolute();
         measuredByView[view] = forward.get(forward.maxComponent()) >= AXIS_ALIGNED
-                ? new int[] { largestAxis(axes, RIGHT), largestAxis(axes, UP) } : null;
+                ? new int[] { new Vector3f(axes[RIGHT]).absolute().maxComponent(),
+                    new Vector3f(axes[UP]).absolute().maxComponent() } : null;
     }
 
     /**
@@ -366,17 +366,6 @@ public final class ReferenceOutlines {
      * @return the dot product
      */
     private float along(Vector3f point, int view, int offset) {
-        return point.dot(PackedPoints.at(axesByView[view], offset));
-    }
-
-    /**
-     * Which world axis a picture axis runs closest to.
-     *
-     * @param axes   right then up, packed xyz
-     * @param offset {@link #RIGHT} or {@link #UP}
-     * @return 0, 1 or 2
-     */
-    private static int largestAxis(float[] axes, int offset) {
-        return PackedPoints.at(axes, offset).absolute().maxComponent();
+        return point.dot(axesByView[view][offset]);
     }
 }

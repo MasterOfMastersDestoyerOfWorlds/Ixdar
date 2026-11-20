@@ -14,6 +14,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
@@ -93,7 +94,7 @@ public class CurvePrimitiveBezierNode implements MeshNode {
         boolean quadratic = QUADRATIC.equalsIgnoreCase(mode);
 
         int numPoints = resolution + 1;
-        float[] positions = new float[numPoints * 3];
+        PackedPoints positions = new PackedPoints(numPoints);
 
         for (int i = 0; i <= resolution; i++) {
             float t = (float) i / resolution;
@@ -118,10 +119,7 @@ public class CurvePrimitiveBezierNode implements MeshNode {
                 z = uuu * p0.z() + 3f * uu * t * p1.z() + 3f * u * tt * p2.z() + ttt * p3.z();
             }
 
-            int b = i * 3;
-            positions[b] = x;
-            positions[b + 1] = y;
-            positions[b + 2] = z;
+            positions.set(i, x, y, z);
         }
 
         CurveGeometry curve = CurveGeometry.singlePolyline(positions, false);

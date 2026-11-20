@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangleSoup;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.graph.Dijkstra;
 
 /**
@@ -58,7 +59,7 @@ public final class BoundarySnap {
                               Set<Long> crestEdges) {
         int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
         int nv = mesh.vertexIdBound();
-        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PackedPoints positions = SemanticPatchDecomposer.positionsById(mesh);
 
         int[][] ring = TriangleSoup.oneRings(faceIdx, nv);
         Map<Long, int[]> edgeFaces = TriangleSoup.edgeFaces(faceIdx);
@@ -129,7 +130,7 @@ public final class BoundarySnap {
                 }
             }
             for (int i = 0; i < finalPath.size() - 1; i++) {
-                finalBoundary.add(edgeKey(finalPath.get(i), finalPath.get(i + 1)));
+                finalBoundary.add(EdgeKey.undirected(finalPath.get(i), finalPath.get(i + 1)));
             }
         }
         System.out.println("[BoundarySnap] snapped=" + snappedCount
@@ -172,7 +173,7 @@ public final class BoundarySnap {
             boolean isEndpoint = nbs.size() != 2 || isCorner[v];
             if (!isEndpoint) continue;
             for (int next : nbs) {
-                long ek = edgeKey(v, next);
+                long ek = EdgeKey.undirected(v, next);
                 if (visited.contains(ek)) continue;
                 curves.add(walkOneChain(v, next, sub, isCorner, visited,
                         labelA, labelB, /*closed=*/false));
@@ -181,7 +182,7 @@ public final class BoundarySnap {
         for (Map.Entry<Integer, List<Integer>> entry : sub.entrySet()) {
             int v = entry.getKey();
             for (int next : entry.getValue()) {
-                long ek = edgeKey(v, next);
+                long ek = EdgeKey.undirected(v, next);
                 if (visited.contains(ek)) continue;
                 curves.add(walkOneChain(v, next, sub, isCorner, visited,
                         labelA, labelB, /*closed=*/true));
@@ -200,7 +201,7 @@ public final class BoundarySnap {
         path.add(start);
         int prev = start, cur = firstStep;
         while (true) {
-            long ek = edgeKey(prev, cur);
+            long ek = EdgeKey.undirected(prev, cur);
             if (visitedEdges.contains(ek)) break;
             visitedEdges.add(ek);
             path.add(cur);
@@ -222,7 +223,7 @@ public final class BoundarySnap {
 
     private static List<Integer> rerouteCurve(Curve c, int[] faceLabels,
                                                 int[][] ring, int[][] vertFaces,
-                                                float[] positions,
+                                                PackedPoints positions,
                                                 Set<Long> highConfidenceEdges,
                                                 Set<Long> dihedralEdges,
                                                 Set<Long> principalEdges,
@@ -261,9 +262,16 @@ public final class BoundarySnap {
             float here = (float) walk.distance(u);
             for (int n : ring[u]) {
                 if (!inBand[n]) continue;
-                float w = edgeCost(u, n, positions, highConfidenceEdges,
-                        dihedralEdges, principalEdges, crestEdges);
-                walk.relax(n, here + w, u);
+                long ek = EdgeKey.undirected(u, n);
+                boolean isCrest = crestEdges.contains(ek);
+                boolean isHigh = highConfidenceEdges.contains(ek);
+                boolean isAny = isCrest || isHigh || dihedralEdges.contains(ek) || principalEdges.contains(ek);
+                float mult;
+                if (isCrest && isHigh) mult = COST_HIGH_CREST;
+                else if (isHigh) mult = COST_HIGH;
+                else if (isAny) mult = COST_FEATURE;
+                else mult = COST_NONFEATURE;
+                walk.relax(n, here + mult * positions.at(n).distance(positions.at(u)), u);
             }
         }
         if (!walk.isReached(t)) return null;
@@ -286,29 +294,6 @@ public final class BoundarySnap {
         return true;
     }
 
-    private static float edgeCost(int u, int v, float[] positions,
-                                    Set<Long> highConfidenceEdges,
-                                    Set<Long> dihedralEdges,
-                                    Set<Long> principalEdges,
-                                    Set<Long> crestEdges) {
-        long ek = edgeKey(u, v);
-        boolean isCrest = crestEdges.contains(ek);
-        boolean isHigh  = highConfidenceEdges.contains(ek);
-        boolean isAny   = isCrest || isHigh
-                          || dihedralEdges.contains(ek)
-                          || principalEdges.contains(ek);
-        float mult;
-        if (isCrest && isHigh) mult = COST_HIGH_CREST;
-        else if (isHigh) mult = COST_HIGH;
-        else if (isAny) mult = COST_FEATURE;
-        else mult = COST_NONFEATURE;
-        float dx = positions[v*3]   - positions[u*3];
-        float dy = positions[v*3+1] - positions[u*3+1];
-        float dz = positions[v*3+2] - positions[u*3+2];
-        float len = (float) Math.sqrt(dx*dx + dy*dy + dz*dz);
-        return mult * len;
-    }
-
 
     private static int[] floodFillRelabel(int[] faceIdx, int[] faceLabels,
                                             Set<Long> finalBoundary,
@@ -319,7 +304,7 @@ public final class BoundarySnap {
         for (int f = 0; f < faceCount; f++) {
             for (int e = 0; e < 3; e++) {
                 int u = faceIdx[f*3+e], v = faceIdx[f*3+(e+1)%3];
-                long ek = edgeKey(u, v);
+                long ek = EdgeKey.undirected(u, v);
                 if (finalBoundary.contains(ek)) continue;
                 int[] pair = edgeFaces.get(ek);
                 if (pair == null || pair[1] < 0) continue;
@@ -385,10 +370,6 @@ public final class BoundarySnap {
             out[v] = arr;
         }
         return out;
-    }
-
-    private static long edgeKey(int u, int v) {
-        return EdgeKey.undirected(u, v);
     }
 
     private static boolean pathEquals(List<Integer> a, List<Integer> b) {

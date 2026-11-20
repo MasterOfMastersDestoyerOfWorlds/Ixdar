@@ -1,13 +1,14 @@
 package ixdar.geometry.mesh.data.analysis.curvature;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
@@ -35,8 +36,8 @@ public final class SurfaceRidges {
     /** Lines whose curvature integral (OBS04 eq. 5) at the scaled diagonal is below this are dropped. */
     public double minimumStrength = 2.0;
 
-    /** Each kept line's points, packed xyz, in the mesh's own units. */
-    public final List<float[]> lines = new ArrayList<>();
+    /** Each kept line's points, in the mesh's own units. */
+    public final List<PackedPoints> lines = new ArrayList<>();
 
     /** Whether each kept line is a valley (most concave) rather than a ridge (most convex). */
     public final List<Boolean> valleyByLine = new ArrayList<>();
@@ -71,21 +72,14 @@ public final class SurfaceRidges {
         Vector3f high = mesh.boundsMax(new Vector3f());
         double scale = SCALED_DIAGONAL / Math.max(ImplicitFit.SMALLEST, high.distance(low));
         Vector3f middle = new Vector3f(low).add(high).mul(0.5f);
-        double[] vertexXyz = new double[vertexCount * 3];
-        double[] normalXyz = new double[vertexCount * 3];
         int[] activeVertexById = new int[mesh.vertexIdBound()];
-        Vector3f position = new Vector3f();
+        PackedPoints vertexXyz = mesh.packedPositions(activeVertexById);
+        vertexXyz.transformPositions(new Matrix4f().translation(new Vector3f(middle).negate()));
+        vertexXyz.transformPositions(new Matrix4f().scaling((float) scale));
+        PackedPoints normalXyz = new PackedPoints(vertexCount);
+        Vector3f normal = new Vector3f();
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            activeVertexById[vertexId] = activeVertex;
-            mesh.vertexPosition(vertexId, position);
-            for (int axis = 0; axis < 3; axis++) {
-                vertexXyz[activeVertex * 3 + axis] = (position.get(axis) - middle.get(axis)) * scale;
-            }
-            mesh.vertexNormal(vertexId, position).normalize();
-            for (int axis = 0; axis < 3; axis++) {
-                normalXyz[activeVertex * 3 + axis] = position.get(axis);
-            }
+            normalXyz.set(activeVertex, mesh.vertexNormal(mesh.vertexIdAt(activeVertex), normal).normalize());
         }
         double meanEdge = 0.0;
         for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
@@ -105,7 +99,7 @@ public final class SurfaceRidges {
         double[] curvatures = new double[vertexCount * ImplicitFit.CURVATURE_LENGTH];
         IntStream.range(0, vertexCount).parallel().forEach(activeVertex -> {
             double[] out = new double[ImplicitFit.CURVATURE_LENGTH];
-            if (fit.curvature(Arrays.copyOfRange(vertexXyz, activeVertex * 3, activeVertex * 3 + 3), out)) {
+            if (fit.curvature(vertexXyz.at(activeVertex), out)) {
                 System.arraycopy(out, 0, curvatures, activeVertex * ImplicitFit.CURVATURE_LENGTH, out.length);
                 maximumCurvature[activeVertex] = (float) out[0];
                 minimumCurvature[activeVertex] = (float) out[1];
@@ -137,7 +131,7 @@ public final class SurfaceRidges {
                 double toAlong = 0.0;
                 int direction = ImplicitFit.DIRECTIONS_START + kind * 3;
                 for (int axis = 0; axis < 3; axis++) {
-                    double edge = vertexXyz[to * 3 + axis] - vertexXyz[from * 3 + axis];
+                    double edge = (double) vertexXyz.get(to, axis) - vertexXyz.get(from, axis);
                     agree += curvatures[fromAt + direction + axis] * curvatures[toAt + direction + axis];
                     fromAlong += edge * curvatures[fromAt + direction + axis];
                     toAlong -= edge * curvatures[toAt + direction + axis];
@@ -154,7 +148,7 @@ public final class SurfaceRidges {
                 double fromShare = Math.abs(toSlope) / (Math.abs(fromSlope) + Math.abs(toSlope));
                 double[] point = new double[CrestTrace.KIND_FIELD + 1];
                 for (int axis = 0; axis < 3; axis++) {
-                    point[axis] = fromShare * vertexXyz[from * 3 + axis] + (1.0 - fromShare) * vertexXyz[to * 3 + axis];
+                    point[axis] = fromShare * vertexXyz.get(from, axis) + (1.0 - fromShare) * vertexXyz.get(to, axis);
                 }
                 point[CrestTrace.CURVATURE_FIELD] = fromShare * fromCurvature + (1.0 - fromShare) * toCurvature;
                 point[CrestTrace.KIND_FIELD] = kind;
@@ -167,11 +161,11 @@ public final class SurfaceRidges {
             if (strength < minimumStrength) {
                 continue;
             }
-            float[] line = new float[chain.length * 3];
+            PackedPoints line = new PackedPoints(chain.length);
             for (int index = 0; index < chain.length; index++) {
-                for (int axis = 0; axis < 3; axis++) {
-                    line[index * 3 + axis] = (float) (trace.points.get(chain[index])[axis] / scale + middle.get(axis));
-                }
+                double[] point = trace.points.get(chain[index]);
+                line.set(index, (float) (point[0] / scale + middle.x), (float) (point[1] / scale + middle.y),
+                        (float) (point[2] / scale + middle.z));
             }
             lines.add(line);
             valleyByLine.add(trace.points.get(chain[0])[CrestTrace.KIND_FIELD] > 0.5);

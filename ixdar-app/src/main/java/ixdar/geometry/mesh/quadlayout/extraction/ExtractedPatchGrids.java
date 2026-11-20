@@ -720,10 +720,7 @@ public final class ExtractedPatchGrids {
         Vector3f[] grid = new Vector3f[columns * rows];
         for (int index = 0; index < grid.length; index++) {
             int vertex = vertexGrid[index];
-            grid[index] = new Vector3f(
-                    quadMesh.positions[vertex * ExtractedQuadMesh.POSITION_FLOATS],
-                    quadMesh.positions[vertex * ExtractedQuadMesh.POSITION_FLOATS + 1],
-                    quadMesh.positions[vertex * ExtractedQuadMesh.POSITION_FLOATS + 2]);
+            grid[index] = quadMesh.positions.at(vertex);
         }
         gridByPatchId[patch.patchId] = grid;
     }

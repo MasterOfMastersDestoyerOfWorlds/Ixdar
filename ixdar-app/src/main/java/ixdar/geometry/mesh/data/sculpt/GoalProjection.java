@@ -25,8 +25,8 @@ public final class GoalProjection {
     /** Area each dense vertex stands for: a third of its fan triangles' area. */
     public float[] area = new float[0];
 
-    /** The unit directions offsets are measured along, packed xyz by dense vertex index. */
-    public float[] normalXyz = new float[0];
+    /** The unit directions offsets are measured along, by dense vertex index. */
+    public PackedPoints normalXyz = new PackedPoints(0);
 
     /**
      * A mesh carried from one frame into another the way {@code mesh-compare --normalize} relates
@@ -48,24 +48,22 @@ public final class GoalProjection {
      * them, onto the goal: the nearer hit along its normal either way, else the nearest goal point.
      *
      * @param surface   the surface whose vertices move
-     * @param normalXyz direction per dense vertex index, packed xyz, any length; kept normalised
+     * @param normals   direction per dense vertex index, any length; kept normalised
      * @param goal      the goal, in its own frame
      * @param frame     the mesh whose bounding box defines the surface's frame (the base)
      */
-    public void project(MeshTopology surface, float[] normalXyz, MeshTopology goal, MeshTopology frame) {
+    public void project(MeshTopology surface, PackedPoints normals, MeshTopology goal, MeshTopology frame) {
         float scale = goal.boundsDiagonal() / Math.max(SculptStroke.MINIMUM_NORMAL_LENGTH, frame.boundsDiagonal());
         int vertexCount = surface.vertexCount();
-        this.normalXyz = normalXyz.clone();
-        Vector3f unit = new Vector3f();
-        for (int at = 0; at < normalXyz.length; at += 3) {
-            unit.set(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]).normalize();
-            PackedPoints.store(this.normalXyz, at, unit);
+        PackedPoints units = new PackedPoints(normals.size());
+        for (int point = 0; point < units.size(); point++) {
+            units.set(point, normals.at(point).normalize());
         }
-        normalXyz = this.normalXyz;
+        normalXyz = units;
         area = surface.vertexAreas();
-        float[] originXyz = MeshDistance.inFrame(MeshDistance.normalizedPositions(surface, frame),
+        PackedPoints origins = MeshDistance.inFrame(MeshDistance.normalizedPositions(surface, frame),
                 goal.center(new Vector3f()), goal.boundsDiagonal());
-        MeshProjection hits = MeshProjection.along(originXyz, normalXyz, goal);
+        MeshProjection hits = MeshProjection.along(origins, units, goal);
         offset = hits.offset;
         reachable = new boolean[vertexCount];
         float facingSign = goal.signedVolume() < 0.0 ? -1f : 1f;
@@ -74,16 +72,14 @@ public final class GoalProjection {
         Vector3f faceNormal = new Vector3f();
         Vector3f point = new Vector3f();
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            int at = activeVertex * 3;
             int face = hits.hitFace[activeVertex];
-            reachable[activeVertex] = face >= 0 && facingSign * goal.faceNormal(face, faceNormal).dot(
-                    normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]) > 0f;
+            Vector3f unit = units.at(activeVertex);
+            reachable[activeVertex] = face >= 0 && facingSign * goal.faceNormal(face, faceNormal).dot(unit) > 0f;
             if (!reachable[activeVertex]) {
                 offset[activeVertex] = 0f;
-                if (nearest.anchor(originXyz[at], originXyz[at + 1], originXyz[at + 2], anchor, 0) >= 0) {
-                    FaceAnchors.position(goal, anchor, 0, point).sub(originXyz[at], originXyz[at + 1],
-                            originXyz[at + 2]);
-                    offset[activeVertex] = point.dot(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]);
+                Vector3f origin = origins.at(activeVertex);
+                if (nearest.anchor(origin, anchor, 0) >= 0) {
+                    offset[activeVertex] = FaceAnchors.position(goal, anchor, 0, point).sub(origin).dot(unit);
                 }
             }
             offset[activeVertex] /= scale;

@@ -2,6 +2,11 @@ package ixdar.geometry.mesh.csg;
 
 import java.util.Arrays;
 
+import org.joml.Vector3d;
+import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+
 /**
  * Attributes every output triangle of a boolean to the operand it lies on, the input face it was
  * carved from, and whether it is an untouched copy or a piece the intersection curve cut.
@@ -93,11 +98,11 @@ public final class BooleanFaceProvenance {
      */
     private void attribute(QuadTriangulation operand, ManifoldMeshExport original, int originalId,
             int origin) {
-        int vertexCount = operand.positions.length / THREE;
+        int vertexCount = operand.positions.size();
         VertexPositionIndex positions = new VertexPositionIndex(vertexCount);
         for (int vertex = 0; vertex < vertexCount; vertex++) {
-            positions.put(operand.positions[vertex * THREE], operand.positions[vertex * THREE + 1],
-                    operand.positions[vertex * THREE + 2], vertex);
+            positions.put(operand.positions.get(vertex, 0), operand.positions.get(vertex, 1),
+                    operand.positions.get(vertex, 2), vertex);
         }
 
         int triangleCount = operand.triangles.length / THREE;
@@ -225,7 +230,8 @@ public final class BooleanFaceProvenance {
 
     /**
      * Among a face group's input triangles, the one whose plane best contains an output
-     * triangle's centroid, by the least negative barycentric coordinate.
+     * triangle's centroid, by the least negative smallest barycentric coordinate of the centroid
+     * projected onto each plane; degenerate candidates are skipped.
      *
      * @param triangle output triangle index
      * @param operand the operand supplying the candidate triangles' positions
@@ -236,69 +242,35 @@ public final class BooleanFaceProvenance {
      */
     private int nearestInputTriangle(int triangle, QuadTriangulation operand, int[] groupTriangles,
             int start, int end) {
-        double centroidX = 0;
-        double centroidY = 0;
-        double centroidZ = 0;
+        Vector3d centroid = new Vector3d();
         for (int corner = 0; corner < THREE; corner++) {
-            centroidX += result.cornerCoordinate(triangle, corner, 0);
-            centroidY += result.cornerCoordinate(triangle, corner, 1);
-            centroidZ += result.cornerCoordinate(triangle, corner, 2);
+            centroid.add(result.cornerCoordinate(triangle, corner, 0), result.cornerCoordinate(triangle, corner, 1),
+                    result.cornerCoordinate(triangle, corner, 2));
         }
-        centroidX /= THREE;
-        centroidY /= THREE;
-        centroidZ /= THREE;
+        centroid.div(THREE);
 
+        PackedPoints positions = operand.positions;
         int best = -1;
         double bestScore = Double.NEGATIVE_INFINITY;
         for (int slot = start; slot < end; slot++) {
             int candidate = groupTriangles[slot];
-            double score = containmentScore(operand, candidate, centroidX, centroidY, centroidZ);
+            Vector3f origin = positions.at(operand.triangles[candidate * THREE]);
+            Vector3d edgeB = new Vector3d(positions.at(operand.triangles[candidate * THREE + 1]).sub(origin));
+            Vector3d edgeC = new Vector3d(positions.at(operand.triangles[candidate * THREE + 2]).sub(origin));
+            Vector3d toPoint = new Vector3d(centroid).sub(origin.x, origin.y, origin.z);
+            double dotBC = edgeB.dot(edgeC);
+            double denominator = edgeB.lengthSquared() * edgeC.lengthSquared() - dotBC * dotBC;
+            if (denominator == 0) {
+                continue;
+            }
+            double weightB = (edgeC.lengthSquared() * toPoint.dot(edgeB) - dotBC * toPoint.dot(edgeC)) / denominator;
+            double weightC = (edgeB.lengthSquared() * toPoint.dot(edgeC) - dotBC * toPoint.dot(edgeB)) / denominator;
+            double score = Math.min(1 - weightB - weightC, Math.min(weightB, weightC));
             if (score > bestScore) {
                 bestScore = score;
                 best = candidate;
             }
         }
         return best;
-    }
-
-    /**
-     * Smallest barycentric coordinate of a point projected onto an input triangle's plane: at
-     * least zero inside the triangle, increasingly negative the further outside.
-     *
-     * @param operand the operand supplying the triangle's positions
-     * @param inputTriangle input triangle index
-     * @param pointX point x coordinate
-     * @param pointY point y coordinate
-     * @param pointZ point z coordinate
-     * @return the smallest barycentric coordinate, or negative infinity for a degenerate triangle
-     */
-    private static double containmentScore(QuadTriangulation operand, int inputTriangle,
-            double pointX, double pointY, double pointZ) {
-        float[] positions = operand.positions;
-        int cornerA = operand.triangles[inputTriangle * THREE] * THREE;
-        int cornerB = operand.triangles[inputTriangle * THREE + 1] * THREE;
-        int cornerC = operand.triangles[inputTriangle * THREE + 2] * THREE;
-        double edgeBx = positions[cornerB] - positions[cornerA];
-        double edgeBy = positions[cornerB + 1] - positions[cornerA + 1];
-        double edgeBz = positions[cornerB + 2] - positions[cornerA + 2];
-        double edgeCx = positions[cornerC] - positions[cornerA];
-        double edgeCy = positions[cornerC + 1] - positions[cornerA + 1];
-        double edgeCz = positions[cornerC + 2] - positions[cornerA + 2];
-        double toPointX = pointX - positions[cornerA];
-        double toPointY = pointY - positions[cornerA + 1];
-        double toPointZ = pointZ - positions[cornerA + 2];
-        double dotBB = edgeBx * edgeBx + edgeBy * edgeBy + edgeBz * edgeBz;
-        double dotBC = edgeBx * edgeCx + edgeBy * edgeCy + edgeBz * edgeCz;
-        double dotCC = edgeCx * edgeCx + edgeCy * edgeCy + edgeCz * edgeCz;
-        double dotPB = toPointX * edgeBx + toPointY * edgeBy + toPointZ * edgeBz;
-        double dotPC = toPointX * edgeCx + toPointY * edgeCy + toPointZ * edgeCz;
-        double denominator = dotBB * dotCC - dotBC * dotBC;
-        if (denominator == 0) {
-            return Double.NEGATIVE_INFINITY;
-        }
-        double weightB = (dotCC * dotPB - dotBC * dotPC) / denominator;
-        double weightC = (dotBB * dotPC - dotBC * dotPB) / denominator;
-        double weightA = 1 - weightB - weightC;
-        return Math.min(weightA, Math.min(weightB, weightC));
     }
 }

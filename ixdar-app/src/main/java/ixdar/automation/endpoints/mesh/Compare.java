@@ -11,6 +11,7 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 import ixdar.geometry.mesh.data.analysis.MeshDistance;
 import ixdar.automation.AutomationEndpoint;
@@ -85,10 +86,10 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                         return failure("Reference mesh is empty");
                     }
 
-                    float[] currentPositions = normalize
+                    PackedPoints currentPositions = normalize
                             ? MeshDistance.normalizedPositions(currentMesh)
                             : currentMesh.packedPositions(null);
-                    float[] referencePositions = normalize
+                    PackedPoints referencePositions = normalize
                             ? MeshDistance.normalizedPositions(referenceMesh)
                             : referenceMesh.packedPositions(null);
 

@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
 import ixdar.geometry.mesh.data.rings.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
@@ -119,8 +120,8 @@ public class LoopThroughPointsNode implements MeshNode {
         if (label == null || label.isBlank()) {
             label = DEFAULT_MARK_LABEL;
         }
-        float[] points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
-        int waypointCount = points.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
+        PackedPoints points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
+        int waypointCount = points.size();
         SurfaceRing ring;
         try {
             ring = SurfaceRing.through(mesh, points, waypointCount, closed,

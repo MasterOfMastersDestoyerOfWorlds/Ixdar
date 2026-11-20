@@ -23,15 +23,15 @@ public final class BezierFit {
      * P₀ == P₃ or P₀..P₃ collinear.
      *
      * @param indices vertex indices of the polyline samples in order
-     * @param positions packed {@code xyz} vertex positions (float[nv*3])
+     * @param positions vertex positions
      * @return four control points {P0, P1, P2, P3}; degenerate inputs yield a straight-line fit
      */
-    public static Vector3f[] fitCubic(int[] indices, float[] positions) {
+    public static Vector3f[] fitCubic(int[] indices, PackedPoints positions) {
         int n = indices == null ? 0 : indices.length;
         Vector3f[] out = new Vector3f[]{new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f()};
         if (n == 0) return out;
-        Vector3f p0 = point(indices[0], positions);
-        Vector3f p3 = point(indices[n - 1], positions);
+        Vector3f p0 = positions.at(indices[0]);
+        Vector3f p3 = positions.at(indices[n - 1]);
         out[0] = new Vector3f(p0);
         out[3] = new Vector3f(p3);
 
@@ -44,9 +44,7 @@ public final class BezierFit {
         float[] t = new float[n];
         float total = 0f;
         for (int i = 1; i < n; i++) {
-            Vector3f a = point(indices[i - 1], positions);
-            Vector3f b = point(indices[i], positions);
-            total += a.distance(b);
+            total += positions.at(indices[i - 1]).distance(positions.at(indices[i]));
             t[i] = total;
         }
         if (total < EPSILON) {
@@ -69,7 +67,7 @@ public final class BezierFit {
             m00 += a1 * a1;
             m01 += a1 * a2;
             m11 += a2 * a2;
-            Vector3f pi = point(indices[i], positions);
+            Vector3f pi = positions.at(indices[i]);
             double rx = pi.x - a0 * p0.x - a3 * p3.x;
             double ry = pi.y - a0 * p0.y - a3 * p3.y;
             double rz = pi.z - a0 * p0.z - a3 * p3.z;
@@ -112,9 +110,5 @@ public final class BezierFit {
                 a0 * ctl[0].y + a1 * ctl[1].y + a2 * ctl[2].y + a3 * ctl[3].y,
                 a0 * ctl[0].z + a1 * ctl[1].z + a2 * ctl[2].z + a3 * ctl[3].z);
         return out;
-    }
-
-    private static Vector3f point(int idx, float[] positions) {
-        return PackedPoints.at(positions, idx * 3);
     }
 }

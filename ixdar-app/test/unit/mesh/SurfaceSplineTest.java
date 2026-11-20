@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.paths.query.PlaneSurfaceLoop;
@@ -79,12 +81,11 @@ class SurfaceSplineTest {
     @Test
     void fourAnchorsOnASphereReproduceTheGreatCircle() {
         MeshTopology sphere = sphere();
-        float[] anchors = new float[COORDINATES * SplineAnchorFit.STARTING_ANCHORS];
+        PackedPoints anchors = new PackedPoints(SplineAnchorFit.STARTING_ANCHORS);
         for (int anchor = 0; anchor < SplineAnchorFit.STARTING_ANCHORS; anchor++) {
             double angle = 2.0 * Math.PI * anchor / SplineAnchorFit.STARTING_ANCHORS;
-            anchors[COORDINATES * anchor] = (float) (SPHERE_RADIUS * Math.cos(angle));
-            anchors[COORDINATES * anchor + 1] = 0f;
-            anchors[COORDINATES * anchor + 2] = (float) (SPHERE_RADIUS * Math.sin(angle));
+            anchors.set(anchor, (float) (SPHERE_RADIUS * Math.cos(angle)), 0f,
+                    (float) (SPHERE_RADIUS * Math.sin(angle)));
         }
         SurfaceSpline spline =
                 SurfaceSpline.through(sphere, anchors, SplineAnchorFit.STARTING_ANCHORS);
@@ -104,35 +105,31 @@ class SurfaceSplineTest {
     void anAnchorOffTheCircleBendsTheSplineThroughItWithoutACorner() {
         MeshTopology sphere = sphere();
         int anchorCount = SplineAnchorFit.STARTING_ANCHORS + 1;
-        float[] anchors = new float[COORDINATES * anchorCount];
-        for (int anchor = 0; anchor < SplineAnchorFit.STARTING_ANCHORS; anchor++) {
-            double angle = 2.0 * Math.PI * anchor / SplineAnchorFit.STARTING_ANCHORS;
-            anchors[COORDINATES * anchor] = (float) (SPHERE_RADIUS * Math.cos(angle));
-            anchors[COORDINATES * anchor + 1] = 0f;
-            anchors[COORDINATES * anchor + 2] = (float) (SPHERE_RADIUS * Math.sin(angle));
-        }
         double latitude = Math.PI * OFF_CIRCLE_BANDS / (SPHERE_RINGS - 1);
         double longitude = 2.0 * Math.PI * (SPHERE_SIDES / 8.0) / SPHERE_SIDES;
-        int last = COORDINATES * SplineAnchorFit.STARTING_ANCHORS;
-        anchors[last] = (float) (SPHERE_RADIUS * Math.cos(latitude) * Math.cos(longitude));
-        anchors[last + 1] = (float) (SPHERE_RADIUS * Math.sin(latitude));
-        anchors[last + 2] = (float) (SPHERE_RADIUS * Math.cos(latitude) * Math.sin(longitude));
-
-        float[] ordered = new float[COORDINATES * anchorCount];
-        System.arraycopy(anchors, 0, ordered, 0, COORDINATES);
-        System.arraycopy(anchors, last, ordered, COORDINATES, COORDINATES);
-        System.arraycopy(anchors, COORDINATES, ordered, 2 * COORDINATES,
-                COORDINATES * (SplineAnchorFit.STARTING_ANCHORS - 1));
+        Vector3f off = new Vector3f(
+                (float) (SPHERE_RADIUS * Math.cos(latitude) * Math.cos(longitude)),
+                (float) (SPHERE_RADIUS * Math.sin(latitude)),
+                (float) (SPHERE_RADIUS * Math.cos(latitude) * Math.sin(longitude)));
+        PackedPoints ordered = new PackedPoints();
+        for (int anchor = 0; anchor < SplineAnchorFit.STARTING_ANCHORS; anchor++) {
+            double angle = 2.0 * Math.PI * anchor / SplineAnchorFit.STARTING_ANCHORS;
+            ordered.append((float) (SPHERE_RADIUS * Math.cos(angle)), 0f,
+                    (float) (SPHERE_RADIUS * Math.sin(angle)));
+            if (anchor == 0) {
+                ordered.append(off);
+            }
+        }
         SurfaceSpline spline = SurfaceSpline.through(sphere, ordered, anchorCount);
 
         assertTrue(spline.minimumInteriorAngleDegrees > SMOOTHEST_CORNER_DEGREES,
                 "sharpest corner " + spline.minimumInteriorAngleDegrees + " degrees");
         double nearest = Double.POSITIVE_INFINITY;
-        double[] traced = spline.path.positions;
+        PackedPoints traced = spline.path.positions;
         for (int point = 0; point < spline.path.pointCount; point++) {
-            double dx = traced[COORDINATES * point] - ordered[COORDINATES];
-            double dy = traced[COORDINATES * point + 1] - ordered[COORDINATES + 1];
-            double dz = traced[COORDINATES * point + 2] - ordered[COORDINATES + 2];
+            double dx = traced.get(point, 0) - off.x;
+            double dy = traced.get(point, 1) - off.y;
+            double dz = traced.get(point, 2) - off.z;
             nearest = Math.min(nearest, Math.sqrt(dx * dx + dy * dy + dz * dz));
         }
         assertTrue(nearest < 1e-3, "the spline missed its own anchor by " + nearest);
@@ -190,22 +187,20 @@ class SurfaceSplineTest {
     /** A sphere of latitude rings between two poles, fine enough to carry a smooth ring. */
     private static MeshTopology sphere() {
         int interiorRings = SPHERE_RINGS - 2;
-        float[] positions = new float[COORDINATES * (2 + interiorRings * SPHERE_SIDES)];
-        positions[1] = SPHERE_RADIUS;
+        PackedPoints positions = new PackedPoints(2 + interiorRings * SPHERE_SIDES);
+        positions.set(0, 0f, SPHERE_RADIUS, 0f);
         for (int ring = 0; ring < interiorRings; ring++) {
             double latitude = Math.PI * (ring + 1) / (SPHERE_RINGS - 1);
             for (int side = 0; side < SPHERE_SIDES; side++) {
                 double longitude = 2.0 * Math.PI * side / SPHERE_SIDES;
-                int base = COORDINATES * (1 + SPHERE_SIDES * ring + side);
-                positions[base] =
-                        (float) (SPHERE_RADIUS * Math.sin(latitude) * Math.cos(longitude));
-                positions[base + 1] = (float) (SPHERE_RADIUS * Math.cos(latitude));
-                positions[base + 2] =
-                        (float) (SPHERE_RADIUS * Math.sin(latitude) * Math.sin(longitude));
+                positions.set(1 + SPHERE_SIDES * ring + side,
+                        (float) (SPHERE_RADIUS * Math.sin(latitude) * Math.cos(longitude)),
+                        (float) (SPHERE_RADIUS * Math.cos(latitude)),
+                        (float) (SPHERE_RADIUS * Math.sin(latitude) * Math.sin(longitude)));
             }
         }
         int south = 1 + interiorRings * SPHERE_SIDES;
-        positions[COORDINATES * south + 1] = -SPHERE_RADIUS;
+        positions.set(south, 0f, -SPHERE_RADIUS, 0f);
         int[] faces =
                 new int[COORDINATES * SPHERE_SIDES * (2 * interiorRings)];
         int corner = 0;
@@ -246,17 +241,15 @@ class SurfaceSplineTest {
      * {@code growth}, so {@code growth == 1} is the straight tube.
      */
     private static MeshTopology tube(float growth) {
-        float[] positions = new float[COORDINATES * TUBE_SIDES * TUBE_RINGS];
+        PackedPoints positions = new PackedPoints(TUBE_SIDES * TUBE_RINGS);
         for (int ring = 0; ring < TUBE_RINGS; ring++) {
             float along = (float) ring / (TUBE_RINGS - 1);
             float x = -TUBE_HALF_LENGTH + 2f * TUBE_HALF_LENGTH * along;
             float radius = TUBE_RADIUS * (1f + (growth - 1f) * along);
             for (int side = 0; side < TUBE_SIDES; side++) {
                 double angle = 2.0 * Math.PI * side / TUBE_SIDES;
-                int base = COORDINATES * (TUBE_SIDES * ring + side);
-                positions[base] = x;
-                positions[base + 1] = (float) (radius * Math.cos(angle));
-                positions[base + 2] = (float) (radius * Math.sin(angle));
+                positions.set(TUBE_SIDES * ring + side, x, (float) (radius * Math.cos(angle)),
+                        (float) (radius * Math.sin(angle)));
             }
         }
         int[] faces = new int[2 * COORDINATES * TUBE_SIDES * (TUBE_RINGS - 1)];
@@ -291,7 +284,7 @@ class SurfaceSplineTest {
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
         SurfaceSpline live = SurfaceSpline.of(ring.tracer);
         int authoredAnchors = ring.authoredVertexId.length;
-        float[] authoredXyz = positionsOf(tube, ring.authoredVertexId, authoredAnchors);
+        PackedPoints authoredXyz = positionsOf(tube, ring.authoredVertexId, authoredAnchors);
 
         SplineRingNode node = new SplineRingNode();
         MapNodeContext ctx = new MapNodeContext(node);
@@ -324,12 +317,10 @@ class SurfaceSplineTest {
         SurfaceSpline spline = SurfaceSpline.of(ring.tracer);
 
         assertEquals(2, spline.authoredCount());
-        float[] anchorXyz = positionsOf(tube, authored, authored.length);
+        PackedPoints anchorXyz = positionsOf(tube, authored, authored.length);
         int points = spline.path.pointCount;
         for (int anchor = 0; anchor < authored.length; anchor++) {
-            double miss = SurfaceSpline.distanceToPolyline(spline.path.positions, points,
-                    anchorXyz[COORDINATES * anchor], anchorXyz[COORDINATES * anchor + 1],
-                    anchorXyz[COORDINATES * anchor + 2]);
+            double miss = SurfaceSpline.distanceToPolyline(spline.path.positions, points, anchorXyz.at(anchor));
             assertTrue(miss <= ring.tracer.geodesics.metric.meanEdgeLength, "authored anchor " + anchor
                     + " is " + miss + " off the ring, over one mean edge "
                     + ring.tracer.geodesics.metric.meanEdgeLength);
@@ -355,7 +346,7 @@ class SurfaceSplineTest {
         assertFalse(Arrays.equals(before.marks.markedByEdgeId, bent.marks.markedByEdgeId),
                 "the second anchor did not move the ring");
         assertArrayEquals(before.anchorVertexId, after.anchorVertexId);
-        assertArrayEquals(before.path.positions, after.path.positions);
+        assertArrayEquals(before.path.positions.toArray(), after.path.positions.toArray());
         assertArrayEquals(before.marks.markedByEdgeId, after.marks.markedByEdgeId);
     }
 
@@ -391,27 +382,22 @@ class SurfaceSplineTest {
 
     /** Vertex ids of tube vertices given as (cross-section, side) pairs. */
     private static int[] tubeVertices(MeshTopology tube, int... ringAndSide) {
-        float[] xyz = new float[COORDINATES * ringAndSide.length / 2];
+        PackedPoints xyz = new PackedPoints(ringAndSide.length / 2);
         float step = 2f * TUBE_HALF_LENGTH / (TUBE_RINGS - 1);
         for (int pair = 0; pair < ringAndSide.length / 2; pair++) {
             float along = (float) ringAndSide[2 * pair] / (TUBE_RINGS - 1);
             float radius = TUBE_RADIUS * (1f + (TAPER_GROWTH - 1f) * along);
             double angle = 2.0 * Math.PI * ringAndSide[2 * pair + 1] / TUBE_SIDES;
-            xyz[COORDINATES * pair] = -TUBE_HALF_LENGTH + step * ringAndSide[2 * pair];
-            xyz[COORDINATES * pair + 1] = (float) (radius * Math.cos(angle));
-            xyz[COORDINATES * pair + 2] = (float) (radius * Math.sin(angle));
+            xyz.set(pair, -TUBE_HALF_LENGTH + step * ringAndSide[2 * pair],
+                    (float) (radius * Math.cos(angle)), (float) (radius * Math.sin(angle)));
         }
-        return SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, ringAndSide.length / 2);
+        return SurfaceWaypoints.snap(NearestVertex.over(tube), xyz, ringAndSide.length / 2);
     }
 
-    private static float[] positionsOf(MeshTopology mesh, int[] vertexIds, int count) {
-        float[] xyz = new float[COORDINATES * count];
-        Vector3f position = new Vector3f();
+    private static PackedPoints positionsOf(MeshTopology mesh, int[] vertexIds, int count) {
+        PackedPoints xyz = new PackedPoints(count);
         for (int anchor = 0; anchor < count; anchor++) {
-            mesh.vertexPosition(vertexIds[anchor], position);
-            xyz[COORDINATES * anchor] = position.x;
-            xyz[COORDINATES * anchor + 1] = position.y;
-            xyz[COORDINATES * anchor + 2] = position.z;
+            xyz.set(anchor, mesh.vertexPosition(vertexIds[anchor], new Vector3f()));
         }
         return xyz;
     }
@@ -419,16 +405,17 @@ class SurfaceSplineTest {
     @Test
     void theWriterIsByteStableAndRewritesInPlace() {
         String graph = "carrier = load_mesh(path=\"x.off\")";
-        List<Vector3f> anchors = SurfaceWaypoints.points(
-                new float[] { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f });
+        List<Vector3f> anchors = List.of(new Vector3f(0f, 0f, 0f), new Vector3f(1f, 0f, 0f),
+                new Vector3f(1f, 1f, 0f), new Vector3f(0f, 1f, 0f));
         String appended = RingDslWriter.appendSpline(graph, anchors, SplineAnchorFit.STARTING_ANCHORS);
 
         assertEquals(appended, RingDslWriter.appendSpline(graph, anchors,
                 SplineAnchorFit.STARTING_ANCHORS), "the writer is not byte-stable");
         String id = RingDslWriter.nextRingId(graph);
         assertTrue(appended.contains(id + " = spline_ring(geometry=carrier.geometry"), appended);
-        float[] moved = { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f, 0f, 0.5f, 0f };
-        String rewritten = RingDslWriter.replaceSpline(appended, id, SurfaceWaypoints.points(moved),
+        List<Vector3f> moved = new ArrayList<>(anchors);
+        moved.add(new Vector3f(0f, 0.5f, 0f));
+        String rewritten = RingDslWriter.replaceSpline(appended, id, moved,
                 SplineAnchorFit.STARTING_ANCHORS + 1);
         assertEquals(appended.lines().count(), rewritten.lines().count(),
                 "rewriting a ring in place should not add a statement");

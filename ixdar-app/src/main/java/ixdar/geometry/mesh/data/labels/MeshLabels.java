@@ -11,6 +11,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.RegionColouring;
@@ -34,8 +35,8 @@ public final class MeshLabels {
     /** Name of each label, in the order the labels were first given. */
     public final List<String> names = new ArrayList<>();
 
-    /** Surface points selecting each label's elements, packed xyz, parallel to {@link #names}. */
-    public final List<float[]> pointsByLabel = new ArrayList<>();
+    /** Surface points selecting each label's elements, parallel to {@link #names}. */
+    public final List<PackedPoints> pointsByLabel = new ArrayList<>();
 
     /**
      * Label of each ring region as last {@link #resolve resolved},
@@ -66,8 +67,8 @@ public final class MeshLabels {
      */
     public MeshLabels(MeshLabels other) {
         names.addAll(other.names);
-        for (float[] points : other.pointsByLabel) {
-            pointsByLabel.add(points.clone());
+        for (PackedPoints points : other.pointsByLabel) {
+            pointsByLabel.add(points.copy());
         }
     }
 
@@ -101,30 +102,24 @@ public final class MeshLabels {
     /**
      * Add surface points to a label, creating it after the others when it is new.
      *
-     * @param name      label name
-     * @param packedXyz the points, packed xyz
-     * @throws IllegalArgumentException when the name is refused or the points are
-     *                                  not whole xyz
+     * @param name   label name
+     * @param points the points, a growable buffer the labels keep as a new label's own
+     * @throws IllegalArgumentException when the name is refused
      */
-    public void add(String name, float[] packedXyz) {
+    public void add(String name, PackedPoints points) {
         String refusal = nameRefusal(name);
         if (!refusal.isEmpty()) {
             throw new IllegalArgumentException(refusal);
         }
-        if (packedXyz.length % XYZ != 0) {
-            throw new IllegalArgumentException("label " + name + " got " + packedXyz.length
-                    + " coordinates, not whole x,y,z points");
-        }
         int label = names.indexOf(name);
         if (label < 0) {
             names.add(name);
-            pointsByLabel.add(packedXyz.clone());
+            pointsByLabel.add(points);
             return;
         }
-        float[] before = pointsByLabel.get(label);
-        float[] after = Arrays.copyOf(before, before.length + packedXyz.length);
-        System.arraycopy(packedXyz, 0, after, before.length, packedXyz.length);
-        pointsByLabel.set(label, after);
+        for (int point = 0; point < points.size(); point++) {
+            pointsByLabel.get(label).append(points.at(point));
+        }
     }
 
     /**
@@ -135,7 +130,9 @@ public final class MeshLabels {
      * @throws IllegalArgumentException when the name is refused
      */
     public void add(String name, Vector3f point) {
-        add(name, new float[] { point.x, point.y, point.z });
+        PackedPoints one = new PackedPoints(1);
+        one.set(0, point);
+        add(name, one);
     }
 
     /**
@@ -150,12 +147,10 @@ public final class MeshLabels {
     public void resolve(RingRegions regions, Color[] cycle) {
         int[] labelOf = new int[regions.regionCount];
         Arrays.fill(labelOf, UNLABELLED);
-        Vector3f position = new Vector3f();
         for (int label = 0; label < names.size(); label++) {
-            float[] points = pointsByLabel.get(label);
-            for (int point = 0; point < points.length / XYZ; point++) {
-                int activeFace = regions.nearestActiveFace(position.set(points[XYZ * point],
-                        points[XYZ * point + 1], points[XYZ * point + 2]));
+            PackedPoints points = pointsByLabel.get(label);
+            for (int point = 0; point < points.size(); point++) {
+                int activeFace = regions.nearestActiveFace(points.at(point));
                 if (activeFace != MeshTopology.NONE) {
                     labelOf[regions.regionByActiveFace[activeFace]] = label;
                 }
@@ -216,27 +211,23 @@ public final class MeshLabels {
      */
     public int unlabel(RingRegions regions, int region) {
         int dropped = 0;
-        Vector3f position = new Vector3f();
         for (int label = names.size() - 1; label >= 0; label--) {
-            float[] points = pointsByLabel.get(label);
-            float[] kept = new float[points.length];
-            int keptCount = 0;
-            for (int point = 0; point < points.length / XYZ; point++) {
-                int activeFace = regions.nearestActiveFace(position.set(points[XYZ * point],
-                        points[XYZ * point + 1], points[XYZ * point + 2]));
+            PackedPoints points = pointsByLabel.get(label);
+            PackedPoints kept = new PackedPoints();
+            for (int point = 0; point < points.size(); point++) {
+                int activeFace = regions.nearestActiveFace(points.at(point));
                 if (activeFace != MeshTopology.NONE
                         && regions.regionByActiveFace[activeFace] == region) {
                     dropped++;
                     continue;
                 }
-                System.arraycopy(points, XYZ * point, kept, XYZ * keptCount, XYZ);
-                keptCount++;
+                kept.append(points.at(point));
             }
-            if (keptCount == 0) {
+            if (kept.size() == 0) {
                 names.remove(label);
                 pointsByLabel.remove(label);
             } else {
-                pointsByLabel.set(label, Arrays.copyOf(kept, XYZ * keptCount));
+                pointsByLabel.set(label, kept);
             }
         }
         return dropped;

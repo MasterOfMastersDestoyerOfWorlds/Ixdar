@@ -7,6 +7,7 @@ import java.util.stream.IntStream;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
@@ -31,8 +32,8 @@ public final class RegionExplosion {
     /** Names the draw tag each region's offset is written under. */
     public final IntFunction<String> regionTag;
 
-    /** Area-weighted centroid of each region, packed xyz. */
-    public float[] regionCentroidXyz = new float[0];
+    /** Area-weighted centroid of each region. */
+    public PackedPoints regionCentroids = new PackedPoints(0);
 
     /** Surface area of each region, one entry per region measured. */
     public double[] regionArea = new double[0];
@@ -135,12 +136,16 @@ public final class RegionExplosion {
         for (int axis = 0; totalArea > 0 && axis < XYZ; axis++) {
             modelCentroid.setComponent(axis, (float) (weightedSum[axis] / totalArea));
         }
-        regionCentroidXyz = new float[XYZ * regions];
+        regionCentroids = new PackedPoints(regions);
         for (int region = 0; region < regions; region++) {
-            for (int axis = 0; axis < XYZ; axis++) {
-                regionCentroidXyz[XYZ * region + axis] = regionArea[region] > 0
-                        ? (float) (regionWeightedSum[XYZ * region + axis] / regionArea[region])
-                        : modelCentroid.get(axis);
+            int base = XYZ * region;
+            double area = regionArea[region];
+            if (area > 0) {
+                regionCentroids.set(region, (float) (regionWeightedSum[base] / area),
+                        (float) (regionWeightedSum[base + 1] / area),
+                        (float) (regionWeightedSum[base + 2] / area));
+            } else {
+                regionCentroids.set(region, modelCentroid);
             }
         }
     }
@@ -203,11 +208,8 @@ public final class RegionExplosion {
         appliedAmount = eased;
         float spread = eased * FULL_SPREAD;
         for (int region = 0; eased > 0f && region < regionArea.length; region++) {
-            int base = XYZ * region;
             offsets.computeIfAbsent(regionTag.apply(region), tag -> new Vector3f())
-                    .set(regionCentroidXyz[base], regionCentroidXyz[base + 1],
-                            regionCentroidXyz[base + 2])
-                    .sub(modelCentroid).mul(spread);
+                    .set(regionCentroids.at(region)).sub(modelCentroid).mul(spread);
         }
     }
 

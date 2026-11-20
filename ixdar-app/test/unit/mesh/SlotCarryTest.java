@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.nodes.data.TagGeometryNode;
@@ -140,22 +141,22 @@ class SlotCarryTest {
 
     @Test
     void mirrorMatchesEachCornerUvThroughTheReversedWindingAndReflectsHandles() {
-        float[] positions = {1f, 0f, 0f, 2f, 0f, 0f, 1f, 1f, 0f};
-        HalfEdgeMesh triangle = HalfEdgeMeshOps.bulkAllocate(positions, new int[] {0, 1, 2},
+        PackedPoints positions = triangle(1f);
+        HalfEdgeMesh triangle = HalfEdgeMeshOps.bulkAllocate(triangle(1f), new int[] {0, 1, 2},
                 TRIANGLE_CORNERS);
         triangle.computeNormals();
         double[] cornerU = {0.1, 0.2, 0.3};
         double[] cornerV = {0.4, 0.5, 0.6};
-        float[] handle = new float[triangle.edgeIdBound() * TRIANGLE_CORNERS];
+        PackedPoints startHandles = new PackedPoints(triangle.edgeIdBound());
+        PackedPoints endHandles = new PackedPoints(triangle.edgeIdBound());
         for (int edgeId = 0; edgeId < triangle.edgeIdBound(); edgeId++) {
-            handle[edgeId * TRIANGLE_CORNERS] = HANDLE_X;
-            handle[edgeId * TRIANGLE_CORNERS + 1] = HANDLE_Y;
-            handle[edgeId * TRIANGLE_CORNERS + 2] = HANDLE_Z;
+            startHandles.set(edgeId, HANDLE_X, HANDLE_Y, HANDLE_Z);
+            endHandles.set(edgeId, HANDLE_X, HANDLE_Y, HANDLE_Z);
         }
         GeometryBundle base = GeometryBundle.ofMesh(triangle)
                 .withSlot(CornerUvField.SLOT, new CornerUvField(cornerU, cornerV))
-                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_START, handle)
-                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, handle.clone());
+                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_START, startHandles)
+                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, endHandles);
 
         GeometryBundle out = new MapNodeContext(new MirrorGeometryNode())
                 .with(MirrorGeometryNode.GEOMETRY, base)
@@ -173,10 +174,8 @@ class SlotCarryTest {
                 mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), position);
                 int source = -1;
                 for (int inputCorner = 0; inputCorner < TRIANGLE_CORNERS; inputCorner++) {
-                    if (Math.abs(positions[inputCorner * TRIANGLE_CORNERS] - Math.abs(position.x))
-                            < EPSILON
-                            && Math.abs(positions[inputCorner * TRIANGLE_CORNERS + 1] - position.y)
-                            < EPSILON) {
+                    if (Math.abs(positions.get(inputCorner, 0) - Math.abs(position.x)) < EPSILON
+                            && Math.abs(positions.get(inputCorner, 1) - position.y) < EPSILON) {
                         source = inputCorner;
                     }
                 }
@@ -188,25 +187,25 @@ class SlotCarryTest {
             }
         }
 
-        float[] start = (float[]) out.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START);
+        PackedPoints start = (PackedPoints) out.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START);
         for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
             int edgeId = mesh.edgeIdAt(activeEdge);
             mesh.vertexPosition(mesh.halfEdgeVertex(mesh.edgeHalfEdge(edgeId)), position);
             float expectedX = position.x < 0f ? -HANDLE_X : HANDLE_X;
             assertArrayEquals(new float[] {expectedX, HANDLE_Y, HANDLE_Z},
-                    Arrays.copyOfRange(start, edgeId * TRIANGLE_CORNERS,
-                            edgeId * TRIANGLE_CORNERS + TRIANGLE_CORNERS),
+                    new float[] {start.get(edgeId, 0), start.get(edgeId, 1), start.get(edgeId, 2)},
                     EPSILON, "the mirrored half's handles reflect across the plane");
         }
     }
 
     @Test
     void joinWithAWeldOrsTheTagsOfTheVerticesItFuses() {
-        HalfEdgeMesh left = HalfEdgeMeshOps.bulkAllocate(
-                new float[] {0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f}, new int[] {0, 1, 2},
+        PackedPoints leftPositions = new PackedPoints(TRIANGLE_CORNERS);
+        leftPositions.set(1, 1f, 0f, 0f);
+        leftPositions.set(2, 1f, 1f, 0f);
+        HalfEdgeMesh left = HalfEdgeMeshOps.bulkAllocate(leftPositions, new int[] {0, 1, 2},
                 TRIANGLE_CORNERS);
-        HalfEdgeMesh right = HalfEdgeMeshOps.bulkAllocate(
-                new float[] {1f, 0f, 0f, 2f, 0f, 0f, 1f, 1f, 0f}, new int[] {0, 1, 2},
+        HalfEdgeMesh right = HalfEdgeMeshOps.bulkAllocate(triangle(1f), new int[] {0, 1, 2},
                 TRIANGLE_CORNERS);
         GeometryBundle a = taggedEverywhere(left, TAG);
         GeometryBundle b = taggedEverywhere(right, OTHER_TAG);
@@ -261,15 +260,30 @@ class SlotCarryTest {
     }
 
     /**
+     * A right triangle in the z = 0 plane with legs 1 along x and y, its right angle at
+     * {@code (left, 0)}.
+     *
+     * @param left x of the right-angle corner
+     * @return its three corners, the right angle first
+     */
+    private static PackedPoints triangle(float left) {
+        PackedPoints positions = new PackedPoints(TRIANGLE_CORNERS);
+        positions.set(0, left, 0f, 0f);
+        positions.set(1, left + 1f, 0f, 0f);
+        positions.set(2, left, 1f, 0f);
+        return positions;
+    }
+
+    /**
      * Two unit quads side by side in the z = 0 plane, x in [0, 2], y in [0, 1].
      *
      * @return the strip, vertices 0..2 along y = 0 and 3..5 along y = 1
      */
     private static HalfEdgeMesh quadStrip() {
-        float[] positions = {
-            0f, 0f, 0f, 1f, 0f, 0f, 2f, 0f, 0f,
-            0f, 1f, 0f, 1f, 1f, 0f, 2f, 1f, 0f,
-        };
+        PackedPoints positions = new PackedPoints(2 * TRIANGLE_CORNERS);
+        for (int vertex = 0; vertex < 2 * TRIANGLE_CORNERS; vertex++) {
+            positions.set(vertex, vertex % TRIANGLE_CORNERS, vertex / TRIANGLE_CORNERS, 0f);
+        }
         HalfEdgeMesh strip = HalfEdgeMeshOps.bulkAllocate(positions,
                 new int[] {0, 1, 4, TRIANGLE_CORNERS, 1, 2, 5, 4}, QUAD_CORNERS);
         strip.computeNormals();

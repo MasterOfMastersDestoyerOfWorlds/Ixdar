@@ -33,6 +33,7 @@ import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.tsp.PointSetPath;
 import ixdar.gui.ui.ErrorToasts;
@@ -278,7 +279,13 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         JsonObject draftState = draft == null ? new JsonObject() : itemState(draft);
         draftState.addProperty("exists", draft != null);
         if (draft != null) {
-            draftState.add("points", floats(draft.points));
+            JsonArray points = new JsonArray();
+            for (int point = 0; point < draft.points.size(); point++) {
+                for (int axis = 0; axis < PackedPoints.XYZ; axis++) {
+                    points.add(draft.points.get(point, axis));
+                }
+            }
+            draftState.add("points", points);
             JsonArray pointLabels = new JsonArray();
             for (String pointLabel : draft.pointLabels) {
                 pointLabels.add(pointLabel);

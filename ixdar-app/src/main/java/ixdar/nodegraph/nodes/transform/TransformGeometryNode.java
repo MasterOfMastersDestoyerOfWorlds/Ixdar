@@ -4,9 +4,9 @@ import java.util.List;
 
 import java.util.Map;
 
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
@@ -96,25 +96,17 @@ public class TransformGeometryNode implements MeshNode {
             mat.scale(sc.x(), sc.y(), sc.z());
         }
 
-        Vector3f tmp = new Vector3f();
         GeometryBundle result = base;
 
         MeshTopology mesh = base.mesh();
         HalfEdgeMesh out = null;
         int[] activeVertexOfId = null;
         if (mesh != null && mesh.vertexCount() > 0) {
-            int n = mesh.vertexCount();
             int fc = mesh.faceCount();
 
-            float[] newPositions = new float[n * VECTOR_STRIDE];
             activeVertexOfId = new int[mesh.vertexIdBound()];
-            for (int activeVertex = 0; activeVertex < n; activeVertex++) {
-                int vertexId = mesh.vertexIdAt(activeVertex);
-                activeVertexOfId[vertexId] = activeVertex;
-                mesh.vertexPosition(vertexId, tmp);
-                mat.transformPosition(tmp);
-                PackedPoints.store(newPositions, activeVertex * VECTOR_STRIDE, tmp);
-            }
+            PackedPoints newPositions = mesh.packedPositions(activeVertexOfId);
+            newPositions.transformPositions(mat);
             int[] faceSizes = new int[fc];
             int cornerCount = 0;
             for (int fi = 0; fi < fc; fi++) {
@@ -129,33 +121,31 @@ public class TransformGeometryNode implements MeshNode {
                     faceCorners[cursor++] = activeVertexOfId[mesh.faceVertexAt(faceId, k)];
                 }
             }
-            out = HalfEdgeMeshOps.bulkAllocateMixed(newPositions, faceSizes, faceCorners);
+            out = HalfEdgeMeshOps.bulkAllocateMixed(newPositions,faceSizes, faceCorners);
             out.computeNormals();
             result = result.withMesh(out);
         }
 
         if (hasRotation || hasScale) {
-            result = transformHandleSlot(result, AssignBezierHandlesNode.SLOT_HANDLES_START, mat, tmp);
-            result = transformHandleSlot(result, AssignBezierHandlesNode.SLOT_HANDLES_END, mat, tmp);
+            result = transformHandleSlot(result, AssignBezierHandlesNode.SLOT_HANDLES_START, mat);
+            result = transformHandleSlot(result, AssignBezierHandlesNode.SLOT_HANDLES_END, mat);
         }
 
-        if (out != null && result.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START) instanceof float[] start
-                && result.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_END) instanceof float[] end) {
-            float[] outStart = new float[out.edgeIdBound() * VECTOR_STRIDE];
-            float[] outEnd = new float[outStart.length];
+        if (out != null && result.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START) instanceof PackedPoints starts
+                && result.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_END) instanceof PackedPoints ends) {
+            PackedPoints outStart = new PackedPoints(out.edgeIdBound());
+            PackedPoints outEnd = new PackedPoints(out.edgeIdBound());
             for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
                 int edgeId = mesh.edgeIdAt(activeEdge);
-                if ((edgeId + 1) * VECTOR_STRIDE > Math.min(start.length, end.length)) {
+                if (edgeId >= Math.min(starts.size(), ends.size())) {
                     continue;
                 }
                 int halfEdge = mesh.edgeHalfEdge(edgeId);
                 int tail = activeVertexOfId[mesh.halfEdgeVertex(halfEdge)];
                 int outEdge = out.edgeBetween(tail, activeVertexOfId[mesh.halfEdgeEndVertex(halfEdge)]);
                 boolean sameWay = out.halfEdgeVertex(out.edgeHalfEdge(outEdge)) == tail;
-                System.arraycopy(sameWay ? start : end, edgeId * VECTOR_STRIDE, outStart,
-                        outEdge * VECTOR_STRIDE, VECTOR_STRIDE);
-                System.arraycopy(sameWay ? end : start, edgeId * VECTOR_STRIDE, outEnd,
-                        outEdge * VECTOR_STRIDE, VECTOR_STRIDE);
+                outStart.set(outEdge, (sameWay ? starts : ends).at(edgeId));
+                outEnd.set(outEdge, (sameWay ? ends : starts).at(edgeId));
             }
             result = result.withSlot(AssignBezierHandlesNode.SLOT_HANDLES_START, outStart)
                     .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, outEnd);
@@ -163,13 +153,8 @@ public class TransformGeometryNode implements MeshNode {
 
         Object curveObj = base.slots().get(CurveGeometry.SLOT);
         if (curveObj instanceof CurveGeometry cg) {
-            float[] srcPos = cg.positions;
-            float[] dstPos = new float[srcPos.length];
-            for (int ci = 0; ci < srcPos.length / VECTOR_STRIDE; ci++) {
-                tmp.set(srcPos[ci * VECTOR_STRIDE], srcPos[ci * VECTOR_STRIDE + 1], srcPos[ci * VECTOR_STRIDE + 2]);
-                mat.transformPosition(tmp);
-                PackedPoints.store(dstPos, ci * VECTOR_STRIDE, tmp);
-            }
+            PackedPoints dstPos = cg.positions.copy();
+            dstPos.transformPositions(mat);
             result = result.withSlot(CurveGeometry.SLOT, cg.withPositions(dstPos));
         }
 
@@ -177,25 +162,19 @@ public class TransformGeometryNode implements MeshNode {
     }
 
     /**
-     * If {@code bundle} has a float[] slot named {@code slotName}, applies the
-     * linear part of {@code mat} to each 3-float vector in place (on a copy) and
+     * If {@code bundle} has a {@link PackedPoints} slot named {@code slotName}, applies the
+     * linear part of {@code mat} to each vector of a copy and
      * returns a new bundle with the transformed slot. Otherwise returns the
      * bundle unchanged.
      */
     private static GeometryBundle transformHandleSlot(GeometryBundle bundle, String slotName,
-            Matrix4f mat, Vector3f tmp) {
+            Matrix4f mat) {
         Object o = bundle.slots().get(slotName);
-        if (!(o instanceof float[] src)) {
+        if (!(o instanceof PackedPoints source)) {
             return bundle;
         }
-        float[] dst = new float[src.length];
-        int n = src.length / VECTOR_STRIDE;
-        for (int i = 0; i < n; i++) {
-            int b = i * VECTOR_STRIDE;
-            tmp.set(src[b], src[b + 1], src[b + 2]);
-            mat.transformDirection(tmp);
-            PackedPoints.store(dst, b, tmp);
-        }
-        return bundle.withSlot(slotName, dst);
+        PackedPoints transformed = source.copy();
+        transformed.transform(mat.get3x3(new Matrix3f()));
+        return bundle.withSlot(slotName, transformed);
     }
 }

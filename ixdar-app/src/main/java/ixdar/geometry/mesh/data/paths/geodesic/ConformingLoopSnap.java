@@ -239,10 +239,8 @@ public final class ConformingLoopSnap {
         for (int corner = 0; corner < corners; corner++) {
             int cornerVertexId = mesh.faceVertexAt(faceId, corner);
             mesh.vertexPosition(cornerVertexId, scratchPosition);
-            double distance = scratchPosition.distanceSquared(
-                    (float) path.surfacePositions[3 * index],
-                    (float) path.surfacePositions[3 * index + 1],
-                    (float) path.surfacePositions[3 * index + 2]);
+            double distance = scratchPosition.distanceSquared(path.surfacePositions.get(index, 0),
+                    path.surfacePositions.get(index, 1), path.surfacePositions.get(index, 2));
             if (distance < nearest) {
                 nearest = distance;
                 vertexId = cornerVertexId;

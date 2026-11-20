@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Adaptive refinement under a pass's strokes: rounds of {@link MidpointSplit} over the faces whose
@@ -55,7 +56,7 @@ public final class StrokeRefinement {
         for (int round = 0;; round++) {
             int vertexCount = mesh.vertexCount();
             int[] activeVertexById = new int[mesh.vertexIdBound()];
-            float[] vertexXyz = mesh.packedPositions(activeVertexById);
+            PackedPoints vertices = mesh.packedPositions(activeVertexById);
             NearestVertex nearestVertex = NearestVertex.over(mesh);
             twinByActiveVertex = new int[symmetryAxis < 0 ? 0 : vertexCount];
             for (int activeVertex = 0; activeVertex < twinByActiveVertex.length; activeVertex++) {
@@ -64,9 +65,9 @@ public final class StrokeRefinement {
                 for (int adjacency = 0; adjacency < mesh.vertexEdgeCount(vertexId); adjacency++) {
                     shortest = Math.min(shortest, mesh.edgeLength(mesh.vertexEdgeAt(vertexId, adjacency)));
                 }
-                position.set(vertexXyz[activeVertex * 3], vertexXyz[activeVertex * 3 + 1], vertexXyz[activeVertex * 3 + 2]);
+                position.set(vertices.at(activeVertex));
                 position.setComponent(symmetryAxis, -position.get(symmetryAxis));
-                int twinId = nearestVertex.nearest(position.x, position.y, position.z, shortest * TWIN_EDGE_FRACTION);
+                int twinId = nearestVertex.nearest(position, shortest * TWIN_EDGE_FRACTION);
                 twinByActiveVertex[activeVertex] = twinId < 0 ? -1 : activeVertexById[twinId];
             }
             if (round == MAXIMUM_ROUNDS || !split) {
@@ -75,7 +76,7 @@ public final class StrokeRefinement {
             float[] requiredByActiveVertex = new float[vertexCount];
             Arrays.fill(requiredByActiveVertex, Float.POSITIVE_INFINITY);
             for (SculptStroke copy : copies) {
-                copy.requireEdgeLengths(mesh, vertexXyz, nearestVertex, requiredByActiveVertex);
+                copy.requireEdgeLengths(mesh, vertices, nearestVertex, requiredByActiveVertex);
             }
             for (int activeVertex = 0; activeVertex < twinByActiveVertex.length; activeVertex++) {
                 int twin = twinByActiveVertex[activeVertex];

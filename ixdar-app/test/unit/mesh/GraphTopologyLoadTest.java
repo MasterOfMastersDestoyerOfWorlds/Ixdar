@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 /**
@@ -61,7 +62,12 @@ class GraphTopologyLoadTest {
     }
 
     private static ArrayMesh twoQuadStrip() {
-        float[] positions = {0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 1, 0};
+        PackedPoints positions = new PackedPoints();
+        for (int row = 0; row < 2; row++) {
+            for (int column = 0; column < 3; column++) {
+                positions.append(column, row, 0);
+            }
+        }
         return new ArrayMesh(positions, null, new int[] {0, 1, 4, 3, 1, 2, 5, 4}, 4);
     }
 

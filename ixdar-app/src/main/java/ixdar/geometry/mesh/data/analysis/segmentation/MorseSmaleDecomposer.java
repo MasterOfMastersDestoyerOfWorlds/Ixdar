@@ -12,6 +12,7 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.data.patches.CoonsReconstructionError;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangleSoup;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
@@ -74,7 +75,7 @@ public final class MorseSmaleDecomposer {
                 borrowed.principalFeatureEdges(),
                 borrowed.crestEdges());
 
-        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PackedPoints positions = SemanticPatchDecomposer.positionsById(mesh);
         float meshExtent = mesh.boundsDiagonal();
 
         int[] compacted = compactLabels(snappedLabels);
@@ -106,7 +107,7 @@ public final class MorseSmaleDecomposer {
                                                float meshExtent) {
         int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
         int faceCount = faceIdx.length / 3;
-        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PackedPoints positions = SemanticPatchDecomposer.positionsById(mesh);
         int nv = mesh.vertexIdBound();
         float threshold = T_COONS_ERROR_FRAC * meshExtent;
 
@@ -249,7 +250,7 @@ public final class MorseSmaleDecomposer {
         int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
         int faceCount = faceIdx.length / 3;
         int nv = mesh.vertexIdBound();
-        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PackedPoints positions = SemanticPatchDecomposer.positionsById(mesh);
         int maxLabel = 0;
         for (int l : labels) if (l + 1 > maxLabel) maxLabel = l + 1;
         List<List<Integer>> facesByLabel = new ArrayList<>();

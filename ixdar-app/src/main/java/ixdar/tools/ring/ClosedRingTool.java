@@ -13,6 +13,8 @@ import ixdar.geometry.mesh.data.paths.query.GirdlingPlane;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.rings.GeodesicRefit;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
@@ -202,33 +204,19 @@ public final class ClosedRingTool extends RingSubTool {
                 continue;
             }
             TracedSurfacePath path = ringTool.confirmedRings.get(ring).spline.path;
-            double distance = SurfaceSpline.distanceToPolyline(path.positions, path.pointCount,
-                    hitPoint.x, hitPoint.y, hitPoint.z);
+            double distance = SurfaceSpline.distanceToPolyline(path.positions, path.pointCount, hitPoint);
             if (distance < reach) {
                 reach = distance;
                 hoveredRing = ring;
             }
         }
         double graphReach = RING_HIT_PIXELS * scene.worldPerPixel();
-        List<float[]> graphSegments = ringTool.graphRingSegments;
+        List<PackedPoints> graphSegments = ringTool.graphRingSegments;
         for (int ring = 0; hoveredRing < 0 && ring < graphSegments.size(); ring++) {
-            float[] segments = graphSegments.get(ring);
-            for (int base = 0; base + RingTool.SEGMENT_FLOATS <= segments.length;
-                    base += RingTool.SEGMENT_FLOATS) {
-                double spanX = segments[base + RingTool.COORDINATES_PER_POINT] - segments[base];
-                double spanY = segments[base + RingTool.COORDINATES_PER_POINT + 1] - segments[base + 1];
-                double spanZ = segments[base + RingTool.COORDINATES_PER_POINT + 2] - segments[base + 2];
-                double toX = hitPoint.x - segments[base];
-                double toY = hitPoint.y - segments[base + 1];
-                double toZ = hitPoint.z - segments[base + 2];
-                double squared = spanX * spanX + spanY * spanY + spanZ * spanZ;
-                double along = squared <= 0.0 ? 0.0
-                        : Math.max(0.0, Math.min(1.0,
-                                (toX * spanX + toY * spanY + toZ * spanZ) / squared));
-                double dx = toX - along * spanX;
-                double dy = toY - along * spanY;
-                double dz = toZ - along * spanZ;
-                double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            PackedPoints segments = graphSegments.get(ring);
+            for (int segment = 0; segment < segments.size() / 2; segment++) {
+                double distance = Math.sqrt(TriangleGeometry.segmentDistanceSquared(segments, 2 * segment,
+                        2 * segment + 1, hitPoint, Double.POSITIVE_INFINITY));
                 if (distance < graphReach) {
                     graphReach = distance;
                     hoveredGraphRing = ringTool.graphRingLabels.get(ring);

@@ -64,7 +64,7 @@ class GltfMeshParserTest {
         assertEquals(SQUARE_TRIANGLES, mesh.faceCount(), "two triangles");
         assertEquals(GltfMeshParser.VERTICES_PER_TRIANGLE, mesh.faceVertexCount(mesh.faceIdAt(0)),
                 "triangle mesh");
-        assertArrayEquals(SQUARE_POSITIONS, mesh.packedPositions(null),
+        assertArrayEquals(SQUARE_POSITIONS, mesh.packedPositions(null).toArray(),
                 EPSILON, "positions in file order");
         assertArrayEquals(SQUARE_INDICES, cornersOf(mesh), "indices in file order");
     }

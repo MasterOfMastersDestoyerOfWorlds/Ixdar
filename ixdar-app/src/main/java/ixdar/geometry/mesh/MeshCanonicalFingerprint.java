@@ -25,19 +25,10 @@ public final class MeshCanonicalFingerprint {
 
     public static final float POSITION_ROUND_SCALE = 1.0e5f;
 
-    private static final Comparator<float[]> CORNER_ORDER = (p, q) -> {
-        int c = Float.compare(p[0], q[0]);
-        if (c != 0) {
-            return c;
-        }
-        c = Float.compare(p[1], q[1]);
-        if (c != 0) {
-            return c;
-        }
-        return Float.compare(p[2], q[2]);
-    };
+    private static final Comparator<Vector3f> CORNER_ORDER = Comparator.<Vector3f>comparingDouble(p -> p.x)
+            .thenComparingDouble(p -> p.y).thenComparingDouble(p -> p.z);
 
-    private static final Comparator<float[][]> TRIANGLE_ORDER = (a, b) -> {
+    private static final Comparator<Vector3f[]> TRIANGLE_ORDER = (a, b) -> {
         for (int i = 0; i < 3; i++) {
             int c = CORNER_ORDER.compare(a[i], b[i]);
             if (c != 0) {
@@ -71,58 +62,33 @@ public final class MeshCanonicalFingerprint {
         if (mesh == null) {
             return sha256HexBytes(new byte[0]);
         }
-        List<float[][]> triangles = new ArrayList<>(triangleCount(mesh));
-        Vector3f scratch = new Vector3f();
+        List<Vector3f[]> triangles = new ArrayList<>(triangleCount(mesh));
         int[] corners = mesh.triangulate(TriangulationRule.FAN, null);
         for (int slot = 0; slot < corners.length; slot += 3) {
-            triangles.add(sortCorners(corner(mesh, corners[slot], scratch),
-                    corner(mesh, corners[slot + 1], scratch),
-                    corner(mesh, corners[slot + 2], scratch)));
+            Vector3f[] triangle = new Vector3f[3];
+            for (int corner = 0; corner < 3; corner++) {
+                Vector3f position = mesh.vertexPosition(corners[slot + corner]);
+                triangle[corner] = position.set(roundCoord(position.x), roundCoord(position.y),
+                        roundCoord(position.z));
+            }
+            Arrays.sort(triangle, CORNER_ORDER);
+            triangles.add(triangle);
         }
         triangles.sort(TRIANGLE_ORDER);
-        return sha256HexBytes(encodeTriangles(triangles));
+        ByteBuffer buf = ByteBuffer.allocate(triangles.size() * 3 * 3 * BYTES_PER_FLOAT);
+        buf.order(ByteOrder.BIG_ENDIAN);
+        for (Vector3f[] tri : triangles) {
+            for (Vector3f corner : tri) {
+                buf.putFloat(corner.x);
+                buf.putFloat(corner.y);
+                buf.putFloat(corner.z);
+            }
+        }
+        return sha256HexBytes(buf.array());
     }
-
-    /**
-     * One triangle corner's rounded position.
-     *
-     * @param mesh mesh to read
-     * @param vertexId the corner's vertex
-     * @param scratch reusable vector
-     * @return the rounded {@code (x, y, z)}
-     */
-    private static float[] corner(MeshTopology mesh, int vertexId, Vector3f scratch) {
-        mesh.vertexPosition(vertexId, scratch);
-        return new float[] {
-                roundCoord(scratch.x),
-                roundCoord(scratch.y),
-                roundCoord(scratch.z),
-        };
-    }
-
 
     static float roundCoord(float v) {
         return Math.round(v * POSITION_ROUND_SCALE) / POSITION_ROUND_SCALE;
-    }
-
-    private static float[][] sortCorners(float[] a, float[] b, float[] c) {
-        float[][] t = new float[][] { a, b, c };
-        Arrays.sort(t, CORNER_ORDER);
-        return t;
-    }
-
-    static byte[] encodeTriangles(List<float[][]> sortedTriangles) {
-        int n = sortedTriangles.size();
-        ByteBuffer buf = ByteBuffer.allocate(n * 3 * 3 * BYTES_PER_FLOAT);
-        buf.order(ByteOrder.BIG_ENDIAN);
-        for (float[][] tri : sortedTriangles) {
-            for (float[] corner : tri) {
-                buf.putFloat(corner[0]);
-                buf.putFloat(corner[1]);
-                buf.putFloat(corner[2]);
-            }
-        }
-        return buf.array();
     }
 
     private static String sha256HexBytes(byte[] payload) {

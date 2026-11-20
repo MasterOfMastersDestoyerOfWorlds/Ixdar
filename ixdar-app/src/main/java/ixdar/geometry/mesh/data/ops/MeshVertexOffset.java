@@ -5,6 +5,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.Vector3Field;
 import ixdar.nodegraph.field.Vector3Value;
 
@@ -42,19 +43,16 @@ public final class MeshVertexOffset {
             uniform = new Vector3Value(0f, 0f, 0f);
         }
 
-        float[] positions = new float[n * 3];
+        PackedPoints positions = new PackedPoints(n);
         Vector3f position = new Vector3f();
         for (int activeVertex = 0; activeVertex < n; activeVertex++) {
             mesh.vertexPosition(mesh.vertexIdAt(activeVertex), position);
-            int offset = activeVertex * 3;
             if (field != null) {
-                positions[offset] = position.x + field.getX(activeVertex);
-                positions[offset + 1] = position.y + field.getY(activeVertex);
-                positions[offset + 2] = position.z + field.getZ(activeVertex);
+                positions.set(activeVertex, position.x + field.getX(activeVertex),
+                        position.y + field.getY(activeVertex), position.z + field.getZ(activeVertex));
             } else {
-                positions[offset] = position.x + uniform.x();
-                positions[offset + 1] = position.y + uniform.y();
-                positions[offset + 2] = position.z + uniform.z();
+                positions.set(activeVertex, position.x + uniform.x(), position.y + uniform.y(),
+                        position.z + uniform.z());
             }
         }
         return atPositions(mesh, positions);
@@ -65,11 +63,11 @@ public final class MeshVertexOffset {
      * face order, normals recomputed and each element's source recorded.
      *
      * @param mesh      source mesh, not empty
-     * @param positions packed xyz by dense vertex index, the {@link MeshTopology#vertexIdAt} order;
+     * @param positions one point per dense vertex index, the {@link MeshTopology#vertexIdAt} order;
      *                  taken over by the new mesh
      * @return new mesh
      */
-    public static HalfEdgeMesh atPositions(MeshTopology mesh, float[] positions) {
+    public static HalfEdgeMesh atPositions(MeshTopology mesh, PackedPoints positions) {
         int n = mesh.vertexCount();
         int[] activeVertexOfId = mesh.activeIndexById();
         int[] faceSizes = new int[mesh.faceCount()];

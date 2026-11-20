@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.csg.QuadTriangulation;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
@@ -42,8 +43,14 @@ class TriangulationRuleTest {
 
     @Test
     void theBooleanSplitsQuadsThroughTheMeshTriangulation() {
-        float[] positions = { 0f, 0f, 0f, 2f, -1f, 0f, 4f, 0f, 0f, 2f, 1f, 0f,
-            10f, 0f, 0f, 12f, 0f, 0f, 12f, 2f, 0f, 10f, 2f, 0f };
+        PackedPoints positions = new PackedPoints(8);
+        positions.set(1, 2f, -1f, 0f);
+        positions.set(2, 4f, 0f, 0f);
+        positions.set(3, 2f, 1f, 0f);
+        positions.set(4, 10f, 0f, 0f);
+        positions.set(5, 12f, 0f, 0f);
+        positions.set(6, 12f, 2f, 0f);
+        positions.set(7, 10f, 2f, 0f);
         int[] quads = { 0, 1, 2, 3, 4, 5, 6, 7 };
         MeshTopology mesh = HalfEdgeMeshOps.bulkAllocate(positions, quads, QUAD);
         int[] faceOfTriangle = new int[mesh.triangleCount()];

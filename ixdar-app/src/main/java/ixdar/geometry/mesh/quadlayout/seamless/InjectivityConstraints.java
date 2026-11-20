@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.quadlayout.seamless;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.joml.Vector2d;
 import org.joml.Vector3f;
 
 import ixdar.numeric.exact.ExactBarycentricOrient;
@@ -228,12 +229,9 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
             double[] here = reference[corner];
             double[] next = reference[(corner + 1) % CORNERS];
             double[] previous = reference[(corner + 2) % CORNERS];
-            double ax = next[0] - here[0];
-            double ay = next[1] - here[1];
-            double bx = previous[0] - here[0];
-            double by = previous[1] - here[1];
-            double angle = Math.acos((ax * bx + ay * by)
-                    / (Math.hypot(ax, ay) * Math.hypot(bx, by)));
+            Vector2d toNext = new Vector2d(next[0] - here[0], next[1] - here[1]);
+            Vector2d toPrevious = new Vector2d(previous[0] - here[0], previous[1] - here[1]);
+            double angle = Math.abs(toNext.angle(toPrevious));
             if (Math.toDegrees(angle) > VIRTUAL_SPLIT_ANGLE_DEGREES) {
                 obtuse = corner;
             }

@@ -5,6 +5,9 @@ import java.util.List;
 
 import java.util.Map;
 
+import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -147,7 +150,7 @@ public class SubdivisionMeshNode implements MeshNode {
         int nv = mesh.vertexCount();
         int nf = mesh.faceCount();
         int[] activeVertexOfId = new int[mesh.vertexIdBound()];
-        float[] positions = mesh.packedPositions(activeVertexOfId);
+        PackedPoints positions = mesh.packedPositions(activeVertexOfId);
 
         int cornerCount = 0;
         for (int activeFace = 0; activeFace < nf; activeFace++) {
@@ -164,21 +167,20 @@ public class SubdivisionMeshNode implements MeshNode {
         int[] edgeEnd = new int[cornerCount];
         int[] edgeFirstFace = new int[cornerCount];
         int[] edgeSecondFace = new int[cornerCount];
-        float[] faceCenter = new float[nf * 3];
+        PackedPoints newPositions = new PackedPoints(nf);
         int ne = 0;
         int corner = 0;
         for (int activeFace = 0; activeFace < nf; activeFace++) {
             int faceId = mesh.faceIdAt(activeFace);
             int corners = mesh.faceVertexCount(faceId);
             faceStart[activeFace] = corner;
-            float sx = 0f, sy = 0f, sz = 0f;
+            Vector3f sum = new Vector3f();
             for (int slot = 0; slot < corners; slot++) {
                 int vertexId = mesh.faceVertexAt(faceId, slot);
                 int nextVertexId = mesh.faceVertexAt(faceId, (slot + 1) % corners);
                 int activeVertex = activeVertexOfId[vertexId];
-                sx += positions[activeVertex * 3];
-                sy += positions[activeVertex * 3 + 1];
-                sz += positions[activeVertex * 3 + 2];
+                sum.add(positions.get(activeVertex, 0), positions.get(activeVertex, 1),
+                        positions.get(activeVertex, 2));
                 int edgeId = mesh.edgeBetween(vertexId, nextVertexId);
                 int appearance = appearanceOfEdge[edgeId];
                 if (appearance == MeshTopology.NONE) {
@@ -195,140 +197,100 @@ public class SubdivisionMeshNode implements MeshNode {
                 cornerVertex[corner] = activeVertex;
                 cornerEdge[corner++] = appearance;
             }
-            float inv = 1.0f / corners;
-            faceCenter[activeFace * 3] = sx * inv;
-            faceCenter[activeFace * 3 + 1] = sy * inv;
-            faceCenter[activeFace * 3 + 2] = sz * inv;
+            newPositions.set(activeFace, sum.mul(1.0f / corners));
         }
         faceStart[nf] = corner;
 
-        float[] edgePos = new float[ne * 3];
+        // Face points are the first nf output points, edge points the next ne, vertex points the rest.
+        newPositions.resize(nf + ne + nv);
         boolean[] boundary = new boolean[nv];
         int[] creasedEdgeCount = new int[nv];
         float[] maxCreaseWeight = new float[nv];
-        float[] ringSum = new float[nv * 3];
+        PackedPoints ringSum = new PackedPoints(nv);
         int[] creaseNeighbours = new int[nv];
-        float[] creaseNeighbourSum = new float[nv * 3];
+        PackedPoints creaseNeighbourSum = new PackedPoints(nv);
+        Vector3f midpoint = new Vector3f();
         for (int i = 0; i < ne; i++) {
             int va = edgeStart[i];
             int vb = edgeEnd[i];
-            int o1 = va * 3, o2 = vb * 3;
-
-            float x1 = positions[o1], y1 = positions[o1 + 1], z1 = positions[o1 + 2];
-            float x2 = positions[o2], y2 = positions[o2 + 1], z2 = positions[o2 + 2];
+            float x1 = positions.get(va, 0), y1 = positions.get(va, 1), z1 = positions.get(va, 2);
+            float x2 = positions.get(vb, 0), y2 = positions.get(vb, 1), z2 = positions.get(vb, 2);
+            midpoint.set((x1 + x2) * 0.5f, (y1 + y2) * 0.5f, (z1 + z2) * 0.5f);
 
             int f1 = edgeFirstFace[i];
             int f2 = edgeSecondFace[i];
 
             float w = linear ? 1f : creaseWeight(creaseWeights, edgeIdOfAppearance[i]);
-            int eo = i * 3;
+            int edgePoint = nf + i;
 
-            if (w >= 1.0f) {
-                edgePos[eo] = (x1 + x2) * 0.5f;
-                edgePos[eo + 1] = (y1 + y2) * 0.5f;
-                edgePos[eo + 2] = (z1 + z2) * 0.5f;
-            } else if (f2 != MeshTopology.NONE) {
-                int fc1 = f1 * 3, fc2 = f2 * 3;
-                float sx = (x1 + x2 + faceCenter[fc1] + faceCenter[fc2]) * 0.25f;
-                float sy = (y1 + y2 + faceCenter[fc1 + 1] + faceCenter[fc2 + 1]) * 0.25f;
-                float sz = (z1 + z2 + faceCenter[fc1 + 2] + faceCenter[fc2 + 2]) * 0.25f;
-
-                if (w > 0f) {
-                    float mx = (x1 + x2) * 0.5f;
-                    float my = (y1 + y2) * 0.5f;
-                    float mz = (z1 + z2) * 0.5f;
-                    edgePos[eo] = sx + (mx - sx) * w;
-                    edgePos[eo + 1] = sy + (my - sy) * w;
-                    edgePos[eo + 2] = sz + (mz - sz) * w;
-                } else {
-                    edgePos[eo] = sx;
-                    edgePos[eo + 1] = sy;
-                    edgePos[eo + 2] = sz;
-                }
+            if (w >= 1.0f || f2 == MeshTopology.NONE) {
+                newPositions.set(edgePoint, midpoint);
             } else {
-                edgePos[eo] = (x1 + x2) * 0.5f;
-                edgePos[eo + 1] = (y1 + y2) * 0.5f;
-                edgePos[eo + 2] = (z1 + z2) * 0.5f;
+                float sx = (x1 + x2 + newPositions.get(f1, 0) + newPositions.get(f2, 0)) * 0.25f;
+                float sy = (y1 + y2 + newPositions.get(f1, 1) + newPositions.get(f2, 1)) * 0.25f;
+                float sz = (z1 + z2 + newPositions.get(f1, 2) + newPositions.get(f2, 2)) * 0.25f;
+                newPositions.set(edgePoint, sx + (midpoint.x - sx) * w, sy + (midpoint.y - sy) * w,
+                        sz + (midpoint.z - sz) * w);
             }
 
             for (int end = 0; end < 2; end++) {
                 int activeVertex = end == 0 ? va : vb;
                 int otherVertex = end == 0 ? vb : va;
-                int vo = activeVertex * 3;
-                int oo = otherVertex * 3;
                 if (f2 == MeshTopology.NONE) {
                     boundary[activeVertex] = true;
                 } else if (w > 0f) {
                     creasedEdgeCount[activeVertex]++;
                     maxCreaseWeight[activeVertex] = Math.max(maxCreaseWeight[activeVertex], w);
                 }
-                ringSum[vo] += (x1 + x2) * 0.5f;
-                ringSum[vo + 1] += (y1 + y2) * 0.5f;
-                ringSum[vo + 2] += (z1 + z2) * 0.5f;
+                ringSum.add(activeVertex, midpoint);
                 if (w > 0f && creaseNeighbours[activeVertex] < 2) {
-                    creaseNeighbourSum[vo] += positions[oo];
-                    creaseNeighbourSum[vo + 1] += positions[oo + 1];
-                    creaseNeighbourSum[vo + 2] += positions[oo + 2];
+                    creaseNeighbourSum.add(activeVertex, positions.at(otherVertex));
                     creaseNeighbours[activeVertex]++;
                 }
             }
         }
 
         int[] facesAtVertex = new int[nv];
-        float[] faceSum = new float[nv * 3];
+        PackedPoints faceSum = new PackedPoints(nv);
         for (int activeFace = 0; activeFace < nf; activeFace++) {
-            int fo = activeFace * 3;
+            Vector3f facePoint = newPositions.at(activeFace);
             for (int c = faceStart[activeFace]; c < faceStart[activeFace + 1]; c++) {
                 facesAtVertex[cornerVertex[c]]++;
-                int vo = cornerVertex[c] * 3;
-                faceSum[vo] += faceCenter[fo];
-                faceSum[vo + 1] += faceCenter[fo + 1];
-                faceSum[vo + 2] += faceCenter[fo + 2];
+                faceSum.add(cornerVertex[c], facePoint);
             }
         }
-        float[] vtxPos = new float[nv * 3];
         for (int i = 0; i < nv; i++) {
-            int vo = i * 3;
-            float ox = positions[vo], oy = positions[vo + 1], oz = positions[vo + 2];
+            int vertexPoint = nf + ne + i;
+            float ox = positions.get(i, 0), oy = positions.get(i, 1), oz = positions.get(i, 2);
             int n = facesAtVertex[i];
             if (linear || boundary[i] || n == 0 || creasedEdgeCount[i] >= 3) {
-                vtxPos[vo] = ox;
-                vtxPos[vo + 1] = oy;
-                vtxPos[vo + 2] = oz;
+                newPositions.set(vertexPoint, ox, oy, oz);
                 continue;
             }
 
             float invN = 1.0f / n;
-            float fx = faceSum[vo] * invN;
-            float fy = faceSum[vo + 1] * invN;
-            float fz = faceSum[vo + 2] * invN;
-            float rx = ringSum[vo] * invN;
-            float ry = ringSum[vo + 1] * invN;
-            float rz = ringSum[vo + 2] * invN;
+            float fx = faceSum.get(i, 0) * invN;
+            float fy = faceSum.get(i, 1) * invN;
+            float fz = faceSum.get(i, 2) * invN;
+            float rx = ringSum.get(i, 0) * invN;
+            float ry = ringSum.get(i, 1) * invN;
+            float rz = ringSum.get(i, 2) * invN;
 
             float smoothX = (fx + 2f * rx + (n - 3) * ox) * invN;
             float smoothY = (fy + 2f * ry + (n - 3) * oy) * invN;
             float smoothZ = (fz + 2f * rz + (n - 3) * oz) * invN;
 
             if (creasedEdgeCount[i] == 2) {
-                float creaseX = (creaseNeighbourSum[vo] + 6f * ox) * 0.125f;
-                float creaseY = (creaseNeighbourSum[vo + 1] + 6f * oy) * 0.125f;
-                float creaseZ = (creaseNeighbourSum[vo + 2] + 6f * oz) * 0.125f;
+                float creaseX = (creaseNeighbourSum.get(i, 0) + 6f * ox) * 0.125f;
+                float creaseY = (creaseNeighbourSum.get(i, 1) + 6f * oy) * 0.125f;
+                float creaseZ = (creaseNeighbourSum.get(i, 2) + 6f * oz) * 0.125f;
                 float blendW = Math.min(maxCreaseWeight[i], 1.0f);
-                vtxPos[vo] = smoothX + (creaseX - smoothX) * blendW;
-                vtxPos[vo + 1] = smoothY + (creaseY - smoothY) * blendW;
-                vtxPos[vo + 2] = smoothZ + (creaseZ - smoothZ) * blendW;
+                newPositions.set(vertexPoint, smoothX + (creaseX - smoothX) * blendW,
+                        smoothY + (creaseY - smoothY) * blendW, smoothZ + (creaseZ - smoothZ) * blendW);
             } else {
-                vtxPos[vo] = smoothX;
-                vtxPos[vo + 1] = smoothY;
-                vtxPos[vo + 2] = smoothZ;
+                newPositions.set(vertexPoint, smoothX, smoothY, smoothZ);
             }
         }
-
-        float[] newPositions = new float[(nf + ne + nv) * 3];
-        System.arraycopy(faceCenter, 0, newPositions, 0, nf * 3);
-        System.arraycopy(edgePos, 0, newPositions, nf * 3, ne * 3);
-        System.arraycopy(vtxPos, 0, newPositions, (nf + ne) * 3, nv * 3);
 
         int[] newQuads = new int[cornerCount * 4];
         int qi = 0;

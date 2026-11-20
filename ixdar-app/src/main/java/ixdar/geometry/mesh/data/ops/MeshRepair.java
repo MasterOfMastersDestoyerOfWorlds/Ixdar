@@ -12,7 +12,6 @@ import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
 
 import org.joml.Vector3d;
@@ -125,8 +124,8 @@ public final class MeshRepair {
 
     private int splitVertexCount;
 
-    /** Working vertex positions, xyz triples; only ever appended to, so no vertex moves. */
-    private float[] positions = new float[0];
+    /** Working vertex positions; only ever appended to, so no vertex moves. */
+    private PackedPoints positions = new PackedPoints(0);
 
     /** Live working vertices. */
     private int vertexCount;
@@ -286,10 +285,56 @@ public final class MeshRepair {
         if (pruneTree != null && orientedFacing != null) {
             TriangleBvh tree = pruneTree;
             int vertices = vertexCount;
+            PackedPoints frozen = positions.copy();
+            // The build reads on another thread while the fill appends to the working positions.
+            tree.positions = frozen;
             treeBuilt = CompletableFuture.runAsync(tree::build);
-            pruneCreases = CompletableFuture.supplyAsync(() -> creasedFaces(tree.triangleCorners, tree.positions,
-                    tree.triangleCount, vertices, tree.triangleGroup));
-            float[] changedCorners = changedSinceOrientationCorners();
+            // A face is creased when a face sharing a corner folds back over it: a normal turned
+            // more than about 105 degrees away, into the 75-degree cone of its back rays.
+            pruneCreases = CompletableFuture.supplyAsync(() -> {
+                int[] corners = tree.triangleCorners;
+                int faces = tree.triangleCount;
+                int[] group = tree.triangleGroup;
+                boolean[] creased = new boolean[faces];
+                PackedPoints faceNormals = TriangleGeometry.normals(frozen, corners);
+                int[] faceStart = new int[vertices + 1];
+                for (int slot = 0; slot < faces * TRIANGLE_CORNERS; slot++) {
+                    if (group[slot / TRIANGLE_CORNERS] >= 0) {
+                        faceStart[corners[slot] + 1]++;
+                    }
+                }
+                for (int vertex = 0; vertex < vertices; vertex++) {
+                    faceStart[vertex + 1] += faceStart[vertex];
+                }
+                int[] cursor = Arrays.copyOf(faceStart, vertices);
+                int[] facesOfVertex = new int[faceStart[vertices]];
+                for (int slot = 0; slot < faces * TRIANGLE_CORNERS; slot++) {
+                    if (group[slot / TRIANGLE_CORNERS] >= 0) {
+                        facesOfVertex[cursor[corners[slot]]++] = slot / TRIANGLE_CORNERS;
+                    }
+                }
+                IntStream.range(0, faces).parallel().forEach(face -> {
+                    for (int corner = 0; corner < TRIANGLE_CORNERS && group[face] >= 0 && !creased[face]; corner++) {
+                        int vertex = corners[face * TRIANGLE_CORNERS + corner];
+                        for (int index = faceStart[vertex]; index < faceStart[vertex + 1]; index++) {
+                            if (dot(faceNormals, face, facesOfVertex[index]) < FOLDED_BACK_NORMAL_COSINE) {
+                                creased[face] = true;
+                                break;
+                            }
+                        }
+                    }
+                });
+                return creased;
+            });
+            // The faces orientation counted that died or moved a corner since, as its soup holds
+            // them and as they stand, and every alive face added since: the parity lines near any
+            // of them may count differently now.
+            int[] before = columnSoup.triangleCorners;
+            IntStream changed = Arrays.stream(changedSince, 0, changedSinceCount).flatMap(face -> IntStream.concat(
+                    columnSoup.triangleGroup[face] >= 0 ? cornerVertices(before, IntStream.of(face)) : IntStream.empty(),
+                    faceAlive[face] ? cornerVertices(faceCorners, IntStream.of(face)) : IntStream.empty()));
+            PackedPoints changedCorners = PackedPoints.concat(positions.gather(changed.toArray()),
+                    cornersOf(IntStream.range(orientedFaces, faceCount).filter(face -> faceAlive[face])));
             cellsChangedBeforeFill = CompletableFuture.supplyAsync(() -> columnSoup.cellsUnder(changedCorners));
         }
         fillHoles(false);
@@ -337,13 +382,12 @@ public final class MeshRepair {
         }
         int[] denseOfVertexId = new int[maxVertexId + 1];
         Arrays.fill(denseOfVertexId, -1);
-        positions = new float[meshVertexCount * TRIANGLE_CORNERS];
+        positions = new PackedPoints(meshVertexCount);
         originalOfVertex = new int[meshVertexCount];
         for (int index = 0; index < meshVertexCount; index++) {
             int vertexId = mesh.vertexIdAt(index);
             denseOfVertexId[vertexId] = index;
-            mesh.vertexPosition(vertexId, scratchPosition);
-            PackedPoints.store(positions, index * TRIANGLE_CORNERS, scratchPosition);
+            positions.set(index, mesh.vertexPosition(vertexId, scratchPosition));
             originalOfVertex[index] = index;
         }
         vertexCount = meshVertexCount;
@@ -799,22 +843,16 @@ public final class MeshRepair {
             UnionFind.union(loopOf, Arrays.binarySearch(boundary, EdgeKey.minVertex(edges.key(edge))),
                     Arrays.binarySearch(boundary, EdgeKey.maxVertex(edges.key(edge))));
         }
-        double[] centroid = new double[boundary.length * TRIANGLE_CORNERS];
-        int[] loopVertices = new int[boundary.length];
-        for (int edge : open) {
-            int vertex = EdgeKey.minVertex(edges.key(edge));
-            int loop = UnionFind.find(loopOf, Arrays.binarySearch(boundary, vertex));
-            loopVertices[loop]++;
-            for (int component = 0; component < TRIANGLE_CORNERS; component++) {
-                centroid[loop * TRIANGLE_CORNERS + component] += positions[vertex * TRIANGLE_CORNERS + component];
-            }
+        int[] lowOfEdge = new int[boundaryEdges];
+        int[] loopOfEdge = new int[boundaryEdges];
+        for (int index = 0; index < boundaryEdges; index++) {
+            lowOfEdge[index] = EdgeKey.minVertex(edges.key(open[index]));
+            loopOfEdge[index] = UnionFind.find(loopOf, Arrays.binarySearch(boundary, lowOfEdge[index]));
         }
+        PackedPoints loopCentres = positions.gather(lowOfEdge).groupMeans(loopOfEdge, boundary.length);
         int[] centreOfLoop = new int[boundary.length];
         for (int loop = 0; loop < boundary.length; loop++) {
-            centreOfLoop[loop] = loopVertices[loop] == 0 ? -1
-                    : addVertex((float) (centroid[loop * TRIANGLE_CORNERS] / loopVertices[loop]),
-                            (float) (centroid[loop * TRIANGLE_CORNERS + 1] / loopVertices[loop]),
-                            (float) (centroid[loop * TRIANGLE_CORNERS + 2] / loopVertices[loop]));
+            centreOfLoop[loop] = UnionFind.find(loopOf, loop) == loop ? addVertex(loopCentres.at(loop)) : -1;
         }
         TriangleBvh soup = new TriangleBvh();
         soup.positions = positions;
@@ -825,15 +863,12 @@ public final class MeshRepair {
         for (int face = 0; face < faceCount; face++) {
             soup.triangleGroup[face] = faceAlive[face] ? face : -1;
         }
-        int fan = faceCount;
-        for (int edge : open) {
-            int low = EdgeKey.minVertex(edges.key(edge));
-            soup.triangleCorners[fan * TRIANGLE_CORNERS] = low;
-            soup.triangleCorners[fan * TRIANGLE_CORNERS + 1] = EdgeKey.maxVertex(edges.key(edge));
-            soup.triangleCorners[fan * TRIANGLE_CORNERS + 2] =
-                    centreOfLoop[UnionFind.find(loopOf, Arrays.binarySearch(boundary, low))];
+        for (int index = 0; index < boundaryEdges; index++) {
+            int fan = faceCount + index;
+            soup.triangleCorners[fan * TRIANGLE_CORNERS] = lowOfEdge[index];
+            soup.triangleCorners[fan * TRIANGLE_CORNERS + 1] = EdgeKey.maxVertex(edges.key(open[index]));
+            soup.triangleCorners[fan * TRIANGLE_CORNERS + 2] = centreOfLoop[loopOfEdge[index]];
             soup.triangleGroup[fan] = fan;
-            fan++;
         }
         return soup;
     }
@@ -1160,7 +1195,7 @@ public final class MeshRepair {
         int best = 0;
         double bestLength = Double.POSITIVE_INFINITY;
         for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-            double length = squaredDistance(faceCorners[face * TRIANGLE_CORNERS + corner],
+            double length = positions.distanceSquared(faceCorners[face * TRIANGLE_CORNERS + corner],
                     faceCorners[face * TRIANGLE_CORNERS + (corner + 1) % TRIANGLE_CORNERS]);
             if (length < bestLength) {
                 bestLength = length;
@@ -1386,12 +1421,8 @@ public final class MeshRepair {
      */
     private boolean insideAnother(int shell, int firstFace) {
         int covered = Math.min(faceCount, columnSoup.firstExposureOnly);
-        Vector3d origin = new Vector3d();
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-            int vertex = faceCorners[firstFace * TRIANGLE_CORNERS + corner] * TRIANGLE_CORNERS;
-            origin.add(positions[vertex] / (double) TRIANGLE_CORNERS, positions[vertex + 1] / (double) TRIANGLE_CORNERS,
-                    positions[vertex + 2] / (double) TRIANGLE_CORNERS);
-        }
+        Vector3d origin = new Vector3d(positions.gather(Arrays.copyOfRange(faceCorners,
+                firstFace * TRIANGLE_CORNERS, (firstFace + 1) * TRIANGLE_CORNERS)).centroid());
         int odd = 0;
         for (int axis = 0; axis < CONTAINMENT_RAYS; axis++) {
             int crossings = columnSoup.columnRayCrossings(axis, origin, shellOfFace, shell);
@@ -1729,7 +1760,9 @@ public final class MeshRepair {
                 clean = false;
             }
             holeEdgeCounts[holes] = length;
-            holePerimeters[holes] = loopPerimeter(loop, length);
+            int[] closedLoop = Arrays.copyOf(loop, length + 1);
+            closedLoop[length] = loop[0];
+            holePerimeters[holes] = positions.gather(closedLoop).arcLength();
             if (clean && length <= maxHoleEdges) {
                 if (neighbourStart.length == 0) {
                     if (neighbourScratch.length < vertexCount + 1) {
@@ -1793,21 +1826,6 @@ public final class MeshRepair {
     }
 
     /**
-     * Perimeter of one boundary loop, summed over its edges in traversal order.
-     *
-     * @param loop   loop vertices in hole-traversal order
-     * @param length vertices in the loop
-     * @return summed edge length of the loop
-     */
-    private double loopPerimeter(int[] loop, int length) {
-        double perimeter = 0;
-        for (int index = 0; index < length; index++) {
-            perimeter += Math.sqrt(squaredDistance(loop[index], loop[(index + 1) % length]));
-        }
-        return perimeter;
-    }
-
-    /**
      * Gathers what filling one boundary loop needs: its corners, the one-ring round it and the
      * chords the mesh already carries. The fill itself reads nothing shared, so prepared loops can
      * be filled on any thread.
@@ -1823,15 +1841,10 @@ public final class MeshRepair {
             int[] neighbours) {
         MeshHoleFiller filler = new MeshHoleFiller();
         filler.loopLength = length;
-        filler.loopX = new double[length];
-        filler.loopY = new double[length];
-        filler.loopZ = new double[length];
+        filler.loopPositions = positions.gather(Arrays.copyOf(loop, length));
         filler.loopSigma = new double[length];
         for (int index = 0; index < length; index++) {
             int vertex = loop[index];
-            filler.loopX[index] = positions[vertex * TRIANGLE_CORNERS];
-            filler.loopY[index] = positions[vertex * TRIANGLE_CORNERS + 1];
-            filler.loopZ[index] = positions[vertex * TRIANGLE_CORNERS + 2];
             filler.loopSigma[index] = vertexSigma[vertex];
             loopLocalOfVertex[vertex] = index;
         }
@@ -1844,9 +1857,6 @@ public final class MeshRepair {
         long[] surfaceEdges = new long[incidence];
         int surfaceEdgeCount = 0;
         int[] ringVertices = new int[incidence];
-        double[] ringX = new double[incidence];
-        double[] ringY = new double[incidence];
-        double[] ringZ = new double[incidence];
         int ringCount = 0;
         for (int index = 0; index < length; index++) {
             int vertex = loop[index];
@@ -1868,9 +1878,6 @@ public final class MeshRepair {
                     ringLocal = length + ringCount;
                     ringLocalOfVertex[neighbour] = ringLocal;
                     ringVertices[ringCount] = neighbour;
-                    ringX[ringCount] = positions[neighbour * TRIANGLE_CORNERS];
-                    ringY[ringCount] = positions[neighbour * TRIANGLE_CORNERS + 1];
-                    ringZ[ringCount] = positions[neighbour * TRIANGLE_CORNERS + 2];
                     ringCount++;
                 }
                 surfaceEdges[surfaceEdgeCount++] = EdgeKey.undirected(index, ringLocal);
@@ -1886,9 +1893,7 @@ public final class MeshRepair {
         Arrays.sort(filler.forbiddenChords);
         filler.surfaceEdges = Arrays.copyOf(surfaceEdges, surfaceEdgeCount);
         filler.ringCount = ringCount;
-        filler.ringX = Arrays.copyOf(ringX, ringCount);
-        filler.ringY = Arrays.copyOf(ringY, ringCount);
-        filler.ringZ = Arrays.copyOf(ringZ, ringCount);
+        filler.ringPositions = positions.gather(Arrays.copyOf(ringVertices, ringCount));
         int[] meshOfFixed = new int[length + ringCount];
         System.arraycopy(loop, 0, meshOfFixed, 0, length);
         System.arraycopy(ringVertices, 0, meshOfFixed, length, ringCount);
@@ -1909,8 +1914,7 @@ public final class MeshRepair {
         int fixedCount = fill.meshOfFixed().length;
         int[] meshOfLocal = Arrays.copyOf(fill.meshOfFixed(), filler.vertexCount);
         for (int local = fixedCount; local < filler.vertexCount; local++) {
-            meshOfLocal[local] = addVertex((float) filler.vertexX[local], (float) filler.vertexY[local],
-                    (float) filler.vertexZ[local]);
+            meshOfLocal[local] = addVertex(filler.vertexPositions.at(local));
             report.fillVertexCount++;
         }
         for (int triangle = 0; triangle < filler.triangleCount; triangle++) {
@@ -1962,7 +1966,7 @@ public final class MeshRepair {
             double total = 0;
             int[] incident = edgesRound(vertex);
             for (int edge : incident) {
-                total += Math.sqrt(squaredDistance(EdgeKey.minVertex(edges.key(edge)),
+                total += Math.sqrt(positions.distanceSquared(EdgeKey.minVertex(edges.key(edge)),
                         EdgeKey.maxVertex(edges.key(edge))));
             }
             sigmaScratch[vertex] = incident.length == 0 ? 0 : total / incident.length;
@@ -2064,7 +2068,7 @@ public final class MeshRepair {
             }
         }
         TriangleBvh grid = columnSoup;
-        int[] cellsOfFill = grid.cellsUnder(cornersWhere(face -> faceAlive[face], treeFaces));
+        int[] cellsOfFill = grid.cellsUnder(cornersOf(IntStream.range(treeFaces, faceCount).filter(face -> faceAlive[face])));
         int[] cellsChanged = IntStream.concat(Arrays.stream(cellsBefore), Arrays.stream(cellsOfFill)).sorted()
                 .distinct().toArray();
         double tinyDoubleArea = 2 * TINY_FACE_FRACTION * totalArea / Math.max(1, areaFaces);
@@ -2201,7 +2205,7 @@ public final class MeshRepair {
                     droppedFaces = IntStream.range(0, Math.min(faceCount, aliveBeforeShells.length))
                             .filter(face -> aliveBeforeShells[face] && !faceAlive[face]).toArray();
                 }
-                float[] dropped = cornersOf(droppedFaces);
+                PackedPoints dropped = cornersOf(IntStream.of(droppedFaces));
                 IntStream.Builder wake = IntStream.builder();
                 for (int face : droppedFaces) {
                     if (face < treeFaces) {
@@ -2213,7 +2217,7 @@ public final class MeshRepair {
                     blockingHead[face] = -1;
                 }
                 woken = wake.build().toArray();
-                if (dropped.length == 0) {
+                if (dropped.size() == 0) {
                     return;
                 }
                 changed = treeOver(dropped);
@@ -2266,7 +2270,7 @@ public final class MeshRepair {
             }
             cut = Arrays.copyOf(cut, cutCount);
             Arrays.sort(cut);
-            float[] changedCorners = cornersOf(cut);
+            int[] cutCorners = cornerVertices(faceCorners, IntStream.of(cut)).toArray();
             IntStream.Builder wake = IntStream.builder();
             for (int face : cut) {
                 if (face < treeFaces) {
@@ -2290,7 +2294,8 @@ public final class MeshRepair {
             if (report.refillOpenHoleCount > 0) {
                 return;
             }
-            float[] changedAll = append(changedCorners, cornersWhere(face -> faceAlive[face], firstRefill));
+            PackedPoints changedAll = PackedPoints.concat(positions.gather(cutCorners),
+                    cornersOf(IntStream.range(firstRefill, faceCount).filter(face -> faceAlive[face])));
             changed = treeOver(changedAll);
             changedColumns = grid.cellsUnder(changedAll);
             tree.companion = treeOverFrom(treeFaces);
@@ -2440,55 +2445,11 @@ public final class MeshRepair {
      * @return true when the face is hidden from both sides
      */
     private boolean sealedIn(TriangleBvh tree, int face, int[] stack) {
-        float[] normalXyz = new float[TRIANGLE_CORNERS];
-        unitNormal(faceCorners, positions, face, normalXyz, 0);
-        Vector3f normal = new Vector3f(normalXyz);
-        Vector3f centroid = new Vector3f();
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-            int at = faceCorners[face * TRIANGLE_CORNERS + corner] * TRIANGLE_CORNERS;
-            centroid.add(positions[at] / TRIANGLE_CORNERS, positions[at + 1] / TRIANGLE_CORNERS,
-                    positions[at + 2] / TRIANGLE_CORNERS);
-        }
+        int base = face * TRIANGLE_CORNERS;
+        Vector3f normal = TriangleGeometry.normal(positions, faceCorners[base], faceCorners[base + 1],
+                faceCorners[base + 2]);
+        Vector3f centroid = positions.gather(Arrays.copyOfRange(faceCorners, base, base + TRIANGLE_CORNERS)).centroid();
         return tree.agreedWinding(centroid, normal, stack) != 0 && !tree.hemisphereEscapes(centroid, normal, stack);
-    }
-
-    /**
-     * The corner positions of every face orientation counted that died or moved a corner since,
-     * as orientation's soup holds them and as they stand, and of every alive face added since: the
-     * parity lines that run near any of them may count differently now.
-     *
-     * @return nine floats per triangle
-     */
-    private float[] changedSinceOrientationCorners() {
-        int added = 0;
-        for (int face = orientedFaces; face < faceCount; face++) {
-            added += faceAlive[face] ? 1 : 0;
-        }
-        float[] corners = new float[(changedSinceCount * 2 + added) * TRIANGLE_CORNERS * TRIANGLE_CORNERS];
-        int next = 0;
-        int[] before = columnSoup.triangleCorners;
-        float[] at = columnSoup.positions;
-        for (int index = 0; index < changedSinceCount; index++) {
-            int face = changedSince[index];
-            for (int corner = 0; corner < TRIANGLE_CORNERS && columnSoup.triangleGroup[face] >= 0; corner++) {
-                System.arraycopy(at, before[face * TRIANGLE_CORNERS + corner] * TRIANGLE_CORNERS, corners, next,
-                        TRIANGLE_CORNERS);
-                next += TRIANGLE_CORNERS;
-            }
-            for (int corner = 0; corner < TRIANGLE_CORNERS && faceAlive[face]; corner++) {
-                System.arraycopy(positions, faceCorners[face * TRIANGLE_CORNERS + corner] * TRIANGLE_CORNERS,
-                        corners, next, TRIANGLE_CORNERS);
-                next += TRIANGLE_CORNERS;
-            }
-        }
-        for (int face = orientedFaces; face < faceCount; face++) {
-            for (int corner = 0; corner < TRIANGLE_CORNERS && faceAlive[face]; corner++) {
-                System.arraycopy(positions, faceCorners[face * TRIANGLE_CORNERS + corner] * TRIANGLE_CORNERS,
-                        corners, next, TRIANGLE_CORNERS);
-                next += TRIANGLE_CORNERS;
-            }
-        }
-        return Arrays.copyOf(corners, next);
     }
 
     /**
@@ -2534,9 +2495,9 @@ public final class MeshRepair {
             rayStacks.set(stack);
         }
         int[] verdict = state.verdict();
-        Vector3f centroid = new Vector3f();
         Vector3f back = new Vector3f();
         int[] nearby = new int[CORNER_FACES_TRIED_FIRST];
+        PackedPoints xyz = positions;
         for (int index = first; index < end; index++) {
             int face = state.candidates() == null ? index : state.candidates()[index];
             if (!faceAlive[face]) {
@@ -2547,34 +2508,19 @@ public final class MeshRepair {
                     && !state.creased()[face] && !columnMarked(state.changedColumns(), state.parityCell()[face])) {
                 continue;
             }
-            int a = faceCorners[face * TRIANGLE_CORNERS] * TRIANGLE_CORNERS;
-            int b = faceCorners[face * TRIANGLE_CORNERS + 1] * TRIANGLE_CORNERS;
-            int c = faceCorners[face * TRIANGLE_CORNERS + 2] * TRIANGLE_CORNERS;
-            double alongX = positions[b] - positions[a];
-            double alongY = positions[b + 1] - positions[a + 1];
-            double alongZ = positions[b + 2] - positions[a + 2];
-            double acrossX = positions[c] - positions[a];
-            double acrossY = positions[c + 1] - positions[a + 1];
-            double acrossZ = positions[c + 2] - positions[a + 2];
-            double normalX = alongY * acrossZ - alongZ * acrossY;
-            double normalY = alongZ * acrossX - alongX * acrossZ;
-            double normalZ = alongX * acrossY - alongY * acrossX;
-            double length = Math.sqrt(normalX * normalX + normalY * normalY + normalZ * normalZ);
+            int a = faceCorners[face * TRIANGLE_CORNERS];
+            int b = faceCorners[face * TRIANGLE_CORNERS + 1];
+            int c = faceCorners[face * TRIANGLE_CORNERS + 2];
+            Vector3d normal = TriangleGeometry.cross(xyz, a, b, c);
+            double length = normal.length();
             if (length == 0.0) {
                 continue;
             }
-            centroid.set((positions[a] + positions[b] + positions[c]) / TRIANGLE_CORNERS,
-                    (positions[a + 1] + positions[b + 1] + positions[c + 1]) / TRIANGLE_CORNERS,
-                    (positions[a + 2] + positions[b + 2] + positions[c + 2]) / TRIANGLE_CORNERS);
-            back.set((float) (-normalX / length), (float) (-normalY / length), (float) (-normalZ / length));
-            double longest = Math.max(alongX * alongX + alongY * alongY + alongZ * alongZ,
-                    Math.max(acrossX * acrossX + acrossY * acrossY + acrossZ * acrossZ,
-                            (acrossX - alongX) * (acrossX - alongX) + (acrossY - alongY) * (acrossY - alongY)
-                                    + (acrossZ - alongZ) * (acrossZ - alongZ)));
-            boolean countable = length >= SLIVER_RATIO * longest && length >= state.tinyDoubleArea()
-                    && !state.creased()[face];
-            int lineAxis = Math.abs(normalX) >= Math.abs(normalY) && Math.abs(normalX) >= Math.abs(normalZ) ? 0
-                    : Math.abs(normalY) >= Math.abs(normalZ) ? 1 : 2;
+            Vector3f centroid = TriangleGeometry.centre(xyz, a, b, c);
+            back.set(new Vector3d(normal).div(-length));
+            boolean countable = length >= SLIVER_RATIO * TriangleGeometry.longestEdgeSquared(xyz, a, b, c)
+                    && length >= state.tinyDoubleArea() && !state.creased()[face];
+            int lineAxis = normal.maxComponent();
             if (changed != null && face < state.recountFrom()) {
                 boolean stands = switch (verdict[face]) {
                     case VOUCHED_BY_PARITY -> countable && !meetsAxisLine(state.grid(), changed,
@@ -2845,55 +2791,8 @@ public final class MeshRepair {
     }
 
     /**
-     * Marks each face that a face sharing one of its corners folds back over: a normal turned
-     * more than about 105 degrees away, into the 75-degree cone of its back rays.
-     *
-     * @param corners  three vertex indices per face
-     * @param at       xyz per vertex
-     * @param faces    faces to judge
-     * @param vertices vertices the corners name
-     * @param group    per face, negative for one left out
-     * @return per face whether it is creased
-     */
-    private static boolean[] creasedFaces(int[] corners, float[] at, int faces, int vertices, int[] group) {
-        boolean[] creased = new boolean[faces];
-        float[] normals = new float[faces * TRIANGLE_CORNERS];
-        IntStream.range(0, faces).parallel().filter(face -> group[face] >= 0)
-                .forEach(face -> unitNormal(corners, at, face, normals, face * TRIANGLE_CORNERS));
-        int[] faceStart = new int[vertices + 1];
-        for (int slot = 0; slot < faces * TRIANGLE_CORNERS; slot++) {
-            if (group[slot / TRIANGLE_CORNERS] >= 0) {
-                faceStart[corners[slot] + 1]++;
-            }
-        }
-        for (int vertex = 0; vertex < vertices; vertex++) {
-            faceStart[vertex + 1] += faceStart[vertex];
-        }
-        int[] cursor = Arrays.copyOf(faceStart, vertices);
-        int[] facesOfVertex = new int[faceStart[vertices]];
-        for (int slot = 0; slot < faces * TRIANGLE_CORNERS; slot++) {
-            if (group[slot / TRIANGLE_CORNERS] >= 0) {
-                facesOfVertex[cursor[corners[slot]]++] = slot / TRIANGLE_CORNERS;
-            }
-        }
-        IntStream.range(0, faces).parallel().forEach(face -> {
-            for (int corner = 0; corner < TRIANGLE_CORNERS && group[face] >= 0 && !creased[face]; corner++) {
-                int vertex = corners[face * TRIANGLE_CORNERS + corner];
-                for (int index = faceStart[vertex]; index < faceStart[vertex + 1]; index++) {
-                    int other = facesOfVertex[index];
-                    if (dot(normals, face, other) < FOLDED_BACK_NORMAL_COSINE) {
-                        creased[face] = true;
-                        break;
-                    }
-                }
-            }
-        });
-        return creased;
-    }
-
-    /**
-     * {@link #creasedFaces} for the faces round a refill: only faces round its corners are judged,
-     * against each other.
+     * The crease test {@link #build} runs before the fill, for the faces round a refill: only
+     * faces round its corners are judged, against each other.
      *
      * @param first first new face
      * @param flags per face, the flags to update in place while they have room
@@ -2926,17 +2825,15 @@ public final class MeshRepair {
         }
         judged = Arrays.stream(judged, 0, judgedCount).sorted().distinct().toArray();
         creaseJudged = judged;
-        float[] normals = new float[judged.length * TRIANGLE_CORNERS];
-        for (int index = 0; index < judged.length; index++) {
-            unitNormal(faceCorners, positions, judged[index], normals, index * TRIANGLE_CORNERS);
-        }
+        PackedPoints judgedNormals = TriangleGeometry.normals(positions,
+                cornerVertices(faceCorners, IntStream.of(judged)).toArray());
         for (int index = 0; index < judged.length; index++) {
             int face = judged[index];
             for (int corner = 0; corner < TRIANGLE_CORNERS && !creased[face]; corner++) {
                 int around = facesRound(faceCorners[face * TRIANGLE_CORNERS + corner]);
                 for (int other = 0; other < around; other++) {
                     int at = Arrays.binarySearch(judged, aroundScratch[other]);
-                    if (at >= 0 && dot(normals, index, at) < FOLDED_BACK_NORMAL_COSINE) {
+                    if (at >= 0 && dot(judgedNormals, index, at) < FOLDED_BACK_NORMAL_COSINE) {
                         creased[face] = true;
                         break;
                     }
@@ -2947,116 +2844,50 @@ public final class MeshRepair {
     }
 
     /**
-     * Dot product of two unit normals held three floats apiece.
+     * Dot product of two unit normals.
      *
      * @param normals the normals
      * @param first   index of one
      * @param second  index of the other
      * @return their dot product
      */
-    private static float dot(float[] normals, int first, int second) {
-        return normals[first * TRIANGLE_CORNERS] * normals[second * TRIANGLE_CORNERS]
-                + normals[first * TRIANGLE_CORNERS + 1] * normals[second * TRIANGLE_CORNERS + 1]
-                + normals[first * TRIANGLE_CORNERS + 2] * normals[second * TRIANGLE_CORNERS + 2];
+    private static float dot(PackedPoints normals, int first, int second) {
+        return normals.get(first, 0) * normals.get(second, 0) + normals.get(first, 1) * normals.get(second, 1)
+                + normals.get(first, 2) * normals.get(second, 2);
     }
 
     /**
-     * Writes one face's unit normal as floats.
-     *
-     * @param corners three vertex indices per face
-     * @param at      xyz per vertex
-     * @param face    face index
-     * @param normals receives the normal
-     * @param offset  where the three floats go
-     */
-    private static void unitNormal(int[] corners, float[] at, int face, float[] normals, int offset) {
-        int a = corners[face * TRIANGLE_CORNERS] * TRIANGLE_CORNERS;
-        int b = corners[face * TRIANGLE_CORNERS + 1] * TRIANGLE_CORNERS;
-        int c = corners[face * TRIANGLE_CORNERS + 2] * TRIANGLE_CORNERS;
-        double alongX = at[b] - at[a];
-        double alongY = at[b + 1] - at[a + 1];
-        double alongZ = at[b + 2] - at[a + 2];
-        double acrossX = at[c] - at[a];
-        double acrossY = at[c + 1] - at[a + 1];
-        double acrossZ = at[c + 2] - at[a + 2];
-        double normalX = alongY * acrossZ - alongZ * acrossY;
-        double normalY = alongZ * acrossX - alongX * acrossZ;
-        double normalZ = alongX * acrossY - alongY * acrossX;
-        double length = Math.max(Double.MIN_NORMAL, Math.sqrt(normalX * normalX + normalY * normalY + normalZ * normalZ));
-        normals[offset] = (float) (normalX / length);
-        normals[offset + 1] = (float) (normalY / length);
-        normals[offset + 2] = (float) (normalZ / length);
-    }
-
-    /**
-     * The corner positions of the faces from one index on that a test picks.
-     *
-     * @param picked which faces to copy
-     * @param first  first face considered
-     * @return nine floats per picked face, corner by corner
-     */
-    private float[] cornersWhere(IntPredicate picked, int first) {
-        float[] corners = new float[0];
-        int next = 0;
-        for (int face = first; face < faceCount; face++) {
-            if (!picked.test(face)) {
-                continue;
-            }
-            if (next == corners.length) {
-                corners = Arrays.copyOf(corners, Math.max(TRIANGLE_CORNERS * TRIANGLE_CORNERS, corners.length * GROWTH));
-            }
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                System.arraycopy(positions, faceCorners[face * TRIANGLE_CORNERS + corner] * TRIANGLE_CORNERS, corners,
-                        next, TRIANGLE_CORNERS);
-                next += TRIANGLE_CORNERS;
-            }
-        }
-        return Arrays.copyOf(corners, next);
-    }
-
-    /**
-     * The corner positions of some faces, nine floats each, in the order given.
+     * The corner positions of some working faces, three points each, in the order given.
      *
      * @param faces working face indices
      * @return their corners
      */
-    private float[] cornersOf(int[] faces) {
-        float[] corners = new float[faces.length * TRIANGLE_CORNERS * TRIANGLE_CORNERS];
-        int next = 0;
-        for (int face : faces) {
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                System.arraycopy(positions, faceCorners[face * TRIANGLE_CORNERS + corner] * TRIANGLE_CORNERS, corners,
-                        next, TRIANGLE_CORNERS);
-                next += TRIANGLE_CORNERS;
-            }
-        }
-        return corners;
+    private PackedPoints cornersOf(IntStream faces) {
+        return positions.gather(cornerVertices(faceCorners, faces).toArray());
     }
 
     /**
-     * Two float runs one after the other.
+     * The corner vertices of some faces, three per face in the faces' order.
      *
-     * @param head first run
-     * @param tail second run
-     * @return the joined run
+     * @param corners three vertices per face
+     * @param faces   face indices
+     * @return their vertices
      */
-    private static float[] append(float[] head, float[] tail) {
-        float[] joined = Arrays.copyOf(head, head.length + tail.length);
-        System.arraycopy(tail, 0, joined, head.length, tail.length);
-        return joined;
+    private static IntStream cornerVertices(int[] corners, IntStream faces) {
+        return faces.flatMap(face -> Arrays.stream(corners, face * TRIANGLE_CORNERS, (face + 1) * TRIANGLE_CORNERS));
     }
 
     /**
-     * A tree over standalone triangles, nine floats each.
+     * A tree over standalone triangles, three points each.
      *
      * @param corners corner positions, three corners per triangle
      * @return the built tree
      */
-    private static TriangleBvh treeOver(float[] corners) {
+    private static TriangleBvh treeOver(PackedPoints corners) {
         TriangleBvh tree = new TriangleBvh();
         tree.leafTriangles = RAY_LEAF_TRIANGLES;
         tree.positions = corners;
-        tree.triangleCount = corners.length / (TRIANGLE_CORNERS * TRIANGLE_CORNERS);
+        tree.triangleCount = corners.size() / TRIANGLE_CORNERS;
         tree.triangleCorners = new int[tree.triangleCount * TRIANGLE_CORNERS];
         for (int corner = 0; corner < tree.triangleCorners.length; corner++) {
             tree.triangleCorners[corner] = corner;
@@ -3118,16 +2949,10 @@ public final class MeshRepair {
                 newIndexOfVertex[vertex] = survivors++;
             }
         }
-        float[] outPositions = new float[survivors * TRIANGLE_CORNERS];
-        int[] outOriginal = new int[survivors];
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            int target = newIndexOfVertex[vertex];
-            if (target >= 0) {
-                System.arraycopy(positions, vertex * TRIANGLE_CORNERS, outPositions, target * TRIANGLE_CORNERS,
-                        TRIANGLE_CORNERS);
-                outOriginal[target] = originalOfVertex[vertex];
-            }
-        }
+        int[] survivingVertices = IntStream.range(0, vertexCount).filter(vertex -> newIndexOfVertex[vertex] >= 0)
+                .toArray();
+        PackedPoints outPositions = positions.gather(survivingVertices);
+        int[] outOriginal = Arrays.stream(survivingVertices).map(vertex -> originalOfVertex[vertex]).toArray();
         int[] outFaces = new int[aliveFaces * TRIANGLE_CORNERS];
         double[] outU = cornerU == null ? null : new double[aliveFaces * TRIANGLE_CORNERS];
         double[] outV = cornerU == null ? null : new double[aliveFaces * TRIANGLE_CORNERS];
@@ -3359,38 +3184,19 @@ public final class MeshRepair {
     }
 
     /**
-     * Squared distance between two working vertices.
-     *
-     * @param first  one vertex
-     * @param second the other vertex
-     * @return the squared distance
-     */
-    private double squaredDistance(int first, int second) {
-        double deltaX = positions[first * TRIANGLE_CORNERS] - positions[second * TRIANGLE_CORNERS];
-        double deltaY = positions[first * TRIANGLE_CORNERS + 1] - positions[second * TRIANGLE_CORNERS + 1];
-        double deltaZ = positions[first * TRIANGLE_CORNERS + 2] - positions[second * TRIANGLE_CORNERS + 2];
-        return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
-    }
-
-    /**
      * Appends a working vertex at a position, with no input vertex behind it.
      *
-     * @param x position x
-     * @param y position y
-     * @param z position z
+     * @param position its position
      * @return the new working vertex index
      */
-    private int addVertex(float x, float y, float z) {
-        if ((vertexCount + 1) * TRIANGLE_CORNERS > positions.length) {
-            int capacity = Math.max(positions.length * GROWTH, (vertexCount + 1) * TRIANGLE_CORNERS);
-            positions = Arrays.copyOf(positions, capacity);
-            originalOfVertex = Arrays.copyOf(originalOfVertex, capacity / TRIANGLE_CORNERS);
+    private int addVertex(Vector3f position) {
+        int vertex = positions.append(position);
+        if (vertex >= originalOfVertex.length) {
+            originalOfVertex = Arrays.copyOf(originalOfVertex, Math.max(vertex + 1, originalOfVertex.length * GROWTH));
         }
-        positions[vertexCount * TRIANGLE_CORNERS] = x;
-        positions[vertexCount * TRIANGLE_CORNERS + 1] = y;
-        positions[vertexCount * TRIANGLE_CORNERS + 2] = z;
-        originalOfVertex[vertexCount] = -1;
-        return vertexCount++;
+        originalOfVertex[vertex] = -1;
+        vertexCount++;
+        return vertex;
     }
 
     /**
@@ -3401,8 +3207,7 @@ public final class MeshRepair {
      */
     private int copyVertex(int source) {
         int origin = originalOfVertex[source];
-        int copy = addVertex(positions[source * TRIANGLE_CORNERS], positions[source * TRIANGLE_CORNERS + 1],
-                positions[source * TRIANGLE_CORNERS + 2]);
+        int copy = addVertex(positions.at(source));
         originalOfVertex[copy] = origin;
         return copy;
     }

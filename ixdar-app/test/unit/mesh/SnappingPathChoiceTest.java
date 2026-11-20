@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 
@@ -184,11 +185,10 @@ class SnappingPathChoiceTest {
      * @return a working copy of that strip
      */
     private EmbeddedMeshTopology strip() {
-        float[] positions = new float[COLUMNS * 2 * CORNERS];
+        PackedPoints positions = new PackedPoints(COLUMNS * 2);
         for (int column = 0; column < COLUMNS; column++) {
-            positions[column * CORNERS] = column;
-            positions[(COLUMNS + column) * CORNERS] = column;
-            positions[(COLUMNS + column) * CORNERS + 1] = 1.0f;
+            positions.set(column, column, 0f, 0f);
+            positions.set(COLUMNS + column, column, 1.0f, 0f);
         }
         List<Integer> faces = new ArrayList<>();
         for (int column = 0; column < COLUMNS - 1 && faces.size() / CORNERS < FACES; column++) {

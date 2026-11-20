@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 
 /**
@@ -133,7 +134,7 @@ public final class SurfacePathCrossings {
             int dominantAxis = mesh.faceDominantAxis(faceId);
             int firstAxis = (dominantAxis + 1) % COORDINATES_PER_POINT;
             int secondAxis = (dominantAxis + 2) % COORDINATES_PER_POINT;
-            double[] xyz = path.surfacePositions;
+            PackedPoints xyz = path.surfacePositions;
             for (int one = first; one < last; one++) {
                 for (int other = one + 1; other < last; other++) {
                     int spanA = (int) (faceSpans[one] & SPAN_MASK);
@@ -143,10 +144,10 @@ public final class SurfacePathCrossings {
                     if (apart <= 1 || closed && apart >= points - 1) {
                         continue;
                     }
-                    int a0 = COORDINATES_PER_POINT * order[spanA];
-                    int a1 = COORDINATES_PER_POINT * order[(spanA + 1) % points];
-                    int b0 = COORDINATES_PER_POINT * order[spanB];
-                    int b1 = COORDINATES_PER_POINT * order[(spanB + 1) % points];
+                    int a0 = order[spanA];
+                    int a1 = order[(spanA + 1) % points];
+                    int b0 = order[spanB];
+                    int b1 = order[(spanB + 1) % points];
                     if (orientation(xyz, a0, a1, b0, firstAxis, secondAxis)
                             * orientation(xyz, a0, a1, b1, firstAxis, secondAxis) < 0.0
                             && orientation(xyz, b0, b1, a0, firstAxis, secondAxis)
@@ -179,20 +180,15 @@ public final class SurfacePathCrossings {
                 : path.faceId[point];
     }
 
-    private static double orientation(double[] xyz, int from, int to, int at, int first,
+    private static double orientation(PackedPoints xyz, int from, int to, int at, int first,
             int second) {
-        return ExactBarycentricOrient.orient2d(xyz[from + first], xyz[from + second],
-                xyz[to + first], xyz[to + second], xyz[at + first], xyz[at + second]);
+        return ExactBarycentricOrient.orient2d(xyz.get(from, first), xyz.get(from, second),
+                xyz.get(to, first), xyz.get(to, second), xyz.get(at, first), xyz.get(at, second));
     }
 
     private void record(TracedSurfacePath path, int point, int otherPoint, double blend) {
-        Vector3d here = new Vector3d(path.surfacePositions[COORDINATES_PER_POINT * point],
-                path.surfacePositions[COORDINATES_PER_POINT * point + 1],
-                path.surfacePositions[COORDINATES_PER_POINT * point + 2]);
-        Vector3d there = otherPoint < 0 ? here
-                : new Vector3d(path.surfacePositions[COORDINATES_PER_POINT * otherPoint],
-                        path.surfacePositions[COORDINATES_PER_POINT * otherPoint + 1],
-                        path.surfacePositions[COORDINATES_PER_POINT * otherPoint + 2]);
+        Vector3d here = new Vector3d(path.surfacePositions.at(point));
+        Vector3d there = otherPoint < 0 ? here : new Vector3d(path.surfacePositions.at(otherPoint));
         firstCrossingXyz.set(new Vector3d(here).lerp(there, blend));
     }
 }

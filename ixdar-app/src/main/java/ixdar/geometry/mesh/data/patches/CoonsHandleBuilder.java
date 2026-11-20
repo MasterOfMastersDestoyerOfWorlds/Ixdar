@@ -14,7 +14,7 @@ import ixdar.nodegraph.nodes.patch.CoonsPatchNode;
  * <p>
  * Collect per-directed-edge handle offsets into a {@link Map} keyed by
  * {@link #dirPack(int, int)}, then call {@link #flushDirectedHandles(MeshTopology, Map)}
- * to realize them as {@code _bezier_handles_start / _bezier_handles_end} float arrays
+ * to realize them as {@code _bezier_handles_start / _bezier_handles_end} {@link PackedPoints}
  * indexed by the output mesh's edge IDs.
  */
 public final class CoonsHandleBuilder {
@@ -37,28 +37,27 @@ public final class CoonsHandleBuilder {
     }
 
     /**
-     * Reads a handle slot (float[3 per edge id]) from a bundle, padding with
-     * zeros if the stored array is shorter than needed for {@code mesh}'s edge
-     * IDs. Returns zero-filled array when the slot is absent or not a float[].
+     * Reads a handle slot (one offset per edge id) from a bundle, padding with
+     * zeros if the stored buffer is shorter than needed for {@code mesh}'s edge
+     * IDs. Returns zero offsets when the slot is absent or not {@link PackedPoints}.
      *
      * @param base bundle to read from
      * @param slotName slot key, typically {@link AssignBezierHandlesNode#SLOT_HANDLES_START} or {@code _END}
-     * @param mesh mesh whose edge IDs determine the required array length
-     * @return float array of length {@code (maxEdgeId + 1) * 3}, zero-padded as needed
+     * @param mesh mesh whose edge IDs determine the required point count
+     * @return offsets of {@code maxEdgeId + 1} points, zero-padded as needed
      */
-    public static float[] readHandleSlot(GeometryBundle base, String slotName, MeshTopology mesh) {
+    public static PackedPoints readHandleSlot(GeometryBundle base, String slotName, MeshTopology mesh) {
         Object o = base.slots().get(slotName);
-        int maxEid = maxEdgeId(mesh);
-        int need = (maxEid + 1) * 3;
-        if (!(o instanceof float[] arr)) {
-            return new float[need];
+        int need = maxEdgeId(mesh) + 1;
+        if (!(o instanceof PackedPoints stored)) {
+            return new PackedPoints(need);
         }
-        if (arr.length < need) {
-            float[] padded = new float[need];
-            System.arraycopy(arr, 0, padded, 0, Math.min(arr.length, need));
+        if (stored.size() < need) {
+            PackedPoints padded = new PackedPoints(need);
+            padded.slice(0, stored.size()).copyFrom(stored);
             return padded;
         }
-        return arr;
+        return stored;
     }
 
     /**
@@ -71,7 +70,7 @@ public final class CoonsHandleBuilder {
      */
     public static boolean hasHandles(GeometryBundle base) {
         Object o = base.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START);
-        return o instanceof float[] arr && arr.length > 0;
+        return o instanceof PackedPoints handles && handles.size() > 0;
     }
 
     /**
@@ -102,16 +101,15 @@ public final class CoonsHandleBuilder {
      * @param fromVid endpoint of {@code eid} that should map to {@code P0}
      * @return four-element {@code [P0, P1, P2, P3]} array
      */
-    public static Vector3f[] getEdgeControlPoints(MeshTopology mesh, float[] hStart, float[] hEnd,
+    public static Vector3f[] getEdgeControlPoints(MeshTopology mesh, PackedPoints hStart, PackedPoints hEnd,
             int eid, int fromVid) {
         int he = mesh.edgeHalfEdge(eid);
         int ca = mesh.halfEdgeVertex(he);
         int cb = mesh.halfEdgeEndVertex(he);
-        int o = eid * 3;
         Vector3f posCa = mesh.vertexPosition(ca);
         Vector3f posCb = mesh.vertexPosition(cb);
-        Vector3f offS = PackedPoints.at(hStart, o);
-        Vector3f offE = PackedPoints.at(hEnd, o);
+        Vector3f offS = hStart.at(eid);
+        Vector3f offE = hEnd.at(eid);
         if (fromVid == ca) {
             return new Vector3f[]{
                     new Vector3f(posCa),
@@ -160,29 +158,27 @@ public final class CoonsHandleBuilder {
      *
      * @param outMesh output mesh providing canonical edge directions
      * @param dh directed-handle map keyed by {@link #dirPack(int, int)}
-     * @return float[] array of length 2: {@code [0] = hStart, [1] = hEnd}, both
-     *         indexed by {@code eid * 3}.
+     * @return two buffers: {@code [0] = hStart, [1] = hEnd}, both indexed by edge id.
      */
-    public static float[][] flushDirectedHandles(MeshTopology outMesh, Map<Long, Vector3f> dh) {
+    public static PackedPoints[] flushDirectedHandles(MeshTopology outMesh, Map<Long, Vector3f> dh) {
         int outMaxEid = maxEdgeId(outMesh);
-        float[] hs = new float[(outMaxEid + 1) * 3];
-        float[] he = new float[(outMaxEid + 1) * 3];
+        PackedPoints hs = new PackedPoints(outMaxEid + 1);
+        PackedPoints he = new PackedPoints(outMaxEid + 1);
         for (int i = 0; i < outMesh.edgeCount(); i++) {
             int eid = outMesh.edgeIdAt(i);
             int ohe = outMesh.edgeHalfEdge(eid);
             int ca = outMesh.halfEdgeVertex(ohe);
             int cb = outMesh.halfEdgeEndVertex(ohe);
-            int o = eid * 3;
             Vector3f s = dh.get(dirPack(ca, cb));
             if (s != null) {
-                PackedPoints.store(hs, o, s);
+                hs.set(eid, s);
             }
             Vector3f e = dh.get(dirPack(cb, ca));
             if (e != null) {
-                PackedPoints.store(he, o, e);
+                he.set(eid, e);
             }
         }
-        return new float[][]{hs, he};
+        return new PackedPoints[]{hs, he};
     }
 
 
@@ -244,16 +240,15 @@ public final class CoonsHandleBuilder {
      * @return curve sample
      */
     public static Vector3f evalFaceEdgeAt(
-            MeshTopology mesh, float[] hStart, float[] hEnd,
+            MeshTopology mesh, PackedPoints hStart, PackedPoints hEnd,
             int eid, int expectedStartVid, float t) {
         int he = mesh.edgeHalfEdge(eid);
         int ca = mesh.halfEdgeVertex(he);
         int cb = mesh.halfEdgeEndVertex(he);
-        int o = eid * 3;
         Vector3f posCa = mesh.vertexPosition(ca);
         Vector3f posCb = mesh.vertexPosition(cb);
-        Vector3f p1 = new Vector3f(posCa).add(hStart[o], hStart[o + 1], hStart[o + 2]);
-        Vector3f p2 = new Vector3f(posCb).add(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
+        Vector3f p1 = new Vector3f(posCa).add(hStart.get(eid, 0), hStart.get(eid, 1), hStart.get(eid, 2));
+        Vector3f p2 = new Vector3f(posCb).add(hEnd.get(eid, 0), hEnd.get(eid, 1), hEnd.get(eid, 2));
         float evalT = (expectedStartVid == cb) ? 1f - t : t;
         return cubicBezier(posCa, p1, p2, posCb, evalT);
     }
@@ -290,7 +285,7 @@ public final class CoonsHandleBuilder {
      * @return unit normal at {@code (u, v)}; zero-length if the surface degenerates
      */
     public static Vector3f coonsSurfaceNormal(
-            MeshTopology mesh, float[] hStart, float[] hEnd,
+            MeshTopology mesh, PackedPoints hStart, PackedPoints hEnd,
             int v0, int v1, int v3,
             int e0, int e1, int e2, int e3,
             float u, float v) {
@@ -342,7 +337,7 @@ public final class CoonsHandleBuilder {
      * @return surface position at {@code (u, v)}
      */
     public static Vector3f evalCoonsSurface(
-            MeshTopology mesh, float[] hStart, float[] hEnd,
+            MeshTopology mesh, PackedPoints hStart, PackedPoints hEnd,
             int v0, int v1, int v3,
             int e0, int e1, int e2, int e3,
             float u, float v) {

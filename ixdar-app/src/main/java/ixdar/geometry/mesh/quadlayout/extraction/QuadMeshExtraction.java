@@ -11,6 +11,7 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.UvField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.numeric.exact.ExactBarycentricOrient;
@@ -1165,11 +1166,9 @@ public final class QuadMeshExtraction {
         mesh.quadVertexCount = quadVertexCount;
         mesh.vertexKind = Arrays.copyOf(vertexKind, quadVertexCount);
         mesh.anchorEntityId = Arrays.copyOf(anchorEntityId, quadVertexCount);
-        mesh.positions = new float[quadVertexCount * ExtractedQuadMesh.POSITION_FLOATS];
+        mesh.positions = new PackedPoints(quadVertexCount);
         for (int quadVertex = 0; quadVertex < quadVertexCount; quadVertex++) {
-            mesh.positions[quadVertex * ExtractedQuadMesh.POSITION_FLOATS] = positionX[quadVertex];
-            mesh.positions[quadVertex * ExtractedQuadMesh.POSITION_FLOATS + 1] = positionY[quadVertex];
-            mesh.positions[quadVertex * ExtractedQuadMesh.POSITION_FLOATS + 2] = positionZ[quadVertex];
+            mesh.positions.set(quadVertex, positionX[quadVertex], positionY[quadVertex], positionZ[quadVertex]);
         }
         mesh.portCount = portCount;
         mesh.portStart = portStart;

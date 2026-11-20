@@ -80,11 +80,11 @@ public final class RingRegionExtractionBenchmark {
             for (int other = ring + 1; other < splines.length; other++) {
                 SurfaceSpline first = splines[ring];
                 SurfaceSpline second = splines[other];
-                double[] firstCentroid = first.path.centroid;
-                double[] secondCentroid = second.path.centroid;
-                double dx = firstCentroid[0] - secondCentroid[0];
-                double dy = firstCentroid[1] - secondCentroid[1];
-                double dz = firstCentroid[2] - secondCentroid[2];
+                Vector3f firstCentroid = first.path.centroid;
+                Vector3f secondCentroid = second.path.centroid;
+                double dx = (double) firstCentroid.x - secondCentroid.x;
+                double dy = (double) firstCentroid.y - secondCentroid.y;
+                double dz = (double) firstCentroid.z - secondCentroid.z;
                 double gap = Math.sqrt(dx * dx + dy * dy + dz * dz);
                 if (gap < NEAR_DUPLICATE_CENTROID_SHARE_OF_RADIUS * 0.5
                         * (first.path.meanRadius + second.path.meanRadius)) {

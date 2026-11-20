@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.quadlayout.embedding.ChartBarycentric;
 
 /**
@@ -190,12 +191,11 @@ class CoincidentCrossingNodeTest {
      * @return the two-triangle fan
      */
     private static HalfEdgeMesh buildFan() {
-        float[] positions = {
-            (float) SHARED_U, (float) SHARED_V, 0f,
-            -43f, 10f, 0f,
-            -43f, 11f, 0f,
-            -45f, 10.2f, 0f,
-        };
+        PackedPoints positions = new PackedPoints(4);
+        positions.set(0, (float) SHARED_U, (float) SHARED_V, 0f);
+        positions.set(1, -43f, 10f, 0f);
+        positions.set(2, -43f, 11f, 0f);
+        positions.set(3, -45f, 10.2f, 0f);
         int[] faceIndices = { 0, 1, 2, 0, 2, 3 };
         return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
     }

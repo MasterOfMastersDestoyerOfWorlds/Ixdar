@@ -10,6 +10,7 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
@@ -115,7 +116,7 @@ public class InsetFacesNode implements MeshNode {
      * centroid-lerp inner vertex per face.
      */
     private static MeshTopology insetFacesQuadWithSharedEdgeMerge(
-            MeshTopology topology, float[] srcPos, int[] activeVertexOfId,
+            MeshTopology topology, PackedPoints srcPos, int[] activeVertexOfId,
             int vertCount, int faceCount, boolean[] selected, float t) {
 
         Set<Integer> sharedEdgeIds = new HashSet<>();
@@ -171,24 +172,13 @@ public class InsetFacesNode implements MeshNode {
         int[][][] cyanAt3Plus = new int[faceCount][][];
         Map<Integer, int[]> centralFillPerVertex = new HashMap<>();
 
-        ArrayList<Float> extraPos = new ArrayList<>();
+        PackedPoints outPos = topology.packedPositions(null);
         ArrayList<Integer> extraSource = new ArrayList<>();
-        int[] nextVidBox = {vertCount};
         Set<Long> mergedEndpoint = new HashSet<>();
-        float[] centroids = new float[faceCount * 3];
+        PackedPoints centroids = new PackedPoints(faceCount);
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
-            int fid = topology.faceIdAt(fi);
-            float cx = 0f, cy = 0f, cz = 0f;
-            for (int k = 0; k < 4; k++) {
-                int vid = topology.faceVertexAt(fid, k);
-                cx += srcPos[vid * 3];
-                cy += srcPos[vid * 3 + 1];
-                cz += srcPos[vid * 3 + 2];
-            }
-            centroids[fi * 3] = cx * 0.25f;
-            centroids[fi * 3 + 1] = cy * 0.25f;
-            centroids[fi * 3 + 2] = cz * 0.25f;
+            centroids.set(fi, topology.faceCentroid(topology.faceIdAt(fi)));
         }
 
         for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
@@ -198,8 +188,8 @@ public class InsetFacesNode implements MeshNode {
 
             if (n == 3) {
                 boolean ok = allocate3PlusCornerFlat(topology, denseVid, atV,
-                        sharedEdgeIds, srcPos, t, extraPos, extraSource,
-                        cyanAt3Plus, centralFillPerVertex, mergedEndpoint, nextVidBox);
+                        sharedEdgeIds, srcPos, t, outPos, extraSource,
+                        cyanAt3Plus, centralFillPerVertex, mergedEndpoint);
                 if (ok) continue;
             }
 
@@ -231,14 +221,7 @@ public class InsetFacesNode implements MeshNode {
                     int va = topology.halfEdgeVertex(heS);
                     int vb = topology.halfEdgeEndVertex(heS);
                     int otherVid = (va == denseVid) ? vb : va;
-                    float px = srcPos[denseVid * 3]
-                            + (srcPos[otherVid * 3] - srcPos[denseVid * 3]) * t;
-                    float py = srcPos[denseVid * 3 + 1]
-                            + (srcPos[otherVid * 3 + 1] - srcPos[denseVid * 3 + 1]) * t;
-                    float pz = srcPos[denseVid * 3 + 2]
-                            + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
-                    int newVid = nextVidBox[0]++;
-                    extraPos.add(px); extraPos.add(py); extraPos.add(pz);
+                    int newVid = outPos.append(srcPos.at(denseVid).lerp(srcPos.at(otherVid), t));
                     extraSource.add(denseVid);
                     innerVerts[fiA][kA] = newVid;
                     innerVerts[fiB][kB] = newVid;
@@ -250,18 +233,8 @@ public class InsetFacesNode implements MeshNode {
             if (!merged) {
                 for (int[] pair : atV) {
                     int fi = pair[0], k = pair[1];
-                    float ox = srcPos[denseVid * 3];
-                    float oy = srcPos[denseVid * 3 + 1];
-                    float oz = srcPos[denseVid * 3 + 2];
-                    float cx = centroids[fi * 3];
-                    float cy = centroids[fi * 3 + 1];
-                    float cz = centroids[fi * 3 + 2];
-                    int newVid = nextVidBox[0]++;
-                    extraPos.add(ox + (cx - ox) * t);
-                    extraPos.add(oy + (cy - oy) * t);
-                    extraPos.add(oz + (cz - oz) * t);
+                    innerVerts[fi][k] = outPos.append(srcPos.at(denseVid).lerp(centroids.at(fi), t));
                     extraSource.add(denseVid);
-                    innerVerts[fi][k] = newVid;
                 }
             }
         }
@@ -277,15 +250,7 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        int outV = vertCount + extraPos.size() / 3;
-        float[] outPos = new float[outV * 3];
-        for (int activeVertex = 0; activeVertex < vertCount; activeVertex++) {
-            int vertexId = topology.vertexIdAt(activeVertex);
-            System.arraycopy(srcPos, vertexId * 3, outPos, activeVertex * 3, 3);
-        }
-        for (int i = 0; i < extraPos.size(); i++) {
-            outPos[vertCount * 3 + i] = extraPos.get(i);
-        }
+        int outV = outPos.size();
 
         ArrayList<Integer> faceIdxList = new ArrayList<>();
         ArrayList<Integer> faceVpfList = new ArrayList<>();
@@ -349,7 +314,7 @@ public class InsetFacesNode implements MeshNode {
         for (int i = 0; i < faceIdxList.size(); i++) faceIdxFlat[i] = faceIdxList.get(i);
         int[] faceVpfArr = new int[faceVpfList.size()];
         for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
-        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(outPos, faceVpfArr, faceIdxFlat);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(outPos,faceVpfArr, faceIdxFlat);
         out.computeNormals();
         int[] sourceVertex = new int[outV];
         for (int activeVertex = 0; activeVertex < vertCount; activeVertex++) {
@@ -420,9 +385,9 @@ public class InsetFacesNode implements MeshNode {
      */
     private static boolean allocate3PlusCornerFlat(MeshTopology topology,
             int denseVid, List<int[]> atV, Set<Integer> sharedEdgeIds,
-            float[] srcPos, float t, ArrayList<Float> extraPos, ArrayList<Integer> extraSource,
+            PackedPoints srcPos, float t, PackedPoints outPos, ArrayList<Integer> extraSource,
             int[][][] cyanAt3Plus, Map<Integer, int[]> centralFillPerVertex,
-            Set<Long> mergedEndpoint, int[] nextVidBox) {
+            Set<Long> mergedEndpoint) {
 
         int n = atV.size();
         int[] fiOrder = new int[n];
@@ -478,13 +443,8 @@ public class InsetFacesNode implements MeshNode {
             int va = topology.halfEdgeVertex(he);
             int vb = topology.halfEdgeEndVertex(he);
             int otherVid = (va == denseVid) ? vb : va;
-            float px = srcPos[denseVid * 3] + (srcPos[otherVid * 3] - srcPos[denseVid * 3]) * t;
-            float py = srcPos[denseVid * 3 + 1] + (srcPos[otherVid * 3 + 1] - srcPos[denseVid * 3 + 1]) * t;
-            float pz = srcPos[denseVid * 3 + 2] + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
-            int newVid = nextVidBox[0]++;
-            extraPos.add(px); extraPos.add(py); extraPos.add(pz);
+            cyanVids[i] = outPos.append(srcPos.at(denseVid).lerp(srcPos.at(otherVid), t));
             extraSource.add(denseVid);
-            cyanVids[i] = newVid;
         }
         for (int i = 0; i < n; i++) {
             int fi = fiOrder[i];
@@ -529,15 +489,8 @@ public class InsetFacesNode implements MeshNode {
                 throw new IllegalArgumentException("inset_faces: faces must have uniform vertex count");
             }
         }
-        float[] srcPos = new float[topology.vertexIdBound() * 3];
-        int[] activeVertexOfId = new int[topology.vertexIdBound()];
-        Vector3f position = new Vector3f();
-        for (int activeVertex = 0; activeVertex < vertCount; activeVertex++) {
-            int vertexId = topology.vertexIdAt(activeVertex);
-            activeVertexOfId[vertexId] = activeVertex;
-            topology.vertexPosition(vertexId, position);
-            PackedPoints.store(srcPos, vertexId * 3, position);
-        }
+        PackedPoints srcPos = SemanticPatchDecomposer.positionsById(topology);
+        int[] activeVertexOfId = topology.activeIndexById();
 
         boolean[] selected = new boolean[faceCount];
         int selectedCount = 0;
@@ -570,35 +523,20 @@ public class InsetFacesNode implements MeshNode {
         int[] sourceFace = new int[faceCount + sideFaceCount];
         for (int vi = 0; vi < vertCount; vi++) {
             int vertexId = topology.vertexIdAt(vi);
-            sourceVertex[out.addVertex(srcPos[vertexId * 3], srcPos[vertexId * 3 + 1],
-                    srcPos[vertexId * 3 + 2])] = vertexId;
+            sourceVertex[out.addVertex(srcPos.at(vertexId))] = vertexId;
         }
 
-        Vector3f center = new Vector3f();
         int[][] faceInnerVerts = new int[faceCount][];
 
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
             int fid = topology.faceIdAt(fi);
-
-            center.set(0f, 0f, 0f);
-            for (int k = 0; k < vpf; k++) {
-                int vid = topology.faceVertexAt(fid, k);
-                center.add(srcPos[vid * 3], srcPos[vid * 3 + 1], srcPos[vid * 3 + 2]);
-            }
-            center.div(vpf);
+            Vector3f center = topology.faceCentroid(fid);
 
             int[] innerVerts = new int[vpf];
             for (int k = 0; k < vpf; k++) {
                 int vid = topology.faceVertexAt(fid, k);
-                float ox = srcPos[vid * 3];
-                float oy = srcPos[vid * 3 + 1];
-                float oz = srcPos[vid * 3 + 2];
-                float t = Math.min(inset, 1.0f);
-                float nx = ox + (center.x - ox) * t;
-                float ny = oy + (center.y - oy) * t;
-                float nz = oz + (center.z - oz) * t;
-                innerVerts[k] = out.addVertex(nx, ny, nz);
+                innerVerts[k] = out.addVertex(srcPos.at(vid).lerp(center, Math.min(inset, 1.0f)));
                 sourceVertex[innerVerts[k]] = vid;
             }
             faceInnerVerts[fi] = innerVerts;

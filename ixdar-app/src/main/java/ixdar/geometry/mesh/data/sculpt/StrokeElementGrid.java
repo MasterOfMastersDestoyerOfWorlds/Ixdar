@@ -1,6 +1,11 @@
 package ixdar.geometry.mesh.data.sculpt;
 
+import org.joml.Matrix3f;
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
+
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * A stroke's elements bucketed on a grid across its direction, so a vertex measures only those
@@ -17,7 +22,7 @@ public final class StrokeElementGrid {
 
     private final float[] key;
 
-    private final float[] pointXyz;
+    private final PackedPoints pointXyz;
 
     private final Vector3f across = new Vector3f();
 
@@ -46,10 +51,10 @@ public final class StrokeElementGrid {
     public StrokeElementGrid(SculptStroke stroke, Vector3f direction) {
         key = new float[] { direction.x, direction.y, direction.z };
         pointXyz = stroke.pointXyz;
-        Vector3f helper = Math.abs(direction.x) < 0.9f ? new Vector3f(1f, 0f, 0f) : new Vector3f(0f, 1f, 0f);
-        across.set(direction).cross(helper).normalize();
-        up.set(direction).cross(across).normalize();
-        int elementCount = pointXyz.length / 3;
+        Matrix3f frame = MeshTopology.tangentFrame(direction);
+        frame.getColumn(0, across);
+        frame.getColumn(1, up);
+        int elementCount = pointXyz.size();
         float reach = stroke.radius * (1f + BOX_SLACK_FRACTION_OF_RADIUS);
         float[] box = new float[4 * elementCount];
         float low0 = Float.POSITIVE_INFINITY;
@@ -57,11 +62,10 @@ public final class StrokeElementGrid {
         float high0 = Float.NEGATIVE_INFINITY;
         float high1 = Float.NEGATIVE_INFINITY;
         for (int element = 0; element < elementCount; element++) {
-            int start = element * 3;
-            int end = stroke.joinsPoints && start + 3 < pointXyz.length ? start + 3 : start;
-            float startAcross = project(across, start);
+            int end = stroke.joinsPoints && element + 1 < elementCount ? element + 1 : element;
+            float startAcross = project(across, element);
             float endAcross = project(across, end);
-            float startUp = project(up, start);
+            float startUp = project(up, element);
             float endUp = project(up, end);
             box[4 * element] = Math.min(startAcross, endAcross) - reach;
             box[4 * element + 1] = Math.min(startUp, endUp) - reach;
@@ -121,12 +125,13 @@ public final class StrokeElementGrid {
     /**
      * The cell a position falls in.
      *
-     * @param x position x
-     * @param y position y
-     * @param z position z
+     * @param position the position
      * @return the cell index, or -1 outside the grid, where no element is within the radius
      */
-    public int cellOf(float x, float y, float z) {
+    public int cellOf(Vector3fc position) {
+        float x = position.x();
+        float y = position.y();
+        float z = position.z();
         float atAcross = across.x * x + across.y * y + across.z * z - lowAcross;
         float atUp = up.x * x + up.y * y + up.z * z - lowUp;
         if (!(atAcross >= 0f && atUp >= 0f)) {
@@ -159,6 +164,6 @@ public final class StrokeElementGrid {
     }
 
     private float project(Vector3f axis, int point) {
-        return axis.x * pointXyz[point] + axis.y * pointXyz[point + 1] + axis.z * pointXyz[point + 2];
+        return axis.x * pointXyz.get(point, 0) + axis.y * pointXyz.get(point, 1) + axis.z * pointXyz.get(point, 2);
     }
 }

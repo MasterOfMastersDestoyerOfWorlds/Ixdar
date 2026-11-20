@@ -20,9 +20,8 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
- * Stores per-edge cubic bezier handle offsets in geometry bundle slots, indexed
- * by edge id: {@code _bezier_handles_start} / {@code _bezier_handles_end} (3
- * floats per edge id slot).
+ * Stores cubic bezier handle offsets in the {@code _bezier_handles_start} and
+ * {@code _bezier_handles_end} slots, each {@link PackedPoints} indexed by edge id.
  * <p>
  * Default handle length formula: length
  * {@code edgeLength * QUARTER_CIRCLE_RATIO * weight}, direction opposite the
@@ -97,11 +96,10 @@ public class AssignBezierHandlesNode implements MeshNode {
         for (int i = 0; i < mesh.edgeCount(); i++) {
             maxEdgeId = Math.max(maxEdgeId, mesh.edgeIdAt(i));
         }
-        int slotLen = (maxEdgeId + 1) * 3;
-        float[] hStart = new float[slotLen];
-        float[] hEnd = new float[slotLen];
+        PackedPoints hStart = new PackedPoints(maxEdgeId + 1);
+        PackedPoints hEnd = new PackedPoints(maxEdgeId + 1);
 
-        Vector3f meshCenter = meshCenter(mesh);
+        Vector3f meshCenter = mesh.packedPositions(null).centroid();
         Vector3f outDir = new Vector3f();
 
         for (int i = 0; i < mesh.edgeCount(); i++) {
@@ -116,32 +114,16 @@ public class AssignBezierHandlesNode implements MeshNode {
             }
 
             handleOffsetAtVertex(mesh, eid, v0, meshCenter, handleMag, outDir);
-            int o = eid * 3;
-            PackedPoints.store(hStart, o, outDir);
+            hStart.set(eid, outDir);
 
             handleOffsetAtVertex(mesh, eid, v1, meshCenter, handleMag, outDir);
-            PackedPoints.store(hEnd, o, outDir);
+            hEnd.set(eid, outDir);
         }
 
         return base
                 .withSlot(SLOT_HANDLES_START, hStart)
                 .withSlot(SLOT_HANDLES_END, hEnd)
                 .withSlot(SLOT_WEIGHT, weight);
-    }
-
-    private static Vector3f meshCenter(MeshTopology mesh) {
-        Vector3f acc = new Vector3f();
-        int n = mesh.vertexCount();
-        if (n == 0) {
-            return acc;
-        }
-        Vector3f p = new Vector3f();
-        for (int i = 0; i < n; i++) {
-            mesh.vertexPosition(mesh.vertexIdAt(i), p);
-            acc.add(p);
-        }
-        acc.mul(1f / n);
-        return acc;
     }
 
     /**
@@ -212,8 +194,7 @@ public class AssignBezierHandlesNode implements MeshNode {
         } else {
             outward.normalize();
         }
-        float along = outward.dot(edgeDir);
-        Vector3f perp = new Vector3f(outward).sub(new Vector3f(edgeDir).mul(along));
+        Vector3f perp = new Vector3f(outward).fma(-outward.dot(edgeDir), edgeDir);
         if (perp.lengthSquared() > MIN_LENGTH_SQUARED) {
             perp.normalize().mul(handleMag);
             dest.set(perp);

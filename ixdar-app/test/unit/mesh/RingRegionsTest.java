@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.api.MapNodeContext;
@@ -174,7 +175,7 @@ class RingRegionsTest {
      * {@link #TORUS_TUBE} vertices each; vertex {@code column * TORUS_TUBE + minor}.
      */
     static MeshTopology torus() {
-        float[] positions = new float[3 * TORUS_AROUND * TORUS_TUBE];
+        PackedPoints positions = new PackedPoints(TORUS_AROUND * TORUS_TUBE);
         int[] triangles = new int[3 * 2 * TORUS_AROUND * TORUS_TUBE];
         int cursor = 0;
         for (int major = 0; major < TORUS_AROUND; major++) {
@@ -182,9 +183,8 @@ class RingRegionsTest {
                 double theta = 2 * Math.PI * major / TORUS_AROUND;
                 double phi = 2 * Math.PI * minor / TORUS_TUBE;
                 int vertex = major * TORUS_TUBE + minor;
-                positions[3 * vertex] = (float) ((2 + Math.cos(phi)) * Math.cos(theta));
-                positions[3 * vertex + 1] = (float) ((2 + Math.cos(phi)) * Math.sin(theta));
-                positions[3 * vertex + 2] = (float) Math.sin(phi);
+                positions.set(vertex, (float) ((2 + Math.cos(phi)) * Math.cos(theta)),
+                        (float) ((2 + Math.cos(phi)) * Math.sin(theta)), (float) Math.sin(phi));
                 int nextMajor = (major + 1) % TORUS_AROUND * TORUS_TUBE;
                 int nextMinor = (minor + 1) % TORUS_TUBE;
                 cursor = put(triangles, cursor, vertex, nextMajor + minor, nextMajor + nextMinor);
@@ -217,19 +217,17 @@ class RingRegionsTest {
      */
     static MeshTopology cappedCylinder() {
         int sideVertices = (SIDE_ROWS + 1) * SEGMENTS_AROUND;
-        float[] positions = new float[3 * (sideVertices + 2)];
+        PackedPoints positions = new PackedPoints(sideVertices + 2);
         for (int row = 0; row <= SIDE_ROWS; row++) {
             for (int segment = 0; segment < SEGMENTS_AROUND; segment++) {
                 double angle = 2 * Math.PI * segment / SEGMENTS_AROUND;
-                int vertex = row * SEGMENTS_AROUND + segment;
-                positions[3 * vertex] = (float) Math.cos(angle);
-                positions[3 * vertex + 1] = (float) Math.sin(angle);
-                positions[3 * vertex + 2] = CYLINDER_HEIGHT * row / SIDE_ROWS;
+                positions.set(row * SEGMENTS_AROUND + segment, (float) Math.cos(angle),
+                        (float) Math.sin(angle), CYLINDER_HEIGHT * row / SIDE_ROWS);
             }
         }
         int bottomCentre = sideVertices;
         int topCentre = sideVertices + 1;
-        positions[3 * topCentre + 2] = CYLINDER_HEIGHT;
+        positions.set(topCentre, 0f, 0f, CYLINDER_HEIGHT);
         int topRow = SIDE_ROWS * SEGMENTS_AROUND;
         int[] triangles = new int[3 * 2 * (SIDE_ROWS + 1) * SEGMENTS_AROUND];
         int cursor = 0;

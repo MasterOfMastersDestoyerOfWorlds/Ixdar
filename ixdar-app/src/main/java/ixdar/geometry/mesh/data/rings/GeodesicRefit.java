@@ -3,9 +3,12 @@ package ixdar.geometry.mesh.data.rings;
 import java.util.Arrays;
 import java.util.Locale;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.spline.SplineAnchorFit;
-import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 
 /**
  * Re-anchors a crease curve as a geodesic spline: anchors on the curve whose geodesic spline stays
@@ -13,8 +16,6 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
  * any dropped that the spline holds without, so the result is as easy to drag as a hand-made ring.
  */
 public final class GeodesicRefit {
-
-    public static final int COORDINATES_PER_POINT = 3;
 
     public static final int MAXIMUM_ADDED_ANCHORS = 64;
 
@@ -48,7 +49,7 @@ public final class GeodesicRefit {
     /** Why the last refit failed, or empty when it did not. */
     public String failure = "";
 
-    private double[] referenceXyz = new double[0];
+    private PackedPoints referenceXyz = new PackedPoints(0);
     private int referencePoints;
     private boolean closed;
     private int worstReferencePoint;
@@ -56,7 +57,7 @@ public final class GeodesicRefit {
     /**
      * Fit anchors on a crease curve so the geodesic spline through them follows it.
      *
-     * @param curveXyz       packed xyz of the curve's points
+     * @param curveXyz       the curve's points
      * @param curveVertexId  mesh vertex at each curve point, the places an anchor may sit
      * @param closedCurve    whether the curve closes on itself, a ring rather than a bisector
      * @param startAnchors   anchors to start from, in the curve's order: the crease spline's own;
@@ -66,7 +67,7 @@ public final class GeodesicRefit {
      * @return true when {@link #anchors} hold a spline within {@link #tolerance}; otherwise
      *         {@link #failure} says why
      */
-    public boolean refit(double[] curveXyz, int[] curveVertexId, boolean closedCurve,
+    public boolean refit(PackedPoints curveXyz, int[] curveVertexId, boolean closedCurve,
             int[] startAnchors, double meanEdgeLength, Trace trace) {
         failure = "";
         traces = 0;
@@ -176,9 +177,7 @@ public final class GeodesicRefit {
         double worst = -1.0;
         worstReferencePoint = 0;
         for (int point = 0; point < referencePoints; point++) {
-            int base = COORDINATES_PER_POINT * point;
-            double gap = distanceToCurve(path.positions, path.pointCount, path.closed,
-                    referenceXyz[base], referenceXyz[base + 1], referenceXyz[base + 2]);
+            double gap = distanceToCurve(path.positions, path.pointCount, path.closed, referenceXyz.at(point));
             if (gap > worst) {
                 worst = gap;
                 worstReferencePoint = point;
@@ -187,29 +186,15 @@ public final class GeodesicRefit {
         double worstOut = -1.0;
         int worstOutPoint = -1;
         for (int point = 0; point < path.pointCount; point++) {
-            int base = COORDINATES_PER_POINT * point;
-            double gap = distanceToCurve(referenceXyz, referencePoints, closed,
-                    path.positions[base], path.positions[base + 1], path.positions[base + 2]);
+            double gap = distanceToCurve(referenceXyz, referencePoints, closed, path.positions.at(point));
             if (gap > worstOut) {
                 worstOut = gap;
                 worstOutPoint = point;
             }
         }
         if (worstOut > worst) {
-            int base = COORDINATES_PER_POINT * worstOutPoint;
-            double nearest = Double.POSITIVE_INFINITY;
-            for (int point = 0; point < referencePoints; point++) {
-                double dx = referenceXyz[COORDINATES_PER_POINT * point] - path.positions[base];
-                double dy = referenceXyz[COORDINATES_PER_POINT * point + 1]
-                        - path.positions[base + 1];
-                double dz = referenceXyz[COORDINATES_PER_POINT * point + 2]
-                        - path.positions[base + 2];
-                double squared = dx * dx + dy * dy + dz * dz;
-                if (squared < nearest) {
-                    nearest = squared;
-                    worstReferencePoint = point;
-                }
-            }
+            worstReferencePoint = Math.max(0,
+                    referenceXyz.nearest(path.positions.at(worstOutPoint), 0, referencePoints));
         }
         return Math.max(worst, worstOut);
     }
@@ -224,19 +209,16 @@ public final class GeodesicRefit {
     }
 
     /** Distance from a point to a polyline, closed or open. */
-    private static double distanceToCurve(double[] packedXyz, int pointCount, boolean closedCurve,
-            double x, double y, double z) {
+    private static double distanceToCurve(PackedPoints curve, int pointCount, boolean closedCurve,
+            Vector3f position) {
         double best = Double.POSITIVE_INFINITY;
         int spans = closedCurve ? pointCount : pointCount - 1;
         for (int point = 0; point < spans; point++) {
-            best = Math.min(best,
-                    SurfaceSpline.spanDistanceSquared(packedXyz, pointCount, point, x, y, z, best));
+            best = Math.min(best, TriangleGeometry.segmentDistanceSquared(curve, point, (point + 1) % pointCount,
+                    position, best));
         }
         if (spans <= 0 && pointCount > 0) {
-            double dx = packedXyz[0] - x;
-            double dy = packedXyz[1] - y;
-            double dz = packedXyz[2] - z;
-            best = dx * dx + dy * dy + dz * dz;
+            best = curve.distanceSquared(0, position);
         }
         return Math.sqrt(best);
     }

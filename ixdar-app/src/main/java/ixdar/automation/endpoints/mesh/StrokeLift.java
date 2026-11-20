@@ -17,6 +17,7 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.endpoints.ui.MultiviewScreenshot;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.sculpt.StrokeChain;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.graphics.cameras.Camera3D;
@@ -79,23 +80,22 @@ public class StrokeLift extends AutomationEndpoint implements AutomationRoute {
                     row.addProperty("grazing", sketch.grazingByShape[shape]);
                     row.addProperty("radius", sketch.radiusByShape[shape]);
                     row.addProperty("depth", sketch.depthByShape[shape]);
-                    float[] lifted = sketch.liftedXyzByShape[shape];
+                    PackedPoints lifted = sketch.liftedXyzByShape[shape];
                     Matcher width = STROKE_WIDTH.matcher(sketch.shapes.get(shape));
                     if (width.find() && view >= 0) {
                         Camera3D camera = sketch.cellCamera(view);
                         Vector3f target = camera.orbitTarget;
-                        double worldPerPixel = lifted.length == 0
+                        double worldPerPixel = lifted.size() == 0
                                 ? camera.worldPerPixel(target, sketch.cellHeight) : 0.0;
-                        Vector3f liftedPoint = new Vector3f();
-                        for (int point = 0; point < lifted.length; point += 3) {
-                            worldPerPixel += camera.worldPerPixel(liftedPoint.set(lifted[point], lifted[point + 1],
-                                    lifted[point + 2]), sketch.cellHeight) * 3.0 / lifted.length;
+                        for (int point = 0; point < lifted.size(); point++) {
+                            worldPerPixel += camera.worldPerPixel(lifted.at(point), sketch.cellHeight)
+                                    / lifted.size();
                         }
                         row.addProperty("strokeWidthRadius",
                                 Float.parseFloat(width.group(1)) * sketch.svgScaleY * worldPerPixel);
                     }
-                    if (lifted.length > 0 && !sketch.shapes.get(shape).startsWith("<" + StrokeSketch.POLYGON)) {
-                        chain.snap(surface, lifted, lifted.length / 3);
+                    if (lifted.size() > 0 && !sketch.shapes.get(shape).startsWith("<" + StrokeSketch.POLYGON)) {
+                        chain.snap(surface, lifted, lifted.size());
                         JsonArray vertexIds = new JsonArray();
                         for (int vertexId : chain.vertexIds) {
                             vertexIds.add(vertexId);

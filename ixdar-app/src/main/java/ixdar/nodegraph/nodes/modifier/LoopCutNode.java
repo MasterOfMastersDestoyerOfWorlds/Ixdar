@@ -6,7 +6,6 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -21,6 +20,7 @@ import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
@@ -113,19 +113,12 @@ public class LoopCutNode implements MeshNode {
         float ay = axisIndex == 1 ? 1f : 0f;
         float az = axisIndex == 2 ? 1f : 0f;
         int[] activeVertexOfId = new int[mesh.vertexIdBound()];
-        float[] sourcePositions = new float[vertexCount * 3];
-        Vector3f position = new Vector3f();
-        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            activeVertexOfId[vertexId] = activeVertex;
-            mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(sourcePositions, activeVertex * 3, position);
-        }
+        // The source vertices by dense index, the cut vertices appended after them.
+        PackedPoints positions = mesh.packedPositions(activeVertexOfId);
 
         int[] firstCutVertexOfEdge = new int[mesh.edgeIdBound()];
         Arrays.fill(firstCutVertexOfEdge, MeshTopology.NONE);
         boolean[] classified = new boolean[mesh.edgeIdBound()];
-        float[] cutPositions = new float[0];
         int[] cutSourceEdge = new int[0];
         int cutVertexCount = 0;
         Vector3f direction = new Vector3f();
@@ -140,11 +133,9 @@ public class LoopCutNode implements MeshNode {
                     continue;
                 }
                 classified[edgeId] = true;
-                int start = activeVertexOfId[vertexId] * 3;
-                int end = activeVertexOfId[nextVertexId] * 3;
-                direction.set(sourcePositions[end] - sourcePositions[start],
-                        sourcePositions[end + 1] - sourcePositions[start + 1],
-                        sourcePositions[end + 2] - sourcePositions[start + 2]);
+                int start = activeVertexOfId[vertexId];
+                int end = activeVertexOfId[nextVertexId];
+                direction.set(positions.at(end)).sub(positions.at(start));
                 float length = direction.length();
                 if (length < MIN_EDGE_LENGTH) {
                     continue;
@@ -154,21 +145,16 @@ public class LoopCutNode implements MeshNode {
                     continue;
                 }
                 firstCutVertexOfEdge[edgeId] = vertexCount + cutVertexCount;
-                int low = Math.min(start, end);
-                int high = Math.max(start, end);
-                if ((cutVertexCount + cuts) * 3 > cutPositions.length) {
-                    cutPositions = Arrays.copyOf(cutPositions, Math.max(cutPositions.length * 2,
-                            (cutVertexCount + cuts) * 3));
-                    cutSourceEdge = Arrays.copyOf(cutSourceEdge, cutPositions.length / 3);
+                Vector3f low = positions.at(Math.min(start, end));
+                Vector3f span = positions.at(Math.max(start, end)).sub(low);
+                if (cutVertexCount + cuts > cutSourceEdge.length) {
+                    cutSourceEdge = Arrays.copyOf(cutSourceEdge, Math.max(cutSourceEdge.length * 2,
+                            cutVertexCount + cuts));
                 }
                 Arrays.fill(cutSourceEdge, cutVertexCount, cutVertexCount + cuts, edgeId);
                 for (int cut = 0; cut < cuts; cut++) {
                     float t = (float) (cut + 1) / (cuts + 1);
-                    int offset = (cutVertexCount + cut) * 3;
-                    for (int axis = 0; axis < 3; axis++) {
-                        cutPositions[offset + axis] = sourcePositions[low + axis]
-                                + t * (sourcePositions[high + axis] - sourcePositions[low + axis]);
-                    }
+                    positions.append(new Vector3f(span).mul(t).add(low));
                 }
                 cutVertexCount += cuts;
             }
@@ -178,8 +164,6 @@ public class LoopCutNode implements MeshNode {
                     GeometryBundle.ofMesh(MeshVertexOffset.apply(mesh, null))));
             return;
         }
-        float[] positions = Arrays.copyOf(sourcePositions, (vertexCount + cutVertexCount) * 3);
-        System.arraycopy(cutPositions, 0, positions, vertexCount * 3, cutVertexCount * 3);
 
         int[] stripsOfFace = new int[faceCount];
         int outputFaceCount = 0;
@@ -263,7 +247,7 @@ public class LoopCutNode implements MeshNode {
                 }
             }
         }
-        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceSizes, faceIndices);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions,faceSizes, faceIndices);
         out.computeNormals();
         int[] sourceVertex = new int[vertexCount + cutVertexCount];
         int[] sourceEdge = new int[sourceVertex.length];

@@ -71,7 +71,7 @@ public class SvgToCurvesNode implements MeshNode {
             return;
         }
         StrokeSketch sketch = StrokeSketch.load(source, NODE_ID);
-        float[] positions = new float[0];
+        PackedPoints positions = new PackedPoints();
         int[] offsets = { 0 };
         boolean[] closed = new boolean[0];
         float[][] attributes = new float[4][0];
@@ -89,10 +89,9 @@ public class SvgToCurvesNode implements MeshNode {
             points -= repeated ? 1 : 0;
             Camera3D camera = sketch.cellCamera(cell);
             int start = offsets[offsets.length - 1];
-            positions = Arrays.copyOf(positions, (start + points) * CurveGeometry.XYZ);
             for (int at = 0; at < points; at++) {
                 sketch.cellPlanePoint(camera, pixels[at * 2], pixels[at * 2 + 1], point);
-                PackedPoints.store(positions, (start + at) * CurveGeometry.XYZ, point);
+                positions.append(point);
             }
             offsets = Arrays.copyOf(offsets, offsets.length + 1);
             offsets[offsets.length - 1] = start + points;

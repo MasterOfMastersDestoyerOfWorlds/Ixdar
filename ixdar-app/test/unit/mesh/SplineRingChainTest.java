@@ -182,8 +182,8 @@ class SplineRingChainTest {
             int vertexId = sphere.vertexIdAt(index);
             sphere.vertexPosition(vertexId, position);
             for (float scale : new float[] { 0.5f, 1f, SAMPLE_REACH }) {
-                assertEquals(vertexId, grid.find(scale * position.x, scale * position.y,
-                        scale * position.z), "the grid missed vertex " + vertexId + " at scale "
+                assertEquals(vertexId, grid.find(new Vector3f(position).mul(scale)),
+                        "the grid missed vertex " + vertexId + " at scale "
                                 + scale);
             }
         }
@@ -199,11 +199,11 @@ class SplineRingChainTest {
         gridNode.evaluate(gridContext);
         MeshTopology flat = gridContext.getOutput("mesh", GeometryBundle.class).mesh();
         NearestVertex grid = NearestVertex.over(flat);
-        Vector3f picked = flat.vertexPosition(grid.find(1.2f, 0f, -0.7f));
+        Vector3f picked = flat.vertexPosition(grid.find(new Vector3f(1.2f, 0f, -0.7f)));
         assertEquals(new Vector3f(1f, 0f, -1f), picked,
                 "the grid picked another vertex than the unit-spaced corner nearest the point");
         IllegalStateException tie = assertThrows(IllegalStateException.class,
-                () -> grid.find(0.5f, 0f, 0f), "a point midway between two vertices has no pick");
+                () -> grid.find(new Vector3f(0.5f, 0f, 0f)), "a point midway between two vertices has no pick");
         assertTrue(tie.getMessage().contains("move the point"), tie.getMessage());
     }
 

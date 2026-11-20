@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
@@ -133,8 +134,8 @@ public class SplineRingNode implements MeshNode {
         if (label == null || label.isBlank()) {
             label = DEFAULT_MARK_LABEL;
         }
-        float[] points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
-        int anchorCount = points.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
+        PackedPoints points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
+        int anchorCount = points.size();
         Vector3f normal = SurfaceWaypoints.point(ctx.getInput(NORMAL.name, String.class));
         SurfaceMetric metric = ctx.getInput(METRIC.name, SurfaceMetric.class);
         if (metric == null) {

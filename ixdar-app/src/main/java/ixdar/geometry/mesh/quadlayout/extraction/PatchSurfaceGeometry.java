@@ -5,6 +5,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.patches.CoonsEvaluator;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.IntField;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 
@@ -81,14 +82,27 @@ public final class PatchSurfaceGeometry {
             int columns = grids.gridColumns(patch.patchId);
             int rows = grids.gridRows(patch.patchId);
             Vector3f[] grid = grids.gridByPatchId[patch.patchId];
-            float[] blend = coons ? coonsBlend(grid, columns, rows) : null;
+            PackedPoints blend = null;
+            if (coons) {
+                // The Coons blend of the four grid borders, which reproduces the borders verbatim and
+                // fills the interior transfinitely rather than following the surface.
+                Vector3f[] sideU0 = new Vector3f[columns];
+                Vector3f[] sideU1 = new Vector3f[columns];
+                for (int column = 0; column < columns; column++) {
+                    sideU0[column] = grid[column];
+                    sideU1[column] = grid[(rows - 1) * columns + column];
+                }
+                Vector3f[] sideV0 = new Vector3f[rows];
+                Vector3f[] sideV1 = new Vector3f[rows];
+                for (int row = 0; row < rows; row++) {
+                    sideV0[row] = grid[row * columns];
+                    sideV1[row] = grid[row * columns + columns - 1];
+                }
+                blend = CoonsEvaluator.blendGrid(sideU0, sideU1, sideV0, sideV1);
+            }
             int[] vertexIds = new int[columns * rows];
             for (int index = 0; index < vertexIds.length; index++) {
-                vertexIds[index] = coons
-                        ? mesh.addVertex(blend[index * HalfEdgeMesh.FLOATS_PER_VERTEX],
-                                blend[index * HalfEdgeMesh.FLOATS_PER_VERTEX + 1],
-                                blend[index * HalfEdgeMesh.FLOATS_PER_VERTEX + 2])
-                        : mesh.addVertex(grid[index].x, grid[index].y, grid[index].z);
+                vertexIds[index] = mesh.addVertex(coons ? blend.at(index) : grid[index]);
             }
             for (int row = 0; row < rows - 1; row++) {
                 for (int column = 0; column < columns - 1; column++) {
@@ -102,30 +116,5 @@ public final class PatchSurfaceGeometry {
             }
         }
         return GeometryBundle.ofMesh(mesh).withSlot(PATCH_ID, new IntField(patchIds));
-    }
-
-    /**
-     * The Coons blend of a patch's four grid borders, which reproduces the borders verbatim and
-     * fills the interior transfinitely rather than following the surface.
-     *
-     * @param grid    the patch's extracted grid, row-major
-     * @param columns grid columns
-     * @param rows    grid rows
-     * @return packed xyz triples in the same shape as the grid
-     */
-    private static float[] coonsBlend(Vector3f[] grid, int columns, int rows) {
-        Vector3f[] sideU0 = new Vector3f[columns];
-        Vector3f[] sideU1 = new Vector3f[columns];
-        for (int column = 0; column < columns; column++) {
-            sideU0[column] = grid[column];
-            sideU1[column] = grid[(rows - 1) * columns + column];
-        }
-        Vector3f[] sideV0 = new Vector3f[rows];
-        Vector3f[] sideV1 = new Vector3f[rows];
-        for (int row = 0; row < rows; row++) {
-            sideV0[row] = grid[row * columns];
-            sideV1[row] = grid[row * columns + columns - 1];
-        }
-        return CoonsEvaluator.blendGrid(sideU0, sideU1, sideV0, sideV1);
     }
 }

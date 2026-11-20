@@ -11,6 +11,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.analysis.MeshDistance;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * A stroke "answer key": the strokes that move a base onto a goal, at several stroke counts. The base
@@ -53,10 +54,10 @@ public final class StrokeKey {
     public int surfaceRounds = 2;
 
     /**
-     * The goal's own ridge and valley lines in its own frame, packed xyz each, offered as the key's
-     * chains; null to offer the offset field's lines instead.
+     * The goal's own ridge and valley lines in its own frame, offered as the key's chains; null to
+     * offer the offset field's lines instead.
      */
-    public List<float[]> goalLines;
+    public List<PackedPoints> goalLines;
 
     /** The candidate builder, its scales and limits public to tune before {@link #compute}. */
     public KeyCandidates shapes;
@@ -172,10 +173,14 @@ public final class StrokeKey {
         }
         candidateStrokes.strokes.clear();
         int offered = pursuit.candidates.size();
-        List<float[]> baseLines = goalLines == null ? null : goalLines.stream()
-                .map(line -> MeshDistance.inFrame(MeshDistance.normalized(line.clone(), goal),
-                        baseMesh.center(new Vector3f()), baseMesh.boundsDiagonal()))
-                .toList();
+        List<PackedPoints> baseLines = goalLines == null ? null : goalLines.stream().map(line -> {
+            PackedPoints carried = new PackedPoints(line.size());
+            for (int point = 0; point < line.size(); point++) {
+                carried.set(point, line.get(point, 0), line.get(point, 1), line.get(point, 2));
+            }
+            return MeshDistance.inFrame(MeshDistance.normalized(carried, goal), baseMesh.center(new Vector3f()),
+                    baseMesh.boundsDiagonal());
+        }).toList();
         List<AnchoredStroke> lineStrokes = baseLines == null ? null
                 : shapes.chains(surface, projection.offset, projection.normalXyz, baseLines);
         if (lineStrokes == null) {
@@ -184,7 +189,7 @@ public final class StrokeKey {
         pursuit.add(shapes.fills(surface, pursuit.residual, projection.area));
         recordCandidates(offered);
         lap(1);
-        float[] referenceXyz = reference == null ? null : MeshDistance.normalizedPositions(reference);
+        PackedPoints referenceXyz = reference == null ? null : MeshDistance.normalizedPositions(reference);
         baseChamfer = referenceXyz == null ? Float.NaN : MeshDistance.computeAllMetrics(
                 MeshDistance.normalizedPositions(baseMesh), referenceXyz, 1f).chamferDistance;
         lap(STAGES.indexOf(CHAMFER_STAGE));

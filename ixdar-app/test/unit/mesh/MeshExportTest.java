@@ -27,6 +27,7 @@ import ixdar.geometry.mesh.data.io.MeshExport;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.io.PlyMeshWriter;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.ExportMeshNode;
 
@@ -51,23 +52,7 @@ class MeshExportTest {
 
     private static final int QUAD_CORNERS = 4;
 
-    private static final float[] SQUARE_POSITIONS = {
-        0f, 0f, 0f,
-        1f, 0f, 0f,
-        1f, 1f, 0f,
-        0f, 1f, 0f,
-    };
-
     private static final int[] SQUARE_INDICES = { 0, 1, 2, 0, 2, 3 };
-
-    private static final float[] PINCHED_POSITIONS = {
-        0f, 0f, 0f,
-        1f, 0f, 0f,
-        0f, 1f, 0f,
-        0f, 0f, 0f,
-        -1f, 0f, 0f,
-        0f, -1f, 0f,
-    };
 
     private static final int PINCHED_TWIN_VERTEX = 3;
 
@@ -141,11 +126,18 @@ class MeshExportTest {
 
     @Test
     void distinctVerticesAtOnePositionStayDistinct(@TempDir Path directory) throws IOException {
-        float[] normals = new float[PINCHED_POSITIONS.length];
-        for (int offset = 2; offset < normals.length; offset += MeshExport.FLOATS_PER_VERTEX) {
-            normals[offset] = 1f;
+        PackedPoints positions = new PackedPoints();
+        positions.append(0f, 0f, 0f);
+        positions.append(1f, 0f, 0f);
+        positions.append(0f, 1f, 0f);
+        positions.append(0f, 0f, 0f);
+        positions.append(-1f, 0f, 0f);
+        positions.append(0f, -1f, 0f);
+        PackedPoints normals = new PackedPoints(positions.size());
+        for (int vertex = 0; vertex < normals.size(); vertex++) {
+            normals.set(vertex, 0f, 0f, 1f);
         }
-        ArrayMesh pinched = new ArrayMesh(PINCHED_POSITIONS.clone(), normals,
+        ArrayMesh pinched = new ArrayMesh(positions, normals,
                 new int[] { 0, 1, 2, PINCHED_TWIN_VERTEX, PINCHED_TWIN_VERTEX + 1, PINCHED_TWIN_VERTEX + 2 },
                 MeshExport.CORNERS_PER_TRIANGLE);
         GeometryBundle source = new GeometryBundle(pinched, Map.of(CornerUvField.SLOT,
@@ -181,7 +173,7 @@ class MeshExportTest {
     @Test
     void aQuadWithoutUvsIsFannedIntoTrianglesWithComputedNormals(@TempDir Path directory)
             throws IOException {
-        ArrayMesh quad = new ArrayMesh(SQUARE_POSITIONS.clone(), null, new int[] { 0, 1, 2, 3 },
+        ArrayMesh quad = new ArrayMesh(squarePositions(), null, new int[] { 0, 1, 2, 3 },
                 QUAD_CORNERS);
         Path file = directory.resolve("quad.glb");
 
@@ -196,7 +188,7 @@ class MeshExportTest {
 
     @Test
     void perCornerUvsOnAQuadAreRefused(@TempDir Path directory) {
-        ArrayMesh quad = new ArrayMesh(SQUARE_POSITIONS.clone(), null, new int[] { 0, 1, 2, 3 },
+        ArrayMesh quad = new ArrayMesh(squarePositions(), null, new int[] { 0, 1, 2, 3 },
                 QUAD_CORNERS);
         GeometryBundle bundle = new GeometryBundle(quad,
                 Map.of(CornerUvField.SLOT, new CornerUvField(new double[] { 0, 0, 0 },
@@ -264,14 +256,28 @@ class MeshExportTest {
      * @return the bundle
      */
     private static GeometryBundle square(double[] cornerU, double[] cornerV) {
-        float[] normals = new float[SQUARE_POSITIONS.length];
+        PackedPoints normals = new PackedPoints(SQUARE_VERTICES);
         for (int vertex = 0; vertex < SQUARE_VERTICES; vertex++) {
-            normals[vertex * MeshExport.FLOATS_PER_VERTEX + 2] = 1f;
+            normals.set(vertex, 0f, 0f, 1f);
         }
-        ArrayMesh mesh = new ArrayMesh(SQUARE_POSITIONS.clone(), normals, SQUARE_INDICES.clone(),
+        ArrayMesh mesh = new ArrayMesh(squarePositions(), normals, SQUARE_INDICES.clone(),
                 MeshExport.CORNERS_PER_TRIANGLE);
         return new GeometryBundle(mesh, Map.of(CornerUvField.SLOT,
                 new CornerUvField(cornerU.clone(), cornerV.clone())));
+    }
+
+    /**
+     * The corners of a unit square in the XY plane, counter-clockwise from the origin.
+     *
+     * @return a new buffer of the four corners
+     */
+    private static PackedPoints squarePositions() {
+        PackedPoints positions = new PackedPoints();
+        positions.append(0f, 0f, 0f);
+        positions.append(1f, 0f, 0f);
+        positions.append(1f, 1f, 0f);
+        positions.append(0f, 1f, 0f);
+        return positions;
     }
 
     /**

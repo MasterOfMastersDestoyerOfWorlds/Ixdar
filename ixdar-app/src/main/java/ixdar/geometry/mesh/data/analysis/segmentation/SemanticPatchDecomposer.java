@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import java.util.Random;
 import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
@@ -35,6 +34,7 @@ import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
+import ixdar.numeric.cluster.EMeans;
 import ixdar.numeric.graph.UnionFind;
 
 
@@ -55,12 +55,9 @@ public final class SemanticPatchDecomposer {
     public static final int CONCAVITY_OWNED_MARKER = -2;
     public static final float MORSE_SMALE_PERSISTENCE_THRESHOLD = 0.10f;
     public static final float MIN_JOINT_RADIUS = 1e-4f;
-    public static final float VECTOR_LENGTH_EPSILON = 1e-20f;
-    public static final int TRIANGLES_PER_TASK = 8192;
     public static final double SPLIT_VERT_BATCH_SIZE = 2500.0;
     public static final float MIN_MESH_EXTENT = 1e-6f;
     public static final long KMEANS_SEED_SALT = 0x53D5L;
-    public static final int MAX_KMEANS_ITERATIONS = 30;
 
     private static final float T_FEATURE_RAD = 0.20f;       // ~11°, top ~20% of edges on smooth meshes
     private static final float T_CONCAVE_RAD = -0.08f;      // angle defect below p5
@@ -120,20 +117,14 @@ public final class SemanticPatchDecomposer {
         EdgeDihedrals ed = computeEdgeDihedrals(mesh);
         int[] faceIdx = ed.triangles();
         int faceCount = faceIdx.length / 3;
-        float[] positions = ed.positions();
+        PackedPoints positions = ed.positions();
 
         SkeletonResult skel = MeshSkeletonExtractor.extract(mesh, resolution);
         int[] vertexBranchId = assignByNearestBranch(mesh, skel);
 
-        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
-        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int i = mesh.vertexIdAt(activeVertex) * 3;
-            float x = positions[i], y = positions[i + 1], z = positions[i + 2];
-            if (x < minX) minX = x; if (y < minY) minY = y; if (z < minZ) minZ = z;
-            if (x > maxX) maxX = x; if (y > maxY) maxY = y; if (z > maxZ) maxZ = z;
-        }
-        float meshExtent = Math.max(maxX - minX, Math.max(maxY - minY, maxZ - minZ));
+        PackedPoints box = positions.bounds(IntStream.range(0, mesh.vertexCount()).map(mesh::vertexIdAt).toArray());
+        Vector3f extent = box.at(1).sub(box.at(0));
+        float meshExtent = extent.get(extent.maxComponent());
         PrincipalDirectionField pdf = PrincipalDirectionField.compute(mesh, ed);
         float[] kappa1 = new float[nv];
         float[] kappa2 = new float[nv];
@@ -193,7 +184,16 @@ public final class SemanticPatchDecomposer {
         Arrays.fill(facePatchId, -1);
         int nextPatchId = 0;
 
-        float[] angleDefect = computeAngleDefect(mesh, positions, faceIdx);
+        float[] angleDefect = new float[nv];
+        Arrays.fill(angleDefect, (float) (2 * Math.PI));
+        for (int f = 0; f < faceCount; f++) {
+            int v0 = faceIdx[f * 3];
+            int v1 = faceIdx[f * 3 + 1];
+            int v2 = faceIdx[f * 3 + 2];
+            angleDefect[v0] -= (float) TriangleGeometry.cornerAngle(positions, v0, v1, v2);
+            angleDefect[v1] -= (float) TriangleGeometry.cornerAngle(positions, v1, v2, v0);
+            angleDefect[v2] -= (float) TriangleGeometry.cornerAngle(positions, v2, v0, v1);
+        }
         int[] concavityVertexCC = concavityVertexComponents(
                 angleDefect, mesh, faceIdx, faceCount, nv, adj);
         int[] concavityFaceCC = expandConcavityToFaces(
@@ -316,7 +316,6 @@ public final class SemanticPatchDecomposer {
 
             boolean[] seenVert = new boolean[nv];
             int[] faces = patchFaceIds(faceList, ed.triangleFaces(), splitPatchId);
-            Vector3f centroid = new Vector3f();
             float curvSum = 0f;
             int curvSamples = 0;
             int vertCount = 0;
@@ -328,7 +327,6 @@ public final class SemanticPatchDecomposer {
                     int v = faceIdx[f * 3 + k];
                     if (!seenVert[v]) {
                         seenVert[v] = true;
-                        centroid.add(positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]);
                         curvSum += vertexCurvature[v];
                         curvSamples++;
                         vertCount++;
@@ -341,7 +339,7 @@ public final class SemanticPatchDecomposer {
             for (int v = 0; v < nv; v++) {
                 if (seenVert[v]) verts[vi++] = v;
             }
-            centroid.set(centroid.x / vertCount, centroid.y / vertCount, centroid.z / vertCount);
+            Vector3f centroid = positions.gather(verts).centroid();
             Color color = Palette.entry(Palettes.DARK.patch, colorIdx[pid]);
             out.add(new Patch(
                     pid,
@@ -457,15 +455,14 @@ public final class SemanticPatchDecomposer {
      * {@code 3 * vertexId}, and the slots of ids the mesh no longer uses stay zero.
      *
      * @param mesh mesh to read
-     * @return a new array of {@code 3 * mesh.vertexIdBound()} floats
+     * @return {@code mesh.vertexIdBound()} new points
      */
-    public static float[] positionsById(MeshTopology mesh) {
-        float[] positions = new float[mesh.vertexIdBound() * 3];
+    public static PackedPoints positionsById(MeshTopology mesh) {
+        PackedPoints positions = new PackedPoints(mesh.vertexIdBound());
         Vector3f position = new Vector3f();
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
-            mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(positions, vertexId * 3, position);
+            positions.set(vertexId, mesh.vertexPosition(vertexId, position));
         }
         return positions;
     }
@@ -531,60 +528,16 @@ public final class SemanticPatchDecomposer {
     public static EdgeDihedrals computeEdgeDihedrals(MeshTopology mesh) {
         int[] triangleFaces = new int[mesh.triangleCount()];
         int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, triangleFaces);
-        float[] positions = positionsById(mesh);
-        float[] faceN = triangleNormals(faceIdx, positions);
+        PackedPoints positions = positionsById(mesh);
+        PackedPoints normals = TriangleGeometry.normals(positions, faceIdx);
         Map<Long, int[]> edgeFaces = TriangleSoup.edgeFaces(faceIdx);
         Map<Long, Float> dihedrals = new HashMap<>();
         for (Map.Entry<Long, int[]> e : edgeFaces.entrySet()) {
             int[] pair = e.getValue();
             if (pair[1] == -1) continue;
-            int f1 = pair[0];
-            int f2 = pair[1];
-            float dot = faceN[f1 * 3] * faceN[f2 * 3]
-                    + faceN[f1 * 3 + 1] * faceN[f2 * 3 + 1]
-                    + faceN[f1 * 3 + 2] * faceN[f2 * 3 + 2];
-            dot = Math.max(-1f, Math.min(1f, dot));
-            float dihedral = (float) Math.acos(dot);
-            dihedrals.put(e.getKey(), dihedral);
+            dihedrals.put(e.getKey(), normals.at(pair[0]).angle(normals.at(pair[1])));
         }
-        return new EdgeDihedrals(edgeFaces, dihedrals, faceN, positions, faceIdx, triangleFaces);
-    }
-
-    /**
-     * Unit normal of each triangle, zero for a degenerate one, computed in parallel blocks.
-     *
-     * @param triangles corner vertex ids, three per triangle
-     * @param positions vertex positions by vertex id, three floats each
-     * @return three floats per triangle
-     */
-    public static float[] triangleNormals(int[] triangles, float[] positions) {
-        int triangleCount = triangles.length / 3;
-        float[] faceN = new float[triangleCount * 3];
-        IntStream.range(0, (triangleCount + TRIANGLES_PER_TASK - 1) / TRIANGLES_PER_TASK).parallel()
-                .forEach(task -> {
-            for (int f = task * TRIANGLES_PER_TASK;
-                    f < Math.min(triangleCount, (task + 1) * TRIANGLES_PER_TASK); f++) {
-                int a = triangles[f * 3] * 3;
-                int b = triangles[f * 3 + 1] * 3;
-                int c = triangles[f * 3 + 2] * 3;
-                float ax = positions[b] - positions[a];
-                float ay = positions[b + 1] - positions[a + 1];
-                float az = positions[b + 2] - positions[a + 2];
-                float bx = positions[c] - positions[a];
-                float by = positions[c + 1] - positions[a + 1];
-                float bz = positions[c + 2] - positions[a + 2];
-                float nx = ay * bz - az * by;
-                float ny = az * bx - ax * bz;
-                float nz = ax * by - ay * bx;
-                float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-                if (len > VECTOR_LENGTH_EPSILON) {
-                    faceN[f * 3] = nx / len;
-                    faceN[f * 3 + 1] = ny / len;
-                    faceN[f * 3 + 2] = nz / len;
-                }
-            }
-        });
-        return faceN;
+        return new EdgeDihedrals(edgeFaces, dihedrals, normals, positions, faceIdx, triangleFaces);
     }
 
     /**
@@ -625,48 +578,6 @@ public final class SemanticPatchDecomposer {
         return vertexCurvatureFrom(computeEdgeDihedrals(mesh), mesh.vertexIdBound());
     }
 
-
-    /**
-     * Per-vertex Gaussian curvature approximation: the angle defect.
-     * K(v) = 2π - Σ(interior triangle angles incident to v).
-     * Strongly negative K marks a concave saddle/bowl vertex; strongly
-     * positive marks a sharp convex point.
-     *
-     * @param mesh mesh (used only for its vertex id bound)
-     * @param positions XYZ vertex positions by vertex id
-     * @param faceIdx flat triangle index buffer of vertex ids
-     * @return angle defect by vertex id (signed, in radians)
-     */
-    private static float[] computeAngleDefect(MeshTopology mesh, float[] positions, int[] faceIdx) {
-        int nv = mesh.vertexIdBound();
-        int faceCount = faceIdx.length / 3;
-        float[] defect = new float[nv];
-        Arrays.fill(defect, (float) (2 * Math.PI));
-        for (int f = 0; f < faceCount; f++) {
-            int v0 = faceIdx[f * 3];
-            int v1 = faceIdx[f * 3 + 1];
-            int v2 = faceIdx[f * 3 + 2];
-            defect[v0] -= triangleAngle(positions, v0, v1, v2);
-            defect[v1] -= triangleAngle(positions, v1, v2, v0);
-            defect[v2] -= triangleAngle(positions, v2, v0, v1);
-        }
-        return defect;
-    }
-
-    private static float triangleAngle(float[] positions, int at, int toB, int toC) {
-        float ax = positions[toB * 3] - positions[at * 3];
-        float ay = positions[toB * 3 + 1] - positions[at * 3 + 1];
-        float az = positions[toB * 3 + 2] - positions[at * 3 + 2];
-        float bx = positions[toC * 3] - positions[at * 3];
-        float by = positions[toC * 3 + 1] - positions[at * 3 + 1];
-        float bz = positions[toC * 3 + 2] - positions[at * 3 + 2];
-        float la = (float) Math.sqrt(ax * ax + ay * ay + az * az);
-        float lb = (float) Math.sqrt(bx * bx + by * by + bz * bz);
-        if (la < VECTOR_LENGTH_EPSILON || lb < VECTOR_LENGTH_EPSILON) return 0f;
-        float dot = (ax * bx + ay * by + az * bz) / (la * lb);
-        dot = Math.max(-1f, Math.min(1f, dot));
-        return (float) Math.acos(dot);
-    }
 
     /**
      * PATCH-11 helper: the p-th percentile of the per-edge dihedral
@@ -1025,7 +936,7 @@ public final class SemanticPatchDecomposer {
      * @param patchCount number of patches
      * @param faceIdx flat triangle index buffer
      * @param faceCount number of triangles
-     * @param positions packed XYZ vertex positions
+     * @param positions vertex positions by vertex id
      * @param vertexCurvature per-vertex curvature scalar (mean dihedral)
      * @param adj face-face adjacency
      * @param adjCrestOnly adjacency severed only along crest edges (used during k-means seeding/expansion)
@@ -1034,7 +945,7 @@ public final class SemanticPatchDecomposer {
      */
     private static int[] splitByQuality(
             int[] facePatch, int patchCount, int[] faceIdx, int faceCount,
-            float[] positions, float[] vertexCurvature, int[][] adj,
+            PackedPoints positions, float[] vertexCurvature, int[][] adj,
             int[][] adjCrestOnly, float meshExtent) {
         List<BitSet> vertsByPatch = new ArrayList<>();
         List<List<Integer>> facesByPatch = new ArrayList<>();
@@ -1053,6 +964,7 @@ public final class SemanticPatchDecomposer {
 
         int[] outPatch = facePatch.clone();
         int nextId = patchCount;
+        PackedPoints faceCentres = TriangleGeometry.centres(positions, faceIdx);
 
         for (int pid = 0; pid < patchCount; pid++) {
             List<Integer> faces = facesByPatch.get(pid);
@@ -1065,10 +977,9 @@ public final class SemanticPatchDecomposer {
 
             float coonsP95 = 0f;
             boolean coonsOk = true;
-            int meshVertCount = positions.length / 3;
             CoonsReconstructionError.PatchError err = CoonsReconstructionError.compute(
                     faces, pid, facePatch, faceIdx, adj, positions,
-                    meshVertCount, COONS_UV_SAMPLES);
+                    positions.size(), COONS_UV_SAMPLES);
             if (err.fourSided()) {
                 coonsP95 = err.p95Error();
                 coonsOk = coonsP95 <= T_COONS_ERROR_FRAC * meshExtent;
@@ -1101,19 +1012,12 @@ public final class SemanticPatchDecomposer {
             if (k < 2) continue;
 
             int n = faces.size();
-            float[] centroids = new float[n * 3];
+            PackedPoints centroids = faceCentres.gather(faces.stream().mapToInt(Integer::intValue).toArray());
             float[] faceError = new float[n];  // PATCH-19: per-face max-vertex error
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < n && err.fourSided(); i++) {
                 int f = faces.get(i);
                 int a = faceIdx[f * 3], b = faceIdx[f * 3 + 1], c = faceIdx[f * 3 + 2];
-                centroids[i * 3]     = (positions[a * 3]     + positions[b * 3]     + positions[c * 3])     / 3f;
-                centroids[i * 3 + 1] = (positions[a * 3 + 1] + positions[b * 3 + 1] + positions[c * 3 + 1]) / 3f;
-                centroids[i * 3 + 2] = (positions[a * 3 + 2] + positions[b * 3 + 2] + positions[c * 3 + 2]) / 3f;
-                if (err.fourSided()) {
-                    float e = Math.max(err.vertexError()[a],
-                                       Math.max(err.vertexError()[b], err.vertexError()[c]));
-                    faceError[i] = e;
-                }
+                faceError[i] = Math.max(err.vertexError()[a], Math.max(err.vertexError()[b], err.vertexError()[c]));
             }
 
             int[] labels;
@@ -1128,8 +1032,23 @@ public final class SemanticPatchDecomposer {
                     seedFaceIds[c] = faces.get(srcIdx);
                 }
                 labels = bfsRegionGrow(faces, seedFaceIds, adjCrestOnly, centroids);
+            } else if (n <= k) {
+                labels = IntStream.range(0, n).toArray();
             } else {
-                labels = kmeansXyz(centroids, n, k, KMEANS_SEED_SALT ^ pid);
+                double[] centroidCoordinates = new double[n * PackedPoints.XYZ];
+                for (int i = 0; i < n; i++) {
+                    for (int axis = 0; axis < PackedPoints.XYZ; axis++) {
+                        centroidCoordinates[i * PackedPoints.XYZ + axis] = centroids.get(i, axis);
+                    }
+                }
+                EMeans clustering = new EMeans(PackedPoints.XYZ, k);
+                clustering.seed = KMEANS_SEED_SALT ^ pid;
+                clustering.begin(centroidCoordinates, n, EMeans.sampleCentroids(
+                        centroidCoordinates, n, k, PackedPoints.XYZ, clustering.seed));
+                while (clustering.step()) {
+                    continue;
+                }
+                labels = clustering.labels;
             }
             int[] idMap = new int[k];
             idMap[0] = pid;  // first cluster keeps the original id
@@ -1167,12 +1086,12 @@ public final class SemanticPatchDecomposer {
      * @param patchId patch id under inspection
      * @param faceIdx flat triangle index buffer
      * @param adj per-face adjacency
-     * @param positions packed XYZ vertex positions
+     * @param positions vertex positions by vertex id
      * @return number of corner vertices on this patch's boundary
      */
     private static int boundarySideCount(
             List<Integer> faces, int[] facePatch, int patchId,
-            int[] faceIdx, int[][] adj, float[] positions) {
+            int[] faceIdx, int[][] adj, PackedPoints positions) {
         Map<Integer, int[]> neighbours = new HashMap<>();
         for (int f : faces) {
             for (int e = 0; e < 3; e++) {
@@ -1188,12 +1107,7 @@ public final class SemanticPatchDecomposer {
         for (Map.Entry<Integer, int[]> e : neighbours.entrySet()) {
             int[] nbs = e.getValue();
             if (nbs[0] < 0 || nbs[1] < 0) continue;  // degenerate
-            int at = e.getKey();
-            float[] da = unitDir(positions, at, nbs[0]);
-            float[] db = unitDir(positions, at, nbs[1]);
-            float dot = da[0] * db[0] + da[1] * db[1] + da[2] * db[2];
-            dot = Math.max(-1f, Math.min(1f, dot));
-            float straightDeviation = (float) Math.acos(dot) - (float) Math.PI;
+            double straightDeviation = TriangleGeometry.cornerAngle(positions, e.getKey(), nbs[0], nbs[1]) - Math.PI;
             if (Math.abs(straightDeviation) > T_CORNER_RAD) corners++;
         }
         return corners;
@@ -1208,15 +1122,6 @@ public final class SemanticPatchDecomposer {
         }
     }
 
-    private static float[] unitDir(float[] positions, int from, int to) {
-        float dx = positions[to * 3] - positions[from * 3];
-        float dy = positions[to * 3 + 1] - positions[from * 3 + 1];
-        float dz = positions[to * 3 + 2] - positions[from * 3 + 2];
-        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (len < VECTOR_LENGTH_EPSILON) return new float[]{0, 0, 0};
-        return new float[]{dx / len, dy / len, dz / len};
-    }
-
     /**
      * Isoperimetric ratio: 4π·area / perimeter². 1.0 for a circle, lower
      * values indicate elongated or concave patches. Clamped to [0, 1].
@@ -1226,24 +1131,20 @@ public final class SemanticPatchDecomposer {
      * @param patchId patch id under inspection
      * @param faceIdx flat triangle index buffer
      * @param adj per-face adjacency
-     * @param positions packed XYZ vertex positions
+     * @param positions vertex positions by vertex id
      * @return isoperimetric ratio in [0, 1]; 1 means perfectly circular
      */
     private static float isoperimetricRatio(
             List<Integer> faces, int[] facePatch, int patchId,
-            int[] faceIdx, int[][] adj, float[] positions) {
+            int[] faceIdx, int[][] adj, PackedPoints positions) {
         double area = 0, perimeter = 0;
         for (int f : faces) {
             area += TriangleGeometry.area(positions, faceIdx[f * 3], faceIdx[f * 3 + 1], faceIdx[f * 3 + 2]);
             for (int e = 0; e < 3; e++) {
                 int nb = adj[f][e];
                 if (nb >= 0 && facePatch[nb] == patchId) continue;
-                int u = faceIdx[f * 3 + e];
-                int v = faceIdx[f * 3 + (e + 1) % 3];
-                double dx = positions[v * 3] - positions[u * 3];
-                double dy = positions[v * 3 + 1] - positions[u * 3 + 1];
-                double dz = positions[v * 3 + 2] - positions[u * 3 + 2];
-                perimeter += Math.sqrt(dx * dx + dy * dy + dz * dz);
+                perimeter += Math.sqrt(positions.distanceSquared(faceIdx[f * 3 + (e + 1) % 3],
+                        positions.at(faceIdx[f * 3 + e])));
             }
         }
         if (perimeter <= 0) return 1f;
@@ -1261,11 +1162,11 @@ public final class SemanticPatchDecomposer {
      *              corresponds to {@code faces.get(i)}.
      * @param seedFaceIds k seed face ids (global mesh face indices).
      * @param adjCrestOnly face-face adjacency with saddle/crest cut to -1.
-     * @param centroids flat float[n*3] of face centroids in list order.
+     * @param centroids face centroids in list order.
      * @return int[n] labels 0..k-1.
      */
     private static int[] bfsRegionGrow(List<Integer> faces, int[] seedFaceIds,
-                                        int[][] adjCrestOnly, float[] centroids) {
+                                        int[][] adjCrestOnly, PackedPoints centroids) {
         int n = faces.size();
         int k = seedFaceIds.length;
         Map<Integer, Integer> faceToListIdx = new HashMap<>(n * 2);
@@ -1304,128 +1205,10 @@ public final class SemanticPatchDecomposer {
             for (int c = 0; c < k; c++) {
                 Integer seedListIdx = faceToListIdx.get(seedFaceIds[c]);
                 if (seedListIdx == null) continue;
-                float dx = centroids[i * 3]     - centroids[seedListIdx * 3];
-                float dy = centroids[i * 3 + 1] - centroids[seedListIdx * 3 + 1];
-                float dz = centroids[i * 3 + 2] - centroids[seedListIdx * 3 + 2];
-                float d = dx * dx + dy * dy + dz * dz;
+                float d = centroids.at(i).distanceSquared(centroids.at(seedListIdx));
                 if (d < bestDist) { bestDist = d; bestSeed = c; }
             }
             labels[i] = bestSeed;
-        }
-        return labels;
-    }
-
-    /**
-     * Variant of {@link #kmeansXyz} that accepts pre-computed seed
-     * centroid positions instead of k-means++ sampling. Used by PATCH-19
-     * to seed the split at the highest-Coons-error face centroids so
-     * the split is informed by "where the fit fails" rather than
-     * arbitrary spatial bisection.
-     *
-     * @param pts flat XYZ point coordinates ({@code 3 * n} entries)
-     * @param n number of points
-     * @param k number of clusters
-     * @param seedXyz flat XYZ seed centroids ({@code 3 * k} entries)
-     * @return cluster label per point in {@code [0, k)}
-     */
-    private static int[] kmeansXyzWithSeeds(float[] pts, int n, int k, float[] seedXyz) {
-        float[] centroids = seedXyz.clone();
-        int[] labels = new int[n];
-        float[] newCentroids = new float[k * 3];
-        int[] counts = new int[k];
-        for (int iter = 0; iter < MAX_KMEANS_ITERATIONS; iter++) {
-            boolean changed = false;
-            for (int i = 0; i < n; i++) {
-                int best = 0;
-                float bestD = Float.MAX_VALUE;
-                for (int c = 0; c < k; c++) {
-                    float dx = pts[i * 3]     - centroids[c * 3];
-                    float dy = pts[i * 3 + 1] - centroids[c * 3 + 1];
-                    float dz = pts[i * 3 + 2] - centroids[c * 3 + 2];
-                    float dd = dx * dx + dy * dy + dz * dz;
-                    if (dd < bestD) { bestD = dd; best = c; }
-                }
-                if (labels[i] != best) { changed = true; labels[i] = best; }
-            }
-            if (!changed && iter > 0) break;
-            Arrays.fill(newCentroids, 0f);
-            Arrays.fill(counts, 0);
-            for (int i = 0; i < n; i++) {
-                int c = labels[i];
-                counts[c]++;
-                newCentroids[c * 3]     += pts[i * 3];
-                newCentroids[c * 3 + 1] += pts[i * 3 + 1];
-                newCentroids[c * 3 + 2] += pts[i * 3 + 2];
-            }
-            for (int c = 0; c < k; c++) {
-                if (counts[c] == 0) continue;
-                centroids[c * 3]     = newCentroids[c * 3]     / counts[c];
-                centroids[c * 3 + 1] = newCentroids[c * 3 + 1] / counts[c];
-                centroids[c * 3 + 2] = newCentroids[c * 3 + 2] / counts[c];
-            }
-        }
-        return labels;
-    }
-
-    private static int[] kmeansXyz(float[] pts, int n, int k, long seed) {
-        Random rnd = new Random(seed);
-        float[] centroids = new float[k * 3];
-        int first = rnd.nextInt(n);
-        System.arraycopy(pts, first * 3, centroids, 0, 3);
-        float[] d2 = new float[n];
-        Arrays.fill(d2, Float.MAX_VALUE);
-        for (int ci = 1; ci < k; ci++) {
-            double total = 0;
-            for (int i = 0; i < n; i++) {
-                float dx = pts[i * 3]     - centroids[(ci - 1) * 3];
-                float dy = pts[i * 3 + 1] - centroids[(ci - 1) * 3 + 1];
-                float dz = pts[i * 3 + 2] - centroids[(ci - 1) * 3 + 2];
-                float dd = dx * dx + dy * dy + dz * dz;
-                if (dd < d2[i]) d2[i] = dd;
-                total += d2[i];
-            }
-            double target = rnd.nextDouble() * total;
-            double acc = 0;
-            int pick = n - 1;
-            for (int i = 0; i < n; i++) {
-                acc += d2[i];
-                if (acc >= target) { pick = i; break; }
-            }
-            System.arraycopy(pts, pick * 3, centroids, ci * 3, 3);
-        }
-        int[] labels = new int[n];
-        float[] newCentroids = new float[k * 3];
-        int[] counts = new int[k];
-        for (int iter = 0; iter < MAX_KMEANS_ITERATIONS; iter++) {
-            boolean changed = false;
-            for (int i = 0; i < n; i++) {
-                int best = 0;
-                float bestD = Float.MAX_VALUE;
-                for (int c = 0; c < k; c++) {
-                    float dx = pts[i * 3]     - centroids[c * 3];
-                    float dy = pts[i * 3 + 1] - centroids[c * 3 + 1];
-                    float dz = pts[i * 3 + 2] - centroids[c * 3 + 2];
-                    float dd = dx * dx + dy * dy + dz * dz;
-                    if (dd < bestD) { bestD = dd; best = c; }
-                }
-                if (labels[i] != best) { changed = true; labels[i] = best; }
-            }
-            if (!changed && iter > 0) break;
-            Arrays.fill(newCentroids, 0f);
-            Arrays.fill(counts, 0);
-            for (int i = 0; i < n; i++) {
-                int c = labels[i];
-                counts[c]++;
-                newCentroids[c * 3]     += pts[i * 3];
-                newCentroids[c * 3 + 1] += pts[i * 3 + 1];
-                newCentroids[c * 3 + 2] += pts[i * 3 + 2];
-            }
-            for (int c = 0; c < k; c++) {
-                if (counts[c] == 0) continue;
-                centroids[c * 3]     = newCentroids[c * 3]     / counts[c];
-                centroids[c * 3 + 1] = newCentroids[c * 3 + 1] / counts[c];
-                centroids[c * 3 + 2] = newCentroids[c * 3 + 2] / counts[c];
-            }
         }
         return labels;
     }
@@ -1471,8 +1254,8 @@ public final class SemanticPatchDecomposer {
     public static record EdgeDihedrals(
             Map<Long, int[]> edgeFaces,
             Map<Long, Float> dihedralByEdge,
-            float[] faceNormals,
-            float[] positions,
+            PackedPoints faceNormals,
+            PackedPoints positions,
             int[] triangles,
             int[] triangleFaces) {
 
@@ -1481,9 +1264,9 @@ public final class SemanticPatchDecomposer {
          * triangle; zero where they cancel or none meets it.
          *
          * @param vertexIdBound one past the largest vertex id
-         * @return packed xyz by vertex id
+         * @return a normal by vertex id
          */
-        public float[] vertexNormals(int vertexIdBound) {
+        public PackedPoints vertexNormals(int vertexIdBound) {
             return SemanticPatchDecomposer.vertexNormals(triangles, faceNormals, vertexIdBound);
         }
     }
@@ -1493,28 +1276,16 @@ public final class SemanticPatchDecomposer {
      * triangle; zero where they cancel or none meets it.
      *
      * @param triangles     corner vertex ids, three per triangle
-     * @param faceNormals   unit normal per triangle, three floats each
+     * @param faceNormals   unit normal per triangle
      * @param vertexIdBound one past the largest vertex id
-     * @return packed xyz by vertex id
+     * @return a normal by vertex id
      */
-    public static float[] vertexNormals(int[] triangles, float[] faceNormals, int vertexIdBound) {
-        float[] normals = new float[vertexIdBound * 3];
+    public static PackedPoints vertexNormals(int[] triangles, PackedPoints faceNormals, int vertexIdBound) {
+        PackedPoints normals = new PackedPoints(vertexIdBound);
         for (int corner = 0; corner < triangles.length; corner++) {
-            int at = triangles[corner] * 3;
-            int triangle = corner / 3 * 3;
-            normals[at] += faceNormals[triangle];
-            normals[at + 1] += faceNormals[triangle + 1];
-            normals[at + 2] += faceNormals[triangle + 2];
+            normals.add(triangles[corner], faceNormals.at(corner / 3));
         }
-        for (int at = 0; at < normals.length; at += 3) {
-            float length = (float) Math.sqrt(normals[at] * normals[at] + normals[at + 1] * normals[at + 1]
-                    + normals[at + 2] * normals[at + 2]);
-            if (length > VECTOR_LENGTH_EPSILON) {
-                normals[at] /= length;
-                normals[at + 1] /= length;
-                normals[at + 2] /= length;
-            }
-        }
+        normals.normalizeEach();
         return normals;
     }
 }

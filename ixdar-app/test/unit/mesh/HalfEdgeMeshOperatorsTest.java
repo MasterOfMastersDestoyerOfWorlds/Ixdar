@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
@@ -87,8 +88,7 @@ public class HalfEdgeMeshOperatorsTest {
      */
     @Test
     void reCreatedBoundaryEdgesGetTheirTagsBack() {
-        HalfEdgeMesh mesh = mesh(new float[] { 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0 },
-                new int[] { 0, 1, 2, 0, 2, 3 });
+        HalfEdgeMesh mesh = mesh(unitSquare(), new int[] { 0, 1, 2, 0, 2, 3 });
         int edgeLayer = mesh.declareEdgeLayer(EDGE_FILL);
         tagEveryElement(mesh, MeshTopology.NONE, edgeLayer, MeshTopology.NONE);
         int[][] sides = { { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 } };
@@ -231,14 +231,17 @@ public class HalfEdgeMeshOperatorsTest {
                 () -> tetrahedron.collapseEdge(tetrahedron.edgeBetween(0, 1), new Vector3f()));
         assertNull(firstInconsistency(tetrahedron));
 
-        HalfEdgeMesh strip = mesh(new float[] { 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0 },
-                new int[] { 0, 1, 2, 0, 2, 3 });
+        HalfEdgeMesh strip = mesh(unitSquare(), new int[] { 0, 1, 2, 0, 2, 3 });
         assertThrows(InvalidMeshTopologyException.class,
                 () -> strip.collapseEdge(strip.edgeBetween(0, 2), new Vector3f()));
         assertNull(firstInconsistency(strip));
 
-        HalfEdgeMesh openFan = mesh(new float[] { 0, 0, 1, 1, 0, 0, -1, 1, 0, -1, -1, 0 },
-                new int[] { 0, 1, 2, 0, 2, 3, 0, 3, 1 });
+        PackedPoints fan = new PackedPoints(4);
+        fan.set(0, 0f, 0f, 1f);
+        fan.set(1, 1f, 0f, 0f);
+        fan.set(2, -1f, 1f, 0f);
+        fan.set(3, -1f, -1f, 0f);
+        HalfEdgeMesh openFan = mesh(fan, new int[] { 0, 1, 2, 0, 2, 3, 0, 3, 1 });
         assertThrows(InvalidMeshTopologyException.class,
                 () -> openFan.collapseEdge(openFan.edgeBetween(1, 2), new Vector3f()));
         assertNull(firstInconsistency(openFan));
@@ -409,8 +412,28 @@ public class HalfEdgeMeshOperatorsTest {
      * @return the closed mesh
      */
     private static HalfEdgeMesh octahedron() {
-        return mesh(new float[] { 0, 0, 1, 1, 0, 0, 0, 1, 0, -1, 0, 0, 0, -1, 0, 0, 0, -1 },
+        PackedPoints positions = new PackedPoints(6);
+        positions.set(0, 0f, 0f, 1f);
+        positions.set(1, 1f, 0f, 0f);
+        positions.set(2, 0f, 1f, 0f);
+        positions.set(3, -1f, 0f, 0f);
+        positions.set(4, 0f, -1f, 0f);
+        positions.set(5, 0f, 0f, -1f);
+        return mesh(positions,
                 new int[] { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 1, 5, 2, 1, 5, 3, 2, 5, 4, 3, 5, 1, 4 });
+    }
+
+    /**
+     * Corners of the unit square in the z = 0 plane, counter-clockwise from the origin.
+     *
+     * @return four points
+     */
+    private static PackedPoints unitSquare() {
+        PackedPoints positions = new PackedPoints(4);
+        positions.set(1, 1f, 0f, 0f);
+        positions.set(2, 1f, 1f, 0f);
+        positions.set(3, 0f, 1f, 0f);
+        return positions;
     }
 
     /**
@@ -419,8 +442,11 @@ public class HalfEdgeMeshOperatorsTest {
      * @return the closed mesh
      */
     private static HalfEdgeMesh tetrahedron() {
-        return mesh(new float[] { 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1 },
-                new int[] { 0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3 });
+        PackedPoints positions = new PackedPoints(4);
+        positions.set(1, 1f, 0f, 0f);
+        positions.set(2, 0f, 1f, 0f);
+        positions.set(3, 0f, 0f, 1f);
+        return mesh(positions, new int[] { 0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3 });
     }
 
     /**
@@ -430,10 +456,9 @@ public class HalfEdgeMeshOperatorsTest {
      * @return the open mesh
      */
     private static HalfEdgeMesh grid() {
-        float[] positions = new float[GRID_SIDE * GRID_SIDE * 3];
+        PackedPoints positions = new PackedPoints(GRID_SIDE * GRID_SIDE);
         for (int vertex = 0; vertex < GRID_SIDE * GRID_SIDE; vertex++) {
-            positions[vertex * 3] = vertex % GRID_SIDE;
-            positions[vertex * 3 + 1] = vertex / GRID_SIDE;
+            positions.set(vertex, vertex % GRID_SIDE, vertex / GRID_SIDE, 0f);
         }
         int[] triangles = new int[(GRID_SIDE - 1) * (GRID_SIDE - 1) * 2 * 3];
         int cursor = 0;
@@ -452,11 +477,11 @@ public class HalfEdgeMeshOperatorsTest {
     /**
      * Builds a triangle mesh.
      *
-     * @param positions packed xyz triples
+     * @param positions one point per vertex
      * @param triangles corners, three per face
      * @return the mesh
      */
-    private static HalfEdgeMesh mesh(float[] positions, int[] triangles) {
+    private static HalfEdgeMesh mesh(PackedPoints positions, int[] triangles) {
         return HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
     }
 }

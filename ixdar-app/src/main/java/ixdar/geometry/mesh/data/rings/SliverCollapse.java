@@ -716,8 +716,7 @@ public final class SliverCollapse {
                         }
                         for (int candidate : candidates) {
                             int attached = RingAttachment.attach(mesh,
-                                    wallMarks(candidate, standingMarks), endPosition.x,
-                                    endPosition.y, endPosition.z);
+                                    wallMarks(candidate, standingMarks), endPosition);
                             double away = attached < 0 ? Double.POSITIVE_INFINITY
                                     : mesh.vertexPosition(attached)
                                             .distance(endPosition);
@@ -799,8 +798,7 @@ public final class SliverCollapse {
                 continue;
             }
             int attached = RingAttachment.attach(mesh,
-                    bisectorSplines.get(bisector).marks.markedByEdgeId, scratch.x, scratch.y,
-                    scratch.z);
+                    bisectorSplines.get(bisector).marks.markedByEdgeId, scratch);
             double away = attached < 0 ? Double.POSITIVE_INFINITY
                     : mesh.vertexPosition(attached, attachedPosition).distance(scratch);
             if (away < nearestDistance) {

@@ -71,13 +71,12 @@ public final class PlyMeshWriter {
         }
         text.append("end_header\n");
         for (int vertex = 0; vertex < geometry.vertexCount(); vertex++) {
-            int offset = vertex * MeshExport.FLOATS_PER_VERTEX;
-            text.append(geometry.positions[offset]).append(' ')
-                    .append(geometry.positions[offset + 1]).append(' ')
-                    .append(geometry.positions[offset + 2]).append(' ')
-                    .append(geometry.normals[offset]).append(' ')
-                    .append(geometry.normals[offset + 1]).append(' ')
-                    .append(geometry.normals[offset + 2]).append('\n');
+            text.append(geometry.positions.get(vertex, 0)).append(' ')
+                    .append(geometry.positions.get(vertex, 1)).append(' ')
+                    .append(geometry.positions.get(vertex, 2)).append(' ')
+                    .append(geometry.normals.get(vertex, 0)).append(' ')
+                    .append(geometry.normals.get(vertex, 1)).append(' ')
+                    .append(geometry.normals.get(vertex, 2)).append('\n');
         }
         for (int triangle = 0; triangle < geometry.triangleCount(); triangle++) {
             int first = triangle * MeshExport.CORNERS_PER_TRIANGLE;

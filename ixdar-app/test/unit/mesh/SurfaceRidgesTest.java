@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.data.analysis.curvature.SurfaceRidges;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.sculpt.MidpointSplit;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.Vector3Field;
@@ -45,7 +46,7 @@ class SurfaceRidgesTest {
     private static final ImplicitFit ELLIPSOID_FIT;
 
     static {
-        double[][] shape = ellipsoid(AXES, SAMPLES);
+        PackedPoints[] shape = ellipsoid(AXES, SAMPLES);
         ELLIPSOID_FIT = new ImplicitFit(shape[0], shape[1], FIRST_CELL, LEVELS, REGULARIZATION);
     }
 
@@ -53,25 +54,25 @@ class SurfaceRidgesTest {
      * Points and normals of the ellipsoid x^2/a^2 + y^2/b^2 + z^2/c^2 = 1, the unit sphere's Fibonacci
      * lattice stretched.
      */
-    private static double[][] ellipsoid(double[] axes, int samples) {
-        double[] xyz = new double[samples * 3];
-        double[] normal = new double[samples * 3];
+    private static PackedPoints[] ellipsoid(double[] axes, int samples) {
+        PackedPoints xyz = new PackedPoints(samples);
+        PackedPoints normals = new PackedPoints(samples);
         double golden = Math.PI * (3.0 - Math.sqrt(5.0));
         for (int index = 0; index < samples; index++) {
             double z = 1.0 - 2.0 * (index + 0.5) / samples;
             double ring = Math.sqrt(1.0 - z * z);
             double[] unit = { ring * Math.cos(golden * index), ring * Math.sin(golden * index), z };
+            double[] normal = new double[3];
             double length = 0.0;
             for (int axis = 0; axis < 3; axis++) {
-                xyz[index * 3 + axis] = axes[axis] * unit[axis];
-                normal[index * 3 + axis] = unit[axis] / axes[axis];
-                length += normal[index * 3 + axis] * normal[index * 3 + axis];
+                normal[axis] = unit[axis] / axes[axis];
+                length += normal[axis] * normal[axis];
             }
-            for (int axis = 0; axis < 3; axis++) {
-                normal[index * 3 + axis] /= Math.sqrt(length);
-            }
+            xyz.set(index, (float) (axes[0] * unit[0]), (float) (axes[1] * unit[1]), (float) (axes[2] * unit[2]));
+            normals.set(index, (float) (normal[0] / Math.sqrt(length)), (float) (normal[1] / Math.sqrt(length)),
+                    (float) (normal[2] / Math.sqrt(length)));
         }
-        return new double[][] { xyz, normal };
+        return new PackedPoints[] { xyz, normals };
     }
 
     @Test
@@ -80,16 +81,15 @@ class SurfaceRidgesTest {
         double[] jet = new double[ImplicitFit.JET_LENGTH];
         double[] plus = new double[ImplicitFit.JET_LENGTH];
         double[] minus = new double[ImplicitFit.JET_LENGTH];
-        double step = 1e-4;
-        for (double[] point : new double[][] { { 1.5, 1.2, 0.6 }, { -2.0, 0.7, 0.7 } }) {
-            fit.evaluate(fit.levels.size(), point, 0, ImplicitFit.THIRD, jet);
+        for (Vector3f point : new Vector3f[] { new Vector3f(1.5f, 1.2f, 0.6f), new Vector3f(-2.0f, 0.7f, 0.7f) }) {
+            fit.evaluate(fit.levels.size(), point, ImplicitFit.THIRD, jet);
             for (int axis = 0; axis < 3; axis++) {
-                double[] ahead = point.clone();
-                double[] back = point.clone();
-                ahead[axis] += step;
-                back[axis] -= step;
-                fit.evaluate(fit.levels.size(), ahead, 0, ImplicitFit.THIRD, plus);
-                fit.evaluate(fit.levels.size(), back, 0, ImplicitFit.THIRD, minus);
+                Vector3f ahead = new Vector3f(point).setComponent(axis, point.get(axis) + 1e-4f);
+                Vector3f back = new Vector3f(point).setComponent(axis, point.get(axis) - 1e-4f);
+                // Half the float step actually taken, so rounding the moved point to float is not counted as error.
+                double step = ((double) ahead.get(axis) - back.get(axis)) / 2.0;
+                fit.evaluate(fit.levels.size(), ahead, ImplicitFit.THIRD, plus);
+                fit.evaluate(fit.levels.size(), back, ImplicitFit.THIRD, minus);
                 assertEquals((plus[0] - minus[0]) / (2 * step), jet[ImplicitFit.GRADIENT_START + axis], 1e-5,
                         "gradient " + axis);
                 for (int a = 0; a < 3; a++) {
@@ -108,12 +108,13 @@ class SurfaceRidgesTest {
     @Test
     void sphereCurvatureIsOneOverRadius() {
         double radius = 2.0;
-        double[][] sphere = ellipsoid(new double[] { radius, radius, radius }, SPHERE_SAMPLES);
+        PackedPoints[] sphere = ellipsoid(new double[] { radius, radius, radius }, SPHERE_SAMPLES);
         ImplicitFit fit = new ImplicitFit(sphere[0], sphere[1], FIRST_CELL, LEVELS, REGULARIZATION);
         double[] out = new double[ImplicitFit.CURVATURE_LENGTH];
-        for (double[] point : new double[][] { { 1.9, 0.3, 0.2 }, { -0.5, 1.1, -1.5 }, { 0.2, -0.1, 2.1 } }) {
+        for (Vector3f point : new Vector3f[] { new Vector3f(1.9f, 0.3f, 0.2f), new Vector3f(-0.5f, 1.1f, -1.5f),
+            new Vector3f(0.2f, -0.1f, 2.1f) }) {
             assertTrue(fit.curvature(point, out));
-            double distance = Math.sqrt(point[0] * point[0] + point[1] * point[1] + point[2] * point[2]);
+            double distance = point.length();
             assertEquals(radius, distance, 0.02 * radius, "projection lands on the sphere");
             assertEquals(1.0 / radius, out[0], 0.1 / radius, "larger curvature");
             assertEquals(1.0 / radius, out[1], 0.1 / radius, "smaller curvature");
@@ -127,25 +128,22 @@ class SurfaceRidgesTest {
         double[] ahead = new double[ImplicitFit.CURVATURE_LENGTH];
         double[] behind = new double[ImplicitFit.CURVATURE_LENGTH];
         int compared = 0;
-        for (double[] start : new double[][] { { 1.5, 1.2, 0.6 }, { -2.0, 0.7, 0.7 }, { 0.8, -1.4, -0.7 } }) {
+        for (Vector3f start : new Vector3f[] { new Vector3f(1.5f, 1.2f, 0.6f), new Vector3f(-2.0f, 0.7f, 0.7f),
+            new Vector3f(0.8f, -1.4f, -0.7f) }) {
             assertTrue(fit.curvature(start, here));
             for (int kind = 0; kind < 2; kind++) {
-                double[] forward = start.clone();
-                double[] backward = start.clone();
-                for (int axis = 0; axis < 3; axis++) {
-                    forward[axis] += STEP * here[ImplicitFit.DIRECTIONS_START + kind * 3 + axis];
-                    backward[axis] -= STEP * here[ImplicitFit.DIRECTIONS_START + kind * 3 + axis];
-                }
+                int direction = ImplicitFit.DIRECTIONS_START + kind * 3;
+                Vector3f along = new Vector3f((float) (STEP * here[direction]), (float) (STEP * here[direction + 1]),
+                        (float) (STEP * here[direction + 2]));
+                Vector3f forward = new Vector3f(start).add(along);
+                Vector3f backward = new Vector3f(start).sub(along);
                 assertTrue(fit.curvature(forward, ahead));
                 assertTrue(fit.curvature(backward, behind));
-                double travelled = 0.0;
-                for (int axis = 0; axis < 3; axis++) {
-                    travelled += (forward[axis] - backward[axis]) * (forward[axis] - backward[axis]);
-                }
-                double difference = (ahead[kind] - behind[kind]) / Math.sqrt(travelled);
+                double travelled = forward.distance(backward);
+                double difference = (ahead[kind] - behind[kind]) / travelled;
                 double analytic = here[ImplicitFit.DERIVATIVES_START + kind];
                 assertEquals(difference, analytic, 0.05 * Math.abs(difference) + 0.01,
-                        "derivative of curvature " + kind + " at " + start[0] + "," + start[1] + "," + start[2]);
+                        "derivative of curvature " + kind + " at " + start);
                 compared++;
             }
         }
@@ -164,15 +162,14 @@ class SurfaceRidgesTest {
         boolean[] every = new boolean[merged.faceIdBound()];
         Arrays.fill(every, true);
         MeshTopology sphere = new MidpointSplit().split(merged, every);
-        float[] offset = new float[sphere.vertexIdBound() * 3];
+        PackedPoints offset = new PackedPoints(sphere.vertexIdBound());
         Vector3f position = new Vector3f();
         for (int activeVertex = 0; activeVertex < sphere.vertexCount(); activeVertex++) {
             int vertexId = sphere.vertexIdAt(activeVertex);
             sphere.vertexPosition(vertexId, position).normalize();
-            for (int axis = 0; axis < 3; axis++) {
-                offset[vertexId * 3 + axis] = (float) (position.get(axis) * AXES[axis]) - sphere.vertexPosition(vertexId,
-                        new Vector3f()).get(axis);
-            }
+            Vector3f original = sphere.vertexPosition(vertexId, new Vector3f());
+            offset.set(vertexId, (float) (position.x * AXES[0]) - original.x,
+                    (float) (position.y * AXES[1]) - original.y, (float) (position.z * AXES[2]) - original.z);
         }
         MeshTopology shape = MeshVertexOffset.apply(sphere, Vector3Field.copyOf(offset));
         SurfaceRidges ridges = new SurfaceRidges();
@@ -182,11 +179,11 @@ class SurfaceRidgesTest {
         assertFalse(ridges.lines.isEmpty(), "an ellipsoid has ridges");
         int points = 0;
         int onSection = 0;
-        for (float[] line : ridges.lines) {
-            for (int point = 0; point * 3 < line.length; point++) {
+        for (PackedPoints line : ridges.lines) {
+            for (int point = 0; point < line.size(); point++) {
                 double nearest = Double.POSITIVE_INFINITY;
                 for (int axis = 0; axis < 3; axis++) {
-                    nearest = Math.min(nearest, Math.abs(line[point * 3 + axis]) / AXES[axis]);
+                    nearest = Math.min(nearest, Math.abs(line.get(point, axis)) / AXES[axis]);
                 }
                 onSection += nearest < 0.08 ? 1 : 0;
                 points++;

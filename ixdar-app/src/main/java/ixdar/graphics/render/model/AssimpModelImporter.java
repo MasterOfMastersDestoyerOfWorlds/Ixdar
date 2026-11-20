@@ -42,8 +42,6 @@ public class AssimpModelImporter {
         List<Integer> indexData = new ArrayList<>();
         boolean hasTexCoords = false;
         int baseVertex = 0;
-        Vector3f min = new Vector3f(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
-        Vector3f max = new Vector3f(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
 
         try {
             for (int meshIndex = 0; meshIndex < scene.mNumMeshes(); meshIndex++) {
@@ -57,10 +55,9 @@ public class AssimpModelImporter {
 
                 for (int i = 0; i < verts.remaining(); i++) {
                     AIVector3D p = verts.get(i);
-                    Vector3f v = new Vector3f(p.x(), p.y(), p.z());
-                    vertexData.add(v.x);
-                    vertexData.add(v.y);
-                    vertexData.add(v.z);
+                    vertexData.add(p.x());
+                    vertexData.add(p.y());
+                    vertexData.add(p.z());
 
                     if (normals != null && i < normals.remaining()) {
                         AIVector3D n = normals.get(i);
@@ -82,9 +79,6 @@ public class AssimpModelImporter {
                         vertexData.add(0f);
                         vertexData.add(0f);
                     }
-
-                    min.min(v);
-                    max.max(v);
                 }
 
                 for (int faceIndex = 0; faceIndex < mesh.mNumFaces(); faceIndex++) {
@@ -116,11 +110,9 @@ public class AssimpModelImporter {
             indices[i] = indexData.get(i);
         }
 
-        Vector3f center = new Vector3f(min).add(max).mul(0.5f);
-        float radius = 0f;
-        for (int i = 0; i < verts.length; i += VERTEX_STRIDE) {
-            radius = Math.max(radius, PackedPoints.at(verts, i).sub(center).length());
-        }
+        PackedPoints vertexPositions = PackedPoints.view(verts, 0, VERTEX_STRIDE);
+        Vector3f center = vertexPositions.bounds().centroid();
+        float radius = (float) vertexPositions.maxDistance(center);
         if (radius < MIN_RADIUS) {
             radius = 1f;
         }

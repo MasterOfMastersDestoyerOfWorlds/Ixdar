@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.IntField;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.motorcycle.ChartWalker;
@@ -117,12 +118,11 @@ class ChartWalkerStalledExitTest {
      * @return a walker over the two-triangle fixture with identity transitions
      */
     private static ChartWalker buildWalker() {
-        float[] positions = {
-            1f, 1f, 0f,
-            -1f, 2f, 0f,
-            -1f, 0f, 0f,
-            1f, 3f, 0f,
-        };
+        PackedPoints positions = new PackedPoints(4);
+        positions.set(0, 1f, 1f, 0f);
+        positions.set(1, -1f, 2f, 0f);
+        positions.set(2, -1f, 0f, 0f);
+        positions.set(3, 1f, 3f, 0f);
         int[] faceIndices = { 0, 1, 2, 1, 0, 3 };
         HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
         double[] cornerU = { 1.0, -1.0, -1.0, -1.0, 1.0, 1.0 };

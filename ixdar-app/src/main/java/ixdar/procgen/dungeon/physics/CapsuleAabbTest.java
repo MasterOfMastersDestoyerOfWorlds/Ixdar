@@ -2,6 +2,8 @@ package ixdar.procgen.dungeon.physics;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+
 /**
  * Static collision queries between a vertical {@link CapsuleShape} and an {@link AabbBox},
  * reporting a minimum-translation vector that separates the two flush.
@@ -24,12 +26,8 @@ public final class CapsuleAabbTest {
      *     is strictly less than {@code c.radius() * c.radius()}
      */
     public static boolean intersects(CapsuleShape c, AabbBox a) {
-        float[] pq = closestPair(c, a);
-        float dx = pq[0] - pq[3];
-        float dy = pq[1] - pq[4];
-        float dz = pq[2] - pq[5];
-        float distSq = dx * dx + dy * dy + dz * dz;
-        return distSq < c.radius() * c.radius();
+        PackedPoints pq = closestPair(c, a);
+        return pq.at(0).distanceSquared(pq.at(1)) < c.radius() * c.radius();
     }
 
     /**
@@ -42,18 +40,17 @@ public final class CapsuleAabbTest {
      *     {@code c} and {@code a} are not overlapping
      */
     public static Vector3f penetration(CapsuleShape c, AabbBox a) {
-        float[] pq = closestPair(c, a);
-        float px = pq[0], py = pq[1], pz = pq[2];
-        float qx = pq[3], qy = pq[4], qz = pq[5];
-        float dx = px - qx, dy = py - qy, dz = pz - qz;
-        float distSq = dx * dx + dy * dy + dz * dz;
+        PackedPoints pq = closestPair(c, a);
+        Vector3f p = pq.at(0);
+        float px = p.x, py = p.y, pz = p.z;
+        Vector3f apart = pq.at(0).sub(pq.at(1));
+        float distSq = apart.lengthSquared();
         float r = c.radius();
         if (distSq >= r * r) return new Vector3f(0f, 0f, 0f);
 
         if (distSq > DEGENERATE_THRESHOLD) {
             float dist = (float) Math.sqrt(distSq);
-            float scale = (r - dist) / dist;
-            return new Vector3f(dx * scale, dy * scale, dz * scale);
+            return apart.mul((r - dist) / dist);
         }
 
         float dxMin = px - a.minX();
@@ -81,21 +78,21 @@ public final class CapsuleAabbTest {
     }
 
     /**
-     * Returns {@code {Px, Py, Pz, Qx, Qy, Qz}} — the closest pair (P on capsule axis, Q on AABB).
+     * The closest pair: P on the capsule axis, Q on the AABB.
      *
      * @param c capsule whose central vertical segment supplies P
      * @param a AABB whose surface (or interior) supplies Q
-     * @return packed 6-element array {@code [Px, Py, Pz, Qx, Qy, Qz]}
+     * @return P then Q
      */
-    private static float[] closestPair(CapsuleShape c, AabbBox a) {
+    private static PackedPoints closestPair(CapsuleShape c, AabbBox a) {
         float aabbMidY = (a.minY() + a.maxY()) * 0.5f;
         float py = clamp(aabbMidY, c.segmentMinY(), c.segmentMaxY());
         float px = c.centerX();
         float pz = c.centerZ();
-        float qx = clamp(px, a.minX(), a.maxX());
-        float qy = clamp(py, a.minY(), a.maxY());
-        float qz = clamp(pz, a.minZ(), a.maxZ());
-        return new float[] { px, py, pz, qx, qy, qz };
+        PackedPoints pair = new PackedPoints(2);
+        pair.set(0, px, py, pz);
+        pair.set(1, clamp(px, a.minX(), a.maxX()), clamp(py, a.minY(), a.maxY()), clamp(pz, a.minZ(), a.maxZ()));
+        return pair;
     }
 
     private static float clamp(float v, float lo, float hi) {

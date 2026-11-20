@@ -5,13 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Arrays;
-
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
 import ixdar.nodegraph.nodes.primitives.IcosphereMeshNode;
@@ -37,7 +36,7 @@ class FoldedInputRefusalTest {
     void quadLayoutRefusesAPleatBeforeAnyStage() {
         HalfEdgeMesh sphere = icosphere();
         int vertexCount = sphere.vertexCount();
-        float[] positions = Arrays.copyOf(sphere.packedPositions(null), (vertexCount + 1) * 3);
+        PackedPoints positions = sphere.packedPositions(null);
         int[] corners = new int[(sphere.faceCount() + 2) * 3];
         for (int activeFace = 0; activeFace < sphere.faceCount(); activeFace++) {
             for (int corner = 0; corner < 3; corner++) {
@@ -52,9 +51,7 @@ class FoldedInputRefusalTest {
                 .mul(0.5f);
         Vector3f pleat = new Vector3f(edgeMidpoint).sub(sphere.vertexPosition(apex))
                 .mul(PLEAT_OVERSHOOT).add(edgeMidpoint);
-        positions[vertexCount * 3] = pleat.x;
-        positions[vertexCount * 3 + 1] = pleat.y;
-        positions[vertexCount * 3 + 2] = pleat.z;
+        positions.append(pleat);
         int[] split = { first, second, vertexCount, second, apex, vertexCount, apex, first,
             vertexCount };
         System.arraycopy(split, 0, corners, 0, 3);

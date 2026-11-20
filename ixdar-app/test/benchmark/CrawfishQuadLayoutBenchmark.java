@@ -23,6 +23,7 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
@@ -100,7 +101,7 @@ public final class CrawfishQuadLayoutBenchmark {
         record("repair", repairStart);
 
         long halfEdgeStart = System.nanoTime();
-        HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(manifold.positions.clone(),
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(manifold.packedPositions(null),
                 manifold.faceIndices.clone());
         record("toHalfEdge", halfEdgeStart);
         Platforms.log("[benchmark] %s scan V=%d F=%d, repaired V=%d E=%d F=%d, max heap %.0fMiB%n",
@@ -161,7 +162,7 @@ public final class CrawfishQuadLayoutBenchmark {
         int scanVertexCount = scan.vertexCount();
         Map<Long, Integer> canonicalOfPosition = new HashMap<>(scanVertexCount * 2);
         int[] weldedOf = new int[scanVertexCount];
-        float[] weldedPositions = new float[scanVertexCount * TRIANGLE_CORNERS];
+        PackedPoints weldedPositions = new PackedPoints(scanVertexCount);
         Vector3f position = new Vector3f();
         int weldedCount = 0;
         for (int vertex = 0; vertex < scanVertexCount; vertex++) {
@@ -171,9 +172,7 @@ public final class CrawfishQuadLayoutBenchmark {
                     ^ Float.floatToIntBits(position.z) * POSITION_KEY_Z_MULTIPLIER;
             Integer existing = canonicalOfPosition.putIfAbsent(key, weldedCount);
             if (existing == null) {
-                weldedPositions[weldedCount * TRIANGLE_CORNERS] = position.x;
-                weldedPositions[weldedCount * TRIANGLE_CORNERS + 1] = position.y;
-                weldedPositions[weldedCount * TRIANGLE_CORNERS + 2] = position.z;
+                weldedPositions.set(weldedCount, position);
                 weldedOf[vertex] = weldedCount;
                 weldedCount++;
             } else {
@@ -258,15 +257,14 @@ public final class CrawfishQuadLayoutBenchmark {
                 liveVertexCount++;
             }
         }
-        float[] positions = new float[liveVertexCount * TRIANGLE_CORNERS];
+        PackedPoints positions = new PackedPoints(liveVertexCount);
         for (int welded = 0; welded < weldedCount; welded++) {
             int compact = compactOfWelded[welded];
             if (compact < 0) {
                 continue;
             }
-            positions[compact * TRIANGLE_CORNERS] = weldedPositions[welded * TRIANGLE_CORNERS];
-            positions[compact * TRIANGLE_CORNERS + 1] = weldedPositions[welded * TRIANGLE_CORNERS + 1];
-            positions[compact * TRIANGLE_CORNERS + 2] = weldedPositions[welded * TRIANGLE_CORNERS + 2];
+            positions.set(compact, weldedPositions.get(welded, 0), weldedPositions.get(welded, 1),
+                    weldedPositions.get(welded, 2));
         }
         int[] faceIndices = new int[keptFaceCount * TRIANGLE_CORNERS];
         for (int corner = 0; corner < faceIndices.length; corner++) {

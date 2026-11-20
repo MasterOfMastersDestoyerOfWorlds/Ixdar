@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
@@ -649,9 +650,9 @@ public abstract class ModelScene extends Scene {
     /**
      * Re-centres the orbit on a group of dot clouds and pulls the camera in to frame them.
      *
-     * @param clouds flat-xyz position arrays to frame together
+     * @param clouds point clouds to frame together
      */
-    public void focusOrbitOn(List<float[]> clouds) {
+    public void focusOrbitOn(List<PackedPoints> clouds) {
         Vector3f centroid = new Vector3f();
         float radius = HalfEdgeMeshRuntime.cloudRadius(clouds, centroid);
         camera.setTarget(centroid);

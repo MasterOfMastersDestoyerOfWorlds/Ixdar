@@ -7,6 +7,7 @@ import java.util.Map;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnostic;
@@ -379,9 +380,9 @@ public class EmbeddedTMeshScene extends ModelScene {
      * @param diagnostic groups to show
      * @return the face-group centre clouds, for framing
      */
-    private List<float[]> showStepDiagnostic(ArrangementDiagnostic diagnostic) {
+    private List<PackedPoints> showStepDiagnostic(ArrangementDiagnostic diagnostic) {
         HalfEdgeMesh copy = tmesh.topology.copy;
-        List<float[]> faceGroupCenters = diagnostic.faceGroupCenters(copy);
+        List<PackedPoints> faceGroupCenters = diagnostic.faceGroupCenters(copy);
         quadRuntime.setDiagnostic(faceGroupCenters, diagnostic.markerGroupPositions(copy),
                 diagnostic.pathPolylines(copy));
         return faceGroupCenters;

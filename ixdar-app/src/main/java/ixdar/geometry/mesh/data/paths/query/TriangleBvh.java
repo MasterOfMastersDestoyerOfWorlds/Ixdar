@@ -3,9 +3,11 @@ package ixdar.geometry.mesh.data.paths.query;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
+import org.joml.Matrix3f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
@@ -37,7 +39,6 @@ public final class TriangleBvh {
 
     private static final double[][] RAY_TRIG = rayTrig();
 
-    private static final float SLANT_HELPER_LIMIT = 0.6f;
 
     private static final double EDGE_SLACK = 1e-9;
 
@@ -60,12 +61,12 @@ public final class TriangleBvh {
 
     private static final int INITIAL_NODES = 64;
 
-    private static final int BOX_FLOATS = 6;
+    private static final int BOX_CORNERS = 2;
 
     private static final float HALF = 0.5f;
 
-    /** Vertex positions as xyz triples. */
-    public float[] positions = new float[0];
+    /** Vertex positions, indexed by the corners of {@link #triangleCorners}. */
+    public PackedPoints positions = new PackedPoints(0);
 
     /** Three position indices per triangle. */
     public int[] triangleCorners = new int[0];
@@ -85,11 +86,11 @@ public final class TriangleBvh {
     /** Nodes in the tree, root first. */
     public int nodeCount;
 
-    /** Lower box corner of each node, xyz triples. */
-    public float[] nodeMin = new float[0];
+    /** Lower box corner of each node, one point per node. */
+    public PackedPoints nodeMin = new PackedPoints(0);
 
-    /** Upper box corner of each node, xyz triples. */
-    public float[] nodeMax = new float[0];
+    /** Upper box corner of each node, one point per node. */
+    public PackedPoints nodeMax = new PackedPoints(0);
 
     /** First child of each node; the second is the one after it, and {@code -1} marks a leaf. */
     public int[] nodeLeftChild = new int[0];
@@ -170,34 +171,40 @@ public final class TriangleBvh {
      */
     public int[] filedOnly;
 
-    /** Lower then upper box corner of each triangle, six floats per triangle index. */
-    private float[] triangleBounds = new float[0];
+    /** Lower then upper box corner of each triangle, points {@code 2t} and {@code 2t + 1}. */
+    private PackedPoints triangleBounds = new PackedPoints(0);
 
-    /** Box of the low side of the last {@link #partition}, as one {@link #BOX_FLOATS} block. */
-    private final float[] splitLowBox = new float[BOX_FLOATS];
+    /** Box of the low side of the last {@link #partition}, lower then upper corner. */
+    private final PackedPoints splitLowBox = new PackedPoints(BOX_CORNERS);
 
-    /** Box of the high side of the last {@link #partition}, as one {@link #BOX_FLOATS} block. */
-    private final float[] splitHighBox = new float[BOX_FLOATS];
+    /** Box of the high side of the last {@link #partition}, lower then upper corner. */
+    private final PackedPoints splitHighBox = new PackedPoints(BOX_CORNERS);
 
-    /** Box a scanning {@link #addNode} accumulates into. */
-    private final float[] splitScanBox = new float[BOX_FLOATS];
+    /** Box a scanning {@link #addNode} accumulates into, lower then upper corner. */
+    private final PackedPoints splitScanBox = new PackedPoints(BOX_CORNERS);
 
     /** Entries of {@link #triangleOrder} the last {@link #build} filed. */
     private int filedTriangles;
 
-    /** Per node, its box as lower then upper corner, so sibling boxes sit side by side. */
-    private float[] nodeBoxes = new float[0];
+    /**
+     * Per node, its box as lower then upper corner, points {@code 2n} and {@code 2n + 1}, so sibling
+     * boxes sit side by side.
+     */
+    private PackedPoints nodeBoxes = new PackedPoints(0);
 
-    /** Per entry of {@link #triangleOrder}, that triangle's three corners' xyz. */
-    private float[] packedCorners = new float[0];
+    /** Per entry of {@link #triangleOrder}, that triangle's three corners, point three times the entry on. */
+    private PackedPoints packedCorners = new PackedPoints(0);
     /** Node stack of the top-down build. */
     private int[] pending = new int[0];
 
-    /** Lower then upper box corner of each triangle, as {@link #buildColumns} read them. */
-    private float[] columnBounds = new float[0];
+    /**
+     * Lower then upper box corner of each triangle, points {@code 2t} and {@code 2t + 1}, as
+     * {@link #buildColumns} read them.
+     */
+    private PackedPoints columnBounds = new PackedPoints(0);
 
     /** Lower corner of the box around every filed triangle. */
-    private float[] columnLow = new float[0];
+    private Vector3f columnLow = new Vector3f();
 
     /** Reciprocal column width of each axis's grid. */
     private double[] columnStep = new double[0];
@@ -225,13 +232,7 @@ public final class TriangleBvh {
         TriangleBvh bvh = new TriangleBvh();
         bvh.triangleCorners = mesh.triangulate(TriangulationRule.FAN, faceOfTriangle);
         bvh.triangleCount = mesh.triangleCount();
-        bvh.positions = new float[mesh.vertexIdBound() * TriangleGeometry.COMPONENTS];
-        Vector3f position = new Vector3f();
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(bvh.positions, vertexId * TriangleGeometry.COMPONENTS, position);
-        }
+        bvh.positions = SemanticPatchDecomposer.positionsById(mesh);
         bvh.build();
         return bvh;
     }
@@ -306,13 +307,12 @@ public final class TriangleBvh {
         stack[top++] = 0;
         while (top > 0 && nodeCount > 0) {
             int node = stack[--top];
-            int box = node * TriangleGeometry.COMPONENTS;
-            double lowX = (nodeMin[box] - originX) * inverseX;
-            double highX = (nodeMax[box] - originX) * inverseX;
-            double lowY = (nodeMin[box + 1] - originY) * inverseY;
-            double highY = (nodeMax[box + 1] - originY) * inverseY;
-            double lowZ = (nodeMin[box + 2] - originZ) * inverseZ;
-            double highZ = (nodeMax[box + 2] - originZ) * inverseZ;
+            double lowX = (nodeMin.get(node, 0) - originX) * inverseX;
+            double highX = (nodeMax.get(node, 0) - originX) * inverseX;
+            double lowY = (nodeMin.get(node, 1) - originY) * inverseY;
+            double highY = (nodeMax.get(node, 1) - originY) * inverseY;
+            double lowZ = (nodeMin.get(node, 2) - originZ) * inverseZ;
+            double highZ = (nodeMax.get(node, 2) - originZ) * inverseZ;
             double enter = Math.max(MINIMUM_RAY_PARAMETER, Math.max(Math.min(lowX, highX),
                     Math.max(Math.min(lowY, highY), Math.min(lowZ, highZ))));
             double exit = Math.min(nearest, Math.min(Math.max(lowX, highX),
@@ -329,12 +329,12 @@ public final class TriangleBvh {
             int end = nodeTriangleStart[node] + nodeTriangleCount[node];
             for (int index = nodeTriangleStart[node]; index < end; index++) {
                 int triangle = triangleOrder[index];
-                int bounds = triangle * BOX_FLOATS;
-                if (bounded && (triangleBounds[bounds] > rayHighX || triangleBounds[bounds + 1] > rayHighY
-                        || triangleBounds[bounds + 2] > rayHighZ
-                        || triangleBounds[bounds + TriangleGeometry.COMPONENTS] < rayLowX
-                        || triangleBounds[bounds + TriangleGeometry.COMPONENTS + 1] < rayLowY
-                        || triangleBounds[bounds + TriangleGeometry.COMPONENTS + 2] < rayLowZ)) {
+                int low = triangle * BOX_CORNERS;
+                if (bounded && (triangleBounds.get(low, 0) > rayHighX || triangleBounds.get(low, 1) > rayHighY
+                        || triangleBounds.get(low, 2) > rayHighZ
+                        || triangleBounds.get(low + 1, 0) < rayLowX
+                        || triangleBounds.get(low + 1, 1) < rayLowY
+                        || triangleBounds.get(low + 1, 2) < rayLowZ)) {
                     continue;
                 }
                 if (markByCorner != null && (markByCorner[triangleCorners[triangle * TRIANGLE_CORNERS]] == mark
@@ -342,7 +342,7 @@ public final class TriangleBvh {
                         || markByCorner[triangleCorners[triangle * TRIANGLE_CORNERS + 2]] == mark)) {
                     continue;
                 }
-                double parameter = rayParameter(triangle, origin, direction);
+                double parameter = rayParameter(triangle, origin, direction, 0);
                 if (parameter < nearest) {
                     nearest = parameter;
                     nearestTriangle = triangle;
@@ -399,20 +399,17 @@ public final class TriangleBvh {
         if (nodeCount == 0) {
             return -1;
         }
-        double inverseX = 1.0 / direction.x;
-        double inverseY = 1.0 / direction.y;
-        double inverseZ = 1.0 / direction.z;
+        Vector3d inverse = new Vector3d(1.0 / direction.x, 1.0 / direction.y, 1.0 / direction.z);
         int top = 0;
-        if (boxEnter(0, origin, inverseX, inverseY, inverseZ, maxParameter) < maxParameter) {
+        if (boxEnter(0, origin, inverse, maxParameter) < maxParameter) {
             stack[top++] = 0;
         }
         while (top > 0) {
             int node = stack[--top];
             int left = nodeLeftChild[node];
             if (left >= 0) {
-                double leftEnter = boxEnter(left, origin, inverseX, inverseY, inverseZ, maxParameter);
-                double rightEnter = boxEnter(left + 1, origin, inverseX, inverseY, inverseZ,
-                        maxParameter);
+                double leftEnter = boxEnter(left, origin, inverse, maxParameter);
+                double rightEnter = boxEnter(left + 1, origin, inverse, maxParameter);
                 int near = leftEnter <= rightEnter ? left : left + 1;
                 double nearEnter = Math.min(leftEnter, rightEnter);
                 double farEnter = Math.max(leftEnter, rightEnter);
@@ -481,13 +478,11 @@ public final class TriangleBvh {
         if (nodeCount == 0) {
             return 0;
         }
-        double inverseX = 1.0 / direction.x;
-        double inverseY = 1.0 / direction.y;
-        double inverseZ = 1.0 / direction.z;
+        Vector3d inverse = new Vector3d(1.0 / direction.x, 1.0 / direction.y, 1.0 / direction.z);
         double unbounded = Double.POSITIVE_INFINITY;
         int winding = 0;
         int top = 0;
-        if (boxEnter(0, origin, inverseX, inverseY, inverseZ, unbounded) < unbounded) {
+        if (boxEnter(0, origin, inverse, unbounded) < unbounded) {
             stack[top++] = 0;
         }
         while (top > 0) {
@@ -495,7 +490,7 @@ public final class TriangleBvh {
             int left = nodeLeftChild[node];
             if (left >= 0) {
                 for (int child = left; child <= left + 1; child++) {
-                    if (boxEnter(child, origin, inverseX, inverseY, inverseZ, unbounded) < unbounded) {
+                    if (boxEnter(child, origin, inverse, unbounded) < unbounded) {
                         stack[top++] = child;
                     }
                 }
@@ -512,7 +507,9 @@ public final class TriangleBvh {
                     return Integer.MIN_VALUE;
                 }
                 if (parameter < unbounded) {
-                    winding += leavesThroughFront(triangle, direction) ? 1 : -1;
+                    int corner = triangle * TRIANGLE_CORNERS;
+                    winding += TriangleGeometry.facesAlong(positions, triangleCorners[corner],
+                            triangleCorners[corner + 1], triangleCorners[corner + 2], direction) ? 1 : -1;
                 }
             }
         }
@@ -530,7 +527,7 @@ public final class TriangleBvh {
      * @return the agreed count, or zero
      */
     public int agreedWinding(Vector3f origin, Vector3f axis, int[] stack) {
-        Vector3f slant = hemisphereDirection(hemisphereBasis(axis), 1);
+        Vector3f slant = hemisphereDirection(MeshTopology.tangentFrame(axis), 1);
         int alongAxis = windingAlong(origin, axis, stack, WINDING_MARGIN);
         return alongAxis != 0 && alongAxis == windingAlong(origin, slant, stack, WINDING_MARGIN)
                 ? alongAxis : 0;
@@ -545,30 +542,8 @@ public final class TriangleBvh {
      * @return true when one of them hits
      */
     public boolean meetsWindingRays(Vector3f origin, Vector3f axis, int[] stack) {
-        Vector3f slant = hemisphereDirection(hemisphereBasis(axis), 1);
+        Vector3f slant = hemisphereDirection(MeshTopology.tangentFrame(axis), 1);
         return anyHit(origin, axis, stack) >= 0 || anyHit(origin, slant, stack) >= 0;
-    }
-
-    /**
-     * Whether a direction points out of a triangle's front.
-     *
-     * @param triangle  triangle to test
-     * @param direction direction xyz
-     * @return true when it runs along the winding's normal
-     */
-    private boolean leavesThroughFront(int triangle, Vector3f direction) {
-        int cornerA = triangleCorners[triangle * TRIANGLE_CORNERS] * TriangleGeometry.COMPONENTS;
-        int cornerB = triangleCorners[triangle * TRIANGLE_CORNERS + 1] * TriangleGeometry.COMPONENTS;
-        int cornerC = triangleCorners[triangle * TRIANGLE_CORNERS + 2] * TriangleGeometry.COMPONENTS;
-        double edgeOneX = positions[cornerB] - (double) positions[cornerA];
-        double edgeOneY = positions[cornerB + 1] - (double) positions[cornerA + 1];
-        double edgeOneZ = positions[cornerB + 2] - (double) positions[cornerA + 2];
-        double edgeTwoX = positions[cornerC] - (double) positions[cornerA];
-        double edgeTwoY = positions[cornerC + 1] - (double) positions[cornerA + 1];
-        double edgeTwoZ = positions[cornerC + 2] - (double) positions[cornerA + 2];
-        return direction.x * (edgeOneY * edgeTwoZ - edgeOneZ * edgeTwoY)
-                + direction.y * (edgeOneZ * edgeTwoX - edgeOneX * edgeTwoZ)
-                + direction.z * (edgeOneX * edgeTwoY - edgeOneY * edgeTwoX) > 0;
     }
 
     /**
@@ -576,29 +551,13 @@ public final class TriangleBvh {
      *
      * @param node         node whose box is tested
      * @param origin       ray origin xyz
-     * @param inverseX     reciprocal of the direction's x
-     * @param inverseY     reciprocal of the direction's y
-     * @param inverseZ     reciprocal of the direction's z
+     * @param inverse      reciprocals of the direction's components
      * @param maxParameter bound past which the box does not count
      * @return the entry parameter, or positive infinity when the ray misses the box in range
      */
-    private double boxEnter(int node, Vector3f origin, double inverseX, double inverseY,
-            double inverseZ, double maxParameter) {
-        int box = node * BOX_FLOATS;
-        double lowX = (nodeBoxes[box] - origin.x) * inverseX;
-        double highX = (nodeBoxes[box + TriangleGeometry.COMPONENTS] - origin.x) * inverseX;
-        double lowY = (nodeBoxes[box + 1] - origin.y) * inverseY;
-        double highY = (nodeBoxes[box + TriangleGeometry.COMPONENTS + 1] - origin.y) * inverseY;
-        double lowZ = (nodeBoxes[box + 2] - origin.z) * inverseZ;
-        double highZ = (nodeBoxes[box + TriangleGeometry.COMPONENTS + 2] - origin.z) * inverseZ;
-        double enter = Math.max(MINIMUM_RAY_PARAMETER, Math.max(Math.min(lowX, highX),
-                Math.max(Math.min(lowY, highY), Math.min(lowZ, highZ))));
-        double exit = Math.min(maxParameter, Math.min(Math.max(lowX, highX),
-                Math.min(Math.max(lowY, highY), Math.max(lowZ, highZ))));
-        if (enter > exit) {
-            return Double.POSITIVE_INFINITY;
-        }
-        return Double.isNaN(enter) ? MINIMUM_RAY_PARAMETER : enter;
+    private double boxEnter(int node, Vector3f origin, Vector3d inverse, double maxParameter) {
+        return TriangleGeometry.boxEntry(nodeBoxes, node * BOX_CORNERS, origin, inverse, MINIMUM_RAY_PARAMETER,
+                maxParameter);
     }
 
     /**
@@ -612,11 +571,11 @@ public final class TriangleBvh {
      * @return true when one of the rays meets no triangle
      */
     public boolean hemisphereEscapes(Vector3f origin, Vector3f axis, int[] stack) {
-        float[] basis = hemisphereBasis(axis);
+        Matrix3f frame = MeshTopology.tangentFrame(axis);
         Vector3f direction = new Vector3f();
         for (int ray = 0; ray < HEMISPHERE_RAYS; ray++) {
-            direction.set(hemisphereComponent(basis, ray, 0), hemisphereComponent(basis, ray, 1),
-                    hemisphereComponent(basis, ray, 2));
+            direction.set(hemisphereComponent(frame, ray, 0), hemisphereComponent(frame, ray, 1),
+                    hemisphereComponent(frame, ray, 2));
             if (anyHit(origin, direction, stack) < 0) {
                 return true;
             }
@@ -653,12 +612,12 @@ public final class TriangleBvh {
      */
     public boolean hemisphereEscapes(Vector3f origin, Vector3f axis, int[] stack, int[] blockers, int[] nearby,
             int nearbyCount) {
-        float[] basis = hemisphereBasis(axis);
+        Matrix3f frame = MeshTopology.tangentFrame(axis);
         Vector3f direction = new Vector3f();
         rays:
         for (int ray = 0; ray < HEMISPHERE_RAYS; ray++) {
-            direction.set(hemisphereComponent(basis, ray, 0), hemisphereComponent(basis, ray, 1),
-                    hemisphereComponent(basis, ray, 2));
+            direction.set(hemisphereComponent(frame, ray, 0), hemisphereComponent(frame, ray, 1),
+                    hemisphereComponent(frame, ray, 2));
             for (int index = 0; index < nearbyCount; index++) {
                 if (blocks(nearby[index], origin, direction)) {
                     blockers[ray] = nearby[index];
@@ -699,58 +658,34 @@ public final class TriangleBvh {
     }
 
     /**
-     * The axis followed by two unit vectors across it and each other.
-     *
-     * @param axis unit axis xyz
-     * @return axis, across and third, three components each
-     */
-    private static float[] hemisphereBasis(Vector3f axis) {
-        float[] basis = new float[TriangleGeometry.COMPONENTS * TriangleGeometry.COMPONENTS];
-        float acrossX = Math.abs(axis.x) < SLANT_HELPER_LIMIT ? 0 : -axis.z;
-        float acrossY = Math.abs(axis.x) < SLANT_HELPER_LIMIT ? axis.z : 0;
-        float acrossZ = Math.abs(axis.x) < SLANT_HELPER_LIMIT ? -axis.y : axis.x;
-        float length = (float) Math.sqrt(acrossX * acrossX + acrossY * acrossY + acrossZ * acrossZ);
-        basis[0] = axis.x;
-        basis[1] = axis.y;
-        basis[2] = axis.z;
-        basis[3] = acrossX / length;
-        basis[4] = acrossY / length;
-        basis[5] = acrossZ / length;
-        basis[6] = axis.y * basis[5] - axis.z * basis[4];
-        basis[7] = axis.z * basis[3] - axis.x * basis[5];
-        basis[8] = axis.x * basis[4] - axis.y * basis[3];
-        return basis;
-    }
-
-    /**
      * One of the hemisphere's rays: ray 0 is the axis, then {@link #SLANT_AZIMUTHS} per cone of
      * {@link #SLANT_CONE_TILT_DEGREES}, each cone turned half a step from the last.
      *
-     * @param basis output of {@link #hemisphereBasis}
+     * @param frame the axis's {@link MeshTopology#tangentFrame(Vector3f)}
      * @param ray   ray index below {@link #HEMISPHERE_RAYS}
      * @return a new unit direction
      */
-    private static Vector3f hemisphereDirection(float[] basis, int ray) {
-        return new Vector3f(hemisphereComponent(basis, ray, 0), hemisphereComponent(basis, ray, 1),
-                hemisphereComponent(basis, ray, 2));
+    private static Vector3f hemisphereDirection(Matrix3f frame, int ray) {
+        return new Vector3f(hemisphereComponent(frame, ray, 0), hemisphereComponent(frame, ray, 1),
+                hemisphereComponent(frame, ray, 2));
     }
 
     /**
      * One component of {@link #hemisphereDirection}, so the per-ray loops of
      * {@link #hemisphereEscapes} refill one scratch vector instead of allocating a ray each.
      *
-     * @param basis     output of {@link #hemisphereBasis}
+     * @param frame     the axis's {@link MeshTopology#tangentFrame(Vector3f)}
      * @param ray       ray index below {@link #HEMISPHERE_RAYS}
      * @param component 0, 1 or 2 for x, y or z
      * @return that component of the unit direction
      */
-    private static float hemisphereComponent(float[] basis, int ray, int component) {
+    private static float hemisphereComponent(Matrix3f frame, int ray, int component) {
         if (ray == 0) {
-            return basis[component];
+            return frame.get(2, component);
         }
         double[] trig = RAY_TRIG[ray];
-        return (float) (basis[component] * trig[0] + trig[1]
-                * (basis[component + 3] * trig[2] + basis[component + 6] * trig[3]));
+        return (float) (frame.get(2, component) * trig[0] + trig[1]
+                * (frame.get(1, component) * trig[2] - frame.get(0, component) * trig[3]));
     }
 
     /**
@@ -770,21 +705,7 @@ public final class TriangleBvh {
     }
 
     /**
-     * Where a ray crosses one triangle (Moller and Trumbore 1997).
-     *
-     * @param triangle  triangle to test
-     * @param origin    ray origin xyz
-     * @param direction ray direction xyz
-     * @return the ray parameter of the crossing, or positive infinity when it misses or the
-     *         crossing lies before {@link #MINIMUM_RAY_PARAMETER}
-     */
-    private double rayParameter(int triangle, Vector3f origin, Vector3f direction) {
-        return rayParameter(triangle, origin, direction, 0);
-    }
-
-    /**
-     * Where a ray crosses one triangle grown by a barycentric slack, so that a ray down a shared
-     * edge cannot slip between the two triangles' separately rounded tests.
+     * {@link TriangleGeometry#rayParameter} for one triangle, past {@link #MINIMUM_RAY_PARAMETER}.
      *
      * @param triangle  triangle to test
      * @param origin    ray origin xyz
@@ -793,38 +714,14 @@ public final class TriangleBvh {
      * @return the ray parameter of the crossing, or positive infinity
      */
     private double rayParameter(int triangle, Vector3f origin, Vector3f direction, double slack) {
-        int cornerA = triangleCorners[triangle * TRIANGLE_CORNERS] * TriangleGeometry.COMPONENTS;
-        int cornerB = triangleCorners[triangle * TRIANGLE_CORNERS + 1] * TriangleGeometry.COMPONENTS;
-        int cornerC = triangleCorners[triangle * TRIANGLE_CORNERS + 2] * TriangleGeometry.COMPONENTS;
-        double edgeOneX = positions[cornerB] - (double) positions[cornerA];
-        double edgeOneY = positions[cornerB + 1] - (double) positions[cornerA + 1];
-        double edgeOneZ = positions[cornerB + 2] - (double) positions[cornerA + 2];
-        double edgeTwoX = positions[cornerC] - (double) positions[cornerA];
-        double edgeTwoY = positions[cornerC + 1] - (double) positions[cornerA + 1];
-        double edgeTwoZ = positions[cornerC + 2] - (double) positions[cornerA + 2];
-        double crossX = direction.y * edgeTwoZ - direction.z * edgeTwoY;
-        double crossY = direction.z * edgeTwoX - direction.x * edgeTwoZ;
-        double crossZ = direction.x * edgeTwoY - direction.y * edgeTwoX;
-        double determinant = edgeOneX * crossX + edgeOneY * crossY + edgeOneZ * crossZ;
-        if (determinant == 0.0) {
-            return Double.POSITIVE_INFINITY;
-        }
-        double toOriginX = origin.x - (double) positions[cornerA];
-        double toOriginY = origin.y - (double) positions[cornerA + 1];
-        double toOriginZ = origin.z - (double) positions[cornerA + 2];
-        double first = (toOriginX * crossX + toOriginY * crossY + toOriginZ * crossZ) / determinant;
-        double turnX = toOriginY * edgeOneZ - toOriginZ * edgeOneY;
-        double turnY = toOriginZ * edgeOneX - toOriginX * edgeOneZ;
-        double turnZ = toOriginX * edgeOneY - toOriginY * edgeOneX;
-        double second = (direction.x * turnX + direction.y * turnY + direction.z * turnZ) / determinant;
-        double parameter = (edgeTwoX * turnX + edgeTwoY * turnY + edgeTwoZ * turnZ) / determinant;
-        return first >= -slack && second >= -slack && first + second <= 1.0 + slack
-                && parameter >= MINIMUM_RAY_PARAMETER ? parameter : Double.POSITIVE_INFINITY;
+        int corner = triangle * TRIANGLE_CORNERS;
+        return TriangleGeometry.rayParameter(positions, triangleCorners[corner], triangleCorners[corner + 1],
+                triangleCorners[corner + 2], origin, direction, slack, MINIMUM_RAY_PARAMETER);
     }
 
     /**
-     * {@link #rayParameter(int, float[], float[], double)} for the triangle at one entry of
-     * {@link #triangleOrder}, read from its packed corners: the same floats, the same arithmetic.
+     * {@link #rayParameter} for the triangle at one entry of {@link #triangleOrder}, read from its
+     * packed corners: the same floats, the same arithmetic.
      *
      * @param index     entry of {@link #triangleOrder}
      * @param origin    ray origin xyz
@@ -833,34 +730,9 @@ public final class TriangleBvh {
      * @return the ray parameter of the crossing, or positive infinity
      */
     private double filedRayParameter(int index, Vector3f origin, Vector3f direction, double slack) {
-        int cornerA = index * TRIANGLE_CORNERS * TriangleGeometry.COMPONENTS;
-        int cornerB = cornerA + TriangleGeometry.COMPONENTS;
-        int cornerC = cornerB + TriangleGeometry.COMPONENTS;
-        float[] at = packedCorners;
-        double edgeOneX = at[cornerB] - (double) at[cornerA];
-        double edgeOneY = at[cornerB + 1] - (double) at[cornerA + 1];
-        double edgeOneZ = at[cornerB + 2] - (double) at[cornerA + 2];
-        double edgeTwoX = at[cornerC] - (double) at[cornerA];
-        double edgeTwoY = at[cornerC + 1] - (double) at[cornerA + 1];
-        double edgeTwoZ = at[cornerC + 2] - (double) at[cornerA + 2];
-        double crossX = direction.y * edgeTwoZ - direction.z * edgeTwoY;
-        double crossY = direction.z * edgeTwoX - direction.x * edgeTwoZ;
-        double crossZ = direction.x * edgeTwoY - direction.y * edgeTwoX;
-        double determinant = edgeOneX * crossX + edgeOneY * crossY + edgeOneZ * crossZ;
-        if (determinant == 0.0) {
-            return Double.POSITIVE_INFINITY;
-        }
-        double toOriginX = origin.x - (double) at[cornerA];
-        double toOriginY = origin.y - (double) at[cornerA + 1];
-        double toOriginZ = origin.z - (double) at[cornerA + 2];
-        double first = (toOriginX * crossX + toOriginY * crossY + toOriginZ * crossZ) / determinant;
-        double turnX = toOriginY * edgeOneZ - toOriginZ * edgeOneY;
-        double turnY = toOriginZ * edgeOneX - toOriginX * edgeOneZ;
-        double turnZ = toOriginX * edgeOneY - toOriginY * edgeOneX;
-        double second = (direction.x * turnX + direction.y * turnY + direction.z * turnZ) / determinant;
-        double parameter = (edgeTwoX * turnX + edgeTwoY * turnY + edgeTwoZ * turnZ) / determinant;
-        return first >= -slack && second >= -slack && first + second <= 1.0 + slack
-                && parameter >= MINIMUM_RAY_PARAMETER ? parameter : Double.POSITIVE_INFINITY;
+        int corner = index * TRIANGLE_CORNERS;
+        return TriangleGeometry.rayParameter(packedCorners, corner, corner + 1, corner + 2, origin, direction,
+                slack, MINIMUM_RAY_PARAMETER);
     }
 
     /**
@@ -874,33 +746,24 @@ public final class TriangleBvh {
 
     /** Lays out the boxes and corners the ray walks read, from the tree and {@link #positions}. */
     private void pack() {
-        nodeBoxes = new float[nodeCount * BOX_FLOATS];
+        nodeBoxes = new PackedPoints(nodeCount * BOX_CORNERS);
         int filed = filedTriangles;
-        packedCorners = new float[filed * TRIANGLE_CORNERS * TriangleGeometry.COMPONENTS];
         boolean parallel = filed >= PARALLEL_BUILD_TRIANGLES;
         IntStream nodes = IntStream.range(0, nodeCount);
         (parallel ? nodes.parallel() : nodes).forEach(node -> {
-            System.arraycopy(nodeMin, node * TriangleGeometry.COMPONENTS, nodeBoxes, node * BOX_FLOATS,
-                    TriangleGeometry.COMPONENTS);
-            System.arraycopy(nodeMax, node * TriangleGeometry.COMPONENTS, nodeBoxes,
-                    node * BOX_FLOATS + TriangleGeometry.COMPONENTS, TriangleGeometry.COMPONENTS);
+            nodeBoxes.set(node * BOX_CORNERS, nodeMin.get(node, 0), nodeMin.get(node, 1), nodeMin.get(node, 2));
+            nodeBoxes.set(node * BOX_CORNERS + 1, nodeMax.get(node, 0), nodeMax.get(node, 1),
+                    nodeMax.get(node, 2));
         });
-        IntStream indices = IntStream.range(0, filed);
-        (parallel ? indices.parallel() : indices).forEach(index -> {
-            int triangle = triangleOrder[index];
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                System.arraycopy(positions, triangleCorners[triangle * TRIANGLE_CORNERS + corner]
-                        * TriangleGeometry.COMPONENTS, packedCorners,
-                        (index * TRIANGLE_CORNERS + corner) * TriangleGeometry.COMPONENTS,
-                        TriangleGeometry.COMPONENTS);
-            }
-        });
+        IntStream slots = IntStream.range(0, filed * TRIANGLE_CORNERS).map(slot ->
+                triangleCorners[triangleOrder[slot / TRIANGLE_CORNERS] * TRIANGLE_CORNERS + slot % TRIANGLE_CORNERS]);
+        packedCorners = positions.gather((parallel ? slots.parallel() : slots).toArray());
     }
 
     /** The tree build over the triangles; see {@link #build}. */
     private void buildNodes() {
-        if (triangleBounds.length < triangleCount * BOX_FLOATS) {
-            triangleBounds = new float[triangleCount * BOX_FLOATS];
+        if (triangleBounds.size() < triangleCount * BOX_CORNERS) {
+            triangleBounds = new PackedPoints(triangleCount * BOX_CORNERS);
             triangleOrder = new int[triangleCount];
         }
         int inTree = 0;
@@ -915,8 +778,8 @@ public final class TriangleBvh {
         }
         filedTriangles = inTree;
         nodeCount = 0;
-        nodeMin = new float[INITIAL_NODES * TriangleGeometry.COMPONENTS];
-        nodeMax = new float[INITIAL_NODES * TriangleGeometry.COMPONENTS];
+        nodeMin = new PackedPoints(INITIAL_NODES);
+        nodeMax = new PackedPoints(INITIAL_NODES);
         nodeLeftChild = new int[INITIAL_NODES];
         nodeTriangleStart = new int[INITIAL_NODES];
         nodeTriangleCount = new int[INITIAL_NODES];
@@ -937,16 +800,15 @@ public final class TriangleBvh {
             part.triangleBounds = triangleBounds;
             part.triangleOrder = triangleOrder;
             part.leafTriangles = leafTriangles;
-            part.nodeMin = new float[INITIAL_NODES * TriangleGeometry.COMPONENTS];
-            part.nodeMax = new float[INITIAL_NODES * TriangleGeometry.COMPONENTS];
+            part.nodeMin = new PackedPoints(INITIAL_NODES);
+            part.nodeMax = new PackedPoints(INITIAL_NODES);
             part.nodeLeftChild = new int[INITIAL_NODES];
             part.nodeTriangleStart = new int[INITIAL_NODES];
             part.nodeTriangleCount = new int[INITIAL_NODES];
             part.pending = new int[INITIAL_NODES];
-            float[] box = new float[BOX_FLOATS];
-            System.arraycopy(nodeMin, node * TriangleGeometry.COMPONENTS, box, 0, TriangleGeometry.COMPONENTS);
-            System.arraycopy(nodeMax, node * TriangleGeometry.COMPONENTS, box,
-                    TriangleGeometry.COMPONENTS, TriangleGeometry.COMPONENTS);
+            PackedPoints box = new PackedPoints(BOX_CORNERS);
+            box.set(0, nodeMin.at(node));
+            box.set(1, nodeMax.at(node));
             part.splitBelow(part.addNode(nodeTriangleStart[node], nodeTriangleCount[node], box), 0);
             parts[index] = part;
         });
@@ -967,8 +829,8 @@ public final class TriangleBvh {
         int needed = nodeCount + part.nodeCount - 1;
         if (needed > nodeLeftChild.length) {
             int capacity = Math.max(needed, nodeLeftChild.length * GROWTH);
-            nodeMin = Arrays.copyOf(nodeMin, capacity * TriangleGeometry.COMPONENTS);
-            nodeMax = Arrays.copyOf(nodeMax, capacity * TriangleGeometry.COMPONENTS);
+            nodeMin.resize(capacity);
+            nodeMax.resize(capacity);
             nodeLeftChild = Arrays.copyOf(nodeLeftChild, capacity);
             nodeTriangleStart = Arrays.copyOf(nodeTriangleStart, capacity);
             nodeTriangleCount = Arrays.copyOf(nodeTriangleCount, capacity);
@@ -979,10 +841,8 @@ public final class TriangleBvh {
             nodeLeftChild[target] = child < 0 ? -1 : offset + child;
             nodeTriangleStart[target] = part.nodeTriangleStart[local];
             nodeTriangleCount[target] = part.nodeTriangleCount[local];
-            System.arraycopy(part.nodeMin, local * TriangleGeometry.COMPONENTS, nodeMin,
-                    target * TriangleGeometry.COMPONENTS, TriangleGeometry.COMPONENTS);
-            System.arraycopy(part.nodeMax, local * TriangleGeometry.COMPONENTS, nodeMax,
-                    target * TriangleGeometry.COMPONENTS, TriangleGeometry.COMPONENTS);
+            nodeMin.set(target, part.nodeMin.at(local));
+            nodeMax.set(target, part.nodeMax.at(local));
         }
         nodeCount = needed;
     }
@@ -1041,25 +901,24 @@ public final class TriangleBvh {
      */
     public void refit() {
         for (int node = nodeCount - 1; node >= 0; node--) {
-            int box = node * TriangleGeometry.COMPONENTS;
             int left = nodeLeftChild[node];
-            Arrays.fill(splitScanBox, 0, TriangleGeometry.COMPONENTS, Float.POSITIVE_INFINITY);
-            Arrays.fill(splitScanBox, TriangleGeometry.COMPONENTS, BOX_FLOATS, Float.NEGATIVE_INFINITY);
+            splitScanBox.set(0, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
+            splitScanBox.set(1, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
             int end = nodeTriangleStart[node] + nodeTriangleCount[node];
             for (int index = nodeTriangleStart[node]; left < 0 && index < end; index++) {
                 boundTriangle(triangleOrder[index]);
                 growBox(splitScanBox, triangleOrder[index]);
             }
             for (int child = left; left >= 0 && child < left + CHILDREN; child++) {
-                int childBox = child * TriangleGeometry.COMPONENTS;
-                for (int axis = 0; axis < TriangleGeometry.COMPONENTS; axis++) {
-                    splitScanBox[axis] = Math.min(splitScanBox[axis], nodeMin[childBox + axis]);
-                    splitScanBox[TriangleGeometry.COMPONENTS + axis] = Math.max(
-                            splitScanBox[TriangleGeometry.COMPONENTS + axis], nodeMax[childBox + axis]);
-                }
+                splitScanBox.set(0, Math.min(splitScanBox.get(0, 0), nodeMin.get(child, 0)),
+                        Math.min(splitScanBox.get(0, 1), nodeMin.get(child, 1)),
+                        Math.min(splitScanBox.get(0, 2), nodeMin.get(child, 2)));
+                splitScanBox.set(1, Math.max(splitScanBox.get(1, 0), nodeMax.get(child, 0)),
+                        Math.max(splitScanBox.get(1, 1), nodeMax.get(child, 1)),
+                        Math.max(splitScanBox.get(1, 2), nodeMax.get(child, 2)));
             }
-            System.arraycopy(splitScanBox, 0, nodeMin, box, TriangleGeometry.COMPONENTS);
-            System.arraycopy(splitScanBox, TriangleGeometry.COMPONENTS, nodeMax, box, TriangleGeometry.COMPONENTS);
+            nodeMin.set(node, splitScanBox.at(0));
+            nodeMax.set(node, splitScanBox.at(1));
         }
         pack();
     }
@@ -1069,38 +928,17 @@ public final class TriangleBvh {
      * in every column its box overlaps, for {@link #facing} to read; the tree is not needed.
      */
     public void buildColumns() {
-        columnBounds = new float[triangleCount * BOX_FLOATS];
-        columnLow = new float[] { Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY,
-            Float.POSITIVE_INFINITY };
-        float[] high = { Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY,
-            Float.NEGATIVE_INFINITY };
-        int included = 0;
-        double edgeLengthSum = 0;
-        for (int triangle = 0; triangle < triangleCount; triangle++) {
-            if (triangleGroup != null && triangleGroup[triangle] < 0) {
-                continue;
-            }
-            included++;
-            double edgeSquared = 0;
-            for (int component = 0; component < TriangleGeometry.COMPONENTS; component++) {
-                float cornerA = positions[triangleCorners[triangle * TRIANGLE_CORNERS]
-                        * TriangleGeometry.COMPONENTS + component];
-                float cornerB = positions[triangleCorners[triangle * TRIANGLE_CORNERS + 1]
-                        * TriangleGeometry.COMPONENTS + component];
-                float cornerC = positions[triangleCorners[triangle * TRIANGLE_CORNERS + 2]
-                        * TriangleGeometry.COMPONENTS + component];
-                float boxLow = Math.min(cornerA, Math.min(cornerB, cornerC));
-                float boxHigh = Math.max(cornerA, Math.max(cornerB, cornerC));
-                columnBounds[triangle * BOX_FLOATS + component] = boxLow;
-                columnBounds[triangle * BOX_FLOATS + TriangleGeometry.COMPONENTS + component] =
-                        boxHigh;
-                columnLow[component] = Math.min(columnLow[component], boxLow);
-                high[component] = Math.max(high[component], boxHigh);
-                edgeSquared += ((double) cornerB - cornerA) * ((double) cornerB - cornerA);
-            }
-            edgeLengthSum += Math.sqrt(edgeSquared);
-        }
-        double cell = Math.max(edgeLengthSum / Math.max(1, included), Float.MIN_NORMAL);
+        columnBounds = TriangleGeometry.boxes(positions, Arrays.copyOf(triangleCorners, triangleCount * TRIANGLE_CORNERS));
+        int[] included = IntStream.range(0, triangleCount)
+                .filter(triangle -> triangleGroup == null || triangleGroup[triangle] >= 0).toArray();
+        PackedPoints extent = columnBounds.bounds(IntStream.of(included)
+                .flatMap(triangle -> IntStream.of(triangle * BOX_CORNERS, triangle * BOX_CORNERS + 1)).toArray());
+        columnLow = extent.at(0);
+        Vector3f high = extent.at(1);
+        double edgeLengthSum = IntStream.of(included).mapToDouble(triangle -> Math.sqrt(positions.distanceSquared(
+                triangleCorners[triangle * TRIANGLE_CORNERS], positions.at(triangleCorners[triangle * TRIANGLE_CORNERS + 1]))))
+                .sum();
+        double cell = Math.max(edgeLengthSum / Math.max(1, included.length), Float.MIN_NORMAL);
         columnStep = new double[TriangleGeometry.COMPONENTS];
         columnsAlongOf = new int[TriangleGeometry.COMPONENTS];
         columnsAcrossOf = new int[TriangleGeometry.COMPONENTS];
@@ -1118,16 +956,16 @@ public final class TriangleBvh {
      * @param cell smallest column width
      * @param high upper corner of the box round every filed triangle
      */
-    private void fileAxisColumns(int axis, double cell, float[] high) {
+    private void fileAxisColumns(int axis, double cell, Vector3f high) {
         int across = (axis + 1) % TriangleGeometry.COMPONENTS;
         int along = (axis + 2) % TriangleGeometry.COMPONENTS;
-        double step = Math.max(cell, Math.sqrt((double) (high[across] - columnLow[across])
-                * (high[along] - columnLow[along]) / MAX_COLUMNS));
+        double step = Math.max(cell, Math.sqrt((double) (high.get(across) - columnLow.get(across))
+                * (high.get(along) - columnLow.get(along)) / MAX_COLUMNS));
         double perStep = 1 / step;
         int columnsAcross = Math.max(1,
-                (int) Math.ceil((high[across] - columnLow[across]) * perStep));
+                (int) Math.ceil((high.get(across) - columnLow.get(across)) * perStep));
         int columnsAlong = Math.max(1,
-                (int) Math.ceil((high[along] - columnLow[along]) * perStep));
+                (int) Math.ceil((high.get(along) - columnLow.get(along)) * perStep));
         int columns = columnsAcross * columnsAlong;
         columnStep[axis] = perStep;
         columnsAcrossOf[axis] = columnsAcross;
@@ -1137,11 +975,11 @@ public final class TriangleBvh {
             if (triangleGroup != null && triangleGroup[triangle] < 0) {
                 continue;
             }
-            int box = triangle * BOX_FLOATS;
-            int firstColumn = columnOf(columnBounds[box + across], across, axis);
-            int lastColumn = columnOf(columnBounds[box + TriangleGeometry.COMPONENTS + across], across, axis);
-            int firstRow = columnOf(columnBounds[box + along], along, axis);
-            int lastRow = columnOf(columnBounds[box + TriangleGeometry.COMPONENTS + along], along, axis);
+            int low = triangle * BOX_CORNERS;
+            int firstColumn = columnOf(columnBounds.get(low, across), across, axis);
+            int lastColumn = columnOf(columnBounds.get(low + 1, across), across, axis);
+            int firstRow = columnOf(columnBounds.get(low, along), along, axis);
+            int lastRow = columnOf(columnBounds.get(low + 1, along), along, axis);
             for (int column = firstColumn; column <= lastColumn; column++) {
                 for (int row = firstRow; row <= lastRow; row++) {
                     start[column * columnsAlong + row + 1]++;
@@ -1157,11 +995,11 @@ public final class TriangleBvh {
             if (triangleGroup != null && triangleGroup[triangle] < 0) {
                 continue;
             }
-            int box = triangle * BOX_FLOATS;
-            int firstColumn = columnOf(columnBounds[box + across], across, axis);
-            int lastColumn = columnOf(columnBounds[box + TriangleGeometry.COMPONENTS + across], across, axis);
-            int firstRow = columnOf(columnBounds[box + along], along, axis);
-            int lastRow = columnOf(columnBounds[box + TriangleGeometry.COMPONENTS + along], along, axis);
+            int low = triangle * BOX_CORNERS;
+            int firstColumn = columnOf(columnBounds.get(low, across), across, axis);
+            int lastColumn = columnOf(columnBounds.get(low + 1, across), across, axis);
+            int firstRow = columnOf(columnBounds.get(low, along), along, axis);
+            int lastRow = columnOf(columnBounds.get(low + 1, along), along, axis);
             for (int column = firstColumn; column <= lastColumn; column++) {
                 for (int row = firstRow; row <= lastRow; row++) {
                     members[cursor[column * columnsAlong + row]++] = triangle;
@@ -1196,7 +1034,8 @@ public final class TriangleBvh {
 
     /**
      * The line {@link #facing} reads for a triangle: through its centre along its normal's main
-     * axis, both worked in the floats the positions hold.
+     * axis: {@link TriangleGeometry#centre} and {@link TriangleGeometry#cross}, as MeshRepair reads
+     * the same line.
      *
      * @param triangle the triangle
      * @param centre   receives its centre
@@ -1204,20 +1043,12 @@ public final class TriangleBvh {
      * @return the line's axis
      */
     private int lineThrough(int triangle, Vector3d centre, Vector3d normal) {
-        int cornerA = triangleCorners[triangle * TRIANGLE_CORNERS] * TriangleGeometry.COMPONENTS;
-        int cornerB = triangleCorners[triangle * TRIANGLE_CORNERS + 1] * TriangleGeometry.COMPONENTS;
-        int cornerC = triangleCorners[triangle * TRIANGLE_CORNERS + 2] * TriangleGeometry.COMPONENTS;
-        float alongX = positions[cornerB] - positions[cornerA];
-        float alongY = positions[cornerB + 1] - positions[cornerA + 1];
-        float alongZ = positions[cornerB + 2] - positions[cornerA + 2];
-        float acrossX = positions[cornerC] - positions[cornerA];
-        float acrossY = positions[cornerC + 1] - positions[cornerA + 1];
-        float acrossZ = positions[cornerC + 2] - positions[cornerA + 2];
-        normal.set(alongY * acrossZ - alongZ * acrossY, alongZ * acrossX - alongX * acrossZ,
-                alongX * acrossY - alongY * acrossX);
-        centre.set((positions[cornerA] + positions[cornerB] + positions[cornerC]) / TRIANGLE_CORNERS,
-                (positions[cornerA + 1] + positions[cornerB + 1] + positions[cornerC + 1]) / TRIANGLE_CORNERS,
-                (positions[cornerA + 2] + positions[cornerB + 2] + positions[cornerC + 2]) / TRIANGLE_CORNERS);
+        int corner = triangle * TRIANGLE_CORNERS;
+        int cornerA = triangleCorners[corner];
+        int cornerB = triangleCorners[corner + 1];
+        int cornerC = triangleCorners[corner + 2];
+        normal.set(TriangleGeometry.cross(positions, cornerA, cornerB, cornerC));
+        centre.set(TriangleGeometry.centre(positions, cornerA, cornerB, cornerC));
         return normal.maxComponent();
     }
 
@@ -1245,7 +1076,7 @@ public final class TriangleBvh {
             if (lineCells != null) {
                 lineCells[triangle] = column * TRIANGLE_CORNERS + axis;
             }
-            double below = columnLow[axis] - 1;
+            double below = columnLow.get(axis) - 1;
             int group = triangleGroup == null ? -1 : triangleGroup[triangle];
             int ahead = 0;
             int line = 0;
@@ -1254,11 +1085,7 @@ public final class TriangleBvh {
             for (int member = columnStart[axis][column]; member < columnStart[axis][column + 1];
                     member++) {
                 int other = columnMembers[axis][member];
-                int box = other * BOX_FLOATS;
-                if (centre.get(across) < columnBounds[box + across]
-                        || centre.get(across) > columnBounds[box + TriangleGeometry.COMPONENTS + across]
-                        || centre.get(along) < columnBounds[box + along]
-                        || centre.get(along) > columnBounds[box + TriangleGeometry.COMPONENTS + along]
+                if (!TriangleGeometry.boxCovers(columnBounds, other * BOX_CORNERS, centre, across, along)
                         || triangleGroup != null && triangleGroup[other] == group) {
                     continue;
                 }
@@ -1298,26 +1125,24 @@ public final class TriangleBvh {
      *
      * @param axis    the line's axis
      * @param centre  a point on the line
-     * @param at      xyz per corner index
+     * @param at      points by corner index
      * @param cornerA first corner of the other triangle
      * @param cornerB second corner
      * @param cornerC third corner
      * @return the distance, infinite when the plane runs along the line
      */
-    private static double axialGap(int axis, Vector3d centre, float[] at, int cornerA, int cornerB, int cornerC) {
-        int a = cornerA * TriangleGeometry.COMPONENTS;
-        int b = cornerB * TriangleGeometry.COMPONENTS;
-        int c = cornerC * TriangleGeometry.COMPONENTS;
+    private static double axialGap(int axis, Vector3d centre, PackedPoints at, int cornerA, int cornerB,
+            int cornerC) {
         double offset = 0;
         double normalOnAxis = 0;
         for (int component = 0; component < TriangleGeometry.COMPONENTS; component++) {
             int next = (component + 1) % TriangleGeometry.COMPONENTS;
             int after = (component + 2) % TriangleGeometry.COMPONENTS;
-            double normal = (at[b + next] - (double) at[a + next])
-                    * (at[c + after] - (double) at[a + after])
-                    - (at[b + after] - (double) at[a + after])
-                    * (at[c + next] - (double) at[a + next]);
-            offset += normal * (at[a + component] - centre.get(component));
+            double normal = (at.get(cornerB, next) - (double) at.get(cornerA, next))
+                    * (at.get(cornerC, after) - (double) at.get(cornerA, after))
+                    - (at.get(cornerB, after) - (double) at.get(cornerA, after))
+                    * (at.get(cornerC, next) - (double) at.get(cornerA, next));
+            offset += normal * (at.get(cornerA, component) - centre.get(component));
             normalOnAxis = component == axis ? normal : normalOnAxis;
         }
         return normalOnAxis == 0 ? Double.POSITIVE_INFINITY : Math.abs(offset / normalOnAxis);
@@ -1336,31 +1161,22 @@ public final class TriangleBvh {
      * boxes of loose triangles overlap, so a line along an axis in an unlisted cell meets none of
      * them. Listed rather than flagged, so the cost follows the triangles, not the grid.
      *
-     * @param corners nine floats per triangle, corner by corner
+     * @param corners three points per triangle, corner by corner
      * @return the cells, ascending, each once
      */
-    public int[] cellsUnder(float[] corners) {
+    public int[] cellsUnder(PackedPoints corners) {
         int[] cells = new int[TRIANGLE_CORNERS * TriangleGeometry.COMPONENTS];
         int count = 0;
+        PackedPoints boxes = TriangleGeometry.boxes(corners, IntStream.range(0, corners.size()).toArray());
         for (int axis = 0; axis < TriangleGeometry.COMPONENTS; axis++) {
             int across = (axis + 1) % TriangleGeometry.COMPONENTS;
             int along = (axis + 2) % TriangleGeometry.COMPONENTS;
-            for (int start = 0; start < corners.length; start += TRIANGLE_CORNERS * TriangleGeometry.COMPONENTS) {
-                float acrossLow = Float.POSITIVE_INFINITY;
-                float acrossHigh = Float.NEGATIVE_INFINITY;
-                float alongLow = Float.POSITIVE_INFINITY;
-                float alongHigh = Float.NEGATIVE_INFINITY;
-                for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                    int at = start + corner * TriangleGeometry.COMPONENTS;
-                    acrossLow = Math.min(acrossLow, corners[at + across]);
-                    acrossHigh = Math.max(acrossHigh, corners[at + across]);
-                    alongLow = Math.min(alongLow, corners[at + along]);
-                    alongHigh = Math.max(alongHigh, corners[at + along]);
-                }
-                int lastAlong = clampedColumn(alongHigh, along, axis);
-                for (int row = clampedColumn(acrossLow, across, axis);
-                        row <= clampedColumn(acrossHigh, across, axis); row++) {
-                    for (int column = clampedColumn(alongLow, along, axis); column <= lastAlong; column++) {
+            for (int low = 0; low < boxes.size(); low += BOX_CORNERS) {
+                int lastAlong = clampedColumn(boxes.get(low + 1, along), along, axis);
+                for (int row = clampedColumn(boxes.get(low, across), across, axis);
+                        row <= clampedColumn(boxes.get(low + 1, across), across, axis); row++) {
+                    for (int column = clampedColumn(boxes.get(low, along), along, axis); column <= lastAlong;
+                            column++) {
                         if (count == cells.length) {
                             cells = Arrays.copyOf(cells, count * GROWTH);
                         }
@@ -1369,14 +1185,7 @@ public final class TriangleBvh {
                 }
             }
         }
-        Arrays.sort(cells, 0, count);
-        int distinct = 0;
-        for (int index = 0; index < count; index++) {
-            if (distinct == 0 || cells[distinct - 1] != cells[index]) {
-                cells[distinct++] = cells[index];
-            }
-        }
-        return Arrays.copyOf(cells, distinct);
+        return Arrays.stream(cells, 0, count).sorted().distinct().toArray();
     }
 
     /**
@@ -1439,7 +1248,7 @@ public final class TriangleBvh {
     private int columnOf(double value, int component, int axis) {
         int count = component == (axis + 1) % TriangleGeometry.COMPONENTS ? columnsAcrossOf[axis]
                 : columnsAlongOf[axis];
-        return Math.min(count - 1, (int) ((value - columnLow[component]) * columnStep[axis]));
+        return Math.min(count - 1, (int) ((value - columnLow.get(component)) * columnStep[axis]));
     }
 
 
@@ -1451,9 +1260,8 @@ public final class TriangleBvh {
      * @return the new node's index
      */
     private int addNode(int start, int count) {
-        Arrays.fill(splitScanBox, 0, TriangleGeometry.COMPONENTS, Float.POSITIVE_INFINITY);
-        Arrays.fill(splitScanBox, TriangleGeometry.COMPONENTS, BOX_FLOATS,
-                Float.NEGATIVE_INFINITY);
+        splitScanBox.set(0, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
+        splitScanBox.set(1, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
         for (int index = start; index < start + count; index++) {
             growBox(splitScanBox, triangleOrder[index]);
         }
@@ -1468,11 +1276,11 @@ public final class TriangleBvh {
      * @param box lower then upper corner of the run's bounding box
      * @return the new node's index
      */
-    private int addNode(int start, int count, float[] box) {
+    private int addNode(int start, int count, PackedPoints box) {
         if (nodeCount == nodeLeftChild.length) {
             int capacity = nodeLeftChild.length * GROWTH;
-            nodeMin = Arrays.copyOf(nodeMin, capacity * TriangleGeometry.COMPONENTS);
-            nodeMax = Arrays.copyOf(nodeMax, capacity * TriangleGeometry.COMPONENTS);
+            nodeMin.resize(capacity);
+            nodeMax.resize(capacity);
             nodeLeftChild = Arrays.copyOf(nodeLeftChild, capacity);
             nodeTriangleStart = Arrays.copyOf(nodeTriangleStart, capacity);
             nodeTriangleCount = Arrays.copyOf(nodeTriangleCount, capacity);
@@ -1481,10 +1289,8 @@ public final class TriangleBvh {
         nodeLeftChild[node] = -1;
         nodeTriangleStart[node] = start;
         nodeTriangleCount[node] = count;
-        System.arraycopy(box, 0, nodeMin, node * TriangleGeometry.COMPONENTS,
-                TriangleGeometry.COMPONENTS);
-        System.arraycopy(box, TriangleGeometry.COMPONENTS, nodeMax,
-                node * TriangleGeometry.COMPONENTS, TriangleGeometry.COMPONENTS);
+        nodeMin.set(node, box.get(0, 0), box.get(0, 1), box.get(0, 2));
+        nodeMax.set(node, box.get(1, 0), box.get(1, 1), box.get(1, 2));
         return node;
     }
 
@@ -1499,23 +1305,22 @@ public final class TriangleBvh {
      * @return the offset the second half starts at
      */
     private int partition(int node, int start, int count) {
-        int box = node * TriangleGeometry.COMPONENTS;
-        float spanX = nodeMax[box] - nodeMin[box];
-        float spanY = nodeMax[box + 1] - nodeMin[box + 1];
-        float spanZ = nodeMax[box + 2] - nodeMin[box + 2];
+        float spanX = nodeMax.get(node, 0) - nodeMin.get(node, 0);
+        float spanY = nodeMax.get(node, 1) - nodeMin.get(node, 1);
+        float spanZ = nodeMax.get(node, 2) - nodeMin.get(node, 2);
         int axis = spanX >= spanY && spanX >= spanZ ? 0 : spanY >= spanZ ? 1 : 2;
-        float midpoint = HALF * (nodeMin[box + axis] + nodeMax[box + axis]);
-        Arrays.fill(splitLowBox, 0, TriangleGeometry.COMPONENTS, Float.POSITIVE_INFINITY);
-        Arrays.fill(splitLowBox, TriangleGeometry.COMPONENTS, BOX_FLOATS, Float.NEGATIVE_INFINITY);
-        Arrays.fill(splitHighBox, 0, TriangleGeometry.COMPONENTS, Float.POSITIVE_INFINITY);
-        Arrays.fill(splitHighBox, TriangleGeometry.COMPONENTS, BOX_FLOATS, Float.NEGATIVE_INFINITY);
+        float midpoint = HALF * (nodeMin.get(node, axis) + nodeMax.get(node, axis));
+        splitLowBox.set(0, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
+        splitLowBox.set(1, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
+        splitHighBox.set(0, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
+        splitHighBox.set(1, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
         int low = start;
         int high = start + count;
         while (low < high) {
             int triangle = triangleOrder[low];
-            int triangleBox = triangle * BOX_FLOATS + axis;
-            float centre = HALF * (triangleBounds[triangleBox]
-                    + triangleBounds[triangleBox + TriangleGeometry.COMPONENTS]);
+            int triangleLow = triangle * BOX_CORNERS;
+            float centre = HALF * (triangleBounds.get(triangleLow, axis)
+                    + triangleBounds.get(triangleLow + 1, axis));
             if (centre < midpoint) {
                 growBox(splitLowBox, triangle);
                 low++;
@@ -1535,17 +1340,13 @@ public final class TriangleBvh {
      * @param triangle triangle index
      */
     private void boundTriangle(int triangle) {
-        int bounds = triangle * BOX_FLOATS;
-        Arrays.fill(triangleBounds, bounds, bounds + TriangleGeometry.COMPONENTS, Float.POSITIVE_INFINITY);
-        Arrays.fill(triangleBounds, bounds + TriangleGeometry.COMPONENTS, bounds + BOX_FLOATS, Float.NEGATIVE_INFINITY);
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-            int vertex = triangleCorners[triangle * TRIANGLE_CORNERS + corner] * TriangleGeometry.COMPONENTS;
-            for (int axis = 0; axis < TriangleGeometry.COMPONENTS; axis++) {
-                float value = positions[vertex + axis];
-                triangleBounds[bounds + axis] = Math.min(triangleBounds[bounds + axis], value);
-                triangleBounds[bounds + TriangleGeometry.COMPONENTS + axis] = Math.max(
-                        triangleBounds[bounds + TriangleGeometry.COMPONENTS + axis], value);
-            }
+        int corner = triangle * TRIANGLE_CORNERS;
+        for (int axis = 0; axis < TriangleGeometry.COMPONENTS; axis++) {
+            float cornerA = positions.get(triangleCorners[corner], axis);
+            float cornerB = positions.get(triangleCorners[corner + 1], axis);
+            float cornerC = positions.get(triangleCorners[corner + 2], axis);
+            triangleBounds.set(triangle * BOX_CORNERS, axis, Math.min(cornerA, Math.min(cornerB, cornerC)));
+            triangleBounds.set(triangle * BOX_CORNERS + 1, axis, Math.max(cornerA, Math.max(cornerB, cornerC)));
         }
     }
 
@@ -1555,13 +1356,13 @@ public final class TriangleBvh {
      * @param box lower then upper corner, updated in place
      * @param triangle triangle whose bounds to union in
      */
-    private void growBox(float[] box, int triangle) {
-        int bounds = triangle * BOX_FLOATS;
-        for (int component = 0; component < TriangleGeometry.COMPONENTS; component++) {
-            box[component] = Math.min(box[component], triangleBounds[bounds + component]);
-            box[TriangleGeometry.COMPONENTS + component] =
-                    Math.max(box[TriangleGeometry.COMPONENTS + component],
-                            triangleBounds[bounds + TriangleGeometry.COMPONENTS + component]);
-        }
+    private void growBox(PackedPoints box, int triangle) {
+        int low = triangle * BOX_CORNERS;
+        box.set(0, Math.min(box.get(0, 0), triangleBounds.get(low, 0)),
+                Math.min(box.get(0, 1), triangleBounds.get(low, 1)),
+                Math.min(box.get(0, 2), triangleBounds.get(low, 2)));
+        box.set(1, Math.max(box.get(1, 0), triangleBounds.get(low + 1, 0)),
+                Math.max(box.get(1, 1), triangleBounds.get(low + 1, 1)),
+                Math.max(box.get(1, 2), triangleBounds.get(low + 1, 2)));
     }
 }

@@ -9,6 +9,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
@@ -82,13 +83,13 @@ public class MergeCurvesNode implements MeshNode {
                 curveAttributes.putIfAbsent(name, new float[curveTotal]);
             }
         }
-        float[] positions = new float[points * CurveGeometry.XYZ];
+        PackedPoints positions = new PackedPoints(points);
         int[] offsets = new int[curveTotal + 1];
         boolean[] closed = new boolean[curveTotal];
         int pointBase = 0;
         int curveBase = 0;
         for (CurveGeometry set : sets) {
-            System.arraycopy(set.positions, 0, positions, pointBase * CurveGeometry.XYZ, set.positions.length);
+            positions.slice(pointBase, set.pointCount()).copyFrom(set.positions);
             for (int curve = 0; curve < set.curveCount(); curve++) {
                 offsets[curveBase + curve + 1] = pointBase + set.firstPoint(curve) + set.pointCount(curve);
                 closed[curveBase + curve] = set.closed[curve];

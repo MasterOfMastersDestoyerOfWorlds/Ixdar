@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * The bulk builders ({@link HalfEdgeMeshOps#buildFromIndexedMesh},
@@ -35,7 +36,7 @@ public class HalfEdgeBulkBuildTest {
     /** A closed triangulated torus: every edge has two faces. */
     @Test
     void closedTriangleMeshMatchesIncrementalBuild() {
-        float[] positions = torusPositions();
+        PackedPoints positions = torusPositions();
         int[] triangles = torusFaces(true);
         HalfEdgeMesh reference = incrementalBuild(positions, triangles, 3);
         reference.computeNormals();
@@ -50,7 +51,7 @@ public class HalfEdgeBulkBuildTest {
      */
     @Test
     void openTriangleMeshMatchesIncrementalBuild() {
-        float[] positions = gridPositions();
+        PackedPoints positions = gridPositions();
         int[] gridOrder = new int[(GRID_COLUMNS - 1) * (GRID_ROWS - 1) * 2 * 3];
         int cursor = 0;
         for (int row = 0; row < GRID_ROWS - 1; row++) {
@@ -80,7 +81,7 @@ public class HalfEdgeBulkBuildTest {
     /** A quad torus through the uniform-arity bulk path. */
     @Test
     void quadMeshMatchesIncrementalBuild() {
-        float[] positions = torusPositions();
+        PackedPoints positions = torusPositions();
         int[] quads = torusFaces(false);
         assertNull(firstTopologyDifference(incrementalBuild(positions, quads, QUAD_CORNERS),
                 HalfEdgeMeshOps.bulkAllocate(positions, quads, QUAD_CORNERS)));
@@ -89,7 +90,7 @@ public class HalfEdgeBulkBuildTest {
     /** Quads and triangles mixed on an open grid, through the mixed-arity bulk path. */
     @Test
     void mixedMeshMatchesIncrementalBuild() {
-        float[] positions = gridPositions();
+        PackedPoints positions = gridPositions();
         int quadCount = (GRID_COLUMNS - 1) * (GRID_ROWS - 1);
         int[] counts = new int[quadCount + quadCount / 2];
         int[] flat = new int[quadCount * QUAD_CORNERS + quadCount / 2 * 2];
@@ -119,8 +120,8 @@ public class HalfEdgeBulkBuildTest {
         int[] faceIndices = Arrays.copyOf(flat, indexCursor);
 
         HalfEdgeMesh reference = new HalfEdgeMesh();
-        for (int offset = 0; offset < positions.length; offset += 3) {
-            reference.addVertex(positions[offset], positions[offset + 1], positions[offset + 2]);
+        for (int vertex = 0; vertex < positions.size(); vertex++) {
+            reference.addVertex(positions.get(vertex, 0), positions.get(vertex, 1), positions.get(vertex, 2));
         }
         int cursor = 0;
         for (int count : faceVertexCounts) {
@@ -137,7 +138,12 @@ public class HalfEdgeBulkBuildTest {
      */
     @Test
     void everyCollidingHalfEdgeIsReported() {
-        float[] positions = {0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1};
+        PackedPoints positions = new PackedPoints(6);
+        positions.set(1, 1, 0, 0);
+        positions.set(2, 0, 1, 0);
+        positions.set(3, 0, -1, 0);
+        positions.set(4, 0, 0, 1);
+        positions.set(5, 0, 0, -1);
         int[] triangles = {0, 1, 2, 1, 0, 3, 0, 1, 4, 1, 0, 5};
         InvalidMeshTopologyException failure = assertThrows(InvalidMeshTopologyException.class,
                 () -> HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles));
@@ -246,16 +252,16 @@ public class HalfEdgeBulkBuildTest {
     /**
      * The reference build: every vertex, then every face through {@link HalfEdgeMesh#addFace}.
      *
-     * @param positions    packed xyz triples
+     * @param positions    one point per vertex
      * @param faceIndices  face corners grouped by {@code cornerCount}
      * @param cornerCount  corners per face
      * @return the incrementally built mesh, without normals
      */
-    public static HalfEdgeMesh incrementalBuild(float[] positions, int[] faceIndices,
+    public static HalfEdgeMesh incrementalBuild(PackedPoints positions, int[] faceIndices,
             int cornerCount) {
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        for (int offset = 0; offset < positions.length; offset += 3) {
-            mesh.addVertex(positions[offset], positions[offset + 1], positions[offset + 2]);
+        for (int vertex = 0; vertex < positions.size(); vertex++) {
+            mesh.addVertex(positions.get(vertex, 0), positions.get(vertex, 1), positions.get(vertex, 2));
         }
         for (int offset = 0; offset < faceIndices.length; offset += cornerCount) {
             mesh.addFace(Arrays.copyOfRange(faceIndices, offset, offset + cornerCount));
@@ -263,18 +269,17 @@ public class HalfEdgeBulkBuildTest {
         return mesh;
     }
 
-    private static float[] torusPositions() {
-        float[] positions = new float[TORUS_MAJOR_SEGMENTS * TORUS_MINOR_SEGMENTS * 3];
-        int cursor = 0;
+    private static PackedPoints torusPositions() {
+        PackedPoints positions = new PackedPoints();
         for (int major = 0; major < TORUS_MAJOR_SEGMENTS; major++) {
             double ringAngle = FULL_TURN * major / TORUS_MAJOR_SEGMENTS;
             for (int minor = 0; minor < TORUS_MINOR_SEGMENTS; minor++) {
                 double tubeAngle = FULL_TURN * minor / TORUS_MINOR_SEGMENTS;
                 double distanceFromAxis = TORUS_MAJOR_RADIUS
                         + TORUS_MINOR_RADIUS * Math.cos(tubeAngle);
-                positions[cursor++] = (float) (distanceFromAxis * Math.cos(ringAngle));
-                positions[cursor++] = (float) (TORUS_MINOR_RADIUS * Math.sin(tubeAngle));
-                positions[cursor++] = (float) (distanceFromAxis * Math.sin(ringAngle));
+                positions.append((float) (distanceFromAxis * Math.cos(ringAngle)),
+                        (float) (TORUS_MINOR_RADIUS * Math.sin(tubeAngle)),
+                        (float) (distanceFromAxis * Math.sin(ringAngle)));
             }
         }
         return positions;
@@ -307,17 +312,14 @@ public class HalfEdgeBulkBuildTest {
     }
 
     /** Grid positions plus one trailing vertex that no face uses. */
-    private static float[] gridPositions() {
-        float[] positions = new float[(GRID_COLUMNS * GRID_ROWS + 1) * 3];
+    private static PackedPoints gridPositions() {
+        PackedPoints positions = new PackedPoints(GRID_COLUMNS * GRID_ROWS + 1);
         for (int row = 0; row < GRID_ROWS; row++) {
             for (int column = 0; column < GRID_COLUMNS; column++) {
-                int offset = (row * GRID_COLUMNS + column) * 3;
-                positions[offset] = column;
-                positions[offset + 1] = row;
-                positions[offset + 2] = (column * row) % 3 * 0.25f;
+                positions.set(row * GRID_COLUMNS + column, column, row, (column * row) % 3 * 0.25f);
             }
         }
-        positions[positions.length - 1] = -1f;
+        positions.set(GRID_COLUMNS * GRID_ROWS, 0f, 0f, -1f);
         return positions;
     }
 }

@@ -9,6 +9,7 @@ import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
@@ -118,7 +119,7 @@ public final class OffMeshParser {
      * @return parsed mesh
      */
     private static MeshTopology loadAscii(String body) {
-        List<Float> positions = new ArrayList<>();
+        PackedPoints positions = new PackedPoints();
         List<int[]> faces = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new StringReader(body))) {
             int vertexCount = -1;
@@ -138,9 +139,8 @@ public final class OffMeshParser {
                     continue;
                 }
                 if (verticesRead < vertexCount) {
-                    positions.add(Float.parseFloat(parts[0]));
-                    positions.add(Float.parseFloat(parts[1]));
-                    positions.add(Float.parseFloat(parts[2]));
+                    positions.append(Float.parseFloat(parts[0]), Float.parseFloat(parts[1]),
+                            Float.parseFloat(parts[2]));
                     verticesRead++;
                 } else if (facesRead < faceCount) {
                     int cornerCount = Integer.parseInt(parts[0]);
@@ -180,11 +180,11 @@ public final class OffMeshParser {
         int[] colorComponentCandidates = hasColors
                 ? new int[] { RGBA_COMPONENTS, MeshLoader.FLOATS_PER_VERTEX, 1 }
                 : new int[] { 0 };
-        List<Float> positions = new ArrayList<>();
+        PackedPoints positions = new PackedPoints();
         List<int[]> faces = new ArrayList<>();
         for (boolean bigEndian : new boolean[] { true, false }) {
             for (int colorComponents : colorComponentCandidates) {
-                positions.clear();
+                positions.resize(0);
                 faces.clear();
                 if (readBinaryBody(content, bodyStart, bigEndian,
                         fixedFloatsPerVertex + colorComponents, positions, faces)) {
@@ -204,12 +204,12 @@ public final class OffMeshParser {
      * @param bodyStart           offset of the first byte after the header line
      * @param bigEndian           whether words are most-significant byte first
      * @param floatsPerVertex     stride of a vertex record, positions first
-     * @param positions           filled with three floats per vertex when the read succeeds
+     * @param positions           filled with one point per vertex when the read succeeds
      * @param faces               filled with one vertex-index array per face when it succeeds
      * @return whether the layout read the whole body consistently
      */
     private static boolean readBinaryBody(byte[] content, int bodyStart, boolean bigEndian,
-            int floatsPerVertex, List<Float> positions, List<int[]> faces) {
+            int floatsPerVertex, PackedPoints positions, List<int[]> faces) {
         int wordsAvailable = (content.length - bodyStart) / BYTES_PER_WORD;
         if (wordsAvailable < HEADER_COUNT_WORDS) {
             return false;
@@ -223,9 +223,9 @@ public final class OffMeshParser {
 
         int at = bodyStart + HEADER_COUNT_WORDS * BYTES_PER_WORD;
         for (int vertex = 0; vertex < vertexCount; vertex++) {
-            positions.add(readFloat(content, at, bigEndian));
-            positions.add(readFloat(content, at + BYTES_PER_WORD, bigEndian));
-            positions.add(readFloat(content, at + 2 * BYTES_PER_WORD, bigEndian));
+            positions.append(readFloat(content, at, bigEndian),
+                    readFloat(content, at + BYTES_PER_WORD, bigEndian),
+                    readFloat(content, at + 2 * BYTES_PER_WORD, bigEndian));
             at += floatsPerVertex * BYTES_PER_WORD;
         }
 
@@ -292,18 +292,14 @@ public final class OffMeshParser {
      * Assemble the mesh both bodies produce: positions, the mesh's own area-weighted normals, and
      * either the quads as authored or a fan triangulation of every face.
      *
-     * @param positions three floats per vertex, in file order
+     * @param positions one point per vertex, in file order; the mesh keeps it
      * @param faces     vertex indices of each face, in file order
      * @return the assembled mesh, empty when there are no positions or no faces
      */
-    private static MeshTopology buildMesh(List<Float> positions, List<int[]> faces) {
-        if (positions.isEmpty()) {
+    private static MeshTopology buildMesh(PackedPoints positions, List<int[]> faces) {
+        if (positions.size() == 0) {
             return new HalfEdgeMesh();
         }
-
-        float[] posArray = new float[positions.size()];
-        for (int i = 0; i < positions.size(); i++)
-            posArray[i] = positions.get(i);
 
         boolean uniformQuads = !faces.isEmpty();
         for (int[] face : faces) {
@@ -321,7 +317,7 @@ public final class OffMeshParser {
                 faceIndices[fi++] = face[2];
                 faceIndices[fi++] = face[MeshLoader.FLOATS_PER_VERTEX];
             }
-            return MeshLoader.indexedMesh(posArray, null, faceIndices, 4);
+            return MeshLoader.indexedMesh(positions, null, faceIndices, 4);
         }
 
         int totalTriIndices = 0;
@@ -347,6 +343,6 @@ public final class OffMeshParser {
         if (triangleIndices.length == 0) {
             return new HalfEdgeMesh();
         }
-        return MeshLoader.indexedMesh(posArray, null, triangleIndices, MeshLoader.FLOATS_PER_VERTEX);
+        return MeshLoader.indexedMesh(positions, null, triangleIndices, MeshLoader.FLOATS_PER_VERTEX);
     }
 }

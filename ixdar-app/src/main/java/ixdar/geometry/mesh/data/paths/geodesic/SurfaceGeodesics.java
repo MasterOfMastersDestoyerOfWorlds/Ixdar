@@ -6,6 +6,7 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.graph.Dijkstra;
 
 /**
@@ -16,8 +17,6 @@ import ixdar.numeric.graph.Dijkstra;
  * One engine per user holds its flips, buffers and last path. See b/Surf §5.2 for the A* seed.
  */
 public final class SurfaceGeodesics {
-
-    public static final int COORDINATES_PER_POINT = 3;
 
     public static final int DEFAULT_SEARCH_BUDGET = 200000;
 
@@ -33,8 +32,8 @@ public final class SurfaceGeodesics {
     /** Tracer that lands a tightened path on the surface. */
     public IntrinsicPathTracer tracer;
 
-    /** Packed xyz of the last geodesic, one point per vertex, edge crossing or inside-face point. */
-    public double[] tracedXyz = new double[0];
+    /** Points of the last geodesic, one per vertex, edge crossing or inside-face point. */
+    public PackedPoints tracedXyz = new PackedPoints(0);
 
     /** Mesh vertex id per traced point, or -1 elsewhere. */
     public int[] tracedVertexId = new int[0];
@@ -195,8 +194,7 @@ public final class SurfaceGeodesics {
 
     /** A traced point at double precision. */
     private Vector3d tracedPoint(int point) {
-        return new Vector3d(tracedXyz[COORDINATES_PER_POINT * point],
-                tracedXyz[COORDINATES_PER_POINT * point + 1], tracedXyz[COORDINATES_PER_POINT * point + 2]);
+        return new Vector3d(tracedXyz.get(point, 0), tracedXyz.get(point, 1), tracedXyz.get(point, 2));
     }
 
     /**
@@ -323,12 +321,9 @@ public final class SurfaceGeodesics {
         tracedFraction = traced.fraction;
         tracedArcLength[0] = 0.0;
         for (int point = 1; point < tracedPointCount; point++) {
-            double dx = tracedXyz[COORDINATES_PER_POINT * point]
-                    - tracedXyz[COORDINATES_PER_POINT * (point - 1)];
-            double dy = tracedXyz[COORDINATES_PER_POINT * point + 1]
-                    - tracedXyz[COORDINATES_PER_POINT * (point - 1) + 1];
-            double dz = tracedXyz[COORDINATES_PER_POINT * point + 2]
-                    - tracedXyz[COORDINATES_PER_POINT * (point - 1) + 2];
+            double dx = (double) tracedXyz.get(point, 0) - tracedXyz.get(point - 1, 0);
+            double dy = (double) tracedXyz.get(point, 1) - tracedXyz.get(point - 1, 1);
+            double dz = (double) tracedXyz.get(point, 2) - tracedXyz.get(point - 1, 2);
             tracedArcLength[point] =
                     tracedArcLength[point - 1] + Math.sqrt(dx * dx + dy * dy + dz * dz);
         }

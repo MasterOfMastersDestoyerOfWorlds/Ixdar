@@ -99,10 +99,9 @@ public class CheckerMaterialNode implements MeshNode {
             int axisU = (axis + 1) % CornerUvField.CORNERS_PER_FACE;
             int axisV = (axis + 2) % CornerUvField.CORNERS_PER_FACE;
             for (int corner = 0; corner < CornerUvField.CORNERS_PER_FACE; corner++) {
-                int vertex = triangulated.triangles[first + corner]
-                        * CornerUvField.CORNERS_PER_FACE;
-                cornerU[first + corner] = triangulated.positions[vertex + axisU] / tileSize;
-                cornerV[first + corner] = triangulated.positions[vertex + axisV] / tileSize;
+                int vertex = triangulated.triangles[first + corner];
+                cornerU[first + corner] = triangulated.positions.get(vertex, axisU) / tileSize;
+                cornerV[first + corner] = triangulated.positions.get(vertex, axisV) / tileSize;
             }
         }
 

@@ -1,10 +1,11 @@
 package ixdar.geometry.mesh.data.paths.query;
 
+import java.util.stream.IntStream;
+
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
-import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.render.model.LineSet;
 
@@ -37,30 +38,22 @@ public final class SurfaceFaceLocator {
     public SurfaceFaceLocator(MeshTopology mesh) {
         this.mesh = mesh;
         int triangleCount = mesh.triangleCount();
-        int maxVertexId = 0;
-        for (int vertex = 0; vertex < mesh.vertexCount(); vertex++) {
-            maxVertexId = Math.max(maxVertexId, mesh.vertexIdAt(vertex));
-        }
-        float[] positions = new float[(maxVertexId + 1) * TriangleGeometry.COMPONENTS];
+        int[] vertexIds = IntStream.range(0, mesh.vertexCount()).map(mesh::vertexIdAt).toArray();
+        PackedPoints points = new PackedPoints(IntStream.of(vertexIds).max().orElse(0) + 1);
         Vector3f position = new Vector3f();
-        Vector3f low = new Vector3f(Float.POSITIVE_INFINITY);
-        Vector3f high = new Vector3f(Float.NEGATIVE_INFINITY);
-        for (int vertex = 0; vertex < mesh.vertexCount(); vertex++) {
-            int vertexId = mesh.vertexIdAt(vertex);
-            mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(positions, vertexId * TriangleGeometry.COMPONENTS, position);
-            low.min(position);
-            high.max(position);
+        for (int vertexId : vertexIds) {
+            points.set(vertexId, mesh.vertexPosition(vertexId, position));
         }
+        PackedPoints box = points.bounds(vertexIds);
         int[] faceOfTriangle = new int[triangleCount];
         int[] corners = mesh.triangulate(TriangulationRule.FAN, faceOfTriangle);
-        triangles.positions = positions;
+        triangles.positions = points;
         triangles.triangleCorners = corners;
         triangles.triangleGroup = faceOfTriangle;
         triangles.triangleCount = triangleCount;
         triangles.build();
         nodeStack = new int[Math.max(1, triangles.nodeCount)];
-        onSurfaceDistance = triangleCount == 0 ? 0f : high.distance(low)
+        onSurfaceDistance = triangleCount == 0 ? 0f : box.at(1).distance(box.at(0))
                 * ON_FACE_DISTANCE_PER_BOUNDING_DIAGONAL;
     }
 
@@ -69,19 +62,19 @@ public final class SurfaceFaceLocator {
      * midpoint: two faces when it runs along an edge, else the one face it crosses, twice. A
      * segment off the surface gets zero normals, which the line shader never discards.
      *
-     * @param segmentEndpoints packed xyz, two endpoints per segment
+     * @param segmentEndpoints segment {@code s} runs from point {@code 2s} to point {@code 2s + 1}
      * @param lines            receives one segment per endpoint pair
      */
-    public void appendSegments(float[] segmentEndpoints, LineSet lines) {
-        int stride = 2 * TriangleGeometry.COMPONENTS;
+    public void appendSegments(PackedPoints segmentEndpoints, LineSet lines) {
         int[] corners = triangles.triangleCorners;
-        float[] positions = triangles.positions;
-        for (int base = 0; base + stride <= segmentEndpoints.length; base += stride) {
-            int far = base + TriangleGeometry.COMPONENTS;
-            lines.start.set(segmentEndpoints[base], segmentEndpoints[base + 1],
-                    segmentEndpoints[base + 2]);
-            lines.end.set(segmentEndpoints[far], segmentEndpoints[far + 1],
-                    segmentEndpoints[far + 2]);
+        PackedPoints positions = triangles.positions;
+        for (int segment = 0; segment < segmentEndpoints.size() / 2; segment++) {
+            int near = 2 * segment;
+            int far = near + 1;
+            lines.start.set(segmentEndpoints.get(near, 0), segmentEndpoints.get(near, 1),
+                    segmentEndpoints.get(near, 2));
+            lines.end.set(segmentEndpoints.get(far, 0), segmentEndpoints.get(far, 1),
+                    segmentEndpoints.get(far, 2));
             midpoint.set(lines.start).add(lines.end).mul(0.5f);
             int nearestFace = MeshTopology.NONE;
             int secondFace = MeshTopology.NONE;
@@ -92,13 +85,12 @@ public final class SurfaceFaceLocator {
             }
             while (top > 0) {
                 int node = nodeStack[--top];
-                int box = node * TriangleGeometry.COMPONENTS;
-                if (midpoint.x < triangles.nodeMin[box] - onSurfaceDistance
-                        || midpoint.y < triangles.nodeMin[box + 1] - onSurfaceDistance
-                        || midpoint.z < triangles.nodeMin[box + 2] - onSurfaceDistance
-                        || midpoint.x > triangles.nodeMax[box] + onSurfaceDistance
-                        || midpoint.y > triangles.nodeMax[box + 1] + onSurfaceDistance
-                        || midpoint.z > triangles.nodeMax[box + 2] + onSurfaceDistance) {
+                if (midpoint.x < triangles.nodeMin.get(node, 0) - onSurfaceDistance
+                        || midpoint.y < triangles.nodeMin.get(node, 1) - onSurfaceDistance
+                        || midpoint.z < triangles.nodeMin.get(node, 2) - onSurfaceDistance
+                        || midpoint.x > triangles.nodeMax.get(node, 0) + onSurfaceDistance
+                        || midpoint.y > triangles.nodeMax.get(node, 1) + onSurfaceDistance
+                        || midpoint.z > triangles.nodeMax.get(node, 2) + onSurfaceDistance) {
                     continue;
                 }
                 int left = triangles.nodeLeftChild[node];
@@ -111,12 +103,12 @@ public final class SurfaceFaceLocator {
                 for (int index = triangles.nodeTriangleStart[node]; index < end; index++) {
                     int triangle = triangles.triangleOrder[index];
                     int first = triangle * TriangleBvh.TRIANGLE_CORNERS;
-                    int a = corners[first] * TriangleGeometry.COMPONENTS;
-                    int b = corners[first + 1] * TriangleGeometry.COMPONENTS;
-                    int c = corners[first + 2] * TriangleGeometry.COMPONENTS;
-                    cornerA.set(positions[a], positions[a + 1], positions[a + 2]);
-                    edgeB.set(positions[b], positions[b + 1], positions[b + 2]).sub(cornerA);
-                    edgeC.set(positions[c], positions[c + 1], positions[c + 2]).sub(cornerA);
+                    int a = corners[first];
+                    int b = corners[first + 1];
+                    int c = corners[first + 2];
+                    cornerA.set(positions.get(a, 0), positions.get(a, 1), positions.get(a, 2));
+                    edgeB.set(positions.get(b, 0), positions.get(b, 1), positions.get(b, 2)).sub(cornerA);
+                    edgeC.set(positions.get(c, 0), positions.get(c, 1), positions.get(c, 2)).sub(cornerA);
                     toPoint.set(midpoint).sub(cornerA);
                     edgeB.cross(edgeC, normal);
                     float doubleArea = normal.length();

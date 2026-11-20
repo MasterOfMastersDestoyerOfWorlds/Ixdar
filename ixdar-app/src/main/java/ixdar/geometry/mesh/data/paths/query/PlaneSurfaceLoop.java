@@ -6,6 +6,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * The loop a plane cuts out of a surface, walked face by face from one crossing edge.
@@ -15,8 +16,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
  * rather than the mesh's edge count.
  */
 public final class PlaneSurfaceLoop {
-
-    public static final int COORDINATES_PER_POINT = 3;
 
     public static final int MAXIMUM_STEPS = 200000;
 
@@ -38,7 +37,7 @@ public final class PlaneSurfaceLoop {
 
     private int[] crossedEdgeId = new int[0];
     private double[] crossedFraction = new double[0];
-    private double[] crossedXyz = new double[0];
+    private final PackedPoints crossedXyz = new PackedPoints();
     private final Vector3f tailPosition = new Vector3f();
     private final Vector3f headPosition = new Vector3f();
     private Vector3f planePoint = new Vector3f();
@@ -66,6 +65,7 @@ public final class PlaneSurfaceLoop {
         int currentEdgeId = startEdgeId;
         int currentFaceId = mesh.halfEdgeFace(mesh.edgeHalfEdge(startEdgeId));
         int stepCount = 0;
+        crossedXyz.resize(0);
         double walked = 0.0;
         for (int step = 0; step < capacity; step++) {
             if (currentFaceId < 0) {
@@ -77,16 +77,14 @@ public final class PlaneSurfaceLoop {
                         Math.max(INITIAL_CROSSINGS, 2 * crossedEdgeId.length));
                 crossedEdgeId = Arrays.copyOf(crossedEdgeId, grown);
                 crossedFraction = Arrays.copyOf(crossedFraction, grown);
-                crossedXyz = Arrays.copyOf(crossedXyz, COORDINATES_PER_POINT * grown);
             }
-            int base = COORDINATES_PER_POINT * stepCount;
-            crossedXyz[base] = tailPosition.x + along * (headPosition.x - tailPosition.x);
-            crossedXyz[base + 1] = tailPosition.y + along * (headPosition.y - tailPosition.y);
-            crossedXyz[base + 2] = tailPosition.z + along * (headPosition.z - tailPosition.z);
+            crossedXyz.append((float) (tailPosition.x + along * (headPosition.x - tailPosition.x)),
+                    (float) (tailPosition.y + along * (headPosition.y - tailPosition.y)),
+                    (float) (tailPosition.z + along * (headPosition.z - tailPosition.z)));
             if (stepCount > 0) {
-                double dx = crossedXyz[base] - crossedXyz[base - COORDINATES_PER_POINT];
-                double dy = crossedXyz[base + 1] - crossedXyz[base - COORDINATES_PER_POINT + 1];
-                double dz = crossedXyz[base + 2] - crossedXyz[base - COORDINATES_PER_POINT + 2];
+                double dx = (double) crossedXyz.get(stepCount, 0) - crossedXyz.get(stepCount - 1, 0);
+                double dy = (double) crossedXyz.get(stepCount, 1) - crossedXyz.get(stepCount - 1, 1);
+                double dz = (double) crossedXyz.get(stepCount, 2) - crossedXyz.get(stepCount - 1, 2);
                 walked += Math.sqrt(dx * dx + dy * dy + dz * dz);
                 if (walked > maximumLength) {
                     return false;
@@ -111,10 +109,9 @@ public final class PlaneSurfaceLoop {
             if (currentEdgeId == startEdgeId) {
                 int[] noVertex = new int[stepCount];
                 Arrays.fill(noVertex, -1);
-                path = new TracedSurfacePath(
-                        Arrays.copyOf(crossedXyz, COORDINATES_PER_POINT * stepCount), noVertex,
+                path = new TracedSurfacePath(crossedXyz.copy(), noVertex,
                         Arrays.copyOf(crossedEdgeId, stepCount),
-                        Arrays.copyOf(crossedFraction, stepCount), stepCount, true).measure();
+                        Arrays.copyOf(crossedFraction, stepCount), true).measure();
                 return path.length <= maximumLength;
             }
         }

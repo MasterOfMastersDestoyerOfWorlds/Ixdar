@@ -22,6 +22,7 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.nodes.data.AddLabelNode;
@@ -159,22 +160,22 @@ public final class RingDslWriter {
      *
      * @param dslSource   working graph the bisector is added to
      * @param id          statement id and label to bind it to, unbound in the source
-     * @param packedXyz   the bisector's anchors as packed xyz, end to end
-     * @param anchorCount anchors to write from the front of the array
-     * @param ends        labels of the walls the first and the last anchor sit on
-     * @param stretchXyz  for a stretch of a closed ring, its four stretch points as packed xyz,
-     *                    as {@link SplineCutNode#STRETCH} reads them; {@code null} for none
+     * @param anchors       the bisector's anchors, end to end
+     * @param anchorCount   anchors to write from the front of the list
+     * @param ends          labels of the walls the first and the last anchor sit on
+     * @param stretchPoints for a stretch of a closed ring, its four stretch points as
+     *                      {@link SplineCutNode#STRETCH} reads them; {@code null} for none
      * @throws IllegalArgumentException when the source holds no statement to chain onto
      * @return the source with the statement and a trailing newline appended
      */
-    public static String appendBisector(String dslSource, String id, List<Vector3f> packedXyz,
-            int anchorCount, String[] ends, float[] stretchXyz) {
+    public static String appendBisector(String dslSource, String id, List<Vector3f> anchors,
+            int anchorCount, String[] ends, PackedPoints stretchPoints) {
         return appended(dslSource, id + " = " + SplineCutNode.NODE_ID + "(geometry="
                 + lastGeometry(upstreamStatements(dslSource)) + ", " + POINTS_ARGUMENT
-                + SurfaceWaypoints.format(packedXyz, anchorCount) + "\", "
+                + SurfaceWaypoints.format(anchors, anchorCount) + "\", "
                 + SplineCutNode.ENDS.name + "=\"" + EdgeMarks.formatLabels(ends) + "\", "
-                + (stretchXyz == null ? "" : SplineCutNode.STRETCH.name + "=\""
-                        + SurfaceWaypoints.format(stretchXyz, SplineCutNode.STRETCH_POINTS)
+                + (stretchPoints == null ? "" : SplineCutNode.STRETCH.name + "=\""
+                        + SurfaceWaypoints.format(stretchPoints, SplineCutNode.STRETCH_POINTS)
                         + "\", ")
                 + "label=\"" + id + "\")");
     }
@@ -527,12 +528,11 @@ public final class RingDslWriter {
                 throw new IllegalArgumentException("the working graph already binds " + id
                         + ", the id label " + name + " is saved under; rename one of them");
             }
-            float[] points = labels.pointsByLabel.get(label);
+            PackedPoints points = labels.pointsByLabel.get(label);
             source = appended(source, id + " = " + AddLabelNode.NODE_ID + "("
                     + AddLabelNode.GEOMETRY.name + "=" + lastGeometry(upstreamStatements(source))
                     + ", " + AddLabelNode.LABEL.name + "=\"" + name
-                    + "\", " + POINTS_ARGUMENT + SurfaceWaypoints.format(points,
-                            points.length / MeshLabels.XYZ) + "\")");
+                    + "\", " + POINTS_ARGUMENT + SurfaceWaypoints.format(points, points.size()) + "\")");
         }
         return source;
     }

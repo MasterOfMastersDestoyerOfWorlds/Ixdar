@@ -8,15 +8,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
+import java.util.stream.IntStream;
 
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.grid2d.PolygonScan;
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.analysis.curvature.ImplicitFit;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.graphics.cameras.Camera3D;
 
 /**
@@ -84,8 +87,8 @@ public final class KeyCandidates {
      */
     public float goalLineRadius = 0.06f;
 
-    /** The goal lines the last {@link #chains} carried onto the surface, whole before they are cut, packed xyz. */
-    public final List<float[]> carriedLines = new ArrayList<>();
+    /** The goal lines the last {@link #chains} carried onto the surface, whole before they are cut. */
+    public final List<PackedPoints> carriedLines = new ArrayList<>();
 
     /** Which goal line each of {@link #carriedLines} was carried from; a line broken in the carry gives several. */
     public final List<Integer> carriedFrom = new ArrayList<>();
@@ -145,7 +148,7 @@ public final class KeyCandidates {
      */
     public List<AnchoredStroke> fills(MeshTopology surface, float[] field, float[] area) {
         int vertexCount = surface.vertexCount();
-        float[] vertexXyz = surface.packedPositions(null);
+        PackedPoints vertices = surface.packedPositions(null);
         int[][] neighbours = surface.oneRings();
         List<AnchoredStroke> candidates = new ArrayList<>();
         float[] smoothed = field;
@@ -179,8 +182,7 @@ public final class KeyCandidates {
                         for (int head = 0; head < size; head++) {
                             int member = region[head];
                             regionArea += area[member];
-                            centre.add(vertexXyz[member * 3] * area[member], vertexXyz[member * 3 + 1] * area[member],
-                                    vertexXyz[member * 3 + 2] * area[member]);
+                            centre.add(vertices.at(member).mul(area[member]));
                             boolean edge = false;
                             for (int neighbour : neighbours[member]) {
                                 boolean inside = sign * smoothed[neighbour] > level;
@@ -203,34 +205,29 @@ public final class KeyCandidates {
                         inset.expand(surface, boundary, boundaryCount, Float.POSITIVE_INFINITY, -1, null);
                         for (float fraction : new float[] { FILL_RADIUS_SMALL, FILL_RADIUS_LARGE }) {
                             float radius = Math.max(minimumRadius, Math.min(maximumRadius, fraction * equivalentRadius));
-                            float[] interior = new float[size * 3];
+                            PackedPoints interiorPoints = new PackedPoints(size);
                             int kept = 0;
                             for (int index = 0; index < size; index++) {
                                 int member = region[index];
-                                if (inset.distance(surface.vertexIdAt(member)) >=ERODED_FRACTION * radius) {
-                                    System.arraycopy(vertexXyz, member * 3, interior, kept++ * 3, 3);
+                                if (inset.distance(surface.vertexIdAt(member)) >= ERODED_FRACTION * radius) {
+                                    interiorPoints.set(kept++, vertices.at(member));
                                 }
                             }
                             if (kept < 3) {
                                 kept = 0;
                                 for (int index = 0; index < size; index++) {
-                                    for (int axis = 0; axis < 3; axis++) {
-                                        interior[kept * 3 + axis] = centre.get(axis) + SHRINK_TOWARD_CENTRE
-                                                * (vertexXyz[region[index] * 3 + axis] - centre.get(axis));
-                                    }
-                                    kept++;
+                                    interiorPoints.set(kept++,
+                                            vertices.at(region[index]).sub(centre).mul(SHRINK_TOWARD_CENTRE).add(centre));
                                 }
                             }
-                            int cell = squarestCell(interior, kept);
+                            int cell = squarestCell(interiorPoints, kept);
                             if (cell < 0) {
                                 continue;
                             }
                             float[] pixels = new float[kept * 2];
                             float[] pixel = new float[2];
-                            Vector3f point = new Vector3f();
                             for (int index = 0; index < kept; index++) {
-                                template.cellPixel(cameras[cell], point.set(interior[index * 3], interior[index * 3 + 1],
-                                        interior[index * 3 + 2]), pixel);
+                                template.cellPixel(cameras[cell], interiorPoints.at(index), pixel);
                                 pixels[index * 2] = pixel[0];
                                 pixels[index * 2 + 1] = pixel[1];
                             }
@@ -273,12 +270,9 @@ public final class KeyCandidates {
                             if (lattice.length > 0 && filled < MINIMUM_HULL_COVERAGE * (lattice.length / 2)) {
                                 continue;
                             }
-                            float[] outline = new float[hull.length * 3];
-                            for (int index = 0; index < hull.length; index++) {
-                                System.arraycopy(interior, hull[index] * 3, outline, index * 3, 3);
-                            }
-                            for (int profile = 0; profile < 2 && outline.length >= 3 * 3; profile++) {
-                                candidates.add(stroke(true, outline, outline.length / 3, cell, radius, profile == 1));
+                            PackedPoints outline = interiorPoints.gather(hull);
+                            for (int profile = 0; profile < 2 && outline.size() >= 3; profile++) {
+                                candidates.add(stroke(true, outline, outline.size(), cell, radius, profile == 1));
                             }
                         }
                     }
@@ -294,64 +288,53 @@ public final class KeyCandidates {
      *
      * @param surface   the surface the offsets live on
      * @param offset    signed offset by dense vertex index
-     * @param normalXyz unit direction of each offset, packed xyz
+     * @param normalXyz unit direction of each offset by dense vertex index
      * @param goalLines the goal's own ridge and valley lines in the base's frame, each carried onto the
      *                  surface vertex whose offset lands nearest it; null for the offset field's lines
      * @return the candidates, each with depth 1
      */
-    public List<AnchoredStroke> chains(MeshTopology surface, float[] offset, float[] normalXyz, List<float[]> goalLines) {
-        List<float[]> lines = new ArrayList<>();
+    public List<AnchoredStroke> chains(MeshTopology surface, float[] offset, PackedPoints normalXyz,
+            List<PackedPoints> goalLines) {
+        List<PackedPoints> lines = new ArrayList<>();
         List<Float> widths = new ArrayList<>();
         if (goalLines != null) {
-            float[] surfaceXyz = surface.packedPositions(null);
-            double[] landingXyz = new double[surfaceXyz.length];
-            double low = Double.POSITIVE_INFINITY;
-            double high = Double.NEGATIVE_INFINITY;
-            for (int index = 0; index < surfaceXyz.length; index++) {
-                landingXyz[index] = surfaceXyz[index] + offset[index / 3] * normalXyz[index];
-                low = Math.min(low, landingXyz[index]);
-                high = Math.max(high, landingXyz[index]);
+            PackedPoints surfacePoints = surface.packedPositions(null);
+            PackedPoints landingXyz = new PackedPoints(surfacePoints.size());
+            for (int activeVertex = 0; activeVertex < landingXyz.size(); activeVertex++) {
+                landingXyz.set(activeVertex, normalXyz.at(activeVertex).mul(offset[activeVertex])
+                        .add(surfacePoints.at(activeVertex)));
             }
+            PackedPoints box = landingXyz.bounds();
+            double low = Math.min(box.get(0, 0), Math.min(box.get(0, 1), box.get(0, 2)));
+            double high = Math.max(box.get(1, 0), Math.max(box.get(1, 1), box.get(1, 2)));
             ImplicitFit.Buckets landings = new ImplicitFit.Buckets(landingXyz, goalLineRadius, low - goalLineRadius,
                     high - low + 2.0 * goalLineRadius);
-            double[] place = new double[3];
             carriedLines.clear();
             carriedFrom.clear();
             for (int goalIndex = 0; goalIndex < goalLines.size(); goalIndex++) {
-                float[] goalLine = goalLines.get(goalIndex);
-                float[] carried = new float[goalLine.length];
-                int count = 0;
-                for (int point = 0; point * 3 <= goalLine.length; point++) {
-                    for (int axis = 0; axis < 3 && point * 3 < goalLine.length; axis++) {
-                        place[axis] = goalLine[point * 3 + axis];
-                    }
-                    int nearest = point * 3 < goalLine.length ? landings.nearest(place, 0, goalLineRadius, null) : -1;
+                PackedPoints goalLine = goalLines.get(goalIndex);
+                PackedPoints carried = new PackedPoints();
+                for (int point = 0; point <= goalLine.size(); point++) {
+                    int nearest = point < goalLine.size() ? landings.nearest(goalLine.at(point), goalLineRadius, null)
+                            : -1;
                     if (nearest >= 0) {
-                        System.arraycopy(surfaceXyz, nearest * 3, carried, count++ * 3, 3);
-                    } else if (count > 0) {
-                        lines.add(Arrays.copyOf(carried, count * 3));
+                        carried.append(surfacePoints.at(nearest));
+                    } else if (carried.size() > 0) {
+                        lines.add(carried);
                         widths.add(goalLineRadius);
-                        carriedLines.add(lines.get(lines.size() - 1));
+                        carriedLines.add(carried);
                         carriedFrom.add(goalIndex);
-                        count = 0;
+                        carried = new PackedPoints();
                     }
                 }
             }
-            int total = 0;
-            for (float[] line : lines) {
-                total += line.length / 3;
-            }
-            double[] allXyz = new double[total * 3];
-            int[] lineOfPoint = new int[total];
+            PackedPoints allXyz = PackedPoints.concat(lines.toArray(new PackedPoints[0]));
+            int[] lineOfPoint = new int[allXyz.size()];
             int filled = 0;
             for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
-                float[] line = lines.get(lineIndex);
-                for (int point = 0; point * 3 < line.length; point++, filled++) {
-                    for (int axis = 0; axis < 3; axis++) {
-                        allXyz[filled * 3 + axis] = line[point * 3 + axis];
-                    }
-                    lineOfPoint[filled] = lineIndex;
-                }
+                int count = lines.get(lineIndex).size();
+                Arrays.fill(lineOfPoint, filled, filled + count, lineIndex);
+                filled += count;
             }
             double reach = 2.0 * maximumRadius;
             ImplicitFit.Buckets linePoints = new ImplicitFit.Buckets(allXyz, reach, low - reach, high - low + 2.0 * reach);
@@ -359,14 +342,13 @@ public final class KeyCandidates {
             int[] activeVertexById = surface.activeIndexById();
             filled = 0;
             for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
-                int count = lines.get(lineIndex).length / 3;
+                int count = lines.get(lineIndex).size();
                 float[] gaps = new float[count];
                 int own = lineIndex;
                 for (int point = 0; point < count; point++, filled++) {
-                    int other = linePoints.nearest(allXyz, filled * 3, reach, index -> lineOfPoint[index] == own);
-                    gaps[point] = other < 0 ? (float) reach : (float) Math.sqrt(Math.pow(allXyz[other * 3]
-                            - allXyz[filled * 3], 2) + Math.pow(allXyz[other * 3 + 1] - allXyz[filled * 3 + 1], 2)
-                            + Math.pow(allXyz[other * 3 + 2] - allXyz[filled * 3 + 2], 2));
+                    int other = linePoints.nearest(allXyz.at(filled), reach, index -> lineOfPoint[index] == own);
+                    gaps[point] = other < 0 ? (float) reach
+                            : (float) Math.sqrt(allXyz.distanceSquared(other, filled));
                 }
                 Arrays.sort(gaps);
                 widths.set(lineIndex, OffsetCrests.fittedWidth(lines.get(lineIndex), gaps[count / 2] / 2f, surface,
@@ -383,38 +365,33 @@ public final class KeyCandidates {
             }
         }
         List<AnchoredStroke> candidates = new ArrayList<>();
-        List<float[]> offeredPieces = new ArrayList<>();
+        List<PackedPoints> offeredPieces = new ArrayList<>();
         for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
-            float[] line = lines.get(lineIndex);
-            int lineLength = line.length / 3;
-            double length = 0.0;
-            for (int point = 0; point + 1 < lineLength; point++) {
-                length += Vector3f.distance(line[point * 3], line[point * 3 + 1], line[point * 3 + 2],
-                        line[point * 3 + 3], line[point * 3 + 4], line[point * 3 + 5]);
-            }
+            PackedPoints line = lines.get(lineIndex);
+            int lineLength = line.size();
+            double length = line.arcLength();
             float radius = Math.max(minimumRadius, Math.min(maximumRadius, widths.get(lineIndex)));
             float pieceRadius = goalLines != null ? Math.max(radius, goalLineRadius) : radius;
             float pieceLength = Math.max((float) length / Math.max(1, (int) Math.ceil(length
                     / (CHAIN_LENGTH_RADII * pieceRadius))), StrokeSketch.DEFAULT_SPACING);
-            float[] piece = new float[line.length];
+            PackedPoints piece = new PackedPoints(lineLength);
             int count = 0;
             float along = 0f;
             for (int point = 0; point < lineLength; point++) {
-                int at = point * 3;
-                float step = count == 0 ? 0f : Vector3f.length(line[at] - piece[count * 3 - 3],
-                        line[at + 1] - piece[count * 3 - 2], line[at + 2] - piece[count * 3 - 1]);
+                Vector3f position = line.at(point);
+                float step = count == 0 ? 0f : (float) Math.sqrt(piece.distanceSquared(count - 1, position));
                 if (count > 0 && step < StrokeSketch.DEFAULT_SPACING && point < lineLength - 1) {
                     continue;
                 }
                 along += step;
-                System.arraycopy(line, at, piece, count++ * 3, 3);
+                piece.set(count++, position);
                 if (along >= pieceLength || point == lineLength - 1) {
                     float meanSide = 0f;
                     for (int index = 0; index < count && symmetryAxis >= 0; index++) {
-                        meanSide += piece[index * 3 + symmetryAxis] / count;
+                        meanSide += piece.get(index, symmetryAxis) / count;
                     }
                     boolean repeated = false;
-                    float[] points = Arrays.copyOf(piece, count * 3);
+                    PackedPoints points = piece.gather(IntStream.range(0, count).toArray());
                     for (int other = 0; other < offeredPieces.size() && !repeated && count >= 2; other++) {
                         double total = 0.0;
                         for (float distance : SculptStroke.nearestDistances(points, offeredPieces.get(other))) {
@@ -431,7 +408,7 @@ public final class KeyCandidates {
                         }
                         offeredPieces.add(points);
                     }
-                    System.arraycopy(piece, count * 3 - 3, piece, 0, 3);
+                    piece.set(0, piece.at(count - 1));
                     count = 1;
                     along = 0f;
                 }
@@ -449,12 +426,12 @@ public final class KeyCandidates {
      */
     public List<AnchoredStroke> variants(AnchoredStroke stroke) {
         int count = stroke.pointCount();
-        float[] xyz = new float[count * 3];
+        PackedPoints points = new PackedPoints(count);
         Vector3f position = new Vector3f();
         Vector3f centre = new Vector3f();
         for (int point = 0; point < count; point++) {
             FaceAnchors.position(base, stroke.anchors, point * FaceAnchors.FIELDS, position);
-            PackedPoints.store(xyz, point * 3, position);
+            points.set(point, position);
             centre.add(position.div(count));
         }
         float radius = radius(stroke);
@@ -463,27 +440,21 @@ public final class KeyCandidates {
         for (float scale : new float[] { NARROWER, WIDER }) {
             float scaled = Math.max(minimumRadius, Math.min(maximumRadius, radius * scale));
             if (scaled != radius && !(scale > 1f && placed.contains(stroke))) {
-                variants.add(stroke(stroke.polygon, xyz, count, stroke.cell, scaled, bowl));
+                variants.add(stroke(stroke.polygon, points, count, stroke.cell, scaled, bowl));
             }
         }
         if (placed.contains(stroke)) {
             placed.addAll(variants);
             return variants;
         }
-        Vector3f normal = base.vertexNormal(baseAnchors.nearestVertex.nearest(centre.x, centre.y, centre.z,
-                Float.POSITIVE_INFINITY), new Vector3f()).normalize();
-        Vector3f first = new Vector3f(Math.abs(normal.x) < SHRINK_TOWARD_CENTRE ? 1f : 0f,
-                Math.abs(normal.x) < SHRINK_TOWARD_CENTRE ? 0f : 1f, 0f).cross(normal).normalize();
-        Vector3f second = new Vector3f(normal).cross(first);
+        Matrix3f frame = base.tangentFrame(baseAnchors.nearestVertex.nearest(centre, Float.POSITIVE_INFINITY));
+        Vector3f first = frame.getColumn(0, new Vector3f());
+        Vector3f second = frame.getColumn(1, new Vector3f());
         for (int shift = 0; shift < 4; shift++) {
             Vector3f step = new Vector3f(shift < 2 ? first : second).mul((shift % 2 == 0 ? 1f : -1f)
                     * SHIFT_FRACTION * radius);
-            float[] moved = xyz.clone();
-            for (int point = 0; point < count; point++) {
-                moved[point * 3] += step.x;
-                moved[point * 3 + 1] += step.y;
-                moved[point * 3 + 2] += step.z;
-            }
+            PackedPoints moved = points.copy();
+            moved.transformPositions(new Matrix4f().translation(step));
             variants.add(stroke(stroke.polygon, moved, count, stroke.cell, radius, bowl));
         }
         return variants;
@@ -532,11 +503,11 @@ public final class KeyCandidates {
      * the cosine between the base normal and the way to the eye, counting only points in the cell
      * and in front of the base.
      *
-     * @param pointXyz the points, packed xyz
-     * @param count    how many
+     * @param points the points
+     * @param count  how many
      * @return the cell, or -1 when no cell sees any
      */
-    public int squarestCell(float[] pointXyz, int count) {
+    public int squarestCell(PackedPoints points, int count) {
         int[] stack = new int[Math.max(1, baseTriangles.nodeCount)];
         float[] pixel = new float[2];
         Vector3f point = new Vector3f();
@@ -548,13 +519,12 @@ public final class KeyCandidates {
             Camera3D camera = cameras[cell];
             float score = 0f;
             for (int sample = 0; sample < count; sample += stride) {
-                point.set(pointXyz[sample * 3], pointXyz[sample * 3 + 1], pointXyz[sample * 3 + 2]);
+                point.set(points.get(sample, 0), points.get(sample, 1), points.get(sample, 2));
                 if (!template.cellPixel(camera, point, pixel) || pixel[0] < 0f || pixel[1] < 0f
                         || pixel[0] >= template.cellWidth || pixel[1] >= template.cellHeight) {
                     continue;
                 }
-                base.vertexNormal(baseAnchors.nearestVertex.nearest(point.x, point.y, point.z,
-                        Float.POSITIVE_INFINITY), normal).normalize();
+                base.vertexNormal(baseAnchors.nearestVertex.nearest(point, Float.POSITIVE_INFINITY), normal).normalize();
                 point.sub(camera.position);
                 float facing = -normal.dot(point) / Math.max(SculptStroke.MINIMUM_NORMAL_LENGTH, point.length());
                 if (facing > 0f && baseTriangles.nearestHit(camera.position, point, 1.0 - VISIBILITY_SLACK,
@@ -573,22 +543,21 @@ public final class KeyCandidates {
     /**
      * A candidate held on the base: its points anchored, its cell, unit depth.
      *
-     * @param polygon  whether it is a fill
-     * @param pointXyz its points (a fill's outline), packed xyz
-     * @param count    how many
-     * @param cell     the cell it is drawn in
-     * @param radius   its falloff radius
-     * @param bowl     whether a fill's floor curves up to its rim
+     * @param polygon whether it is a fill
+     * @param points  its points (a fill's outline)
+     * @param count   how many
+     * @param cell    the cell it is drawn in
+     * @param radius  its falloff radius
+     * @param bowl    whether a fill's floor curves up to its rim
      * @return the stroke, its layer and id left for the key to set
      */
-    public AnchoredStroke stroke(boolean polygon, float[] pointXyz, int count, int cell, float radius, boolean bowl) {
+    public AnchoredStroke stroke(boolean polygon, PackedPoints points, int count, int cell, float radius, boolean bowl) {
         AnchoredStroke stroke = new AnchoredStroke();
         stroke.polygon = polygon;
         stroke.cell = cell;
         stroke.anchors = new float[count * FaceAnchors.FIELDS];
         for (int point = 0; point < count; point++) {
-            baseAnchors.anchor(pointXyz[point * 3], pointXyz[point * 3 + 1], pointXyz[point * 3 + 2], stroke.anchors,
-                    point * FaceAnchors.FIELDS);
+            baseAnchors.anchor(points.at(point), stroke.anchors, point * FaceAnchors.FIELDS);
         }
         stroke.attributes = String.format(Locale.ROOT, "data-radius=\"%.5f\"%s", radius, bowl ? BOWL_PROFILE : "");
         stroke.attributes = withDepth(stroke, 1f);

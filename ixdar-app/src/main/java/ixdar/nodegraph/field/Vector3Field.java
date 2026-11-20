@@ -1,62 +1,64 @@
 package ixdar.nodegraph.field;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+
 /**
- * Per-element 3D vectors (packed xyz per element: {@code data.length == 3 * elementCount}).
+ * Per-element 3D vectors, one point of {@code points} per element.
  */
-public record Vector3Field(float[] data) {
+public record Vector3Field(PackedPoints points) {
     /**
-     * Validate that the backing array packs whole xyz triples.
+     * Validate that the vectors are present.
      */
     public Vector3Field {
-        if (data == null || data.length % 3 != 0) {
-            throw new IllegalArgumentException("data length must be non-null and divisible by 3");
+        if (points == null) {
+            throw new IllegalArgumentException("points must be non-null");
         }
     }
 
     /**
-     * Number of vectors stored (i.e. {@code data.length / 3}).
+     * Number of vectors stored.
      *
      * @return element count
      */
     public int length() {
-        return data.length / 3;
+        return points.size();
     }
 
     /**
      * X component of the i-th vector.
      *
      * @param i element index, must satisfy {@code 0 <= i < length()}
-     * @return packed value at offset {@code 3*i}
+     * @return the i-th point's x
      */
     public float getX(int i) {
-        return data[3 * i];
+        return points.get(i, 0);
     }
 
     /**
      * Y component of the i-th vector.
      *
      * @param i element index, must satisfy {@code 0 <= i < length()}
-     * @return packed value at offset {@code 3*i + 1}
+     * @return the i-th point's y
      */
     public float getY(int i) {
-        return data[3 * i + 1];
+        return points.get(i, 1);
     }
 
     /**
      * Z component of the i-th vector.
      *
      * @param i element index, must satisfy {@code 0 <= i < length()}
-     * @return packed value at offset {@code 3*i + 2}
+     * @return the i-th point's z
      */
     public float getZ(int i) {
-        return data[3 * i + 2];
+        return points.get(i, 2);
     }
 
     /**
      * Materialize the i-th element as a {@link Vector3Value}.
      *
      * @param i element index, must satisfy {@code 0 <= i < length()}
-     * @return new value with x, y, z copied from the i-th packed triple
+     * @return new value with x, y, z copied from the i-th point
      */
     public Vector3Value toVector3Value(int i) {
         return new Vector3Value(getX(i), getY(i), getZ(i));
@@ -70,24 +72,20 @@ public record Vector3Field(float[] data) {
      * @return new field of length {@code len}
      */
     public static Vector3Field constant(Vector3Value v, int len) {
-        float[] d = new float[len * 3];
+        PackedPoints d = new PackedPoints(len);
         for (int i = 0; i < len; i++) {
-            d[3 * i] = v.x();
-            d[3 * i + 1] = v.y();
-            d[3 * i + 2] = v.z();
+            d.set(i, v.x(), v.y(), v.z());
         }
         return new Vector3Field(d);
     }
 
     /**
-     * Defensive copy from a packed xyz array.
+     * Defensive copy of a buffer of points.
      *
-     * @param src source array; length must be divisible by 3
+     * @param src source points
      * @return new field that does not share storage with {@code src}
      */
-    public static Vector3Field copyOf(float[] src) {
-        float[] d = new float[src.length];
-        System.arraycopy(src, 0, d, 0, src.length);
-        return new Vector3Field(d);
+    public static Vector3Field copyOf(PackedPoints src) {
+        return new Vector3Field(src.copy());
     }
 }

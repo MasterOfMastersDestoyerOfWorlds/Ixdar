@@ -84,16 +84,15 @@ public class SolidifyMeshNode implements MeshNode {
         int vertexCount = in.vertexCount();
         int faceCount = in.faceCount();
         int[] outputVertexOfId = new int[in.vertexIdBound()];
-        float[] positions = new float[vertexCount * 2 * 3];
+        PackedPoints positions = new PackedPoints(vertexCount * 2);
         Vector3f position = new Vector3f();
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             int vertexId = in.vertexIdAt(activeVertex);
             outputVertexOfId[vertexId] = activeVertex;
-            in.vertexPosition(vertexId, position);
-            PackedPoints.store(positions, activeVertex * 3, position);
+            positions.set(activeVertex, in.vertexPosition(vertexId, position));
         }
 
-        float[] normalSums = new float[vertexCount * 3];
+        PackedPoints normalSums = new PackedPoints(vertexCount);
         int cornerCount = 0;
         int boundaryEdges = 0;
         Vector3f corner = new Vector3f();
@@ -114,10 +113,7 @@ public class SolidifyMeshNode implements MeshNode {
             }
             for (int slot = 0; slot < corners; slot++) {
                 int vertexId = in.faceVertexAt(faceId, slot);
-                int offset = outputVertexOfId[vertexId] * 3;
-                normalSums[offset] += edgeA.x;
-                normalSums[offset + 1] += edgeA.y;
-                normalSums[offset + 2] += edgeA.z;
+                normalSums.add(outputVertexOfId[vertexId], edgeA);
                 if (in.isBoundaryEdge(in.edgeBetween(vertexId, in.faceVertexAt(faceId, (slot + 1) % corners)))) {
                     boundaryEdges++;
                 }
@@ -125,15 +121,10 @@ public class SolidifyMeshNode implements MeshNode {
             cornerCount += corners;
         }
         for (int outputVertex = 0; outputVertex < vertexCount; outputVertex++) {
-            int offset = outputVertex * 3;
-            float inverseLength = 1.0f / Math.max(NORMAL_LENGTH_EPSILON,
-                    (float) Math.sqrt(normalSums[offset] * normalSums[offset]
-                            + normalSums[offset + 1] * normalSums[offset + 1]
-                            + normalSums[offset + 2] * normalSums[offset + 2]));
-            int copy = vertexCount * 3 + offset;
-            positions[copy] = positions[offset] - normalSums[offset] * inverseLength * depth;
-            positions[copy + 1] = positions[offset + 1] - normalSums[offset + 1] * inverseLength * depth;
-            positions[copy + 2] = positions[offset + 2] - normalSums[offset + 2] * inverseLength * depth;
+            Vector3f normal = normalSums.at(outputVertex);
+            float inverseLength = 1.0f / Math.max(NORMAL_LENGTH_EPSILON, normal.length());
+            positions.set(vertexCount + outputVertex,
+                    positions.at(outputVertex).fma(-inverseLength * depth, normal));
         }
 
         int[] faceSizes = new int[faceCount * 2 + boundaryEdges];
@@ -173,7 +164,7 @@ public class SolidifyMeshNode implements MeshNode {
                 }
             }
         }
-        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceSizes, faceIndices);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions,faceSizes, faceIndices);
         out.computeNormals();
         out.recordSources(sourceVertex, null, sourceFace);
         return out;

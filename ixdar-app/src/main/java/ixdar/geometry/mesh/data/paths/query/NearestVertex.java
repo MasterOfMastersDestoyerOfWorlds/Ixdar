@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import org.joml.Intersectionf;
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
@@ -44,8 +45,8 @@ public final class NearestVertex {
     /** Vertex id per entry, grouped by cell. */
     public int[] entryVertexId;
 
-    /** Packed xyz per entry, in the same order as {@link #entryVertexId}. */
-    public float[] entryXyz;
+    /** Position per entry, in the same order as {@link #entryVertexId}. */
+    public PackedPoints entryPositions;
 
     /** Euclidean length per edge id, measured on the first {@link #byNeighbours} walk. */
     public double[] edgeLengthById;
@@ -89,15 +90,10 @@ public final class NearestVertex {
         int vertexCount = mesh.vertexCount();
         int[] vertexIds = new int[vertexCount];
         Arrays.setAll(vertexIds, mesh::vertexIdAt);
-        float[] xyz = mesh.packedPositions(null);
-        Vector3f maximum = new Vector3f(Float.NEGATIVE_INFINITY);
-        index.origin.set(Float.POSITIVE_INFINITY);
-        for (int coordinate = 0; coordinate + 2 < xyz.length; coordinate += 3) {
-            Vector3f position = PackedPoints.at(xyz, coordinate);
-            index.origin.min(position);
-            maximum.max(position);
-        }
-        Vector3f extent = new Vector3f(maximum).sub(index.origin);
+        PackedPoints points = mesh.packedPositions(null);
+        PackedPoints box = points.bounds();
+        index.origin.set(box.at(0));
+        Vector3f extent = box.at(1).sub(index.origin);
         double largestExtent = vertexCount > 0 ? Math.max(0.0, extent.get(extent.maxComponent())) : 0.0;
         double volume = 1.0;
         for (int axis = 0; axis < 3; axis++) {
@@ -112,11 +108,12 @@ public final class NearestVertex {
             cellCount *= index.cellsPerAxis[axis];
         }
         int[] cellOf = new int[vertexCount];
-        for (int coordinate = 0; coordinate < xyz.length; coordinate++) {
-            int axis = coordinate % 3;
-            int cell = Math.min(index.cellsPerAxis[axis] - 1,
-                    (int) ((xyz[coordinate] - index.origin.get(axis)) / index.cellSize));
-            cellOf[coordinate / 3] = cellOf[coordinate / 3] * index.cellsPerAxis[axis] + cell;
+        for (int vertex = 0; vertex < vertexCount; vertex++) {
+            for (int axis = 0; axis < 3; axis++) {
+                int cell = Math.min(index.cellsPerAxis[axis] - 1,
+                        (int) ((points.get(vertex, axis) - index.origin.get(axis)) / index.cellSize));
+                cellOf[vertex] = cellOf[vertex] * index.cellsPerAxis[axis] + cell;
+            }
         }
         index.cellStart = new int[cellCount + 1];
         for (int vertex = 0; vertex < vertexCount; vertex++) {
@@ -126,15 +123,12 @@ public final class NearestVertex {
             index.cellStart[cell + 1] += index.cellStart[cell];
         }
         int[] cursor = Arrays.copyOf(index.cellStart, cellCount);
-        index.entryVertexId = new int[vertexCount];
-        index.entryXyz = new float[3 * vertexCount];
+        int[] vertexOfEntry = new int[vertexCount];
         for (int vertex = 0; vertex < vertexCount; vertex++) {
-            int entry = cursor[cellOf[vertex]]++;
-            index.entryVertexId[entry] = vertexIds[vertex];
-            index.entryXyz[3 * entry] = xyz[3 * vertex];
-            index.entryXyz[3 * entry + 1] = xyz[3 * vertex + 1];
-            index.entryXyz[3 * entry + 2] = xyz[3 * vertex + 2];
+            vertexOfEntry[cursor[cellOf[vertex]]++] = vertex;
         }
+        index.entryVertexId = Arrays.stream(vertexOfEntry).map(vertex -> vertexIds[vertex]).toArray();
+        index.entryPositions = points.gather(vertexOfEntry);
         return index;
     }
 
@@ -143,18 +137,16 @@ public final class NearestVertex {
      * between the two closest rather than picking one arbitrarily. Among coincident copies it is
      * the one with a face within {@link #SHEET_TOLERANCE} of the point's distance.
      *
-     * @param x point x
-     * @param y point y
-     * @param z point z
+     * @param point the point
      * @throws IllegalStateException when {@link #sheetCopies} refuses the point or leaves more
      *                               than one copy, whose faces then lie on top of each other
      * @return the nearest vertex's id
      */
-    public int find(float x, float y, float z) {
-        int[] copies = sheetCopies(x, y, z);
+    public int find(Vector3fc point) {
+        int[] copies = sheetCopies(point);
         if (copies.length > 1) {
-            throw new IllegalStateException("ambiguous nearest vertex to (" + x + ", " + y + ", "
-                    + z + "): " + copies.length + " coincident vertices there have faces lying on "
+            throw new IllegalStateException("ambiguous nearest vertex to (" + point.x() + ", " + point.y() + ", "
+                    + point.z() + "): " + copies.length + " coincident vertices there have faces lying on "
                     + "top of each other under the point, so the point alone cannot tell them "
                     + "apart");
         }
@@ -164,16 +156,14 @@ public final class NearestVertex {
     /**
      * Every indexed vertex within a radius of a point, in no particular order.
      *
-     * @param x      point x
-     * @param y      point y
-     * @param z      point z
+     * @param point  the point searched around
      * @param radius largest distance a returned vertex may lie from the point, finite
      * @return the vertex ids within it
      */
-    public int[] within(float x, float y, float z, float radius) {
+    public int[] within(Vector3fc point, float radius) {
         int[] low = new int[3];
         int[] high = new int[3];
-        Vector3f point = new Vector3f(x, y, z);
+        Vector3f target = new Vector3f(point);
         for (int axis = 0; axis < 3; axis++) {
             low[axis] = cellCoordinate(point.get(axis) - radius, axis);
             high[axis] = cellCoordinate(point.get(axis) + radius, axis);
@@ -186,10 +176,7 @@ public final class NearestVertex {
                 for (int cellZ = low[2]; cellZ <= high[2]; cellZ++) {
                     int cell = (cellX * cellsPerAxis[1] + cellY) * cellsPerAxis[2] + cellZ;
                     for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
-                        double dx = entryXyz[3 * entry] - x;
-                        double dy = entryXyz[3 * entry + 1] - y;
-                        double dz = entryXyz[3 * entry + 2] - z;
-                        if (dx * dx + dy * dy + dz * dz <= radiusSquared) {
+                        if (entryPositions.distanceSquared(entry, target) <= radiusSquared) {
                             found = count < found.length ? found : Arrays.copyOf(found, 2 * count + 8);
                             found[count++] = entryVertexId[entry];
                         }
@@ -205,16 +192,15 @@ public final class NearestVertex {
      * vertices serves (a sculpt stroke's sample, a mirror twin); a tie goes to the first in index
      * order instead of being refused as {@link #find} refuses it.
      *
-     * @param x     point x
-     * @param y     point y
-     * @param z     point z
+     * @param point the point searched from
      * @param reach largest distance a returned vertex may lie from the point; infinite for any
      * @return the nearest vertex's id, or -1 when none lies within reach
      */
-    public int nearest(float x, float y, float z, float reach) {
-        int centerX = cellCoordinate(x, 0);
-        int centerY = cellCoordinate(y, 1);
-        int centerZ = cellCoordinate(z, 2);
+    public int nearest(Vector3fc point, float reach) {
+        Vector3f target = new Vector3f(point);
+        int centerX = cellCoordinate(target.x, 0);
+        int centerY = cellCoordinate(target.y, 1);
+        int centerZ = cellCoordinate(target.z, 2);
         int widestAxis = Math.max(cellsPerAxis[0], Math.max(cellsPerAxis[1], cellsPerAxis[2]));
         double bestSquared = (double) reach * reach;
         int bestEntry = -1;
@@ -235,10 +221,7 @@ public final class NearestVertex {
                         }
                         int cell = (cellX * cellsPerAxis[1] + cellY) * cellsPerAxis[2] + cellZ;
                         for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
-                            double dx = entryXyz[3 * entry] - x;
-                            double dy = entryXyz[3 * entry + 1] - y;
-                            double dz = entryXyz[3 * entry + 2] - z;
-                            double squared = dx * dx + dy * dy + dz * dz;
+                            double squared = entryPositions.distanceSquared(entry, target);
                             if (squared < bestSquared || bestEntry < 0 && squared <= bestSquared) {
                                 bestSquared = squared;
                                 bestEntry = entry;
@@ -255,16 +238,18 @@ public final class NearestVertex {
      * The vertices a point may name: the one nearest it, or, among coincident copies there,
      * every copy with a face within {@link #SHEET_TOLERANCE} of the point's distance.
      *
-     * @param x point x
-     * @param y point y
-     * @param z point z
+     * @param point the point
      * @throws IllegalStateException when no vertex is indexed, the two nearest positions tie
      *                               within {@link #RELATIVE_EPSILON}, or the point sits on no
      *                               coincident copy's faces at least
      *                               {@link #MINIMUM_SHEET_OFFSET} of the way to the next vertex
      * @return vertex ids in index order, one unless copies' faces overlap under the point
      */
-    public int[] sheetCopies(float x, float y, float z) {
+    public int[] sheetCopies(Vector3fc point) {
+        float x = point.x();
+        float y = point.y();
+        float z = point.z();
+        Vector3f target = new Vector3f(point);
         int centerX = cellCoordinate(x, 0);
         int centerY = cellCoordinate(y, 1);
         int centerZ = cellCoordinate(z, 2);
@@ -290,10 +275,7 @@ public final class NearestVertex {
                         }
                         int cell = (cellX * cellsPerAxis[1] + cellY) * cellsPerAxis[2] + cellZ;
                         for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
-                            double dx = entryXyz[3 * entry] - x;
-                            double dy = entryXyz[3 * entry + 1] - y;
-                            double dz = entryXyz[3 * entry + 2] - z;
-                            double squared = dx * dx + dy * dy + dz * dz;
+                            double squared = entryPositions.distanceSquared(entry, target);
                             if (bestEntry >= 0 && samePosition(entry, bestEntry)) {
                                 continue;
                             }
@@ -321,9 +303,9 @@ public final class NearestVertex {
                     + ", " + z + "): distances " + bestDistance + " and " + secondDistance
                     + " tie, move the point");
         }
-        int cell = (cellCoordinate(entryXyz[3 * bestEntry], 0) * cellsPerAxis[1]
-                + cellCoordinate(entryXyz[3 * bestEntry + 1], 1)) * cellsPerAxis[2]
-                + cellCoordinate(entryXyz[3 * bestEntry + 2], 2);
+        int cell = (cellCoordinate(entryPositions.get(bestEntry, 0), 0) * cellsPerAxis[1]
+                + cellCoordinate(entryPositions.get(bestEntry, 1), 1)) * cellsPerAxis[2]
+                + cellCoordinate(entryPositions.get(bestEntry, 2), 2);
         int copyCount = 0;
         for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
             copyCount += samePosition(entry, bestEntry) ? 1 : 0;
@@ -338,7 +320,6 @@ public final class NearestVertex {
         Vector3f corner = new Vector3f();
         Vector3f nextCorner = new Vector3f();
         Vector3f closest = new Vector3f();
-        Vector3f point = new Vector3f(x, y, z);
         int[] faceCorners = new int[0];
         for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
             if (!samePosition(entry, bestEntry)) {
@@ -496,9 +477,10 @@ public final class NearestVertex {
     }
 
     private boolean samePosition(int entry, int other) {
-        return entryXyz[3 * entry] == entryXyz[3 * other]
-                && entryXyz[3 * entry + 1] == entryXyz[3 * other + 1]
-                && entryXyz[3 * entry + 2] == entryXyz[3 * other + 2];
+        // Compared by value, not Vector3f.equals, whose bit comparison tells -0 from +0.
+        return entryPositions.get(entry, 0) == entryPositions.get(other, 0)
+                && entryPositions.get(entry, 1) == entryPositions.get(other, 1)
+                && entryPositions.get(entry, 2) == entryPositions.get(other, 2);
     }
 
     private int cellCoordinate(float coordinate, int axis) {

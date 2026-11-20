@@ -211,8 +211,8 @@ public final class MeshSkeletonComparator {
     private static BranchMatch matchBranches(SkeletonBranch gen, SkeletonBranch ref, String label) {
         float lengthError = gen.length() - ref.length();
         // abs ignores a direction flip
-        float dirCosine = Math.abs(Math.max(-1, Math.min(1, gen.direction().dot(ref.direction()))));
-        float dirError = (float) Math.toDegrees(Math.acos(dirCosine));
+        float angle = (float) Math.toDegrees(gen.direction().angle(ref.direction()));
+        float dirError = Math.min(angle, 180f - angle);
 
         float genBaseR = gen.joints().isEmpty() ? 0 : gen.joints().get(gen.joints().size() - 1).radius();
         float refBaseR = ref.joints().isEmpty() ? 0 : ref.joints().get(ref.joints().size() - 1).radius();
@@ -258,14 +258,14 @@ public final class MeshSkeletonComparator {
     }
 
     private static Vector3f[] resampleJoints(List<SkeletonJoint> joints, int n) {
-        float[] packed = new float[joints.size() * 3];
+        PackedPoints packed = new PackedPoints(joints.size());
         for (int joint = 0; joint < joints.size(); joint++) {
-            PackedPoints.store(packed, joint * 3, joints.get(joint).position());
+            packed.set(joint, joints.get(joint).position());
         }
-        float[] sampled = CurveGeometry.singlePolyline(packed, false).resampled(n).positions;
+        PackedPoints sampled = CurveGeometry.singlePolyline(packed, false).resampled(n).positions;
         Vector3f[] result = new Vector3f[n];
         for (int sample = 0; sample < n; sample++) {
-            result[sample] = PackedPoints.at(sampled, sample * 3);
+            result[sample] = sampled.at(sample);
         }
         return result;
     }

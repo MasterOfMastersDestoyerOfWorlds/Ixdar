@@ -11,6 +11,7 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangleSoup;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
@@ -59,7 +60,7 @@ public final class MscCellAssembly {
         int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
         int faceCount = faceIdx.length / 3;
         int nv = mesh.vertexIdBound();
-        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PackedPoints positions = SemanticPatchDecomposer.positionsById(mesh);
 
         int[][] ring = TriangleSoup.oneRings(faceIdx, nv);
         int[] vertexLabel = new int[nv];
@@ -88,7 +89,13 @@ public final class MscCellAssembly {
             if (reached >= 0) {
                 label = maxIndex.get(reached);
             } else {
-                label = nearestMaxByPosition(v, positions, maxVerts);
+                Vector3f at = positions.at(v);
+                float nearest = Float.MAX_VALUE;
+                label = 0;
+                for (int i = 0; i < maxVerts.size(); i++) {
+                    float d = positions.at(maxVerts.get(i)).distanceSquared(at);
+                    if (d < nearest) { nearest = d; label = i; }
+                }
             }
             vertexLabel[v] = label;
         }
@@ -110,12 +117,12 @@ public final class MscCellAssembly {
      *
      * @param mesh input mesh
      * @param faceLabels ascending-manifold labels, one per fan triangle
-     * @param positions xyz positions by vertex id (length {@code 3 * vertexIdBound})
+     * @param positions positions by vertex id
      * @return decomposition with one {@link Patch} per non-empty label
      */
     public static PatchDecomposition toPatchDecomposition(MeshTopology mesh,
                                                            int[] faceLabels,
-                                                           float[] positions) {
+                                                           PackedPoints positions) {
         int[] triangleFaces = new int[mesh.triangleCount()];
         int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, triangleFaces);
         int faceCount = faceIdx.length / 3;
@@ -143,7 +150,7 @@ public final class MscCellAssembly {
                     int v = faceIdx[f * 3 + k];
                     if (!seen[v]) {
                         seen[v] = true;
-                        centroid.add(positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]);
+                        centroid.add(positions.at(v));
                         vertCount++;
                     }
                 }
@@ -185,23 +192,6 @@ public final class MscCellAssembly {
             cur = next;
         }
         return -1;
-    }
-
-    private static int nearestMaxByPosition(int v, float[] positions, List<Integer> maxVerts) {
-        int best = 0;
-        float bestD = Float.MAX_VALUE;
-        float vx = positions[v * 3];
-        float vy = positions[v * 3 + 1];
-        float vz = positions[v * 3 + 2];
-        for (int i = 0; i < maxVerts.size(); i++) {
-            int m = maxVerts.get(i);
-            float dx = positions[m * 3] - vx;
-            float dy = positions[m * 3 + 1] - vy;
-            float dz = positions[m * 3 + 2] - vz;
-            float d = dx * dx + dy * dy + dz * dz;
-            if (d < bestD) { bestD = d; best = i; }
-        }
-        return best;
     }
 
     /**

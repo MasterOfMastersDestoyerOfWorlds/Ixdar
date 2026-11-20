@@ -4,12 +4,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.joml.Matrix3f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.curvature.CrestTrace;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
-import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.DenseLinearSystem;
 
@@ -37,8 +39,8 @@ public final class OffsetCrests {
     /** Lines whose strength, the integral of |second derivative| along them (OBS04, eq. 5), is below this are dropped. */
     public float minimumStrength = 1.5f;
 
-    /** Each kept line's points on the surface, packed xyz. */
-    public final List<float[]> lines = new ArrayList<>();
+    /** Each kept line's points on the surface. */
+    public final List<PackedPoints> lines = new ArrayList<>();
 
     /** Whether each kept line is a valley of the field (a minimum across it): a sinking stroke. */
     public final List<Boolean> valleyByLine = new ArrayList<>();
@@ -78,29 +80,26 @@ public final class OffsetCrests {
      * @param surface    the surface the field lives on
      * @param field      the field by dense vertex index, smoothed as wanted for finding lines
      * @param depthField the unsmoothed offsets each line's width is fitted to, by dense vertex index
-     * @param normalXyz  unit normals by dense vertex index, packed xyz
+     * @param normalXyz  unit normals by dense vertex index
      */
-    public void detect(MeshTopology surface, float[] field, float[] depthField, float[] normalXyz) {
+    public void detect(MeshTopology surface, float[] field, float[] depthField, PackedPoints normalXyz) {
         int vertexCount = surface.vertexCount();
         int[] activeVertexById = new int[surface.vertexIdBound()];
-        float[] vertexXyz = surface.packedPositions(activeVertexById);
+        PackedPoints vertices = surface.packedPositions(activeVertexById);
         int[][] rings = surface.oneRings();
         float[] curvature = new float[vertexCount];
-        float[] directionXyz = new float[vertexCount * 3];
+        PackedPoints directions = new PackedPoints(vertexCount);
         float[] slope = new float[vertexCount];
-        Vector3f normal = new Vector3f();
         Vector3f first = new Vector3f();
         Vector3f second = new Vector3f();
-        Vector3f offset = new Vector3f();
         int[] mark = new int[vertexCount];
         Arrays.fill(mark, -1);
         int[] twoRing = new int[vertexCount];
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            int at = activeVertex * 3;
-            normal.set(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]);
-            first.set(Math.abs(normal.x) < 0.5f ? 1f : 0f, Math.abs(normal.x) < 0.5f ? 0f : 1f, 0f).cross(normal)
-                    .normalize();
-            second.set(normal).cross(first);
+            Vector3f centre = vertices.at(activeVertex);
+            Matrix3f frame = MeshTopology.tangentFrame(normalXyz.at(activeVertex));
+            frame.getColumn(0, first);
+            frame.getColumn(1, second);
             int size = 0;
             mark[activeVertex] = activeVertex;
             for (int neighbour : rings[activeVertex]) {
@@ -114,16 +113,12 @@ public final class OffsetCrests {
             }
             float reach = SINGULAR;
             for (int index = 0; index < size; index++) {
-                int member = twoRing[index] * 3;
-                reach = Math.max(reach, Vector3f.distance(vertexXyz[member], vertexXyz[member + 1], vertexXyz[member + 2],
-                        vertexXyz[at], vertexXyz[at + 1], vertexXyz[at + 2]));
+                reach = Math.max(reach, (float) Math.sqrt(vertices.distanceSquared(twoRing[index], centre)));
             }
             float[][] normalMatrix = new float[FIT_UNKNOWNS][FIT_UNKNOWNS];
             float[] rightSide = new float[FIT_UNKNOWNS];
             for (int index = 0; index < size; index++) {
-                int member = twoRing[index] * 3;
-                offset.set(vertexXyz[member] - vertexXyz[at], vertexXyz[member + 1] - vertexXyz[at + 1],
-                        vertexXyz[member + 2] - vertexXyz[at + 2]).div(reach);
+                Vector3f offset = vertices.at(twoRing[index]).sub(centre).div(reach);
                 float x = offset.dot(first);
                 float y = offset.dot(second);
                 float[] row = { x * x, x * y, y * y, x, y };
@@ -153,9 +148,7 @@ public final class OffsetCrests {
             tangentY /= length;
             curvature[activeVertex] = (float) dominant;
             slope[activeVertex] = (float) (fit[3] * tangentX + fit[4] * tangentY);
-            for (int axis = 0; axis < 3; axis++) {
-                directionXyz[at + axis] = (float) (tangentX * first.get(axis) + tangentY * second.get(axis));
-            }
+            directions.set(activeVertex, new Vector3f(first).mul((float) tangentX).fma((float) tangentY, second));
         }
         CrestTrace trace = new CrestTrace();
         int[] corners = surface.triangulate(TriangulationRule.FAN, null);
@@ -167,23 +160,20 @@ public final class OffsetCrests {
             if (trace.pointByEdge.containsKey(key) || curvature[from] * curvature[to] <= 0f) {
                 continue;
             }
-            float agree = directionXyz[from * 3] * directionXyz[to * 3] + directionXyz[from * 3 + 1]
-                    * directionXyz[to * 3 + 1] + directionXyz[from * 3 + 2] * directionXyz[to * 3 + 2];
+            float agree = directions.at(from).dot(directions.at(to));
             float fromSlope = slope[from];
             float toSlope = agree < 0f ? -slope[to] : slope[to];
             boolean valley = kind == 1;
-            float along = 0f;
-            for (int axis = 0; axis < 3; axis++) {
-                along += (vertexXyz[to * 3 + axis] - vertexXyz[from * 3 + axis]) * directionXyz[from * 3 + axis];
-            }
+            float along = vertices.at(to).sub(vertices.at(from)).dot(directions.at(from));
             if (fromSlope * toSlope >= 0f || (fromSlope * along > 0f) == valley) {
                 trace.pointByEdge.put(key, -1);
                 continue;
             }
             float share = Math.abs(fromSlope) / (Math.abs(fromSlope) + Math.abs(toSlope));
             double[] point = new double[FIELD_VALUE + 1];
+            Vector3f crest = vertices.at(from).lerp(vertices.at(to), share);
             for (int axis = 0; axis < 3; axis++) {
-                point[axis] = vertexXyz[from * 3 + axis] + share * (vertexXyz[to * 3 + axis] - vertexXyz[from * 3 + axis]);
+                point[axis] = crest.get(axis);
             }
             point[CrestTrace.CURVATURE_FIELD] = curvature[from] + share * (curvature[to] - curvature[from]);
             point[CrestTrace.KIND_FIELD] = kind;
@@ -196,13 +186,11 @@ public final class OffsetCrests {
             if (trace.strength(chain) < minimumStrength) {
                 continue;
             }
-            float[] line = new float[chain.length * 3];
+            PackedPoints line = new PackedPoints(chain.length);
             float[] widths = new float[chain.length];
             for (int point = 0; point < chain.length; point++) {
                 double[] values = trace.points.get(chain[point]);
-                for (int axis = 0; axis < 3; axis++) {
-                    line[point * 3 + axis] = (float) values[axis];
-                }
+                line.set(point, (float) values[0], (float) values[1], (float) values[2]);
                 widths[point] = 2f * (float) Math.sqrt(Math.abs(values[FIELD_VALUE])
                         / Math.max(SINGULAR, Math.abs(values[CrestTrace.CURVATURE_FIELD])));
             }
@@ -219,7 +207,7 @@ public final class OffsetCrests {
      * bump d (1 - (s / w)^2)^2 at its best depth leaves the least squared error, s being each nearby
      * vertex's distance to the line. Found by golden-section search, at most {@code widest}.
      *
-     * @param line             the line's points, packed xyz
+     * @param line             the line's points
      * @param widest           the widest half-width tried
      * @param surface          the surface the offsets live on
      * @param index            vertex grid over the surface
@@ -227,16 +215,12 @@ public final class OffsetCrests {
      * @param offset           the offsets the stroke must sculpt, by dense vertex index
      * @return the fitted half-width
      */
-    public static float fittedWidth(float[] line, float widest, MeshTopology surface, NearestVertex index,
+    public static float fittedWidth(PackedPoints line, float widest, MeshTopology surface, NearestVertex index,
             int[] activeVertexById, float[] offset) {
-        int pointCount = line.length / 3;
-        double[] lineXyz = new double[line.length];
-        for (int coordinate = 0; coordinate < line.length; coordinate++) {
-            lineXyz[coordinate] = line[coordinate];
-        }
+        int pointCount = line.size();
         int[] near = new int[0];
-        for (int point = 0; point < line.length; point += 3) {
-            int[] found = index.within(line[point], line[point + 1], line[point + 2], widest);
+        for (int point = 0; point < pointCount; point++) {
+            int[] found = index.within(line.at(point), widest);
             int had = near.length;
             near = Arrays.copyOf(near, had + found.length);
             System.arraycopy(found, 0, near, had, found.length);
@@ -249,8 +233,9 @@ public final class OffsetCrests {
             surface.vertexPosition(near[vertex], position);
             double nearest = Double.POSITIVE_INFINITY;
             for (int span = 0; span < Math.max(1, pointCount - 1); span++) {
-                nearest = Math.min(nearest, SurfaceSpline.spanDistanceSquared(lineXyz, pointCount, span, position.x,
-                        position.y, position.z, nearest));
+                nearest = Math.min(nearest,
+                        TriangleGeometry.segmentDistanceSquared(line, span, (span + 1) % pointCount, position,
+                                nearest));
             }
             across[vertex] = (float) Math.sqrt(nearest);
             value[vertex] = offset[activeVertexById[near[vertex]]];

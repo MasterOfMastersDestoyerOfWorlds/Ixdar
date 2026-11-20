@@ -1,5 +1,12 @@
 package ixdar.geometry.mesh.data.paths.spline;
 
+import java.util.stream.IntStream;
+
+import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
+
 /**
  * Fits the fewest supporting anchors that keep a spline through fixed authored anchors on a
  * reference loop, within {@code max(5% of the mean radius, one mean edge)}.
@@ -58,15 +65,15 @@ public final class SplineAnchorFit {
     /** How far each authored anchor sits off the reference loop, parallel to the vertex ids. */
     public double[] authoredAllowance = new double[0];
 
-    private double[] chunkBounds = new double[0];
+    private PackedPoints[] chunkBounds = new PackedPoints[0];
     private int chunkCount;
     private int warmChunk;
     private int[] anchorAtPoint = new int[0];
     private boolean[] anchorIsAuthored = new boolean[0];
     private double[] anchorAllowance = new double[0];
-    private double[][] scannedXyz = new double[0][];
+    private PackedPoints[] scannedXyz = new PackedPoints[0];
     private double[] scannedDeviation = new double[0];
-    private double[][] alignedXyz = new double[0][];
+    private PackedPoints[] alignedXyz = new PackedPoints[0];
     private double[] alignedDeviation = new double[0];
 
     /**
@@ -82,14 +89,14 @@ public final class SplineAnchorFit {
      * Fits supporting anchors to a closed reference loop around the {@link #authoredVertexId}
      * authored anchors and leaves the tracer holding the result, the authored anchors flagged.
      *
-     * @param referenceXyz      packed xyz of the loop, treated as closed
+     * @param referenceXyz      the loop's points, treated as closed
      * @param pointCount        points to read from the front of {@code referenceXyz}
      * @param referenceVertexId mesh vertex nearest each loop point, in the same order
      * @param firstPoint        loop point the anchor cycle starts from; the first authored
      *                          anchor's point when there is one
      * @return true when a spline was traced, whether or not it met the tolerance
      */
-    public boolean fit(double[] referenceXyz, int pointCount, int[] referenceVertexId,
+    public boolean fit(PackedPoints referenceXyz, int pointCount, int[] referenceVertexId,
             int firstPoint) {
         withinTolerance = false;
         anchorCapReached = false;
@@ -106,30 +113,17 @@ public final class SplineAnchorFit {
         anchorAtPoint = new int[capacity];
         anchorIsAuthored = new boolean[capacity];
         anchorAllowance = new double[capacity];
-        scannedXyz = new double[0][];
+        scannedXyz = new PackedPoints[0];
         scannedDeviation = new double[0];
         chunkCount = (pointCount + REFERENCE_SPANS_PER_CULLING_BOX - 1)
                 / REFERENCE_SPANS_PER_CULLING_BOX;
-        chunkBounds = new double[2 * COORDINATES_PER_POINT * chunkCount];
+        chunkBounds = new PackedPoints[chunkCount];
         warmChunk = 0;
         for (int chunk = 0; chunk < chunkCount; chunk++) {
-            int bounds = 2 * COORDINATES_PER_POINT * chunk;
             int first = REFERENCE_SPANS_PER_CULLING_BOX * chunk;
             int last = Math.min(pointCount, first + REFERENCE_SPANS_PER_CULLING_BOX);
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                chunkBounds[bounds + axis] = Double.POSITIVE_INFINITY;
-                chunkBounds[bounds + COORDINATES_PER_POINT + axis] = Double.NEGATIVE_INFINITY;
-            }
-            for (int point = first; point <= last; point++) {
-                int base = COORDINATES_PER_POINT * (point % pointCount);
-                for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                    chunkBounds[bounds + axis] =
-                            Math.min(chunkBounds[bounds + axis], referenceXyz[base + axis]);
-                    chunkBounds[bounds + COORDINATES_PER_POINT + axis] = Math.max(
-                            chunkBounds[bounds + COORDINATES_PER_POINT + axis],
-                            referenceXyz[base + axis]);
-                }
-            }
+            chunkBounds[chunk] = referenceXyz.bounds(
+                    IntStream.rangeClosed(first, last).map(point -> point % pointCount).toArray());
         }
         int[] vertexIds = new int[capacity];
         for (int authored = 0; authored < authoredAnchors; authored++) {
@@ -142,12 +136,8 @@ public final class SplineAnchorFit {
         }
         double[] arcLength = new double[pointCount + 1];
         for (int point = 0; point < pointCount; point++) {
-            int here = COORDINATES_PER_POINT * point;
-            int there = COORDINATES_PER_POINT * ((point + 1) % pointCount);
-            double dx = referenceXyz[there] - referenceXyz[here];
-            double dy = referenceXyz[there + 1] - referenceXyz[here + 1];
-            double dz = referenceXyz[there + 2] - referenceXyz[here + 2];
-            arcLength[point + 1] = arcLength[point] + Math.sqrt(dx * dx + dy * dy + dz * dz);
+            arcLength[point + 1] = arcLength[point] + Math.sqrt(
+                    referenceXyz.distanceSquared((point + 1) % pointCount, referenceXyz.at(point)));
         }
         double totalArc = arcLength[pointCount];
         double startArc = arcLength[firstPoint];
@@ -177,13 +167,13 @@ public final class SplineAnchorFit {
         int anchorCeiling = Math.max(maximumAnchors, authoredAnchors + STARTING_ANCHORS);
         while (true) {
             if (alignedXyz.length < tracer.anchorCount) {
-                alignedXyz = new double[tracer.anchorCount][];
+                alignedXyz = new PackedPoints[tracer.anchorCount];
                 alignedDeviation = new double[tracer.anchorCount];
             }
             double worst = 0.0;
             int worstSegment = -1;
             for (int segment = 0; segment < tracer.anchorCount; segment++) {
-                double[] points = tracer.segmentXyz[segment];
+                PackedPoints points = tracer.segmentXyz[segment];
                 alignedXyz[segment] = points;
                 alignedDeviation[segment] = -1.0;
                 for (int scanned = 0; scanned < scannedXyz.length; scanned++) {
@@ -194,9 +184,9 @@ public final class SplineAnchorFit {
                 }
                 if (alignedDeviation[segment] < 0.0) {
                     double segmentWorst = 0.0;
-                    for (int base = 0; base < points.length; base += COORDINATES_PER_POINT) {
+                    for (int sample = 0; sample < points.size(); sample++) {
                         segmentWorst = Math.max(segmentWorst, gapBeyondAllowance(referenceXyz,
-                                pointCount, points, base, segment));
+                                pointCount, points, sample, segment));
                     }
                     int from = anchorAtPoint[segment];
                     int stretch = Math.floorMod(anchorAtPoint[(segment + 1) % anchorCount] - from,
@@ -213,7 +203,7 @@ public final class SplineAnchorFit {
                     worstSegment = segment;
                 }
             }
-            double[][] keptXyz = scannedXyz;
+            PackedPoints[] keptXyz = scannedXyz;
             double[] keptDeviation = scannedDeviation;
             scannedXyz = alignedXyz;
             scannedDeviation = alignedDeviation;
@@ -228,14 +218,13 @@ public final class SplineAnchorFit {
                 anchorCapReached = true;
                 return true;
             }
-            double[] worstPoints = tracer.segmentXyz[worstSegment];
+            PackedPoints worstPoints = tracer.segmentXyz[worstSegment];
             boolean onSpline = false;
-            int worstBase = 0;
-            for (int base = 0; base < worstPoints.length && !onSpline;
-                    base += COORDINATES_PER_POINT) {
-                onSpline = gapBeyondAllowance(referenceXyz, pointCount, worstPoints, base,
+            int worstSample = 0;
+            for (int sample = 0; sample < worstPoints.size() && !onSpline; sample++) {
+                onSpline = gapBeyondAllowance(referenceXyz, pointCount, worstPoints, sample,
                         worstSegment) >= worst;
-                worstBase = base;
+                worstSample = sample;
             }
             int worstFrom = anchorAtPoint[worstSegment];
             int worstStretch = Math.floorMod(
@@ -251,16 +240,10 @@ public final class SplineAnchorFit {
             }
             double bestSquared = Double.POSITIVE_INFINITY;
             int nearest = -1;
-            for (int step = 1; point < 0 && worstPoints.length > 0 && step < worstStretch;
-                    step++) {
+            Vector3f worstPosition = worstPoints.size() > 0 ? worstPoints.at(worstSample) : null;
+            for (int step = 1; point < 0 && worstPosition != null && step < worstStretch; step++) {
                 int candidate = (worstFrom + step) % pointCount;
-                double dx = referenceXyz[COORDINATES_PER_POINT * candidate]
-                        - worstPoints[worstBase];
-                double dy = referenceXyz[COORDINATES_PER_POINT * candidate + 1]
-                        - worstPoints[worstBase + 1];
-                double dz = referenceXyz[COORDINATES_PER_POINT * candidate + 2]
-                        - worstPoints[worstBase + 2];
-                double squared = dx * dx + dy * dy + dz * dz;
+                double squared = referenceXyz.distanceSquared(candidate, worstPosition);
                 if (squared < bestSquared) {
                     bestSquared = squared;
                     nearest = candidate;
@@ -286,31 +269,18 @@ public final class SplineAnchorFit {
      * Mean distance from a closed loop's centroid to its points, the radius a tolerance is a
      * fraction of.
      *
-     * @param packedXyz  packed xyz of the loop
-     * @param pointCount points to read from the front of {@code packedXyz}
+     * @param loop       the loop's points
+     * @param pointCount points to read from the front of {@code loop}
      * @return the mean radius, or zero when the loop is empty
      */
-    public static double meanRadiusOf(double[] packedXyz, int pointCount) {
+    public static double meanRadiusOf(PackedPoints loop, int pointCount) {
         if (pointCount == 0) {
             return 0.0;
         }
-        double centreX = 0.0;
-        double centreY = 0.0;
-        double centreZ = 0.0;
-        for (int point = 0; point < pointCount; point++) {
-            centreX += packedXyz[COORDINATES_PER_POINT * point];
-            centreY += packedXyz[COORDINATES_PER_POINT * point + 1];
-            centreZ += packedXyz[COORDINATES_PER_POINT * point + 2];
-        }
-        centreX /= pointCount;
-        centreY /= pointCount;
-        centreZ /= pointCount;
+        Vector3f centre = loop.slice(0, pointCount).centroid();
         double radiusSum = 0.0;
         for (int point = 0; point < pointCount; point++) {
-            double dx = packedXyz[COORDINATES_PER_POINT * point] - centreX;
-            double dy = packedXyz[COORDINATES_PER_POINT * point + 1] - centreY;
-            double dz = packedXyz[COORDINATES_PER_POINT * point + 2] - centreZ;
-            radiusSum += Math.sqrt(dx * dx + dy * dy + dz * dz);
+            radiusSum += Math.sqrt(loop.distanceSquared(point, centre));
         }
         return radiusSum / pointCount;
     }
@@ -390,22 +360,19 @@ public final class SplineAnchorFit {
      * points beyond what its authored ends excuse, so a spline that skips a stretch of its
      * reference, cutting across a thin part, reads as far off it.
      */
-    private double referenceGap(double[] referenceXyz, int pointCount, int segment, int point,
+    private double referenceGap(PackedPoints referenceXyz, int pointCount, int segment, int point,
             double along) {
-        double[] points = tracer.segmentXyz[segment];
-        double[] following = tracer.segmentXyz[(segment + 1) % tracer.anchorCount];
-        int base = COORDINATES_PER_POINT * point;
+        PackedPoints points = tracer.segmentXyz[segment];
+        PackedPoints following = tracer.segmentXyz[(segment + 1) % tracer.anchorCount];
+        Vector3f reference = referenceXyz.at(point);
         double best = Double.POSITIVE_INFINITY;
-        for (int sample = 0; sample <= points.length; sample += COORDINATES_PER_POINT) {
-            double[] xyz = sample < points.length ? points : following;
-            int at = sample < points.length ? sample : 0;
-            if (at >= xyz.length) {
+        for (int sample = 0; sample <= points.size(); sample++) {
+            PackedPoints xyz = sample < points.size() ? points : following;
+            int at = sample < points.size() ? sample : 0;
+            if (at >= xyz.size()) {
                 continue;
             }
-            double dx = xyz[at] - referenceXyz[base];
-            double dy = xyz[at + 1] - referenceXyz[base + 1];
-            double dz = xyz[at + 2] - referenceXyz[base + 2];
-            best = Math.min(best, dx * dx + dy * dy + dz * dz);
+            best = Math.min(best, xyz.distanceSquared(at, reference));
         }
         double allowance = (1.0 - along) * anchorAllowance[segment]
                 + along * anchorAllowance[(segment + 1) % tracer.anchorCount];
@@ -416,11 +383,9 @@ public final class SplineAnchorFit {
      * How far one traced point sits from its segment's own stretch of the reference, between the
      * segment's two anchors, beyond what its authored ends excuse, blended linearly along it.
      */
-    private double gapBeyondAllowance(double[] referenceXyz, int pointCount, double[] points,
-            int base, int segment) {
-        double x = points[base];
-        double y = points[base + 1];
-        double z = points[base + 2];
+    private double gapBeyondAllowance(PackedPoints referenceXyz, int pointCount, PackedPoints points,
+            int sample, int segment) {
+        Vector3f position = points.at(sample);
         double best = Double.POSITIVE_INFINITY;
         int nearestChunk = warmChunk;
         int from = anchorAtPoint[segment];
@@ -428,14 +393,14 @@ public final class SplineAnchorFit {
                 Math.floorMod(anchorAtPoint[(segment + 1) % anchorCount] - from, pointCount));
         for (int step = 0; step < chunkCount; step++) {
             int chunk = (warmChunk + step) % chunkCount;
-            int bounds = 2 * COORDINATES_PER_POINT * chunk;
-            double gapX = Math.max(0.0, Math.max(chunkBounds[bounds] - x,
-                    x - chunkBounds[bounds + COORDINATES_PER_POINT]));
-            double gapY = Math.max(0.0, Math.max(chunkBounds[bounds + 1] - y,
-                    y - chunkBounds[bounds + COORDINATES_PER_POINT + 1]));
-            double gapZ = Math.max(0.0, Math.max(chunkBounds[bounds + 2] - z,
-                    z - chunkBounds[bounds + COORDINATES_PER_POINT + 2]));
-            if (gapX * gapX + gapY * gapY + gapZ * gapZ > best) {
+            PackedPoints box = chunkBounds[chunk];
+            double gapSquared = 0.0;
+            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+                double gap = Math.max(0.0, Math.max((double) box.get(0, axis) - position.get(axis),
+                        (double) position.get(axis) - box.get(1, axis)));
+                gapSquared += gap * gap;
+            }
+            if (gapSquared > best) {
                 continue;
             }
             int first = REFERENCE_SPANS_PER_CULLING_BOX * chunk;
@@ -444,8 +409,8 @@ public final class SplineAnchorFit {
                 if (Math.floorMod(point - from, pointCount) >= spans) {
                     continue;
                 }
-                double squared = SurfaceSpline.spanDistanceSquared(referenceXyz, pointCount,
-                        point, x, y, z, best);
+                double squared = TriangleGeometry.segmentDistanceSquared(referenceXyz, point,
+                        (point + 1) % pointCount, position, best);
                 if (squared < best) {
                     best = squared;
                     nearestChunk = chunk;
@@ -453,7 +418,7 @@ public final class SplineAnchorFit {
             }
         }
         warmChunk = nearestChunk;
-        double along = (double) base / points.length;
+        double along = (double) sample / points.size();
         double allowance = (1.0 - along) * anchorAllowance[segment]
                 + along * anchorAllowance[(segment + 1) % tracer.anchorCount];
         return Math.sqrt(best) - allowance;

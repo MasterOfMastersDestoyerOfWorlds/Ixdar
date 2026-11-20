@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.modifier.RepairMeshNode;
 import ixdar.platform.Platforms;
@@ -128,16 +129,16 @@ public final class CrawfishOrientationCheckBenchmark {
      *         zero-area triangle
      */
     private static int verdict(TriangleBvh bvh, int triangle, int[] stack) {
-        float[] p = bvh.positions;
-        int cornerA = bvh.triangleCorners[triangle * TriangleBvh.TRIANGLE_CORNERS] * 3;
-        int cornerB = bvh.triangleCorners[triangle * TriangleBvh.TRIANGLE_CORNERS + 1] * 3;
-        int cornerC = bvh.triangleCorners[triangle * TriangleBvh.TRIANGLE_CORNERS + 2] * 3;
-        double alongX = p[cornerB] - p[cornerA];
-        double alongY = p[cornerB + 1] - p[cornerA + 1];
-        double alongZ = p[cornerB + 2] - p[cornerA + 2];
-        double acrossX = p[cornerC] - p[cornerA];
-        double acrossY = p[cornerC + 1] - p[cornerA + 1];
-        double acrossZ = p[cornerC + 2] - p[cornerA + 2];
+        PackedPoints p = bvh.positions;
+        int cornerA = bvh.triangleCorners[triangle * TriangleBvh.TRIANGLE_CORNERS];
+        int cornerB = bvh.triangleCorners[triangle * TriangleBvh.TRIANGLE_CORNERS + 1];
+        int cornerC = bvh.triangleCorners[triangle * TriangleBvh.TRIANGLE_CORNERS + 2];
+        double alongX = p.get(cornerB, 0) - p.get(cornerA, 0);
+        double alongY = p.get(cornerB, 1) - p.get(cornerA, 1);
+        double alongZ = p.get(cornerB, 2) - p.get(cornerA, 2);
+        double acrossX = p.get(cornerC, 0) - p.get(cornerA, 0);
+        double acrossY = p.get(cornerC, 1) - p.get(cornerA, 1);
+        double acrossZ = p.get(cornerC, 2) - p.get(cornerA, 2);
         double normalX = alongY * acrossZ - alongZ * acrossY;
         double normalY = alongZ * acrossX - alongX * acrossZ;
         double normalZ = alongX * acrossY - alongY * acrossX;
@@ -147,7 +148,7 @@ public final class CrawfishOrientationCheckBenchmark {
         }
         Vector3f centroid = new Vector3f();
         for (int axis = 0; axis < 3; axis++) {
-            centroid.setComponent(axis, (p[cornerA + axis] + p[cornerB + axis] + p[cornerC + axis]) / 3f);
+            centroid.setComponent(axis, (p.get(cornerA, axis) + p.get(cornerB, axis) + p.get(cornerC, axis)) / 3f);
         }
         Vector3f front = new Vector3f((float) (normalX / length), (float) (normalY / length),
                 (float) (normalZ / length));

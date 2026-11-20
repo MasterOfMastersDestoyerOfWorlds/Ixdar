@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * The connection between two points on two spheres joined by a thin tube: the path runs through
@@ -52,20 +53,18 @@ class SurfaceConnectionTest {
             rowRadius[SPHERE_ROWS + row] = TUBE_RADIUS;
             rowHeight[SPHERE_ROWS + row] = -TUBE_END + 2.0 * TUBE_END * (row + 1) / (TUBE_ROWS + 1);
         }
-        float[] positions = new float[3 * (rows * AROUND + 2)];
+        PackedPoints positions = new PackedPoints(rows * AROUND + 2);
         for (int row = 0; row < rows; row++) {
             for (int step = 0; step < AROUND; step++) {
                 double angle = 2.0 * Math.PI * step / AROUND;
-                int base = 3 * (row * AROUND + step);
-                positions[base] = (float) (rowRadius[row] * Math.cos(angle));
-                positions[base + 1] = (float) (rowRadius[row] * Math.sin(angle));
-                positions[base + 2] = (float) rowHeight[row];
+                positions.set(row * AROUND + step, (float) (rowRadius[row] * Math.cos(angle)),
+                        (float) (rowRadius[row] * Math.sin(angle)), (float) rowHeight[row]);
             }
         }
         int southPole = rows * AROUND;
         int northPole = southPole + 1;
-        positions[3 * southPole + 2] = (float) (-SPHERE_CENTRE - 1.0);
-        positions[3 * northPole + 2] = (float) (SPHERE_CENTRE + 1.0);
+        positions.set(southPole, 0f, 0f, (float) (-SPHERE_CENTRE - 1.0));
+        positions.set(northPole, 0f, 0f, (float) (SPHERE_CENTRE + 1.0));
         int[] faces = new int[3 * (2 * AROUND + 2 * AROUND * (rows - 1))];
         int cursor = 0;
         for (int step = 0; step < AROUND; step++) {
@@ -90,7 +89,7 @@ class SurfaceConnectionTest {
 
         boolean throughTube = false;
         for (int face : connection.pathActiveFace) {
-            float z = connection.centroidXyz[3 * face + 2];
+            float z = connection.centroids.get(face, 2);
             throughTube |= Math.abs(z) < TUBE_END * 0.5;
         }
         assertTrue(throughTube, "the path runs through the tube");

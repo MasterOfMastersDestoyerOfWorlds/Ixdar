@@ -12,6 +12,7 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
@@ -75,7 +76,7 @@ public class ResampleCurveNode implements MeshNode {
 
         CurveGeometry subdivided = cg.subdivided(segLen);
         if (subdivided.pointCount() == 0) {
-            subdivided = CurveGeometry.singlePolyline(new float[0], false);
+            subdivided = CurveGeometry.singlePolyline(new PackedPoints(), false);
         }
         ctx.setOutput(GEOMETRY_OUT.name, gb.withSlot(CurveGeometry.SLOT, subdivided));
     }

@@ -62,7 +62,7 @@ public final class MeshDeleteVertices {
             return MeshVertexOffset.apply(mesh, new Vector3Value(0f, 0f, 0f));
         }
 
-        float[] positions = new float[n * 3];
+        PackedPoints positions = new PackedPoints(n);
         int[] outVertexOfId = new int[mesh.vertexIdBound()];
         int[] sourceVertex = new int[n];
         Vector3f position = new Vector3f();
@@ -73,8 +73,7 @@ public final class MeshDeleteVertices {
                 outVertexOfId[vertexId] = -1;
                 continue;
             }
-            mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(positions, survivors * 3, position);
+            positions.set(survivors, mesh.vertexPosition(vertexId, position));
             sourceVertex[survivors] = vertexId;
             outVertexOfId[vertexId] = survivors++;
         }
@@ -103,8 +102,8 @@ public final class MeshDeleteVertices {
                 keptCorners += size;
             }
         }
-        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(Arrays.copyOf(positions, survivors * 3),
-                Arrays.copyOf(faceSizes, keptFaces), Arrays.copyOf(faceVertices, keptCorners));
+        positions.resize(survivors);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, Arrays.copyOf(faceSizes, keptFaces), Arrays.copyOf(faceVertices, keptCorners));
         out.computeNormals();
         out.recordSources(sourceVertex, null, sourceFace);
         return out;

@@ -10,6 +10,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
@@ -177,7 +178,7 @@ class WrappedCornerPortMatchTest {
         firstNeighbor[TOP_POLE] = ringVertex(TOP_RING, 2 * (SPOKES - 1));
         ExtractedQuadMesh mesh = new ExtractedQuadMesh();
         mesh.quadVertexCount = VERTICES;
-        mesh.positions = new float[VERTICES * ExtractedQuadMesh.POSITION_FLOATS];
+        mesh.positions = new PackedPoints(VERTICES);
         mesh.vertexKind = new int[VERTICES];
         mesh.anchorEntityId = new int[VERTICES];
         mesh.portStart = new int[VERTICES + 1];
@@ -247,18 +248,16 @@ class WrappedCornerPortMatchTest {
      *
      * @return packed xyz per vertex
      */
-    private static float[] positions() {
-        float[] positions = new float[VERTICES * ExtractedQuadMesh.POSITION_FLOATS];
-        positions[TOP_POLE * ExtractedQuadMesh.POSITION_FLOATS + 2] = 2;
-        positions[BOTTOM_POLE * ExtractedQuadMesh.POSITION_FLOATS + 2] = -2;
+    private static PackedPoints positions() {
+        PackedPoints positions = new PackedPoints(VERTICES);
+        positions.set(TOP_POLE, 0f, 0f, 2f);
+        positions.set(BOTTOM_POLE, 0f, 0f, -2f);
         for (int step = 0; step < RING; step++) {
             double angle = 2 * Math.PI * step / RING;
             int radius = step % 2 == 0 ? 1 : 2;
             for (int ringStart : new int[] { TOP_RING, BOTTOM_RING }) {
-                int base = ringVertex(ringStart, step) * ExtractedQuadMesh.POSITION_FLOATS;
-                positions[base] = (float) (radius * Math.cos(angle));
-                positions[base + 1] = (float) (radius * Math.sin(angle));
-                positions[base + 2] = ringStart == TOP_RING ? 1 : -1;
+                positions.set(ringVertex(ringStart, step), (float) (radius * Math.cos(angle)),
+                        (float) (radius * Math.sin(angle)), ringStart == TOP_RING ? 1f : -1f);
             }
         }
         return positions;

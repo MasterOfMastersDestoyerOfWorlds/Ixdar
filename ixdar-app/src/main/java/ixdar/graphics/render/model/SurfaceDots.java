@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.graphics.render.color.Color;
 
 /**
@@ -30,15 +31,15 @@ public final class SurfaceDots {
     private final Vector3f normal = new Vector3f();
 
     /**
-     * Every point of a packed cloud as one dot at its bare position.
+     * Every point of a cloud as one dot at its bare position.
      *
-     * @param packed         flat xyz, or {@code null} for none
+     * @param cloud          the points, or {@code null} for none
      * @param color          colour of every dot
      * @param diameterPixels diameter of every dot, in framebuffer pixels
      */
-    public void addCloud(float[] packed, Color color, float diameterPixels) {
-        for (int point = 0; packed != null && point + 2 < packed.length; point += 3) {
-            add(packed[point], packed[point + 1], packed[point + 2], color, diameterPixels);
+    public void addCloud(PackedPoints cloud, Color color, float diameterPixels) {
+        for (int point = 0; cloud != null && point < cloud.size(); point++) {
+            add(cloud.get(point, 0), cloud.get(point, 1), cloud.get(point, 2), color, diameterPixels);
         }
     }
 

@@ -28,6 +28,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.analysis.MeshDistance;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.nodegraph.runtime.GroupLibrary;
@@ -176,12 +177,12 @@ public final class BatchDslEvaluator {
             System.exit(1);
         }
 
-        float[] normalizedRefPositions = null;
+        PackedPoints normalizedRefPositions = null;
         if (refObjPath != null && !refObjPath.isEmpty()) {
             try {
                 normalizedRefPositions = MeshDistance.normalizedPositions(MeshLoader.load(refObjPath));
                 System.err.printf("Loaded reference mesh: %d verts (normalized)%n",
-                        normalizedRefPositions.length / 3);
+                        normalizedRefPositions.size());
             } catch (Exception e) {
                 System.err.println("Warning: could not load reference mesh: " + e.getMessage());
             }
@@ -298,8 +299,7 @@ public final class BatchDslEvaluator {
             pm.put("suggestedDelta", result.suggestedDeltas().getOrDefault(p.overrideKey(), 0f));
             float totalSens = 0;
             for (int ji = 0; ji < result.jointIndices().size(); ji++) {
-                float[] j = result.jacobian3D()[ji][pi];
-                totalSens += (float) Math.sqrt(j[0] * j[0] + j[1] * j[1] + j[2] * j[2]);
+                totalSens += result.jacobian3D()[ji][pi].length();
             }
             pm.put("totalSensitivity", totalSens);
             paramList.add(pm);

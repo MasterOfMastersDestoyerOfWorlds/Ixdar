@@ -222,7 +222,7 @@ public class MeshBooleanScene extends ModelScene {
         }
         int[] faceOrigin = ((HalfEdgeMesh) bundle.mesh()).faceLayers[originLayer];
         int cornerCount = faceCount * CORNERS_PER_TRIANGLE;
-        float[] positions = new float[cornerCount * CORNERS_PER_TRIANGLE];
+        PackedPoints positions = new PackedPoints(cornerCount);
         int[] triangles = new int[cornerCount];
         boolean[] fromA = new boolean[cornerCount];
         boolean[] fromB = new boolean[cornerCount];
@@ -237,8 +237,7 @@ public class MeshBooleanScene extends ModelScene {
             }
             for (int corner = 0; corner < CORNERS_PER_TRIANGLE; corner++) {
                 int displayVertex = activeFace * CORNERS_PER_TRIANGLE + corner;
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), position);
-                PackedPoints.store(positions, displayVertex * CORNERS_PER_TRIANGLE, position);
+                positions.set(displayVertex, mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), position));
                 triangles[displayVertex] = displayVertex;
                 fromA[displayVertex] = origin == MeshBooleanResult.ORIGIN_A;
                 fromB[displayVertex] = origin == MeshBooleanResult.ORIGIN_B;

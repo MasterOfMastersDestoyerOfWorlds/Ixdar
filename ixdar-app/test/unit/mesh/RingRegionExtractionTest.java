@@ -11,6 +11,8 @@ import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.rings.RingRegionExtraction;
 import ixdar.geometry.mesh.data.rings.RingRegions;
@@ -187,7 +189,7 @@ class RingRegionExtractionTest {
      * hundredth of an edge above the row's vertices.
      */
     private static RingRegionExtraction nearRowExtraction(MeshTopology cylinder, double snap) {
-        double[] positions = new double[3 * 2 * AROUND];
+        PackedPoints positions = new PackedPoints(2 * AROUND);
         int[] vertexIds = new int[2 * AROUND];
         int[] edgeIds = new int[2 * AROUND];
         double[] fractions = new double[2 * AROUND];
@@ -208,17 +210,14 @@ class RingRegionExtractionTest {
                 cylinder.vertexPosition(lowId, low);
                 cylinder.vertexPosition(cylinder.vertexIdAt(crossed[step][1]), high);
                 low.lerp(high, NEAR_ROW_FRACTION);
-                positions[3 * point] = low.x;
-                positions[3 * point + 1] = low.y;
-                positions[3 * point + 2] = low.z;
+                positions.set(point, low);
                 vertexIds[point] = -1;
                 edgeIds[point] = edgeId;
                 fractions[point] = fromLow ? NEAR_ROW_FRACTION : 1 - NEAR_ROW_FRACTION;
             }
         }
         SurfaceSpline spline = tiltedRing(cylinder, LOW_RING_HEIGHT, 0);
-        spline.path = new TracedSurfacePath(positions, vertexIds, edgeIds, fractions, 2 * AROUND,
-                true).measure();
+        spline.path = new TracedSurfacePath(positions, vertexIds, edgeIds, fractions, true).measure();
         RingRegions regions = new RingRegions(cylinder, new String[] { LABELS[0] },
                 new boolean[][] { rowMarks }).build();
         RingRegionExtraction extraction = new RingRegionExtraction(regions,
@@ -229,28 +228,21 @@ class RingRegionExtractionTest {
 
     /** A spline ring around the cylinder through anchors on a circle tilted about its height. */
     private static SurfaceSpline tiltedRing(MeshTopology cylinder, float height, double phase) {
-        float[] anchors = new float[3 * ANCHORS];
+        PackedPoints anchors = new PackedPoints(ANCHORS);
         for (int anchor = 0; anchor < ANCHORS; anchor++) {
             double angle = 2 * Math.PI * (anchor + 0.5) / ANCHORS;
-            anchors[3 * anchor] = (float) Math.cos(angle);
-            anchors[3 * anchor + 1] = (float) Math.sin(angle);
-            anchors[3 * anchor + 2] = height + RING_TILT * (float) Math.cos(angle + phase);
+            anchors.set(anchor, (float) Math.cos(angle), (float) Math.sin(angle),
+                    height + RING_TILT * (float) Math.cos(angle + phase));
         }
         return SurfaceSpline.through(cylinder, anchors, ANCHORS);
     }
 
     private static double smallestCutArea(RingRegionExtraction extraction) {
         double smallest = Double.POSITIVE_INFINITY;
-        float[] xyz = extraction.cutPositions;
+        int[] corners = extraction.cutTriangles;
         for (int triangle = 0; triangle < extraction.cutTriangleCount; triangle++) {
-            int first = 3 * extraction.cutTriangles[3 * triangle];
-            int second = 3 * extraction.cutTriangles[3 * triangle + 1];
-            int third = 3 * extraction.cutTriangles[3 * triangle + 2];
-            Vector3f edge = new Vector3f(xyz[second] - xyz[first], xyz[second + 1] - xyz[first + 1],
-                    xyz[second + 2] - xyz[first + 2]);
-            Vector3f other = new Vector3f(xyz[third] - xyz[first], xyz[third + 1] - xyz[first + 1],
-                    xyz[third + 2] - xyz[first + 2]);
-            smallest = Math.min(smallest, 0.5 * edge.cross(other).length());
+            smallest = Math.min(smallest, TriangleGeometry.area(extraction.cutPositions, corners[3 * triangle],
+                    corners[3 * triangle + 1], corners[3 * triangle + 2]));
         }
         return smallest;
     }
@@ -289,19 +281,17 @@ class RingRegionExtractionTest {
      */
     private static MeshTopology cappedCylinder() {
         int sideVertices = (ROWS + 1) * AROUND;
-        float[] positions = new float[3 * (sideVertices + 2)];
+        PackedPoints positions = new PackedPoints(sideVertices + 2);
         for (int row = 0; row <= ROWS; row++) {
             for (int segment = 0; segment < AROUND; segment++) {
                 double angle = 2 * Math.PI * segment / AROUND;
-                int vertex = row * AROUND + segment;
-                positions[3 * vertex] = (float) Math.cos(angle);
-                positions[3 * vertex + 1] = (float) Math.sin(angle);
-                positions[3 * vertex + 2] = ROW_SPACING * row;
+                positions.set(row * AROUND + segment, (float) Math.cos(angle),
+                        (float) Math.sin(angle), ROW_SPACING * row);
             }
         }
         int bottomCentre = sideVertices;
         int topCentre = sideVertices + 1;
-        positions[3 * topCentre + 2] = HEIGHT;
+        positions.set(topCentre, 0f, 0f, HEIGHT);
         int topRow = ROWS * AROUND;
         int[] triangles = new int[3 * 2 * (ROWS + 1) * AROUND];
         int cursor = 0;

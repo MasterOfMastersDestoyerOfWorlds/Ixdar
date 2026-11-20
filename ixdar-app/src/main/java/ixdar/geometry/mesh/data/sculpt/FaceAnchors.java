@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.data.sculpt;
 
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
 
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -36,15 +37,13 @@ public final class FaceAnchors {
      * Anchor a world point to the nearest point of the faces within two rings of its nearest
      * vertex: of each fan triangle, the nearest point (Ericson, Real-Time Collision Detection, 5.1.5).
      *
-     * @param x      point x
-     * @param y      point y
-     * @param z      point z
+     * @param point  the world point
      * @param anchor receives {@link #FIELDS} floats at {@code at}: face id, fan triangle, u, v
      * @param at     where in {@code anchor} to write
      * @return the face id, or -1 for a mesh with no vertex
      */
-    public int anchor(float x, float y, float z, float[] anchor, int at) {
-        int start = nearestVertex.nearest(x, y, z, Float.POSITIVE_INFINITY);
+    public int anchor(Vector3fc point, float[] anchor, int at) {
+        int start = nearestVertex.nearest(point, Float.POSITIVE_INFINITY);
         if (start < 0) {
             return -1;
         }
@@ -62,9 +61,9 @@ public final class FaceAnchors {
                 for (int fan = 0; fan + 2 < corners; fan++) {
                     mesh.vertexPosition(mesh.faceVertexAt(faceId, fan + 1), b).sub(a);
                     mesh.vertexPosition(mesh.faceVertexAt(faceId, fan + 2), c).sub(a);
-                    float apX = x - a.x;
-                    float apY = y - a.y;
-                    float apZ = z - a.z;
+                    float apX = point.x() - a.x;
+                    float apY = point.y() - a.y;
+                    float apZ = point.z() - a.z;
                     float d1 = b.x * apX + b.y * apY + b.z * apZ;
                     float d2 = c.x * apX + c.y * apY + c.z * apZ;
                     float bb = b.lengthSquared();
@@ -102,9 +101,9 @@ public final class FaceAnchors {
                         u = vb * denominator;
                         v = vc * denominator;
                     }
-                    float offX = a.x + u * b.x + v * c.x - x;
-                    float offY = a.y + u * b.y + v * c.y - y;
-                    float offZ = a.z + u * b.z + v * c.z - z;
+                    float offX = a.x + u * b.x + v * c.x - point.x();
+                    float offY = a.y + u * b.y + v * c.y - point.y();
+                    float offZ = a.z + u * b.z + v * c.z - point.z();
                     float distance = offX * offX + offY * offY + offZ * offZ;
                     if (distance < best) {
                         best = distance;

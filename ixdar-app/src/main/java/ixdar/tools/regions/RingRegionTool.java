@@ -511,7 +511,7 @@ public final class RingRegionTool extends Tool {
         }
         boolean hiding = layer.hiddenByActiveFace.length == regions.regionByActiveFace.length;
         int[] hiddenFaces = new int[regions.regionCount];
-        float[] corners = new float[XYZ * regions.regionCount];
+        PackedPoints corners = new PackedPoints(regions.regionCount);
         int[] cornerCount = new int[regions.regionCount];
         Vector3f corner = new Vector3f();
         for (int activeFace = 0; activeFace < regions.regionByActiveFace.length; activeFace++) {
@@ -522,10 +522,7 @@ public final class RingRegionTool extends Tool {
             hiddenFaces[region] += hiding && layer.hiddenByActiveFace[activeFace] ? 1 : 0;
             int faceId = regions.mesh.faceIdAt(activeFace);
             for (int side = 0; side < regions.mesh.faceVertexCount(faceId); side++) {
-                regions.mesh.vertexPosition(regions.mesh.faceVertexAt(faceId, side), corner);
-                corners[XYZ * region] += corner.x;
-                corners[XYZ * region + 1] += corner.y;
-                corners[XYZ * region + 2] += corner.z;
+                corners.add(region, regions.mesh.vertexPosition(regions.mesh.faceVertexAt(faceId, side), corner));
                 cornerCount[region]++;
             }
         }
@@ -533,7 +530,7 @@ public final class RingRegionTool extends Tool {
             Item item = new Item();
             item.label = regionTag(region);
             if (cornerCount[region] > 0) {
-                item.location.set(PackedPoints.at(corners, XYZ * region).div(cornerCount[region]));
+                item.location.set(corners.at(region).div(cornerCount[region]));
             }
             item.size = regions.regionFaceCount[region];
             boolean hidden = hiddenFaces[region] == regions.regionFaceCount[region];

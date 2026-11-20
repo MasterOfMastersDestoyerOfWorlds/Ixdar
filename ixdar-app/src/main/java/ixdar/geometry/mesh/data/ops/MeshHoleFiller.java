@@ -5,7 +5,12 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import org.joml.Vector3d;
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.numeric.sparse.AdaptiveSolver;
 
 /**
@@ -35,8 +40,6 @@ public final class MeshHoleFiller {
 
     private static final int GROWTH = 2;
 
-    private static final double HALF = 0.5;
-
     private static final int PARALLEL_LOOP_LENGTH = 256;
 
     private static final int SPLIT_LOOP_LENGTH = 256;
@@ -47,27 +50,15 @@ public final class MeshHoleFiller {
 
     private static final int PACKED_POSITION_BITS = 23;
 
-    /** Loop vertex positions in traversal order, x. */
-    public double[] loopX = new double[0];
-
-    /** Loop vertex positions in traversal order, y. */
-    public double[] loopY = new double[0];
-
-    /** Loop vertex positions in traversal order, z. */
-    public double[] loopZ = new double[0];
+    /** Loop vertex positions in traversal order. */
+    public PackedPoints loopPositions = new PackedPoints(0);
 
     /** Mean incident mesh edge length per loop vertex, the density the refinement matches. */
     public double[] loopSigma = new double[0];
 
-    /** Surrounding-ring vertex positions, x; held fixed with the loop so the patch meets the
+    /** Surrounding-ring vertex positions; held fixed with the loop so the patch meets the
      * surface's tangent rather than flattening against it. */
-    public double[] ringX = new double[0];
-
-    /** Surrounding-ring vertex positions, y, parallel to {@link #ringX}. */
-    public double[] ringY = new double[0];
-
-    /** Surrounding-ring vertex positions, z, parallel to {@link #ringX}. */
-    public double[] ringZ = new double[0];
+    public PackedPoints ringPositions = new PackedPoints(0);
 
     /** Vertices in the surrounding ring; local indices {@code [loopLength, loopLength + ringCount)}. */
     public int ringCount;
@@ -102,16 +93,10 @@ public final class MeshHoleFiller {
     /** Triangles in {@link #triangles}. */
     public int triangleCount;
 
-    /** Local vertex x, loop vertices first then minted ones. */
-    public double[] vertexX = new double[0];
+    /** Local vertex positions, loop vertices first, then the ring, then minted ones. */
+    public PackedPoints vertexPositions = new PackedPoints(0);
 
-    /** Local vertex y, parallel to {@link #vertexX}. */
-    public double[] vertexY = new double[0];
-
-    /** Local vertex z, parallel to {@link #vertexX}. */
-    public double[] vertexZ = new double[0];
-
-    /** Density scale per local vertex, parallel to {@link #vertexX}. */
+    /** Density scale per local vertex, parallel to {@link #vertexPositions}. */
     public double[] vertexSigma = new double[0];
 
     /** Local vertices, {@link #loopLength} of which are the loop's own. */
@@ -141,13 +126,8 @@ public final class MeshHoleFiller {
             return;
         }
         int fixedCount = loopLength + ringCount;
-        vertexX = Arrays.copyOf(loopX, fixedCount);
-        vertexY = Arrays.copyOf(loopY, fixedCount);
-        vertexZ = Arrays.copyOf(loopZ, fixedCount);
+        vertexPositions = PackedPoints.concat(loopPositions.slice(0, loopLength), ringPositions.slice(0, ringCount));
         vertexSigma = Arrays.copyOf(loopSigma, fixedCount);
-        System.arraycopy(ringX, 0, vertexX, loopLength, ringCount);
-        System.arraycopy(ringY, 0, vertexY, loopLength, ringCount);
-        System.arraycopy(ringZ, 0, vertexZ, loopLength, ringCount);
         vertexCount = fixedCount;
         if (!triangulate()) {
             return;
@@ -184,10 +164,7 @@ public final class MeshHoleFiller {
             double shortest = Double.POSITIVE_INFINITY;
             for (int from = 0; from < n; from++) {
                 for (int to = from + n / CUT_SHARE; to <= from + n - n / CUT_SHARE && to < n; to++) {
-                    double deltaX = loopX[polygon[to]] - loopX[polygon[from]];
-                    double deltaY = loopY[polygon[to]] - loopY[polygon[from]];
-                    double deltaZ = loopZ[polygon[to]] - loopZ[polygon[from]];
-                    double length = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+                    double length = loopPositions.distanceSquared(polygon[to], polygon[from]);
                     if (length < shortest && Arrays.binarySearch(forbiddenChords,
                             EdgeKey.undirected(polygon[from], polygon[to])) < 0) {
                         shortest = length;
@@ -239,7 +216,7 @@ public final class MeshHoleFiller {
                     if (halves >= best) {
                         continue;
                     }
-                    double candidate = halves + triangleArea(polygon[start], polygon[middle], polygon[end]);
+                    double candidate = halves + TriangleGeometry.area(loopPositions, polygon[start], polygon[middle], polygon[end]);
                     if (candidate < best) {
                         best = candidate;
                         bestSplit = middle;
@@ -313,17 +290,19 @@ public final class MeshHoleFiller {
         int cornerA = triangles[triangle * TRIANGLE_CORNERS];
         int cornerB = triangles[triangle * TRIANGLE_CORNERS + 1];
         int cornerC = triangles[triangle * TRIANGLE_CORNERS + 2];
-        double centroidX = (vertexX[cornerA] + vertexX[cornerB] + vertexX[cornerC]) / TRIANGLE_CORNERS;
-        double centroidY = (vertexY[cornerA] + vertexY[cornerB] + vertexY[cornerC]) / TRIANGLE_CORNERS;
-        double centroidZ = (vertexZ[cornerA] + vertexZ[cornerB] + vertexZ[cornerC]) / TRIANGLE_CORNERS;
+        Vector3f centre = vertexPositions.gather(Arrays.copyOfRange(triangles, triangle * TRIANGLE_CORNERS,
+                (triangle + 1) * TRIANGLE_CORNERS)).centroid();
         double centroidSigma = (vertexSigma[cornerA] + vertexSigma[cornerB] + vertexSigma[cornerC])
                 / TRIANGLE_CORNERS;
-        if (!denser(cornerA, centroidX, centroidY, centroidZ, centroidSigma)
-                || !denser(cornerB, centroidX, centroidY, centroidZ, centroidSigma)
-                || !denser(cornerC, centroidX, centroidY, centroidZ, centroidSigma)) {
+        if (!denser(cornerA, centre, centroidSigma) || !denser(cornerB, centre, centroidSigma)
+                || !denser(cornerC, centre, centroidSigma)) {
             return false;
         }
-        int centroid = addVertex(centroidX, centroidY, centroidZ, centroidSigma);
+        if (vertexCount == vertexSigma.length) {
+            vertexSigma = Arrays.copyOf(vertexSigma, Math.max(vertexCount * GROWTH, vertexCount + 1));
+        }
+        int centroid = vertexPositions.append(centre);
+        vertexSigma[vertexCount++] = centroidSigma;
         triangles[triangle * TRIANGLE_CORNERS + 2] = centroid;
         addTriangle(cornerB, cornerC, centroid);
         addTriangle(cornerC, cornerA, centroid);
@@ -334,19 +313,12 @@ public final class MeshHoleFiller {
      * Liepa's per-corner density test for a candidate centroid.
      *
      * @param corner patch vertex the centroid is measured against
-     * @param centroidX candidate x
-     * @param centroidY candidate y
-     * @param centroidZ candidate z
+     * @param centroid candidate position
      * @param centroidSigma density scale the candidate would take
      * @return true when the scaled distance beats both density scales
      */
-    private boolean denser(int corner, double centroidX, double centroidY, double centroidZ,
-            double centroidSigma) {
-        double deltaX = centroidX - vertexX[corner];
-        double deltaY = centroidY - vertexY[corner];
-        double deltaZ = centroidZ - vertexZ[corner];
-        double scaled = REFINE_ALPHA
-                * Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+    private boolean denser(int corner, Vector3f centroid, double centroidSigma) {
+        double scaled = REFINE_ALPHA * Math.sqrt(vertexPositions.distanceSquared(corner, centroid));
         return scaled > vertexSigma[corner] && scaled > centroidSigma;
     }
 
@@ -448,20 +420,10 @@ public final class MeshHoleFiller {
      * @return the angle in radians, zero when either leg has no length
      */
     private double angleAt(int apex, int first, int second) {
-        double firstX = vertexX[first] - vertexX[apex];
-        double firstY = vertexY[first] - vertexY[apex];
-        double firstZ = vertexZ[first] - vertexZ[apex];
-        double secondX = vertexX[second] - vertexX[apex];
-        double secondY = vertexY[second] - vertexY[apex];
-        double secondZ = vertexZ[second] - vertexZ[apex];
-        double firstLength = Math.sqrt(firstX * firstX + firstY * firstY + firstZ * firstZ);
-        double secondLength = Math.sqrt(secondX * secondX + secondY * secondY + secondZ * secondZ);
-        if (firstLength == 0 || secondLength == 0) {
-            return 0;
-        }
-        double cosine = (firstX * secondX + firstY * secondY + firstZ * secondZ)
-                / (firstLength * secondLength);
-        return Math.acos(Math.max(-1, Math.min(1, cosine)));
+        Vector3d at = new Vector3d(vertexPositions.at(apex));
+        Vector3d toFirst = new Vector3d(vertexPositions.at(first)).sub(at);
+        Vector3d toSecond = new Vector3d(vertexPositions.at(second)).sub(at);
+        return toFirst.lengthSquared() == 0 || toSecond.lengthSquared() == 0 ? 0 : toFirst.angle(toSecond);
     }
 
     /**
@@ -486,22 +448,25 @@ public final class MeshHoleFiller {
         umbrellaRows = IntStream.range(0, vertexCount)
                 .filter(vertex -> needed[vertex]).toArray();
         umbrellaScratch = new double[vertexCount];
-        solveCoordinate(vertexX, fixedCount);
-        solveCoordinate(vertexY, fixedCount);
-        solveCoordinate(vertexZ, fixedCount);
+        for (int axis = 0; axis < PackedPoints.XYZ; axis++) {
+            solveCoordinate(axis, fixedCount);
+        }
     }
 
     /**
-     * Runs the fairing solve for one coordinate, writing the result back over the minted entries.
+     * Runs the fairing solve for one coordinate of {@link #vertexPositions} in double, writing the
+     * result back over the minted vertices.
      *
-     * @param coordinate one coordinate per local vertex; entries below {@code fixedCount} are the
-     *     Dirichlet data and are not written
+     * @param axis the coordinate solved: 0 for x, 1 for y, 2 for z; vertices below
+     *     {@code fixedCount} are the Dirichlet data and are not written
      * @param fixedCount local vertices held fixed: the loop and the surrounding ring
      */
-    private void solveCoordinate(double[] coordinate, int fixedCount) {
+    private void solveCoordinate(int axis, int fixedCount) {
         int unknowns = vertexCount - fixedCount;
         double[] boundaryOnly = new double[vertexCount];
-        System.arraycopy(coordinate, 0, boundaryOnly, 0, fixedCount);
+        for (int vertex = 0; vertex < fixedCount; vertex++) {
+            boundaryOnly[vertex] = vertexPositions.get(vertex, axis);
+        }
         double[] rightHandSide = new double[unknowns];
         double[] scratch = new double[vertexCount];
         applyNormalOperator(boundaryOnly, scratch);
@@ -511,7 +476,7 @@ public final class MeshHoleFiller {
 
         double[] solution = new double[unknowns];
         for (int unknown = 0; unknown < unknowns; unknown++) {
-            solution[unknown] = coordinate[fixedCount + unknown];
+            solution[unknown] = vertexPositions.get(fixedCount + unknown, axis);
         }
         double[] full = new double[vertexCount];
         AdaptiveSolver.preconditionedConjugateGradient(
@@ -521,7 +486,7 @@ public final class MeshHoleFiller {
                 (residual, output) -> System.arraycopy(residual, 0, output, 0, unknowns),
                 fairingIterations, FAIRING_TOLERANCE, FAIRING_NORM_FLOOR);
         for (int unknown = 0; unknown < unknowns; unknown++) {
-            coordinate[fixedCount + unknown] = solution[unknown];
+            vertexPositions.set(fixedCount + unknown, axis, (float) solution[unknown]);
         }
     }
 
@@ -629,30 +594,6 @@ public final class MeshHoleFiller {
     }
 
     /**
-     * Appends a minted patch vertex.
-     *
-     * @param x position x
-     * @param y position y
-     * @param z position z
-     * @param sigma density scale the refinement gives it
-     * @return the new local vertex index
-     */
-    private int addVertex(double x, double y, double z, double sigma) {
-        if (vertexCount == vertexX.length) {
-            int capacity = Math.max(vertexCount * GROWTH, vertexCount + 1);
-            vertexX = Arrays.copyOf(vertexX, capacity);
-            vertexY = Arrays.copyOf(vertexY, capacity);
-            vertexZ = Arrays.copyOf(vertexZ, capacity);
-            vertexSigma = Arrays.copyOf(vertexSigma, capacity);
-        }
-        vertexX[vertexCount] = x;
-        vertexY[vertexCount] = y;
-        vertexZ[vertexCount] = z;
-        vertexSigma[vertexCount] = sigma;
-        return vertexCount++;
-    }
-
-    /**
      * Appends a patch triangle.
      *
      * @param cornerA first corner
@@ -668,27 +609,6 @@ public final class MeshHoleFiller {
         triangles[triangleCount * TRIANGLE_CORNERS + 1] = cornerB;
         triangles[triangleCount * TRIANGLE_CORNERS + 2] = cornerC;
         triangleCount++;
-    }
-
-    /**
-     * Area of a triangle over three loop vertices.
-     *
-     * @param first first loop index
-     * @param second second loop index
-     * @param third third loop index
-     * @return the triangle's area
-     */
-    private double triangleArea(int first, int second, int third) {
-        double firstX = loopX[second] - loopX[first];
-        double firstY = loopY[second] - loopY[first];
-        double firstZ = loopZ[second] - loopZ[first];
-        double secondX = loopX[third] - loopX[first];
-        double secondY = loopY[third] - loopY[first];
-        double secondZ = loopZ[third] - loopZ[first];
-        double crossX = firstY * secondZ - firstZ * secondY;
-        double crossY = firstZ * secondX - firstX * secondZ;
-        double crossZ = firstX * secondY - firstY * secondX;
-        return HALF * Math.sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
     }
 
     /**

@@ -66,24 +66,20 @@ public class ShrinkwrapMeshNode implements MeshNode {
         }
         float keep = FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, OFFSET.name, OFFSET.defaultValue), 0f);
-        float[] xyz = mesh.packedPositions(null);
-        float[] normalXyz = new float[xyz.length];
+        PackedPoints positions = mesh.packedPositions(null);
+        PackedPoints normalXyz = new PackedPoints(mesh.vertexCount());
         Vector3f normal = new Vector3f();
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            mesh.vertexNormal(mesh.vertexIdAt(activeVertex), normal).normalize();
-            PackedPoints.store(normalXyz, activeVertex * 3, normal);
+            normalXyz.set(activeVertex, mesh.vertexNormal(mesh.vertexIdAt(activeVertex), normal).normalize());
         }
-        MeshProjection hits = MeshProjection.along(xyz, normalXyz, target.mesh());
+        MeshProjection hits = MeshProjection.along(positions, normalXyz, target.mesh());
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             if (hits.hitFace[activeVertex] == MeshTopology.NONE) {
                 continue;
             }
-            float move = hits.offset[activeVertex] + keep;
-            for (int axis = 0; axis < 3; axis++) {
-                xyz[activeVertex * 3 + axis] += normalXyz[activeVertex * 3 + axis] * move;
-            }
+            positions.add(activeVertex, normalXyz.at(activeVertex).mul(hits.offset[activeVertex] + keep));
         }
         ctx.setOutput(GEOMETRY.name, SlotCarry.carry(List.of(base), GeometryBundle.ofMesh(
-                MeshVertexOffset.atPositions(mesh, xyz))));
+                MeshVertexOffset.atPositions(mesh, positions))));
     }
 }

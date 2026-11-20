@@ -17,6 +17,7 @@ import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
@@ -77,17 +78,16 @@ class QuadRingToolTest {
 
     private static final double GEODESIC_TOLERANCE = 1e-9;
 
+    private static final double FLOAT_STORED_POINT_TOLERANCE = 1e-6;
+
     private static final double CAP_TOLERANCE = 1e-5;
 
     @Test
     void aGeodesicOnAQuadGridIsTheStraightLineThroughItsQuads() {
-        float[] positions = new float[RingTool.COORDINATES_PER_POINT * (GRID_COLUMNS + 1)
-                * (GRID_ROWS + 1)];
+        PackedPoints positions = new PackedPoints((GRID_COLUMNS + 1) * (GRID_ROWS + 1));
         for (int row = 0; row <= GRID_ROWS; row++) {
             for (int column = 0; column <= GRID_COLUMNS; column++) {
-                int base = RingTool.COORDINATES_PER_POINT * gridVertexId(column, row);
-                positions[base] = column;
-                positions[base + 1] = row;
+                positions.set(gridVertexId(column, row), column, row, 0f);
             }
         }
         int[] cornerCounts = new int[GRID_COLUMNS * GRID_ROWS];
@@ -116,10 +116,10 @@ class QuadRingToolTest {
         assertEquals(analytic, geodesics.pathLength, GEODESIC_TOLERANCE * analytic);
         int insidePoints = 0;
         for (int point = 0; point < geodesics.tracedPointCount; point++) {
-            double x = geodesics.tracedXyz[RingTool.COORDINATES_PER_POINT * point];
-            double y = geodesics.tracedXyz[RingTool.COORDINATES_PER_POINT * point + 1];
+            double x = geodesics.tracedXyz.get(point, 0);
+            double y = geodesics.tracedXyz.get(point, 1);
             assertEquals(0.0, Math.abs((x - 1) * RUN_UP - (y - 1) * RUN_ACROSS) / analytic,
-                    GEODESIC_TOLERANCE, "traced point " + point + " left the straight line");
+                    FLOAT_STORED_POINT_TOLERANCE, "traced point " + point + " left the straight line");
             int faceId = geodesics.tracedFaceId[point];
             if (faceId < 0) {
                 continue;
@@ -157,7 +157,10 @@ class QuadRingToolTest {
 
     @Test
     void aQuadSplitsOnItsShorterDiagonal() {
-        float[] rhombus = { 0f, 0f, 0f, 2f, 0f, 0f, 3f, 1f, 0f, 1f, 1f, 0f };
+        PackedPoints rhombus = new PackedPoints(QUAD_CORNERS);
+        rhombus.set(1, 2f, 0f, 0f);
+        rhombus.set(2, 3f, 1f, 0f);
+        rhombus.set(3, 1f, 1f, 0f);
         MeshTopology quad = HalfEdgeMeshOps.bulkAllocateMixed(rhombus,
                 new int[] { QUAD_CORNERS }, new int[] { 0, 1, 2, 3 });
         SurfaceMetric metric = SurfaceMetric.of(quad);
@@ -182,10 +185,10 @@ class QuadRingToolTest {
         assertSame(surface, tool.geodesics.mesh);
         assertEquals(1, tool.confirmedRings.size(), tool.lastRow);
         assertEquals(SEGMENTS_AROUND, tool.confirmedRings.get(0).spline.marks.markedEdgeCount);
-        float[] anchors = tool.positionsOf(tool.confirmedRings.get(0).authoredVertexId);
-        assertTrue(anchors.length >= RingTool.COORDINATES_PER_POINT);
-        for (int anchor = 2; anchor < anchors.length; anchor += RingTool.COORDINATES_PER_POINT) {
-            assertEquals(rowHeight(RING_ROW), anchors[anchor], POSITION_TOLERANCE,
+        PackedPoints anchors = tool.positionsOf(tool.confirmedRings.get(0).authoredVertexId);
+        assertTrue(anchors.size() >= 1);
+        for (int anchor = 0; anchor < anchors.size(); anchor++) {
+            assertEquals(rowHeight(RING_ROW), anchors.get(anchor, 2), POSITION_TOLERANCE,
                     "an anchor left the ring's row");
         }
     }
@@ -209,16 +212,12 @@ class QuadRingToolTest {
     void aTiltedSplineRingOnQuadsMarksOnlyQuadEdgesAndReloadsExact() throws Exception {
         MeshTopology quads = quadCylinder();
         RingScene scene = sceneShowing(quads);
-        float[] points = new float[RingTool.COORDINATES_PER_POINT * TILTED_ANCHORS];
+        PackedPoints points = new PackedPoints(TILTED_ANCHORS);
         for (int anchor = 0; anchor < TILTED_ANCHORS; anchor++) {
             int segment = anchor * SEGMENTS_AROUND / TILTED_ANCHORS;
             int row = RING_ROW + (anchor == 0 ? -TILT_ROWS : anchor == 2 ? TILT_ROWS : 0);
-            int vertexId = row * SEGMENTS_AROUND + segment;
-            Vector3f position = new Vector3f();
-            quads.vertexPosition(vertexId, position);
-            points[RingTool.COORDINATES_PER_POINT * anchor] = position.x;
-            points[RingTool.COORDINATES_PER_POINT * anchor + 1] = position.y;
-            points[RingTool.COORDINATES_PER_POINT * anchor + 2] = position.z;
+            points.set(anchor, quads.vertexPosition(row * SEGMENTS_AROUND + segment,
+                    new Vector3f()));
         }
 
         boolean[] written = assertToolAndGraphAgree(quads, scene, points, TILTED_ANCHORS, null);
@@ -326,14 +325,14 @@ class QuadRingToolTest {
      *
      * @param quads       the shown quad mesh
      * @param scene       editing scene showing {@code quads}
-     * @param points      authored anchor positions, packed xyz
+     * @param points      authored anchor positions
      * @param anchorCount anchors in {@code points}
      * @param normal      the ring's base normal, or {@code null}
      * @return the statement's mask over the quad mesh's edge ids
      * @throws Exception when the statement fails to run
      */
     private static boolean[] assertToolAndGraphAgree(MeshTopology quads, RingScene scene,
-            float[] points, int anchorCount, Vector3f normal) throws Exception {
+            PackedPoints points, int anchorCount, Vector3f normal) throws Exception {
         MeshTopology surface = scene.halfEdgeSurface();
         if (scene.ringTool.geodesics == null) {
             scene.ringTool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(surface));
@@ -463,15 +462,12 @@ class QuadRingToolTest {
      * @return the half-edge mesh, quads on the sides and two polygon caps
      */
     private static MeshTopology quadCylinder() {
-        float[] positions = new float[RingTool.COORDINATES_PER_POINT * (SIDE_ROWS + 1)
-                * SEGMENTS_AROUND];
+        PackedPoints positions = new PackedPoints((SIDE_ROWS + 1) * SEGMENTS_AROUND);
         for (int row = 0; row <= SIDE_ROWS; row++) {
             for (int segment = 0; segment < SEGMENTS_AROUND; segment++) {
                 double angle = 2 * Math.PI * segment / SEGMENTS_AROUND;
-                int base = RingTool.COORDINATES_PER_POINT * (row * SEGMENTS_AROUND + segment);
-                positions[base] = (float) Math.cos(angle);
-                positions[base + 1] = (float) Math.sin(angle);
-                positions[base + 2] = rowHeight(row);
+                positions.set(row * SEGMENTS_AROUND + segment, (float) Math.cos(angle),
+                        (float) Math.sin(angle), rowHeight(row));
             }
         }
         int sideQuads = SIDE_ROWS * SEGMENTS_AROUND;

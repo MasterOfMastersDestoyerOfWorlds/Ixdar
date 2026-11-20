@@ -1,6 +1,7 @@
 package ixdar.nodegraph.optimize;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,7 +73,7 @@ public final class SkeletonSensitivityAnalyzer {
         List<OptimizableParameter> params = collectAllParameters(parsed);
 
         if (params.isEmpty()) {
-            return new SensitivityResult(params, List.of(), new float[0][0][0],
+            return new SensitivityResult(params, List.of(), new Vector3f[0][0],
                     0, List.of(), Map.of(), 0, List.of());
         }
 
@@ -112,13 +113,16 @@ public final class SkeletonSensitivityAnalyzer {
         int N = params.size();       // total params
 
         if (M == 0) {
-            return new SensitivityResult(params, jointIndices, new float[0][0][0],
+            return new SensitivityResult(params, jointIndices, new Vector3f[0][0],
                     baselineComparison.summary().skeletonScore(),
                     baselineErrors, Map.of(),
                     baselineComparison.summary().skeletonScore(), List.of());
         }
 
-        float[][][] jacobian3D = new float[M][N][3];
+        Vector3f[][] jacobian3D = new Vector3f[M][N];
+        for (Vector3f[] row : jacobian3D) {
+            Arrays.setAll(row, column -> new Vector3f());
+        }
         List<String> unstableParams = new ArrayList<>();
 
         for (int pi = 0; pi < N; pi++) {
@@ -162,7 +166,7 @@ public final class SkeletonSensitivityAnalyzer {
                     for (int ji = range[0]; ji < range[1]; ji++) {
                         Vector3f slope = new Vector3f(perturbedPos.get(ji - range[0]))
                                 .sub(baselinePositions.get(ji)).mul(invEps);
-                        PackedPoints.store(jacobian3D[ji][pi], 0, slope);
+                        jacobian3D[ji][pi].set(slope);
                         matchedJoints++;
                     }
                 }
@@ -260,7 +264,10 @@ public final class SkeletonSensitivityAnalyzer {
             int N = params.size();
             if (M == 0) break;
 
-            float[][][] jacobian = new float[M][N][3];
+            Vector3f[][] jacobian = new Vector3f[M][N];
+            for (Vector3f[] row : jacobian) {
+                Arrays.setAll(row, column -> new Vector3f());
+            }
             for (int pi = 0; pi < N; pi++) {
                 OptimizableParameter param = params.get(pi);
                 float currentVal = currentParams.get(param.overrideKey());
@@ -296,7 +303,7 @@ public final class SkeletonSensitivityAnalyzer {
                         for (int ji = range[0]; ji < range[1]; ji++) {
                             Vector3f slope = new Vector3f(perturbedPos.get(ji - range[0]))
                                     .sub(basePositions.get(ji)).mul(invEps);
-                            PackedPoints.store(jacobian[ji][pi], 0, slope);
+                            jacobian[ji][pi].set(slope);
                         }
                     }
                 } catch (Exception e) {
@@ -349,14 +356,14 @@ public final class SkeletonSensitivityAnalyzer {
      * Solve delta_params = J^T * (J * J^T + lambda * I)^{-1} * (-error)
      * for the parameter update that minimizes joint position errors.
      *
-     * @param jacobian3D per-joint, per-parameter, per-axis sensitivities ({@code [M][N][3]})
+     * @param jacobian3D per-joint, per-parameter sensitivity vectors ({@code [M][N]})
      * @param errors flattened baseline joint errors (one entry per row of {@code jacobian3D})
      * @param params parameter descriptors aligned with the second axis of {@code jacobian3D}
      * @param lambda Tikhonov damping added to the diagonal of {@code J^T J}
      * @return parameter delta keyed by {@link OptimizableParameter#overrideKey()}, clamped to each parameter's range
      */
     private static Map<String, Float> solveDampedLeastSquares(
-            float[][][] jacobian3D, List<JointDelta> errors,
+            Vector3f[][] jacobian3D, List<JointDelta> errors,
             List<OptimizableParameter> params, float lambda) {
 
         int M = errors.size();
@@ -366,23 +373,23 @@ public final class SkeletonSensitivityAnalyzer {
         float[][] J = new float[rows][N];
         for (int ji = 0; ji < M; ji++) {
             for (int pi = 0; pi < N; pi++) {
-                J[ji * 3][pi] = jacobian3D[ji][pi][0];
-                J[ji * 3 + 1][pi] = jacobian3D[ji][pi][1];
-                J[ji * 3 + 2][pi] = jacobian3D[ji][pi][2];
+                J[ji * 3][pi] = jacobian3D[ji][pi].x;
+                J[ji * 3 + 1][pi] = jacobian3D[ji][pi].y;
+                J[ji * 3 + 2][pi] = jacobian3D[ji][pi].z;
             }
         }
 
-        float[] e = new float[rows];
+        PackedPoints errorPoints = new PackedPoints(M);
         for (int ji = 0; ji < M; ji++) {
-            JointDelta jd = errors.get(ji);
-            PackedPoints.store(e, ji * 3, jd.delta());
+            errorPoints.set(ji, errors.get(ji).delta());
         }
-
         double[] JTe = new double[N];
         for (int pi = 0; pi < N; pi++) {
             double sum = 0;
-            for (int r = 0; r < rows; r++) {
-                sum += J[r][pi] * e[r];
+            for (int ji = 0; ji < M; ji++) {
+                for (int axis = 0; axis < 3; axis++) {
+                    sum += J[ji * 3 + axis][pi] * errorPoints.get(ji, axis);
+                }
             }
             JTe[pi] = sum;
         }
@@ -517,7 +524,7 @@ public final class SkeletonSensitivityAnalyzer {
     public record SensitivityResult(
             List<OptimizableParameter> parameters,
             List<BranchJointIndex> jointIndices,
-            float[][][] jacobian3D,           // [M joints][N params][3 dims]
+            Vector3f[][] jacobian3D,          // [M joints][N params]
             float baselineScore,
             List<JointDelta> baselineErrors,  // flattened across all branches
             Map<String, Float> suggestedDeltas,

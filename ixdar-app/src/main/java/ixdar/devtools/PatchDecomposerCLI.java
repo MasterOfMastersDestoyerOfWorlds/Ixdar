@@ -21,6 +21,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.curvature.CrestLineDetector;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.analysis.segmentation.MeshSegmenter;
@@ -232,13 +233,9 @@ public final class PatchDecomposerCLI {
         }
         res.add("dihedral_percentiles_rad", pct);
         float[] defectByVertexId = new float[mesh.vertexIdBound()];
-        float[] positionByVertexId = new float[3 * mesh.vertexIdBound()];
-        Vector3f position = new Vector3f();
+        PackedPoints positionByVertexId = SemanticPatchDecomposer.positionsById(mesh);
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            defectByVertexId[vertexId] = (float) (2 * Math.PI);
-            mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(positionByVertexId, 3 * vertexId, position);
+            defectByVertexId[mesh.vertexIdAt(activeVertex)] = (float) (2 * Math.PI);
         }
         for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
             int faceId = mesh.faceIdAt(activeFace);
@@ -247,8 +244,8 @@ public final class PatchDecomposerCLI {
                 int vertexId = mesh.faceVertexAt(faceId, corner);
                 int nextVertexId = mesh.faceVertexAt(faceId, (corner + 1) % corners);
                 int previousVertexId = mesh.faceVertexAt(faceId, (corner + corners - 1) % corners);
-                defectByVertexId[vertexId] -=
-                        triAngle(positionByVertexId, vertexId, nextVertexId, previousVertexId);
+                defectByVertexId[vertexId] -= (float) TriangleGeometry.cornerAngle(positionByVertexId, vertexId,
+                        nextVertexId, previousVertexId);
             }
         }
         float[] dd = new float[mesh.vertexCount()];
@@ -264,21 +261,6 @@ public final class PatchDecomposerCLI {
         res.addProperty("angle_defect_max", dd[dd.length - 1]);
         res.add("angle_defect_percentiles", defectPct);
         System.out.println(res);
-    }
-
-    private static float triAngle(float[] p, int at, int b, int c) {
-        float ax = p[b * 3] - p[at * 3];
-        float ay = p[b * 3 + 1] - p[at * 3 + 1];
-        float az = p[b * 3 + 2] - p[at * 3 + 2];
-        float bx = p[c * 3] - p[at * 3];
-        float by = p[c * 3 + 1] - p[at * 3 + 1];
-        float bz = p[c * 3 + 2] - p[at * 3 + 2];
-        float la = (float) Math.sqrt(ax * ax + ay * ay + az * az);
-        float lb = (float) Math.sqrt(bx * bx + by * by + bz * bz);
-        if (la < EPSILON || lb < EPSILON) return 0f;
-        float dot = (ax * bx + ay * by + az * bz) / (la * lb);
-        dot = Math.max(-1f, Math.min(1f, dot));
-        return (float) Math.acos(dot);
     }
 
     /**

@@ -10,6 +10,7 @@ import java.util.stream.IntStream;
 import ixdar.geometry.mesh.data.ops.MeshFolds;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.nodes.modifier.StrokeSculptNode;
 
 /**
@@ -44,8 +45,8 @@ public final class StrokePursuit {
     /** Area each dense surface vertex stands for, the inner product's weight. */
     public final float[] weight;
 
-    /** The surface's stroke directions, packed xyz, as the stroke engine smooths them. */
-    public final float[] normalXyz;
+    /** The surface's stroke directions by dense vertex index, as the stroke engine smooths them. */
+    public final PackedPoints normalXyz;
 
     /**
      * Deepest |depth| per unit squared radius before a stroke terraces, as the stroke_sculpt report
@@ -90,20 +91,23 @@ public final class StrokePursuit {
     public int atomsComputed;
 
     /**
-     * Each candidate's move at unit depth in full: packed quadruples of dense vertex index and xyz
-     * offset, kept so its fold limit is measured without lifting and summing it again.
+     * Each candidate's move at unit depth in full, the dense vertices it reached, kept with
+     * {@link #moveOffsets} so its fold limit is measured without lifting and summing it again.
      */
-    private final List<float[]> moves = new ArrayList<>();
+    private final List<int[]> moveVertices = new ArrayList<>();
+
+    /** Each candidate's offset at each of its {@link #moveVertices}, in the same order. */
+    private final List<PackedPoints> moveOffsets = new ArrayList<>();
 
     private final ThreadLocal<DisplacementSum> sums;
 
     private final int[] activeOfSurface;
 
-    private final float[] restXyz;
+    private final PackedPoints rest;
 
     private final ThreadLocal<MeshFolds> foldTests;
 
-    private final ThreadLocal<float[]> trialXyz;
+    private final ThreadLocal<PackedPoints> trialPoints;
 
     private final ForkJoinPool workers = new ForkJoinPool(WORKERS);
 
@@ -134,9 +138,9 @@ public final class StrokePursuit {
         TriangleBvh tree = TriangleBvh.over(surface, new int[surface.triangleCount()]);
         sums = ThreadLocal.withInitial(() -> new DisplacementSum(surface, true, 0f, 1, tree));
         activeOfSurface = new int[surface.vertexIdBound()];
-        restXyz = surface.packedPositions(activeOfSurface);
-        foldTests = ThreadLocal.withInitial(() -> new MeshFolds(surface, activeOfSurface, restXyz));
-        trialXyz = ThreadLocal.withInitial(restXyz::clone);
+        rest = surface.packedPositions(activeOfSurface);
+        foldTests = ThreadLocal.withInitial(() -> new MeshFolds(surface, activeOfSurface, rest));
+        trialPoints = ThreadLocal.withInitial(() -> surface.packedPositions(null));
     }
 
     /**
@@ -147,11 +151,13 @@ public final class StrokePursuit {
      * @return how many joined
      */
     public int add(List<AnchoredStroke> strokes) {
-        float[][] lifted = new float[strokes.size()][];
+        int[][] lifted = new int[strokes.size()][];
+        PackedPoints[] offsets = new PackedPoints[strokes.size()];
         float[][] computed = new float[strokes.size()][];
         parallel(strokes.size(), index -> {
             lifted[index] = lift(strokes.get(index));
-            computed[index] = atom(lifted[index]);
+            offsets[index] = takeOffsets(lifted[index]);
+            computed[index] = atom(lifted[index], offsets[index]);
         });
         atomsComputed += strokes.size();
         int joined = 0;
@@ -170,7 +176,8 @@ public final class StrokePursuit {
             int at = start + joined++;
             candidates.add(strokes.get(index));
             atoms.add(computed[index]);
-            moves.add(lifted[index]);
+            moveVertices.add(lifted[index]);
+            moveOffsets.add(offsets[index]);
             energy[at] = norm;
             radius[at] = KeyCandidates.radius(strokes.get(index));
             depthLimits[at * 2] = radius[at] * radius[at] * depthPerSquaredRadius;
@@ -211,49 +218,57 @@ public final class StrokePursuit {
      * One stroke's move at unit depth: lifted through its cell exactly as the stroke_sculpt node
      * lifts a sidecar's stroke, and its mirror copies added to this thread's sum at depth 1.
      *
+     * The offsets stay in this thread's sum until {@link #takeOffsets} reads them out.
+     *
      * @param stroke the stroke, its attributes at depth 1
-     * @return packed quadruples of dense vertex index and xyz offset at every vertex it reached,
-     *         empty when it lifts nothing
+     * @return the dense vertices it reached, empty when it lifts nothing
      */
-    private float[] lift(AnchoredStroke stroke) {
+    private int[] lift(AnchoredStroke stroke) {
         StrokeAnchors single = new StrokeAnchors();
         single.strokes.add(stroke);
         String text = single.sketch(template, base).lift(base);
         if (text.isEmpty()) {
-            return new float[0];
+            return new int[0];
         }
         DisplacementSum sum = sums.get();
         for (SculptStroke copy : StrokeSculpt.copies(new String[] { text }, symmetryAxis)) {
             sum.add(copy);
         }
-        int count = sum.touchedLength;
-        int[] touched = Arrays.copyOf(sum.touched, count);
+        int[] touched = Arrays.copyOf(sum.touched, sum.touchedLength);
         sum.finishStroke();
-        float[] packed = new float[count * 4];
-        for (int index = 0; index < count; index++) {
-            int at = touched[index] * 3;
-            packed[index * 4] = touched[index];
-            System.arraycopy(sum.offsetXyz, at, packed, index * 4 + 1, 3);
-            Arrays.fill(sum.offsetXyz, at, at + 3, 0f);
+        return touched;
+    }
+
+    /**
+     * Read the move {@link #lift} just left in this thread's sum, clearing the sum for the next.
+     *
+     * @param touched the vertices {@link #lift} returned
+     * @return the offset at each of them, in order
+     */
+    private PackedPoints takeOffsets(int[] touched) {
+        DisplacementSum sum = sums.get();
+        PackedPoints offsets = sum.offsetXyz.gather(touched);
+        for (int vertex : touched) {
+            sum.offsetXyz.set(vertex, 0f, 0f, 0f);
         }
-        return packed;
+        return offsets;
     }
 
     /**
      * A move read along the normals: the atom the pursuit correlates.
      *
-     * @param move packed quadruples from {@link #lift}
+     * @param touched the move's vertices, from {@link #lift}
+     * @param offsets its offset at each, from {@link #takeOffsets}
      * @return packed pairs of dense vertex index and move along its normal, zero moves left out
      */
-    private float[] atom(float[] move) {
-        float[] packed = new float[move.length / 2];
+    private float[] atom(int[] touched, PackedPoints offsets) {
+        float[] packed = new float[touched.length * 2];
         int length = 0;
-        for (int quad = 0; quad < move.length; quad += 4) {
-            int at = (int) move[quad] * 3;
-            float along = move[quad + 1] * normalXyz[at] + move[quad + 2] * normalXyz[at + 1]
-                    + move[quad + 3] * normalXyz[at + 2];
+        for (int index = 0; index < touched.length; index++) {
+            int activeVertex = touched[index];
+            float along = offsets.at(index).dot(normalXyz.at(activeVertex));
             if (along != 0f) {
-                packed[length++] = move[quad];
+                packed[length++] = activeVertex;
                 packed[length++] = along;
             }
         }
@@ -266,31 +281,27 @@ public final class StrokePursuit {
      * <p>The engine's limiter pulls back a move that folds a face, which facets the surface, so the
      * key keeps each stroke shallow enough that its own move folds none.
      *
-     * @param move    packed quadruples from {@link #lift}
+     * @param touched the move's vertices, from {@link #lift}
+     * @param offsets its offset at each, from {@link #takeOffsets}
      * @param terrace the deepest the stroke may be before it terraces
      * @param limits  receives the deepest raise and sink ({@link #depthLimits})
      */
-    private void foldLimits(float[] move, float terrace, float[] limits) {
-        int count = move.length / 4;
-        int[] touched = new int[count];
-        for (int index = 0; index < count; index++) {
-            touched[index] = (int) move[index * 4];
-        }
+    private void foldLimits(int[] touched, PackedPoints offsets, float terrace, float[] limits) {
+        int count = touched.length;
         MeshFolds folds = foldTests.get();
-        float[] xyz = trialXyz.get();
+        PackedPoints trial = trialPoints.get();
         for (int side = 0; side < 2; side++) {
             float sign = side == 0 ? 1f : -1f;
             float low = 0f;
             float high = terrace;
-            for (int trial = 0; trial <= FOLD_BISECTIONS && high - low > 0f; trial++) {
-                float tried = trial == 0 ? high : (low + high) * 0.5f;
+            for (int trialRound = 0; trialRound <= FOLD_BISECTIONS && high - low > 0f; trialRound++) {
+                float tried = trialRound == 0 ? high : (low + high) * 0.5f;
+                float scale = sign * tried;
                 for (int index = 0; index < count; index++) {
-                    for (int axis = 0; axis < 3; axis++) {
-                        xyz[touched[index] * 3 + axis] = restXyz[touched[index] * 3 + axis]
-                                + sign * tried * move[index * 4 + 1 + axis];
-                    }
+                    int activeVertex = touched[index];
+                    trial.set(activeVertex, offsets.at(index).mul(scale).add(rest.at(activeVertex)));
                 }
-                folds.update(xyz, touched, count);
+                folds.update(trial, touched, count);
                 boolean folded = false;
                 for (int index = 0; index < count && !folded; index++) {
                     int vertexId = surface.vertexIdAt(touched[index]);
@@ -304,16 +315,16 @@ public final class StrokePursuit {
                 } else {
                     low = tried;
                 }
-                if (trial == 0 && !folded) {
+                if (trialRound == 0 && !folded) {
                     break;
                 }
             }
             limits[side] = low;
         }
         for (int activeVertex : touched) {
-            System.arraycopy(restXyz, activeVertex * 3, xyz, activeVertex * 3, 3);
+            trial.set(activeVertex, rest.at(activeVertex));
         }
-        folds.update(xyz, touched, count);
+        folds.update(trial, touched, count);
     }
 
     /**
@@ -326,7 +337,7 @@ public final class StrokePursuit {
         parallel(unmeasured.size(), at -> {
             int index = unmeasured.get(at);
             float[] limits = new float[2];
-            foldLimits(moves.get(index), radius[index] * radius[index] * depthPerSquaredRadius, limits);
+            foldLimits(moveVertices.get(index), moveOffsets.get(index), radius[index] * radius[index] * depthPerSquaredRadius, limits);
             depthLimits[index * 2] = limits[0];
             depthLimits[index * 2 + 1] = limits[1];
             foldsMeasured[index] = true;
@@ -452,12 +463,14 @@ public final class StrokePursuit {
             float keptDepth = clamp(index, correlation / energy[index]);
             float keptGain = 2f * keptDepth * correlation - keptDepth * keptDepth * energy[index];
             List<AnchoredStroke> variants = shapes.variants(candidates.get(index));
-            float[][] variantMoves = new float[variants.size()][];
+            int[][] variantVertices = new int[variants.size()][];
+            PackedPoints[] variantOffsets = new PackedPoints[variants.size()];
             float[][] variantAtoms = new float[variants.size()][];
             float[][] variantLimits = new float[variants.size()][];
             parallel(variants.size(), variant -> {
-                variantMoves[variant] = lift(variants.get(variant));
-                variantAtoms[variant] = atom(variantMoves[variant]);
+                variantVertices[variant] = lift(variants.get(variant));
+                variantOffsets[variant] = takeOffsets(variantVertices[variant]);
+                variantAtoms[variant] = atom(variantVertices[variant], variantOffsets[variant]);
             });
             atomsComputed += variants.size();
             int best = -1;
@@ -483,7 +496,7 @@ public final class StrokePursuit {
                     break;
                 }
                 variantLimits[next] = new float[2];
-                foldLimits(variantMoves[next], KeyCandidates.radius(variants.get(next))
+                foldLimits(variantVertices[next], variantOffsets[next], KeyCandidates.radius(variants.get(next))
                         * KeyCandidates.radius(variants.get(next)) * depthPerSquaredRadius, variantLimits[next]);
                 float norm = norm(variantAtoms[next]);
                 float variantCorrelation = correlate(variantAtoms[next]);
@@ -499,7 +512,8 @@ public final class StrokePursuit {
             if (best >= 0) {
                 candidates.set(index, variants.get(best));
                 atoms.set(index, variantAtoms[best]);
-                moves.set(index, variantMoves[best]);
+                moveVertices.set(index, variantVertices[best]);
+                moveOffsets.set(index, variantOffsets[best]);
                 energy[index] = norm(variantAtoms[best]);
                 radius[index] = KeyCandidates.radius(variants.get(best));
                 System.arraycopy(variantLimits[best], 0, depthLimits, index * 2, 2);
@@ -551,7 +565,8 @@ public final class StrokePursuit {
             if (keep) {
                 candidates.set(kept, candidates.get(index));
                 atoms.set(kept, atoms.get(index));
-                moves.set(kept, moves.get(index));
+                moveVertices.set(kept, moveVertices.get(index));
+                moveOffsets.set(kept, moveOffsets.get(index));
                 energy[kept] = energy[index];
                 radius[kept] = radius[index];
                 depthLimits[kept * 2] = depthLimits[index * 2];
@@ -564,7 +579,8 @@ public final class StrokePursuit {
         }
         candidates.subList(kept, candidates.size()).clear();
         atoms.subList(kept, atoms.size()).clear();
-        moves.subList(kept, moves.size()).clear();
+        moveVertices.subList(kept, moveVertices.size()).clear();
+        moveOffsets.subList(kept, moveOffsets.size()).clear();
         energy = Arrays.copyOf(energy, kept);
         radius = Arrays.copyOf(radius, kept);
         depthLimits = Arrays.copyOf(depthLimits, kept * 2);

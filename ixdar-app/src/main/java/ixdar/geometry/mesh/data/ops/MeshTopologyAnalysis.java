@@ -6,6 +6,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.graph.UnionFind;
 
 /**
@@ -182,13 +183,10 @@ public final class MeshTopologyAnalysis {
         countDuplicatePositions();
         eulerCharacteristic = vertexCount - edgeCount + faceCount;
         TriangleBvh soup = new TriangleBvh();
-        soup.positions = new float[vertexCount * TriangleBvh.TRIANGLE_CORNERS];
+        soup.positions = new PackedPoints(vertexCount);
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            soup.positions[activeVertex * TriangleBvh.TRIANGLE_CORNERS] = positionX[activeVertex];
-            soup.positions[activeVertex * TriangleBvh.TRIANGLE_CORNERS + 1] =
-                    positionY[activeVertex];
-            soup.positions[activeVertex * TriangleBvh.TRIANGLE_CORNERS + 2] =
-                    positionZ[activeVertex];
+            soup.positions.set(activeVertex, positionX[activeVertex], positionY[activeVertex],
+                    positionZ[activeVertex]);
         }
         soup.triangleCorners = new int[triangleCount * TriangleBvh.TRIANGLE_CORNERS];
         soup.triangleGroup = new int[triangleCount];

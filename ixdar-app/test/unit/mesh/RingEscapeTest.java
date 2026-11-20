@@ -24,6 +24,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
@@ -110,8 +111,8 @@ class RingEscapeTest {
         RingTool tool = scene.ringTool;
         assertTrue(tool.reopenRing(0), tool.lastError);
         double angle = Math.toRadians(ADDED_ANCHOR_DEGREES);
-        int added = SurfaceWaypoints.snap(NearestVertex.over(tube),new float[] { 0f,
-            (float) (RADIUS * Math.cos(angle)), (float) (RADIUS * Math.sin(angle)) }, 1)[0];
+        int added = NearestVertex.over(tube).find(new Vector3f(0f,
+                (float) (RADIUS * Math.cos(angle)), (float) (RADIUS * Math.sin(angle))));
         assertTrue(tool.addAuthoredAnchor(added), tool.lastError);
         int[] edited = tool.draftAuthoredVertexId;
         SurfaceSpline draft = tool.draft;
@@ -220,11 +221,11 @@ class RingEscapeTest {
         scene.switchTool(scene.defaultTool);
         RingTool tool = scene.ringTool;
         tool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(tube));
-        float[] xyz = new float[XYZ * QUARTERS];
+        PackedPoints xyz = new PackedPoints(QUARTERS);
         for (int quarter = 0; quarter < QUARTERS; quarter++) {
             double angle = 2.0 * Math.PI * quarter / QUARTERS;
-            xyz[XYZ * quarter + 1] = (float) (RADIUS * Math.cos(angle));
-            xyz[XYZ * quarter + 2] = (float) (RADIUS * Math.sin(angle));
+            xyz.set(quarter, 0f, (float) (RADIUS * Math.cos(angle)),
+                    (float) (RADIUS * Math.sin(angle)));
         }
         int[] quarters = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, QUARTERS);
         AuthoredSplineRing ring = new AuthoredSplineRing(tool.geodesics);

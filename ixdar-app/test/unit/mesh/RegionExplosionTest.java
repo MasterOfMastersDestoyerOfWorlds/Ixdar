@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RegionExplosion;
 
 /**
@@ -36,8 +37,8 @@ class RegionExplosionTest {
 
         assertEquals(1.0, explosion.regionArea[0], TOLERANCE);
         assertEquals(4.0, explosion.regionArea[2], TOLERANCE);
-        assertEquals(5f, explosion.regionCentroidXyz[3 * 2], TOLERANCE);
-        assertEquals(1f, explosion.regionCentroidXyz[3 * 2 + 1], TOLERANCE);
+        assertEquals(5f, explosion.regionCentroids.get(2, 0), TOLERANCE);
+        assertEquals(1f, explosion.regionCentroids.get(2, 1), TOLERANCE);
         assertEquals(23f / 6f, explosion.modelCentroid.x, TOLERANCE);
         assertEquals(5f / 6f, explosion.modelCentroid.y, TOLERANCE);
         assertEquals(0f, explosion.modelCentroid.z, TOLERANCE);
@@ -71,8 +72,8 @@ class RegionExplosionTest {
         for (int region = 0; region < 3; region++) {
             for (int other = region + 1; other < 3; other++) {
                 for (int axis = 0; axis < 3; axis++) {
-                    float centroidGap = explosion.regionCentroidXyz[3 * region + axis]
-                            - explosion.regionCentroidXyz[3 * other + axis];
+                    float centroidGap = explosion.regionCentroids.get(region, axis)
+                            - explosion.regionCentroids.get(other, axis);
                     assertEquals(RegionExplosion.FULL_SPREAD * centroidGap,
                             offsets.get(tag(region)).get(axis) - offsets.get(tag(other)).get(axis),
                             TOLERANCE);
@@ -165,15 +166,14 @@ class RegionExplosionTest {
 
     /** Three disjoint squares in the z = 0 plane, two triangles each, in region order. */
     private static MeshTopology threeSquares() {
-        float[] positions = new float[3 * 4 * SQUARE_LEFT.length];
+        PackedPoints positions = new PackedPoints(4 * SQUARE_LEFT.length);
         int[] triangles = new int[3 * 2 * SQUARE_LEFT.length];
         for (int square = 0; square < SQUARE_LEFT.length; square++) {
             float left = SQUARE_LEFT[square];
             float side = SQUARE_SIDE[square];
             float[] corners = { left, 0f, left + side, 0f, left + side, side, left, side };
             for (int corner = 0; corner < 4; corner++) {
-                positions[3 * (4 * square + corner)] = corners[2 * corner];
-                positions[3 * (4 * square + corner) + 1] = corners[2 * corner + 1];
+                positions.set(4 * square + corner, corners[2 * corner], corners[2 * corner + 1], 0f);
             }
             int base = 4 * square;
             int[] squareTriangles = { base, base + 1, base + 2, base, base + 2, base + 3 };

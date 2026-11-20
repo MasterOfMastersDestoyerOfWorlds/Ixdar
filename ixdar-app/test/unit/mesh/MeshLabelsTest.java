@@ -33,9 +33,9 @@ class MeshLabelsTest {
 
     private static final String TOP = "top";
 
-    private static final float[] LOWER_POINT = { 1f, 0f, 1.5f };
+    private static final Vector3f LOWER_POINT = new Vector3f(1f, 0f, 1.5f);
 
-    private static final float[] TOP_POINT = { 0f, 0f, 4f };
+    private static final Vector3f TOP_POINT = new Vector3f(0f, 0f, 4f);
 
     private static final int[] RING_ROWS = { 2, 4, 6 };
 
@@ -131,7 +131,8 @@ class MeshLabelsTest {
         MeshLabels reloaded = MeshLabels.inBundle(bundle);
         assertEquals(labels.names, reloaded.names);
         for (int label = 0; label < labels.names.size(); label++) {
-            assertArrayEquals(labels.pointsByLabel.get(label), reloaded.pointsByLabel.get(label));
+            assertArrayEquals(labels.pointsByLabel.get(label).toArray(),
+                    reloaded.pointsByLabel.get(label).toArray());
         }
         assertEquals(List.of(), MeshLabels.inBundle(GeometryBundle.ofMesh(
                 RingRegionsTest.cappedCylinder())).names);
@@ -167,7 +168,7 @@ class MeshLabelsTest {
         RingRegions regions = regions(cylinder, rows);
         MeshLabels labels = new MeshLabels();
         for (int band = 0; band < RingRegionsTest.SIDE_ROWS; band++) {
-            labels.add("band_" + band, new float[] { 1f, 0f, (band + HALF) * ROW_HEIGHT });
+            labels.add("band_" + band, new Vector3f(1f, 0f, (band + HALF) * ROW_HEIGHT));
         }
         Color[] three = Arrays.copyOf(Palettes.DARK.categories, 3);
 
@@ -203,7 +204,7 @@ class MeshLabelsTest {
         RingRegions regions = regions(cylinder, rows);
         MeshLabels resolvedAgain = new MeshLabels();
         for (int band = 0; band < RingRegionsTest.SIDE_ROWS; band++) {
-            resolvedAgain.add("band_" + band, new float[] { 1f, 0f, (band + HALF) * ROW_HEIGHT });
+            resolvedAgain.add("band_" + band, new Vector3f(1f, 0f, (band + HALF) * ROW_HEIGHT));
         }
         MeshLabels recoloured = new MeshLabels(resolvedAgain);
         resolvedAgain.resolve(regions, Palettes.DARK.categories);

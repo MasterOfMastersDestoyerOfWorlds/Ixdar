@@ -7,6 +7,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.segmentation.PatchBoundaryWalker;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Per-vertex reconstruction error of one mesh patch against a 4-sided cubic Coons patch fit to
@@ -26,7 +27,7 @@ public final class CoonsReconstructionError {
      * @param facePatch face → patch id mapping for the whole mesh
      * @param faceIdx packed triangle vertex indices
      * @param adj face-face adjacency from {@code buildFaceAdjacency}
-     * @param positions packed vertex positions (float[nv*3])
+     * @param positions vertex positions
      * @param vertexCount total mesh vertex count — sizes the return array
      * @param uvSamples resolution of the Coons UV grid (16 is plenty for
      *                  typical patches; larger = more accurate nearest-
@@ -35,7 +36,7 @@ public final class CoonsReconstructionError {
      *         is false when the boundary did not parse into four sides
      */
     public static PatchError compute(List<Integer> faces, int patchId, int[] facePatch,
-                                     int[] faceIdx, int[][] adj, float[] positions,
+                                     int[] faceIdx, int[][] adj, PackedPoints positions,
                                      int vertexCount, int uvSamples) {
         float[] errors = new float[vertexCount];
         PatchBoundaryWalker.BoundarySides bs = PatchBoundaryWalker.extract(
@@ -53,7 +54,7 @@ public final class CoonsReconstructionError {
         Vector3f[] bezU1 = BezierFit.fitCubic(reversed(s2), positions);
         Vector3f[] bezV0 = BezierFit.fitCubic(reversed(s3), positions);
 
-        float[] grid = CoonsEvaluator.sampleGrid(bezU0, bezU1, bezV0, bezV1, uvSamples);
+        PackedPoints grid = CoonsEvaluator.sampleGrid(bezU0, bezU1, bezV0, bezV1, uvSamples);
 
         BitSet touched = new BitSet(vertexCount);
         float p95 = 0f;
@@ -65,10 +66,7 @@ public final class CoonsReconstructionError {
                 int v = faceIdx[f * 3 + k];
                 if (touched.get(v)) continue;
                 touched.set(v);
-                float dsq = CoonsEvaluator.nearestDistanceSquared(
-                        grid,
-                        positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]);
-                float d = (float) Math.sqrt(dsq);
+                float d = (float) Math.sqrt(CoonsEvaluator.nearestDistanceSquared(grid, positions.at(v)));
                 errors[v] = d;
                 if (d > max) max = d;
                 if (count < perPatchErrors.length) perPatchErrors[count++] = d;

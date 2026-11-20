@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.Vector3Value;
 import ixdar.nodegraph.nodes.curve.BirailLoftMeshNode;
@@ -55,7 +56,7 @@ class CurveGeometryTest {
         float[] positions = new float[UNIT_SQUARE_IN_XZ.length + 6];
         System.arraycopy(UNIT_SQUARE_IN_XZ, 0, positions, 0, UNIT_SQUARE_IN_XZ.length);
         System.arraycopy(new float[] { 5f, 0f, 0f, 6f, 0f, 0f }, 0, positions, UNIT_SQUARE_IN_XZ.length, 6);
-        CurveGeometry curves = new CurveGeometry(positions, new int[] { 0, 4, 6 }, new boolean[] { true, false },
+        CurveGeometry curves = new CurveGeometry(points(positions), new int[] { 0, 4, 6 }, new boolean[] { true, false },
                 Map.of(), Map.of());
 
         assertEquals(2, curves.curveCount());
@@ -63,7 +64,7 @@ class CurveGeometryTest {
         assertEquals(4, curves.pointCount(0));
         assertEquals(4, curves.firstPoint(1));
         assertEquals(2, curves.pointCount(1));
-        assertArrayEquals(new float[] { 5f, 0f, 0f, 6f, 0f, 0f }, curves.curvePositions(1));
+        assertArrayEquals(new float[] { 5f, 0f, 0f, 6f, 0f, 0f }, curves.curvePositions(1).toArray());
         assertTrue(curves.closed[0], "the square is a loop");
         assertFalse(curves.closed[1], "the segment is not");
     }
@@ -85,7 +86,7 @@ class CurveGeometryTest {
 
     @Test
     void resampledWalksTheClosingSegmentAndInterpolatesAttributes() {
-        CurveGeometry square = withWidth(CurveGeometry.singlePolyline(UNIT_SQUARE_IN_XZ, true));
+        CurveGeometry square = withWidth(CurveGeometry.singlePolyline(points(UNIT_SQUARE_IN_XZ), true));
 
         CurveGeometry resampled = square.resampled(SQUARE_SAMPLES);
 
@@ -99,7 +100,7 @@ class CurveGeometryTest {
 
     @Test
     void subdividedKeepsEveryCornerAndDoesNotRepeatAClosedStart() {
-        CurveGeometry square = withWidth(CurveGeometry.singlePolyline(UNIT_SQUARE_IN_XZ, true));
+        CurveGeometry square = withWidth(CurveGeometry.singlePolyline(points(UNIT_SQUARE_IN_XZ), true));
 
         CurveGeometry split = square.subdivided(0.5f);
 
@@ -115,7 +116,7 @@ class CurveGeometryTest {
     @Test
     void simplifiedDropsCollinearPointsAndKeepsSurvivorsAttributes() {
         float[] line = { 0f, 0f, 0f, 1f, 0f, 0f, 2f, 0f, 0f, 2f, 1f, 0f };
-        CurveGeometry curve = new CurveGeometry(line, new int[] { 0, 4 }, new boolean[1],
+        CurveGeometry curve = new CurveGeometry(points(line), new int[] { 0, 4 }, new boolean[1],
                 Map.of(WIDTH, new float[] { 0f, 1f, 2f, 3f }), Map.of());
 
         CurveGeometry simplified = curve.simplified(EPSILON);
@@ -133,16 +134,16 @@ class CurveGeometryTest {
 
         assertTrue(outline.closed[0]);
         assertEquals(5, outline.pointCount(0), "the repeated first point is dropped");
-        assertEquals(0f, outline.positions[2], "the outline lies in z = 0");
+        assertEquals(0f, outline.positions.get(0, 2), "the outline lies in z = 0");
         assertArrayEquals(new float[] { 0f, 0f, 2f, 0f, 2f, 2f, 0f, 2f, 0f, 0f }, simplified,
                 "the collinear point goes and the loop is drawn closed again");
     }
 
     @Test
     void joinCarriesAttributesFromBothSides() {
-        CurveGeometry left = new CurveGeometry(new float[] { 0f, 0f, 0f, 1f, 0f, 0f }, new int[] { 0, 2 },
+        CurveGeometry left = new CurveGeometry(points(0f, 0f, 0f, 1f, 0f, 0f), new int[] { 0, 2 },
                 new boolean[1], Map.of(WIDTH, new float[] { 1f, 2f }), Map.of(LIT_SIDE, new float[] { -1f }));
-        CurveGeometry right = new CurveGeometry(new float[] { 1f, 0f, 0f, 2f, 0f, 0f }, new int[] { 0, 2 },
+        CurveGeometry right = new CurveGeometry(points(1f, 0f, 0f, 2f, 0f, 0f), new int[] { 0, 2 },
                 new boolean[1], Map.of(WIDTH, new float[] { 9f, 4f }), Map.of());
 
         CurveGeometry joined = curveOf(new MapNodeContext(new JoinCurvesNode())
@@ -159,7 +160,7 @@ class CurveGeometryTest {
 
     @Test
     void resampleNodeKeepsClosedAndAttributes() {
-        CurveGeometry square = withWidth(CurveGeometry.singlePolyline(UNIT_SQUARE_IN_XZ, true));
+        CurveGeometry square = withWidth(CurveGeometry.singlePolyline(points(UNIT_SQUARE_IN_XZ), true));
 
         CurveGeometry resampled = curveOf(new MapNodeContext(new ResampleCurveNode())
                 .with(ResampleCurveNode.CURVE, bundle(square))
@@ -174,7 +175,7 @@ class CurveGeometryTest {
 
     @Test
     void transformMovesPointsAndKeepsClosedAndAttributes() {
-        CurveGeometry square = withWidth(CurveGeometry.singlePolyline(UNIT_SQUARE_IN_XZ, true));
+        CurveGeometry square = withWidth(CurveGeometry.singlePolyline(points(UNIT_SQUARE_IN_XZ), true));
 
         CurveGeometry moved = curveOf(new MapNodeContext(new TransformGeometryNode())
                 .with(TransformGeometryNode.GEOMETRY, bundle(square))
@@ -182,7 +183,7 @@ class CurveGeometryTest {
                 .eval()
                 .output(TransformGeometryNode.GEOMETRY_OUT, GeometryBundle.class));
 
-        assertEquals(SHIFT, moved.positions[1], EPSILON);
+        assertEquals(SHIFT, moved.positions.get(0, 1), EPSILON);
         assertTrue(moved.closed[0]);
         assertArrayEquals(square.pointAttributes.get(WIDTH), moved.pointAttributes.get(WIDTH));
         assertArrayEquals(new float[] { 2f }, moved.curveAttributes.get(LIT_SIDE));
@@ -190,17 +191,17 @@ class CurveGeometryTest {
 
     @Test
     void birailLoftWrapsClosedRailsAndRefusesMixedOnes() {
-        CurveGeometry lower = CurveGeometry.singlePolyline(UNIT_SQUARE_IN_XZ, true);
+        CurveGeometry lower = CurveGeometry.singlePolyline(points(UNIT_SQUARE_IN_XZ), true);
         float[] raised = UNIT_SQUARE_IN_XZ.clone();
         for (int point = 0; point < 4; point++) {
             raised[point * 3 + 1] = 1f;
         }
-        CurveGeometry upper = CurveGeometry.singlePolyline(raised, true);
-        CurveGeometry openUpper = CurveGeometry.singlePolyline(raised, false);
+        CurveGeometry upper = CurveGeometry.singlePolyline(points(raised), true);
+        CurveGeometry openUpper = CurveGeometry.singlePolyline(points(raised), false);
 
         assertEquals(LOFT_U * (LOFT_V - 1), loft(lower, upper).mesh().faceCount(), "a closed band wraps around");
         assertEquals((LOFT_U - 1) * (LOFT_V - 1),
-                loft(CurveGeometry.singlePolyline(UNIT_SQUARE_IN_XZ, false), openUpper).mesh().faceCount(),
+                loft(CurveGeometry.singlePolyline(points(UNIT_SQUARE_IN_XZ), false), openUpper).mesh().faceCount(),
                 "an open strip does not");
         assertEquals(0, loft(lower, openUpper).mesh().faceCount(), "a closed rail and an open one make nothing");
     }
@@ -221,8 +222,23 @@ class CurveGeometryTest {
     }
 
     private static float[] sample(CurveGeometry curve, int point) {
-        return new float[] { curve.positions[point * 3], curve.positions[point * 3 + 1],
-            curve.positions[point * 3 + 2] };
+        return new float[] { curve.positions.get(point, 0), curve.positions.get(point, 1),
+            curve.positions.get(point, 2) };
+    }
+
+    /**
+     * Hand-written fixture coordinates as points.
+     *
+     * @param xyz packed x, y, z per point
+     * @return a new buffer holding them
+     */
+    private static PackedPoints points(float... xyz) {
+        PackedPoints points = new PackedPoints(xyz.length / PackedPoints.XYZ);
+        for (int point = 0; point < points.size(); point++) {
+            points.set(point, xyz[point * PackedPoints.XYZ], xyz[point * PackedPoints.XYZ + 1],
+                    xyz[point * PackedPoints.XYZ + 2]);
+        }
+        return points;
     }
 
     private static GeometryBundle bundle(CurveGeometry curve) {

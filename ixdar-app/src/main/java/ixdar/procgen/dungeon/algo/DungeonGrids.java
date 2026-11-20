@@ -5,6 +5,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.field.Vector3Field;
@@ -28,21 +29,21 @@ public final class DungeonGrids {
     /**
      * Rooms as points: one vertex per packed xyz center, half extents as a vertex attribute.
      *
-     * @param centers     packed xyz room centers (length {@code 3 * roomCount})
-     * @param halfExtents packed xyz half extents, same length as {@code centers}
-     * @throws IllegalArgumentException if the two arrays differ in length
+     * @param centers     room centers, one point per room
+     * @param halfExtents half extents, one point per room; the bundle keeps it, no copy
+     * @throws IllegalArgumentException if the two differ in size
      * @return bundle of a point-cloud mesh with the {@link #HALF_EXTENT} slot
      */
-    public static GeometryBundle pointBundle(float[] centers, float[] halfExtents) {
-        if (centers.length != halfExtents.length) {
+    public static GeometryBundle pointBundle(PackedPoints centers, PackedPoints halfExtents) {
+        if (centers.size() != halfExtents.size()) {
             throw new IllegalArgumentException(
-                    "centers length " + centers.length + " != halfExtents length " + halfExtents.length);
+                    "centers size " + centers.size() + " != halfExtents size " + halfExtents.size());
         }
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        for (int i = 0; i < centers.length; i += 3) {
-            mesh.addVertex(centers[i], centers[i + 1], centers[i + 2]);
+        for (int room = 0; room < centers.size(); room++) {
+            mesh.addVertex(centers.get(room, 0), centers.get(room, 1), centers.get(room, 2));
         }
-        return GeometryBundle.ofMesh(mesh).withSlot(HALF_EXTENT, new Vector3Field(halfExtents.clone()));
+        return GeometryBundle.ofMesh(mesh).withSlot(HALF_EXTENT, new Vector3Field(halfExtents));
     }
 
     /**

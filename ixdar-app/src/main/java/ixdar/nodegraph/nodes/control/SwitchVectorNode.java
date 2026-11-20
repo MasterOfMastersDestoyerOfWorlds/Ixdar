@@ -70,15 +70,14 @@ public class SwitchVectorNode implements MeshNode {
             if (tr instanceof Vector3Field vt) {
                 n = Math.max(n, vt.length());
             }
-            float[] out = new float[n * 3];
+            PackedPoints out = new PackedPoints(n);
             Vector3f a = new Vector3f();
             Vector3f b = new Vector3f();
             for (int i = 0; i < n; i++) {
                 boolean on = FieldBroadcast.boolAt(so, i, false);
                 FieldBroadcast.vec3At(fa, i, ZERO, a);
                 FieldBroadcast.vec3At(tr, i, ZERO, b);
-                Vector3f pick = on ? b : a;
-                PackedPoints.store(out, 3 * i, pick);
+                out.set(i, on ? b : a);
             }
             ctx.setOutput(VECTOR.name,new Vector3Field(out));
             return;

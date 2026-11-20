@@ -5,7 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
@@ -17,6 +20,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.tools.ring.RingDslWriter;
@@ -58,9 +62,13 @@ class CoincidentAnchorSaveTest {
 
     private static final Vector3f MERIDIAN_NORMAL = new Vector3f(0f, 0f, 1f);
 
-    private static final float[] POLES = { 0f, 1f, 0f, 0f, -1f, 0f };
+    private static final Vector3f NORTH = new Vector3f(0f, 1f, 0f);
 
-    private static final float[] EQUATOR = { 0.98f, 0.01f, 0.03f, -0.98f, 0.01f, 0.03f };
+    private static final Vector3f SOUTH = new Vector3f(0f, -1f, 0f);
+
+    private static final Vector3f EAST = new Vector3f(0.98f, 0.01f, 0.03f);
+
+    private static final Vector3f WEST = new Vector3f(-0.98f, 0.01f, 0.03f);
 
     private static final int ANCHORS = 4;
 
@@ -74,13 +82,13 @@ class CoincidentAnchorSaveTest {
         MeshTopology mesh = metric.sourceMesh;
         NearestVertex grid = metric.nearestVertex;
         int[] held = {
-            middleCopy(mesh, POLES[0], POLES[1], POLES[2]),
-            grid.find(EQUATOR[0], EQUATOR[1], EQUATOR[2]),
-            middleCopy(mesh, POLES[3], POLES[4], POLES[5]),
-            grid.find(EQUATOR[3], EQUATOR[4], EQUATOR[5]),
+            middleCopy(mesh, NORTH),
+            grid.find(EAST),
+            middleCopy(mesh, SOUTH),
+            grid.find(WEST),
         };
         IllegalStateException shared = assertThrows(IllegalStateException.class,
-                () -> grid.find(POLES[0], POLES[1], POLES[2]),
+                () -> grid.find(NORTH),
                 "a point on the shared pole picked one copy");
         assertTrue(shared.getMessage().contains("2 coincident vertices"), shared.getMessage());
 
@@ -90,7 +98,7 @@ class CoincidentAnchorSaveTest {
         String heldFingerprint =
                 EdgeMarks.fingerprint(mesh, SurfaceSpline.of(ring.tracer).marks.markedByEdgeId);
 
-        float[] written = SurfaceWaypoints.resolvingPoints(grid, held, ANCHORS);
+        PackedPoints written = SurfaceWaypoints.resolvingPoints(grid, held, ANCHORS);
         String saved = RingDslWriter.wireRingInputs(SPHERES + RingDslWriter.splineStatement(
                 RING, SURFACE_GEOMETRY, SurfaceWaypoints.points(written), ANCHORS,
                 MERIDIAN_NORMAL) + "\n");
@@ -119,9 +127,9 @@ class CoincidentAnchorSaveTest {
             float side = 0.98f * radius;
             int[] held = {
                 copyOnSphere(mesh, radius),
-                grid.find(side, centreY + 0.01f, 0.03f),
-                grid.find(0f, centreY - radius, 0f),
-                grid.find(-side, centreY + 0.01f, 0.03f),
+                grid.find(new Vector3f(side, centreY + 0.01f, 0.03f)),
+                grid.find(new Vector3f(0f, centreY - radius, 0f)),
+                grid.find(new Vector3f(-side, centreY + 0.01f, 0.03f)),
             };
             AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(metric));
             assertTrue(ring.trace(held, ANCHORS, MERIDIAN_NORMAL,
@@ -129,9 +137,9 @@ class CoincidentAnchorSaveTest {
             String heldFingerprint =
                     EdgeMarks.fingerprint(mesh, SurfaceSpline.of(ring.tracer).marks.markedByEdgeId);
 
-            float[] written = SurfaceWaypoints.resolvingPoints(grid, held, ANCHORS);
+            PackedPoints written = SurfaceWaypoints.resolvingPoints(grid, held, ANCHORS);
             IllegalStateException alone = assertThrows(IllegalStateException.class,
-                    () -> grid.find(written[0], written[1], written[2]),
+                    () -> grid.find(written.at(0)),
                     "the pole point told the overlapping copies apart by itself");
             assertTrue(alone.getMessage().contains("on top of each other"), alone.getMessage());
             String saved = RingDslWriter.wireRingInputs(NESTED + RingDslWriter.splineStatement(
@@ -154,10 +162,7 @@ class CoincidentAnchorSaveTest {
 
     @Test
     void pointsOnTheSharedPolesAreRefusedEveryPointOfEveryRingAtOnce() {
-        String onPoles = SurfaceWaypoints.format(new float[] {
-            POLES[0], POLES[1], POLES[2], EQUATOR[0], EQUATOR[1], EQUATOR[2],
-            POLES[3], POLES[4], POLES[5], EQUATOR[3], EQUATOR[4], EQUATOR[5],
-        }, ANCHORS);
+        String onPoles = SurfaceWaypoints.format(List.of(NORTH, EAST, SOUTH, WEST), ANCHORS);
         String normal = SurfaceWaypoints.format(MERIDIAN_NORMAL);
         String rings = RING + " = spline_ring(geometry=surface.geometry, metric=surface.metric, "
                 + "points=\"" + onPoles + "\", normal=\"" + normal + "\", label=\"" + RING + "\")\n"
@@ -192,20 +197,18 @@ class CoincidentAnchorSaveTest {
      * The copy of a shared position whose faces lie on the middle sphere, the one a ring traced
      * around that sphere holds.
      *
-     * @param mesh the repaired stack
-     * @param x    shared position x
-     * @param y    shared position y
-     * @param z    shared position z
+     * @param mesh   the repaired stack
+     * @param shared the shared position
      * @return the vertex id
      */
-    private static int middleCopy(MeshTopology mesh, float x, float y, float z) {
+    private static int middleCopy(MeshTopology mesh, Vector3fc shared) {
         Vector3f position = new Vector3f();
         Vector3f corner = new Vector3f();
         int found = -1;
         int copies = 0;
         for (int index = 0; index < mesh.vertexCount(); index++) {
             int vertexId = mesh.vertexIdAt(index);
-            if (mesh.vertexPosition(vertexId, position).distance(x, y, z) > WELD) {
+            if (mesh.vertexPosition(vertexId, position).distance(shared) > WELD) {
                 continue;
             }
             copies++;
@@ -214,11 +217,11 @@ class CoincidentAnchorSaveTest {
             for (int at = 0; at < mesh.faceVertexCount(faceId); at++) {
                 centroidY += mesh.vertexPosition(mesh.faceVertexAt(faceId, at), corner).y;
             }
-            if (Math.abs(centroidY / mesh.faceVertexCount(faceId)) < Math.abs(y)) {
+            if (Math.abs(centroidY / mesh.faceVertexCount(faceId)) < Math.abs(shared.y())) {
                 found = vertexId;
             }
         }
-        assertEquals(2, copies, "repair_mesh left the pole at " + y + " unsplit");
+        assertEquals(2, copies, "repair_mesh left the pole at " + shared.y() + " unsplit");
         return found;
     }
 

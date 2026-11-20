@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.csg.QuadTriangulation;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.platform.Platforms;
 
 /**
@@ -267,10 +268,12 @@ public class MeshBooleanProvenanceTest {
     private static HalfEdgeMesh unitCube(float offset) {
         float low = -HALF + offset;
         float high = HALF + offset;
-        float[] positions = {
-            low, low, low, high, low, low, high, high, low, low, high, low,
-            low, low, high, high, low, high, high, high, high, low, high, high,
-        };
+        PackedPoints positions = new PackedPoints(2 * QUAD_CORNERS);
+        for (int corner = 0; corner < 2 * QUAD_CORNERS; corner++) {
+            int around = corner % QUAD_CORNERS;
+            positions.set(corner, (around + 1) % QUAD_CORNERS < 2 ? low : high,
+                    around < 2 ? low : high, corner < QUAD_CORNERS ? low : high);
+        }
         int[] quads = {
             0, THREE, 2, 1,
             4, 5, SIX, 7,

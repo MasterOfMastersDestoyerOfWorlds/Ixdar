@@ -97,14 +97,14 @@ public final class LineSet {
      * runs along an edge, else the one face it crosses. Two vertices take {@link #vertexStep}.
      *
      * @param mesh       mesh the path walks
-     * @param packedXyz  packed xyz of the path's points, each on the surface
+     * @param points     the path's points, each on the surface
      * @param vertexId   vertex id per point, or -1 off a vertex
      * @param edgeId     edge id per point, or -1 off an edge
      * @param faceId     face id per point inside a face, or -1 elsewhere
      * @param fromPoint  index of the point the step leaves
      * @param toPoint    index of the point the step reaches
      */
-    public void pathStep(MeshTopology mesh, double[] packedXyz, int[] vertexId, int[] edgeId,
+    public void pathStep(MeshTopology mesh, PackedPoints points, int[] vertexId, int[] edgeId,
             int[] faceId, int fromPoint, int toPoint) {
         int fromVertex = vertexId[fromPoint];
         int toVertex = vertexId[toPoint];
@@ -112,10 +112,8 @@ public final class LineSet {
             vertexStep(mesh, fromVertex, toVertex);
             return;
         }
-        start.set((float) packedXyz[3 * fromPoint], (float) packedXyz[3 * fromPoint + 1],
-                (float) packedXyz[3 * fromPoint + 2]);
-        end.set((float) packedXyz[3 * toPoint], (float) packedXyz[3 * toPoint + 1],
-                (float) packedXyz[3 * toPoint + 2]);
+        start.set(points.at(fromPoint));
+        end.set(points.at(toPoint));
         int fromInside = faceId[fromPoint];
         int toInside = faceId[toPoint];
         int fromFaces = fromVertex >= 0 ? mesh.vertexFaceCount(fromVertex)
@@ -158,7 +156,9 @@ public final class LineSet {
     public void segment(Vector3f segmentStart, Vector3f segmentEnd, Vector3f surfaceA,
             Vector3f surfaceB) {
         for (Vector3f point : new Vector3f[] { segmentStart, segmentEnd }) {
-            PackedPoints.store(vertices, cursor, point);
+            vertices[cursor] = point.x;
+            vertices[cursor + 1] = point.y;
+            vertices[cursor + 2] = point.z;
             vertices[cursor + 3] = surfaceA.x;
             vertices[cursor + 4] = surfaceA.y;
             vertices[cursor + 5] = surfaceA.z;

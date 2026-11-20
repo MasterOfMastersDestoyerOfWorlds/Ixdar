@@ -3,6 +3,8 @@ package ixdar.nodegraph.nodes.network;
 import java.util.List;
 import java.util.Map;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
@@ -67,7 +69,7 @@ public final class NetworkNode implements MeshNode {
         Vector3Value point = (Vector3Value) ctx.getInput(POINT.name, Object.class);
         boolean critical = Boolean.TRUE.equals(ctx.getInput(CRITICAL.name, Boolean.class));
         boolean border = Boolean.TRUE.equals(ctx.getInput(BORDER.name, Boolean.class));
-        int vertex = NearestVertex.over(net.topology.copy).find(point.x(), point.y(), point.z());
+        int vertex = NearestVertex.over(net.topology.copy).find(new Vector3f(point.x(), point.y(), point.z()));
         int nodeId = net.addNode(ArcNetwork.NONE, vertex, critical, border);
         net.nodes.get(nodeId).vertexId = ((Number) FieldBroadcast.getInputOrDefault(ctx,
                 VERTEX.name, VERTEX.defaultValue)).intValue();

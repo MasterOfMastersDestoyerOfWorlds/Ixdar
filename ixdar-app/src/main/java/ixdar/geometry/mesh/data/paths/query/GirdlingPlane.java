@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.data.paths.query;
 
+import org.joml.Matrix3f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -71,10 +72,10 @@ public final class GirdlingPlane {
             return false;
         }
         surfaceNormal.normalize();
-        surfaceNormal.cross(Math.abs(surfaceNormal.x) < HALF ? new Vector3f(1f, 0f, 0f)
-                : new Vector3f(0f, 1f, 0f), firstTangent);
-        firstTangent.normalize();
-        surfaceNormal.cross(firstTangent, secondTangent).normalize();
+        Matrix3f frame = MeshTopology.tangentFrame(surfaceNormal);
+        // Columns mapped (1, -0) so the unseeded scan starts from the same direction as before.
+        frame.getColumn(1, firstTangent);
+        frame.getColumn(0, secondTangent).negate();
 
         double seedAngle = seedAxis == null ? 0.0
                 : Math.atan2(seedAxis.dot(secondTangent), seedAxis.dot(firstTangent));

@@ -101,14 +101,9 @@ public class PlaceInCellNode implements MeshNode {
             PictureCurves.BOX_Y, 0), PictureCurves.value(boxed, PictureCurves.BOX_WIDTH, 0),
             PictureCurves.value(boxed, PictureCurves.BOX_HEIGHT, 0) };
         if (box[3] <= 0f) {
-            float[] bounds = { Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE };
-            for (int point = 0; point < boxed.pointCount(); point++) {
-                for (int axis = 0; axis < 2; axis++) {
-                    bounds[axis] = Math.min(bounds[axis], boxed.positions[point * CurveGeometry.XYZ + axis]);
-                    bounds[axis + 2] = Math.max(bounds[axis + 2], boxed.positions[point * CurveGeometry.XYZ + axis]);
-                }
-            }
-            box = new float[] { bounds[0], bounds[1], bounds[2] - bounds[0], bounds[3] - bounds[1] };
+            PackedPoints bounds = boxed.positions.bounds();
+            box = new float[] { bounds.get(0, 0), bounds.get(0, 1), bounds.get(1, 0) - bounds.get(0, 0),
+                bounds.get(1, 1) - bounds.get(0, 1) };
         }
         Camera3D camera = template.cellCamera(cell);
         Vector3f target = camera.orbitTarget;
@@ -118,18 +113,19 @@ public class PlaceInCellNode implements MeshNode {
         template.cellPixel(camera, new Vector3f(target), centre);
         float offsetX = centre[0] - scale * (box[0] + box[2] / 2f);
         float offsetY = centre[1] - scale * (box[1] + box[3] / 2f);
-        float[] world = new float[curves.positions.length];
+        PackedPoints drawn = curves.positions;
+        PackedPoints placed = new PackedPoints(curves.pointCount());
         Vector3f point = new Vector3f();
         for (int at = 0; at < curves.pointCount(); at++) {
-            template.cellPlanePoint(camera, curves.positions[at * CurveGeometry.XYZ] * scale + offsetX,
-                    curves.positions[at * CurveGeometry.XYZ + 1] * scale + offsetY, point);
-            PackedPoints.store(world, at * CurveGeometry.XYZ, point);
+            template.cellPlanePoint(camera, drawn.get(at, 0) * scale + offsetX,
+                    drawn.get(at, 1) * scale + offsetY, point);
+            placed.set(at, point);
         }
         Map<String, float[]> attributes = new TreeMap<>(curves.curveAttributes);
         float[] views = new float[curves.curveCount()];
         Arrays.fill(views, cell);
         attributes.put(PictureCurves.VIEW, views);
-        ctx.setOutput(GEOMETRY.name, GeometryBundle.empty().withSlot(CurveGeometry.SLOT, new CurveGeometry(world,
+        ctx.setOutput(GEOMETRY.name, GeometryBundle.empty().withSlot(CurveGeometry.SLOT, new CurveGeometry(placed,
                 curves.curveOffsets, curves.closed, curves.pointAttributes, attributes))
                 .withSlot(StrokeSketch.TEMPLATE_SLOT, template.text));
     }

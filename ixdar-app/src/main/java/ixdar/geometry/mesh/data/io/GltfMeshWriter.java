@@ -85,8 +85,8 @@ public final class GltfMeshWriter {
                 * GltfMeshParser.BYTES_PER_WORD;
         ByteBuffer buffer = ByteBuffer.allocate(binaryBytes).order(ByteOrder.LITTLE_ENDIAN);
         FloatBuffer floats = buffer.asFloatBuffer();
-        floats.put(geometry.positions, 0, vectorFloats);
-        floats.put(geometry.normals, 0, vectorFloats);
+        floats.put(geometry.positions.array(), 0, vectorFloats);
+        floats.put(geometry.normals.array(), 0, vectorFloats);
         for (int vertex = 0; vertex < geometry.vertexCount() && geometry.vertexUv != null; vertex++) {
             int offset = vertex * MeshExport.UV_COMPONENTS;
             floats.put(geometry.vertexUv[offset]);
@@ -215,9 +215,9 @@ public final class GltfMeshWriter {
     private static String bound(MeshExport geometry, boolean maximum) throws IOException {
         List<String> components = new ArrayList<>();
         for (int axis = 0; axis < MeshExport.FLOATS_PER_VERTEX; axis++) {
-            float extreme = geometry.positions[axis];
+            float extreme = geometry.positions.get(0, axis);
             for (int vertex = 0; vertex < geometry.vertexCount(); vertex++) {
-                float value = geometry.positions[vertex * MeshExport.FLOATS_PER_VERTEX + axis];
+                float value = geometry.positions.get(vertex, axis);
                 if (!Float.isFinite(value)) {
                     throw new IOException("glTF cannot hold a non-finite position, at vertex "
                             + vertex);

@@ -3,11 +3,14 @@ package ixdar.geometry.mesh.data.paths.spline;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.IntStream;
 
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
@@ -32,8 +35,8 @@ public final class SurfaceSpline {
 
     public static final String SLOT = "_surface_splines";
 
-    /** Packed xyz of the anchors, in ring order. */
-    public float[] anchorXyz = new float[0];
+    /** Position of each anchor, in ring order. */
+    public PackedPoints anchorPositions = new PackedPoints(0);
 
     /** Mesh vertex each anchor snapped to, in ring order. */
     public int[] anchorVertexId = new int[0];
@@ -52,8 +55,8 @@ public final class SurfaceSpline {
      * surface positions the vertex, geodesic edge crossing or in-face point each stands for.
      * Consecutive points share a face. Open for a bisector from its first anchor to its last.
      */
-    public TracedSurfacePath path = new TracedSurfacePath(new double[0], new int[0], new int[0],
-            new double[0], 0, true);
+    public TracedSurfacePath path = new TracedSurfacePath(new PackedPoints(0), new int[0], new int[0],
+            new double[0], true);
 
     /** The mesh edges nearest the spline: a cycle for a ring, the walled run for a bisector. */
     public EdgeMarks marks = EdgeMarks.NONE;
@@ -70,8 +73,8 @@ public final class SurfaceSpline {
     /** Shortest polyline span the interior angles were measured across. */
     public double smallestMeasuredSpan;
 
-    /** Packed xyz of the path point {@link #minimumInteriorAngleDegrees} was measured at. */
-    public final double[] sharpestCornerXyz = new double[COORDINATES_PER_POINT];
+    /** The path point {@link #minimumInteriorAngleDegrees} was measured at. */
+    public final Vector3f sharpestCornerXyz = new Vector3f();
 
     private SurfaceSpline() {
     }
@@ -81,18 +84,18 @@ public final class SurfaceSpline {
      * Callers that trace repeatedly should keep a {@link SurfaceSplineTracer} instead.
      *
      * @param mesh        surface the spline lies on
-     * @param packedXyz   authored anchor coordinates, three floats per anchor
-     * @param anchorCount anchors to use from the front of {@code packedXyz}
+     * @param anchors     authored anchor points
+     * @param anchorCount anchors to use from the front of {@code anchors}
      * @throws IllegalArgumentException when fewer than three anchors are given
      * @return the traced spline
      */
-    public static SurfaceSpline through(MeshTopology mesh, float[] packedXyz, int anchorCount) {
+    public static SurfaceSpline through(MeshTopology mesh, PackedPoints anchors, int anchorCount) {
         if (anchorCount < SurfaceSplineTracer.MINIMUM_ANCHORS) {
             throw new IllegalArgumentException("a closed spline needs at least "
                     + SurfaceSplineTracer.MINIMUM_ANCHORS + " anchors, got " + anchorCount);
         }
         SurfaceMetric metric = SurfaceMetric.of(mesh);
-        int[] vertexIds = SurfaceWaypoints.snap(metric.nearestVertex, packedXyz, anchorCount);
+        int[] vertexIds = SurfaceWaypoints.snap(metric.nearestVertex, anchors, anchorCount);
         SurfaceSplineTracer tracer = new SurfaceSplineTracer(SurfaceGeodesics.over(metric));
         tracer.setAnchors(vertexIds, anchorCount);
         return of(tracer);
@@ -161,8 +164,8 @@ public final class SurfaceSpline {
             spline.anchorCount = anchorVertexIds.length;
             spline.anchorAuthored = authored;
             spline.anchorVertexId = Arrays.copyOf(anchorVertexIds, anchorVertexIds.length);
-            spline.anchorXyz = new float[COORDINATES_PER_POINT * anchorVertexIds.length];
-            double[] walkXyz = new double[COORDINATES_PER_POINT * walk.length];
+            spline.anchorPositions = new PackedPoints(anchorVertexIds.length);
+            PackedPoints walkXyz = new PackedPoints(walk.length);
             int[] noEdge = new int[walk.length];
             double[] noFraction = new double[walk.length];
             Arrays.fill(noEdge, -1);
@@ -170,18 +173,15 @@ public final class SurfaceSpline {
             snapped = new boolean[marks.length];
             Vector3f position = new Vector3f();
             for (int point = 0; point < walk.length; point++) {
-                mesh.vertexPosition(walk[point], position);
-                PackedPoints.store(walkXyz, COORDINATES_PER_POINT * point, position);
+                walkXyz.set(point, mesh.vertexPosition(walk[point], position));
                 if (point > 0) {
                     snapped[mesh.edgeBetween(walk[point - 1], walk[point])] = true;
                 }
             }
             for (int anchor = 0; anchor < anchorVertexIds.length; anchor++) {
-                mesh.vertexPosition(anchorVertexIds[anchor], position);
-                PackedPoints.store(spline.anchorXyz, COORDINATES_PER_POINT * anchor, position);
+                spline.anchorPositions.set(anchor, mesh.vertexPosition(anchorVertexIds[anchor], position));
             }
-            spline.path = new TracedSurfacePath(walkXyz, walk, noEdge, noFraction, walk.length,
-                    false).measure();
+            spline.path = new TracedSurfacePath(walkXyz, walk, noEdge, noFraction, false).measure();
         }
         int[] vertices = new int[0];
         int vertexCount = 0;
@@ -334,15 +334,12 @@ public final class SurfaceSpline {
             TracedSurfacePath whole = spline.path;
             int fromPoint = snap.walkPoint[from];
             int points = snap.walkPoint[to] - fromPoint + 1;
-            int xyz = COORDINATES_PER_POINT;
-            spline.path = new TracedSurfacePath(
-                    Arrays.copyOfRange(whole.positions, xyz * fromPoint, xyz * (fromPoint + points)),
-                    Arrays.copyOfRange(whole.surfacePositions, xyz * fromPoint,
-                            xyz * (fromPoint + points)),
+            int[] trimmed = IntStream.range(fromPoint, fromPoint + points).toArray();
+            spline.path = new TracedSurfacePath(whole.positions.gather(trimmed), whole.surfacePositions.gather(trimmed),
                     Arrays.copyOfRange(whole.vertexId, fromPoint, fromPoint + points),
                     Arrays.copyOfRange(whole.edgeId, fromPoint, fromPoint + points),
                     Arrays.copyOfRange(whole.faceId, fromPoint, fromPoint + points),
-                    Arrays.copyOfRange(whole.fraction, fromPoint, fromPoint + points), points,
+                    Arrays.copyOfRange(whole.fraction, fromPoint, fromPoint + points),
                     false).measure();
         }
         spline.marks = new EdgeMarks(marks, snap.unresolvedGaps);
@@ -363,12 +360,11 @@ public final class SurfaceSpline {
         spline.anchorCount = tracer.anchorCount;
         spline.anchorAuthored = Arrays.copyOf(tracer.anchorAuthored, tracer.anchorCount);
         spline.anchorVertexId = new int[tracer.anchorCount];
-        spline.anchorXyz = new float[COORDINATES_PER_POINT * tracer.anchorCount];
+        spline.anchorPositions = new PackedPoints(tracer.anchorCount);
         Vector3f position = new Vector3f();
         for (int anchor = 0; anchor < tracer.anchorCount; anchor++) {
             spline.anchorVertexId[anchor] = tracer.anchorVertexId[anchor];
-            mesh.vertexPosition(tracer.anchorVertexId[anchor], position);
-            PackedPoints.store(spline.anchorXyz, COORDINATES_PER_POINT * anchor, position);
+            spline.anchorPositions.set(anchor, mesh.vertexPosition(tracer.anchorVertexId[anchor], position));
         }
         for (int segment = 0; segment < tracer.anchorCount; segment++) {
             spline.traceDepth = Math.max(spline.traceDepth, tracer.segmentDepth[segment]);
@@ -435,67 +431,18 @@ public final class SurfaceSpline {
      * does not overstate the gap. Spans whose bounding box is already further off are skipped,
      * which leaves the minimum exactly where scanning all of them would.
      *
-     * @param packedXyz  packed xyz of the polyline
-     * @param pointCount points to read from the front of {@code packedXyz}
-     * @param x          point x
-     * @param y          point y
-     * @param z          point z
+     * @param polyline   the polyline's points
+     * @param pointCount points to read from the front of {@code polyline}
+     * @param position   the point
      * @return the shortest distance, or infinity when the polyline is empty
      */
-    public static double distanceToPolyline(double[] packedXyz, int pointCount, double x,
-            double y, double z) {
+    public static double distanceToPolyline(PackedPoints polyline, int pointCount, Vector3f position) {
         double best = Double.POSITIVE_INFINITY;
         for (int point = 0; point < pointCount; point++) {
-            best = Math.min(best, spanDistanceSquared(packedXyz, pointCount, point, x, y, z, best));
+            best = Math.min(best, TriangleGeometry.segmentDistanceSquared(polyline, point, (point + 1) % pointCount,
+                    position, best));
         }
         return Math.sqrt(best);
-    }
-
-    /**
-     * Squared distance from a point to one span of a closed polyline, the span from point
-     * {@code point} to the next, or infinity when an axis gap alone already exceeds {@code bound}.
-     *
-     * @param packedXyz  packed xyz of the polyline, treated as closed
-     * @param pointCount points in the polyline
-     * @param point      the span's first point
-     * @param x          query x
-     * @param y          query y
-     * @param z          query z
-     * @param bound      squared distance past which the span is not measured
-     * @return the squared distance, or positive infinity when the span was culled
-     */
-    public static double spanDistanceSquared(double[] packedXyz, int pointCount, int point,
-            double x, double y, double z, double bound) {
-        int here = COORDINATES_PER_POINT * point;
-        int there = COORDINATES_PER_POINT * ((point + 1) % pointCount);
-        double gapX = axisGap(x, packedXyz[here], packedXyz[there]);
-        double gapY = axisGap(y, packedXyz[here + 1], packedXyz[there + 1]);
-        double gapZ = axisGap(z, packedXyz[here + 2], packedXyz[there + 2]);
-        if (gapX * gapX + gapY * gapY + gapZ * gapZ > bound) {
-            return Double.POSITIVE_INFINITY;
-        }
-        double spanX = packedXyz[there] - packedXyz[here];
-        double spanY = packedXyz[there + 1] - packedXyz[here + 1];
-        double spanZ = packedXyz[there + 2] - packedXyz[here + 2];
-        double squared = spanX * spanX + spanY * spanY + spanZ * spanZ;
-        double along = squared <= 0.0 ? 0.0
-                : ((x - packedXyz[here]) * spanX + (y - packedXyz[here + 1]) * spanY
-                        + (z - packedXyz[here + 2]) * spanZ) / squared;
-        along = Math.max(0.0, Math.min(1.0, along));
-        double dx = x - (packedXyz[here] + along * spanX);
-        double dy = y - (packedXyz[here + 1] + along * spanY);
-        double dz = z - (packedXyz[here + 2] + along * spanZ);
-        return dx * dx + dy * dy + dz * dz;
-    }
-
-    /** How far a coordinate lies outside the range two endpoints span on one axis. */
-    private static double axisGap(double at, double from, double to) {
-        double low = Math.min(from, to);
-        double high = Math.max(from, to);
-        if (at < low) {
-            return low - at;
-        }
-        return at > high ? at - high : 0.0;
     }
 
     /**
@@ -509,7 +456,7 @@ public final class SurfaceSpline {
         if (points < COORDINATES_PER_POINT) {
             return;
         }
-        double[] xyz = path.positions;
+        PackedPoints xyz = path.positions;
         double floor = smallestMeasuredSpan;
         for (int point = 0; point < points; point++) {
             int previous = stepBack(point, points, floor);
@@ -517,24 +464,16 @@ public final class SurfaceSpline {
             if (previous < 0 || following < 0) {
                 continue;
             }
-            int here = COORDINATES_PER_POINT * point;
-            double backX = xyz[COORDINATES_PER_POINT * previous] - xyz[here];
-            double backY = xyz[COORDINATES_PER_POINT * previous + 1] - xyz[here + 1];
-            double backZ = xyz[COORDINATES_PER_POINT * previous + 2] - xyz[here + 2];
-            double aheadX = xyz[COORDINATES_PER_POINT * following] - xyz[here];
-            double aheadY = xyz[COORDINATES_PER_POINT * following + 1] - xyz[here + 1];
-            double aheadZ = xyz[COORDINATES_PER_POINT * following + 2] - xyz[here + 2];
-            double backLength = Math.sqrt(backX * backX + backY * backY + backZ * backZ);
-            double aheadLength = Math.sqrt(aheadX * aheadX + aheadY * aheadY + aheadZ * aheadZ);
-            if (backLength <= 0.0 || aheadLength <= 0.0) {
+            Vector3d at = new Vector3d(xyz.at(point));
+            Vector3d back = new Vector3d(xyz.at(previous)).sub(at);
+            Vector3d ahead = new Vector3d(xyz.at(following)).sub(at);
+            if (back.lengthSquared() <= 0.0 || ahead.lengthSquared() <= 0.0) {
                 continue;
             }
-            double cosine = (backX * aheadX + backY * aheadY + backZ * aheadZ)
-                    / (backLength * aheadLength);
-            double angle = Math.toDegrees(Math.acos(Math.max(-1.0, Math.min(1.0, cosine))));
+            double angle = Math.toDegrees(back.angle(ahead));
             if (angle < minimumInteriorAngleDegrees) {
                 minimumInteriorAngleDegrees = angle;
-                System.arraycopy(xyz, here, sharpestCornerXyz, 0, COORDINATES_PER_POINT);
+                sharpestCornerXyz.set(xyz.at(point));
             }
         }
     }
@@ -542,7 +481,7 @@ public final class SurfaceSpline {
     private int stepBack(int point, int points, double floor) {
         for (int step = 1; step < points; step++) {
             int candidate = Math.floorMod(point - step, points);
-            if (separation(point, candidate) > floor) {
+            if (Math.sqrt(path.positions.distanceSquared(point, candidate)) > floor) {
                 return candidate;
             }
         }
@@ -552,20 +491,10 @@ public final class SurfaceSpline {
     private int stepForward(int point, int points, double floor) {
         for (int step = 1; step < points; step++) {
             int candidate = (point + step) % points;
-            if (separation(point, candidate) > floor) {
+            if (Math.sqrt(path.positions.distanceSquared(point, candidate)) > floor) {
                 return candidate;
             }
         }
         return -1;
-    }
-
-    private double separation(int firstPoint, int secondPoint) {
-        double[] xyz = path.positions;
-        double dx = xyz[COORDINATES_PER_POINT * firstPoint] - xyz[COORDINATES_PER_POINT * secondPoint];
-        double dy = xyz[COORDINATES_PER_POINT * firstPoint + 1]
-                - xyz[COORDINATES_PER_POINT * secondPoint + 1];
-        double dz = xyz[COORDINATES_PER_POINT * firstPoint + 2]
-                - xyz[COORDINATES_PER_POINT * secondPoint + 2];
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 }

@@ -11,6 +11,7 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.sparse.SingularSystemDiagnosis;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.scenes.QuadLayoutScene;
@@ -49,8 +50,15 @@ public class SeamlessDiagnosis extends AutomationEndpoint implements AutomationR
                 describeDiagnosis(result, diagnosis);
                 result.addProperty("highlighted", highlight);
                 if (highlight) {
-                    scene.quadRuntime.setDiagnostic(List.of(),
-                            List.of(offendingVertexPositions(diagnosis)), List.of());
+                    PackedPoints offending = new PackedPoints(diagnosis.supportDof.length);
+                    double[] support = diagnosis.supportVertexPosition;
+                    for (int entry = 0; entry < offending.size(); entry++) {
+                        int base = entry * POSITION_COMPONENTS;
+                        offending.set(entry, (float) support[base], (float) support[base + 1],
+                                (float) support[base + 2]);
+                    }
+                    scene.quadRuntime.setDiagnostic(List.of(), List.of(offending),
+                            List.of());
                 }
                 return result;
             });
@@ -105,20 +113,5 @@ public class SeamlessDiagnosis extends AutomationEndpoint implements AutomationR
             support.add(row);
         }
         result.add("support", support);
-    }
-
-    /**
-     * The recorded support's vertex positions as one flat world-space xyz array, the form the
-     * runtime's diagnostic marker groups take.
-     *
-     * @param diagnosis the diagnosis whose support to mark
-     * @return flat {@code x, y, z} triples, one per recorded support entry
-     */
-    private static float[] offendingVertexPositions(SingularSystemDiagnosis diagnosis) {
-        float[] positions = new float[diagnosis.supportDof.length * POSITION_COMPONENTS];
-        for (int entry = 0; entry < positions.length; entry++) {
-            positions[entry] = (float) diagnosis.supportVertexPosition[entry];
-        }
-        return positions;
     }
 }

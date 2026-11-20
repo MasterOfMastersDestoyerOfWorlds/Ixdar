@@ -45,7 +45,7 @@ public final class SaddlePointDetector {
      */
     public static SaddleSeparators detect(MeshTopology mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
         int vertexIdBound = mesh.vertexIdBound();
-        float[] positions = ed.positions();
+        PackedPoints positions = ed.positions();
         int[][] ring = TriangleSoup.oneRings(ed.triangles(), vertexIdBound);
 
         float kMaxT = percentile(mesh, pdf, /*max=*/true, KMAX_PERCENTILE);
@@ -96,16 +96,16 @@ public final class SaddlePointDetector {
      * the cut follows the actual mesh geometry across the valley.
      */
     private static void walk(int seed, Vector3f initialDir, int sign, int maxSteps,
-                             int[][] ring, float[] positions, Set<Long> out) {
+                             int[][] ring, PackedPoints positions, Set<Long> out) {
         int v = seed;
         Vector3f dir = new Vector3f(initialDir).mul(sign);
         for (int step = 0; step < maxSteps; step++) {
             int best = -1;
             float bestDot = MIN_DOT;
             Vector3f bestEdge = null;
-            Vector3f origin = PackedPoints.at(positions, v * 3);
+            Vector3f origin = positions.at(v);
             for (int u : ring[v]) {
-                Vector3f edge = PackedPoints.at(positions, u * 3).sub(origin);
+                Vector3f edge = positions.at(u).sub(origin);
                 float elen = edge.length();
                 if (elen < EPSILON) continue;
                 float dot = edge.dot(dir) / elen;

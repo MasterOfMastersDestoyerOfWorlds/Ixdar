@@ -7,6 +7,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.numeric.graph.Dijkstra;
@@ -284,8 +285,7 @@ public class CurvatureConstraints {
             mesh.vertexPosition(fv2, p2);
             centroid.set(p0).add(p1).add(p2).mul(1f / 3f);
             fNormal.set(mesh.faceNormal(faceId));
-            CrossField.arbitraryTangent(fNormal, e1);
-            fNormal.cross(e1, e2).normalize();
+            fNormal.cross(MeshTopology.tangentFrame(fNormal).getColumn(0, e1), e2);
             seedVerts[0] = fv0;
             seedVerts[1] = fv1;
             seedVerts[2] = fv2;

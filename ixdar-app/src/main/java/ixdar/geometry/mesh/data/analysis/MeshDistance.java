@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.data.analysis;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -12,12 +13,7 @@ import ixdar.geometry.mesh.data.representation.PackedPoints;
 public final class MeshDistance {
     public static final float MAX_SCORE = 100f;
     public static final float MIN_SIMILARITY_SCALE = 1e-10f;
-    public static final float SIMILARITY_SCALE_RATIO = 0.2f;
-    public static final float MIN_CHAMFER_SCALE = 1e-6f;
-    public static final float COVERAGE_THRESHOLD_RATIO = 0.05f;
     public static final float MIN_DIAGONAL = 1e-8f;
-
-    private static final int FLOATS_PER_VERTEX = 3;
 
     private MeshDistance() {
     }
@@ -25,12 +21,12 @@ public final class MeshDistance {
     /**
      * Computes all metrics between two meshes with custom scale.
      *
-     * @param meshA packed xyz positions of the first mesh
-     * @param meshB packed xyz positions of the second mesh
+     * @param meshA positions of the first mesh
+     * @param meshB positions of the second mesh
      * @param scale Characteristic scale for similarity normalization
      * @return MeshMetrics containing all computed values
      */
-    public static MeshMetrics computeAllMetrics(float[] meshA, float[] meshB, float scale) {
+    public static MeshMetrics computeAllMetrics(PackedPoints meshA, PackedPoints meshB, float scale) {
         if (meshA == null || meshB == null) {
             return new MeshMetrics(Float.MAX_VALUE, Float.MAX_VALUE, 0f);
         }
@@ -38,20 +34,18 @@ public final class MeshDistance {
         float hausdorff = 0f;
         float chamfer = 0f;
 
-        if (meshA.length > 0 && meshB.length > 0) {
+        if (meshA.size() > 0 && meshB.size() > 0) {
             float[] directedMax = new float[2];
             double[] directedMean = new double[2];
             for (int direction = 0; direction < 2; direction++) {
-                float[] from = direction == 0 ? meshA : meshB;
-                float[] to = direction == 0 ? meshB : meshA;
-                int fromCount = from.length / FLOATS_PER_VERTEX;
-                KDTree3D nearest = new KDTree3D(to, to.length / FLOATS_PER_VERTEX);
+                PackedPoints from = direction == 0 ? meshA : meshB;
+                PackedPoints to = direction == 0 ? meshB : meshA;
+                int fromCount = from.size();
+                KDTree3D nearest = new KDTree3D(to);
                 float maxMinDist = 0f;
                 double sumMinDist = 0.0;
                 for (int i = 0; i < fromCount; i++) {
-                    int oFrom = i * FLOATS_PER_VERTEX;
-                    float minDist = (float) Math.sqrt(nearest.queryNearestSq(
-                            from[oFrom], from[oFrom + 1], from[oFrom + 2]));
+                    float minDist = (float) Math.sqrt(nearest.queryNearestSq(from.at(i)));
                     if (minDist > maxMinDist) {
                         maxMinDist = minDist;
                     }
@@ -78,9 +72,9 @@ public final class MeshDistance {
      * bounding-box diagonal, the frame two meshes are compared in when asked to normalize.
      *
      * @param mesh mesh to read
-     * @return normalized packed xyz positions in active-vertex order
+     * @return normalized positions in active-vertex order
      */
-    public static float[] normalizedPositions(MeshTopology mesh) {
+    public static PackedPoints normalizedPositions(MeshTopology mesh) {
         return normalizedPositions(mesh, mesh);
     }
 
@@ -90,143 +84,39 @@ public final class MeshDistance {
      *
      * @param mesh  mesh to read
      * @param frame mesh whose bounding box defines the frame
-     * @return packed xyz positions in active-vertex order, in the frame's unit-diagonal coordinates
+     * @return positions in active-vertex order, in the frame's unit-diagonal coordinates
      */
-    public static float[] normalizedPositions(MeshTopology mesh, MeshTopology frame) {
+    public static PackedPoints normalizedPositions(MeshTopology mesh, MeshTopology frame) {
         return normalized(mesh.packedPositions(null), frame);
     }
 
     /**
-     * Carry packed positions into a mesh's normalized frame, as {@link #normalizedPositions} does a
+     * Carry positions into a mesh's normalized frame, as {@link #normalizedPositions} does a
      * mesh's own: points read off a goal (its ridge lines) then share the frame its sculpt is in.
      *
-     * @param xyz   packed positions in the frame mesh's coordinates, overwritten
-     * @param frame mesh whose bounding box defines the frame
-     * @return {@code xyz}, now in the frame's unit-diagonal coordinates
+     * @param points positions in the frame mesh's coordinates, overwritten
+     * @param frame  mesh whose bounding box defines the frame
+     * @return {@code points}, now in the frame's unit-diagonal coordinates
      */
-    public static float[] normalized(float[] xyz, MeshTopology frame) {
+    public static PackedPoints normalized(PackedPoints points, MeshTopology frame) {
         float diagonal = frame.boundsDiagonal();
         float scale = diagonal > MIN_DIAGONAL ? 1.0f / diagonal : 1.0f;
-        Vector3f center = frame.center(new Vector3f());
-        for (int o = 0; o < xyz.length; o += FLOATS_PER_VERTEX) {
-            xyz[o] = (xyz[o] - center.x) * scale;
-            xyz[o + 1] = (xyz[o + 1] - center.y) * scale;
-            xyz[o + 2] = (xyz[o + 2] - center.z) * scale;
-        }
-        return xyz;
+        points.transformPositions(new Matrix4f().translation(frame.center(new Vector3f()).negate()));
+        points.transformPositions(new Matrix4f().scaling(scale));
+        return points;
     }
 
     /**
      * Carry normalized positions out into a frame, the inverse of {@link #normalizedPositions}.
      *
-     * @param unitXyz  packed positions in unit-diagonal coordinates, overwritten
-     * @param center   the frame's bounding-box center
-     * @param diagonal the frame's bounding-box diagonal
-     * @return {@code unitXyz}, now in the frame's coordinates
+     * @param unitPoints positions in unit-diagonal coordinates, overwritten
+     * @param center     the frame's bounding-box center
+     * @param diagonal   the frame's bounding-box diagonal
+     * @return {@code unitPoints}, now in the frame's coordinates
      */
-    public static float[] inFrame(float[] unitXyz, Vector3f center, float diagonal) {
-        for (int o = 0; o < unitXyz.length; o += FLOATS_PER_VERTEX) {
-            unitXyz[o] = unitXyz[o] * diagonal + center.x;
-            unitXyz[o + 1] = unitXyz[o + 1] * diagonal + center.y;
-            unitXyz[o + 2] = unitXyz[o + 2] * diagonal + center.z;
-        }
-        return unitXyz;
-    }
-
-    /**
-     * Compare a generated mesh against a pre-processed reference using KD-trees.
-     * Auto-centers the generated mesh. Scale auto-computed as 20% of reference extent.
-     *
-     * @param genPos      flat XYZ positions of generated mesh
-     * @param genVerts    number of vertices in generated mesh
-     * @param ref         pre-processed reference (built once, reused)
-     * @return full comparison result
-     */
-    public static CompareResult compareFull(float[] genPos, int genVerts, PreparedReference ref) {
-        Vector3f genCentroid = computeCentroid(genPos, genVerts);
-        float[] genC = new float[genVerts * FLOATS_PER_VERTEX];
-        for (int i = 0; i < genVerts; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            PackedPoints.store(genC, o, PackedPoints.at(genPos, o).sub(genCentroid));
-        }
-
-        KDTree3D genTree = new KDTree3D(genC, genVerts);
-
-        float[] dGenToRef = new float[genVerts];
-        for (int i = 0; i < genVerts; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            dGenToRef[i] = (float) Math.sqrt(ref.tree.queryNearestSq(genC[o], genC[o + 1], genC[o + 2]));
-        }
-
-        float[] dRefToGen = new float[ref.vertexCount];
-        for (int i = 0; i < ref.vertexCount; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            dRefToGen[i] = (float) Math.sqrt(genTree.queryNearestSq(
-                    ref.centeredPos[o], ref.centeredPos[o + 1], ref.centeredPos[o + 2]));
-        }
-
-        float chamfer = (mean(dGenToRef) + mean(dRefToGen)) / 2f;
-
-        float hausdorff = Math.max(max(dGenToRef), max(dRefToGen));
-
-        float scale = ref.extent * SIMILARITY_SCALE_RATIO;
-        float similarity = MAX_SCORE * (float) Math.exp(-chamfer / Math.max(scale, MIN_CHAMFER_SCALE));
-        similarity = Math.max(0f, Math.min(MAX_SCORE, similarity));
-
-        float threshold = ref.extent * COVERAGE_THRESHOLD_RATIO;
-        float coverage = fractionBelow(dRefToGen, threshold);
-
-        float proximity = fractionBelow(dGenToRef, threshold);
-
-        return new CompareResult(chamfer, hausdorff, similarity, coverage, proximity,
-                spans(genPos, genVerts), ref.spans, new Vector3f(genCentroid).sub(ref.centroid));
-    }
-
-
-    private static Vector3f computeCentroid(float[] pos, int vertexCount) {
-        double cx = 0, cy = 0, cz = 0;
-        for (int i = 0; i < vertexCount; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            cx += pos[o];
-            cy += pos[o + 1];
-            cz += pos[o + 2];
-        }
-        float n = vertexCount;
-        return new Vector3f((float) (cx / n), (float) (cy / n), (float) (cz / n));
-    }
-
-    /** Per-axis spans of packed positions: their bounding box's size. */
-    private static Vector3f spans(float[] pos, int vertexCount) {
-        Vector3f min = new Vector3f(Float.MAX_VALUE);
-        Vector3f max = new Vector3f(-Float.MAX_VALUE);
-        for (int i = 0; i < vertexCount; i++) {
-            Vector3f position = PackedPoints.at(pos, i * FLOATS_PER_VERTEX);
-            min.min(position);
-            max.max(position);
-        }
-        return max.sub(min);
-    }
-
-    private static float mean(float[] arr) {
-        double sum = 0;
-        for (float v : arr) sum += v;
-        return (float) (sum / arr.length);
-    }
-
-    private static float max(float[] arr) {
-        float m = arr[0];
-        for (int i = 1; i < arr.length; i++) {
-            if (arr[i] > m) m = arr[i];
-        }
-        return m;
-    }
-
-    private static float fractionBelow(float[] arr, float threshold) {
-        int count = 0;
-        for (float v : arr) {
-            if (v < threshold) count++;
-        }
-        return (float) count / arr.length;
+    public static PackedPoints inFrame(PackedPoints unitPoints, Vector3f center, float diagonal) {
+        unitPoints.transformPositions(new Matrix4f().translation(center).scale(diagonal));
+        return unitPoints;
     }
 
     /**
@@ -262,73 +152,21 @@ public final class MeshDistance {
         }
     }
 
-
-    /**
-     * Full comparison result compatible with Python mesh_compare output.
-     * Includes chamfer, hausdorff, similarity, coverage, proximity, and extent info.
-     */
-    public record CompareResult(
-            float chamferDistance,
-            float hausdorffDistance,
-            float similarityScore,
-            float coverage,
-            float proximity,
-            Vector3f perAxisGenSpans,
-            Vector3f perAxisRefSpans,
-            Vector3f centroidOffset) {
-    }
-
-    /**
-     * Pre-processed reference mesh for efficient batch comparison.
-     * Build once, reuse across many generated mesh comparisons.
-     * Thread-safe for queries after construction.
-     */
-    public static final class PreparedReference {
-        public final float[] centeredPos;
-        public final int vertexCount;
-        public final KDTree3D tree;
-        public final float extent;
-        public final Vector3f spans; // X, Y, Z spans of original positions
-        public final Vector3f centroid;
-
-        /**
-         * Pre-process a reference mesh: center on its centroid, build a KD-tree, and
-         * record per-axis spans.
-         *
-         * @param positions packed XYZ vertex positions of the reference
-         * @param vertexCount number of vertices in {@code positions}
-         */
-        public PreparedReference(float[] positions, int vertexCount) {
-            this.vertexCount = vertexCount;
-            this.centroid = computeCentroid(positions, vertexCount);
-            centeredPos = new float[vertexCount * 3];
-            for (int i = 0; i < vertexCount; i++) {
-                int o = i * 3;
-                PackedPoints.store(centeredPos, o, PackedPoints.at(positions, o).sub(centroid));
-            }
-            tree = new KDTree3D(centeredPos, vertexCount);
-
-            spans = spans(positions, vertexCount);
-            extent = spans.get(spans.maxComponent());
-        }
-    }
-
-
     /**
      * Simple static 3D KD-tree. Thread-safe for queries after construction.
      * Uses array-of-struct layout for cache efficiency.
      */
     static final class KDTree3D {
-        private final float[] pos;          // original flat XYZ positions (shared ref)
+        private final PackedPoints pos;     // original positions (shared ref)
         private final int[] nodeVertIdx;    // vertex index stored at tree node i
         private final byte[] nodeAxis;      // split axis at tree node i (0/1/2)
         private final int[] left;           // left child node index, -1 = none
         private final int[] right;          // right child node index, -1 = none
         private int nodeCount;
 
-        KDTree3D(float[] positions, int vertexCount) {
+        KDTree3D(PackedPoints positions) {
             this.pos = positions;
-            int n = vertexCount;
+            int n = positions.size();
             nodeVertIdx = new int[n];
             nodeAxis = new byte[n];
             left = new int[n];
@@ -357,37 +195,30 @@ public final class MeshDistance {
         /**
          * Returns squared distance to the nearest point in the tree.
          *
-         * @param qx query x
-         * @param qy query y
-         * @param qz query z
+         * @param query the query position
          * @return squared Euclidean distance to the closest stored point, or {@link Float#MAX_VALUE} for an empty tree
          */
-        float queryNearestSq(float qx, float qy, float qz) {
+        private float queryNearestSq(Vector3f query) {
             if (nodeCount == 0) return Float.MAX_VALUE;
-            return searchSq(0, qx, qy, qz, Float.MAX_VALUE);
+            return searchSq(0, query, Float.MAX_VALUE);
         }
 
-        private float searchSq(int node, float qx, float qy, float qz, float bestSq) {
+        private float searchSq(int node, Vector3f query, float bestSq) {
             if (node < 0) return bestSq;
 
             int vi = nodeVertIdx[node];
-            int o = vi * 3;
-            float dx = qx - pos[o];
-            float dy = qy - pos[o + 1];
-            float dz = qz - pos[o + 2];
-            float distSq = dx * dx + dy * dy + dz * dz;
-            if (distSq < bestSq) bestSq = distSq;
+            bestSq = Math.min(bestSq, (float) pos.distanceSquared(vi, query));
 
             int ax = nodeAxis[node];
-            float diff = (ax == 0 ? dx : ax == 1 ? dy : dz);
+            float diff = query.get(ax) - pos.get(vi, ax);
             float diffSq = diff * diff;
 
             int near = diff <= 0 ? left[node] : right[node];
             int far = diff <= 0 ? right[node] : left[node];
 
-            bestSq = searchSq(near, qx, qy, qz, bestSq);
+            bestSq = searchSq(near, query, bestSq);
             if (diffSq < bestSq) {
-                bestSq = searchSq(far, qx, qy, qz, bestSq);
+                bestSq = searchSq(far, query, bestSq);
             }
             return bestSq;
         }
@@ -405,11 +236,11 @@ public final class MeshDistance {
         private void nthElement(int[] idx, int lo, int hi, int k, int ax) {
             while (lo < hi - 1) {
                 int pivotPos = lo + (hi - lo) / 2;
-                float pivotVal = pos[idx[pivotPos] * 3 + ax];
+                float pivotVal = pos.get(idx[pivotPos], ax);
                 swap(idx, pivotPos, hi - 1);
                 int store = lo;
                 for (int i = lo; i < hi - 1; i++) {
-                    if (pos[idx[i] * 3 + ax] < pivotVal) {
+                    if (pos.get(idx[i], ax) < pivotVal) {
                         swap(idx, i, store++);
                     }
                 }

@@ -32,8 +32,6 @@ public class CurveSweepMeshNode implements MeshNode {
     public static final float MIN_LENGTH_SQUARED = 1e-20f;
     public static final float PARALLEL_DOT_EPSILON = 1e-6f;
     public static final float MIN_PROJECTED_LENGTH_SQUARED = 1e-14f;
-    public static final float NEAR_PARALLEL_DOT = 0.9f;
-    public static final float MIN_PERPENDICULAR_LENGTH_SQUARED = 1e-10f;
     public static final float MIN_AXIS_LENGTH_SQUARED = 1e-12f;
 
     public static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
@@ -91,18 +89,13 @@ public class CurveSweepMeshNode implements MeshNode {
         }
         boolean closedCurve = cg.closed[0];
 
-        float[] pos = cg.positions;
         Vector3f[] samplePts = new Vector3f[nSamples];
         for (int i = 0; i < nSamples; i++) {
-            int b = 3 * (off0 + i);
-            float x = pos[b];
-            float y = pos[b + 1];
-            float z = pos[b + 2];
-            if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z)) {
+            samplePts[i] = cg.positions.at(off0 + i);
+            if (!samplePts[i].isFinite()) {
                 ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
                 return;
             }
-            samplePts[i] = new Vector3f(x, y, z);
         }
 
         int fid = prof.faceIdAt(0);
@@ -220,7 +213,7 @@ public class CurveSweepMeshNode implements MeshNode {
         if (Math.abs(Math.abs(d) - 1f) <= PARALLEL_DOT_EPSILON) {
             uDir.fma(-w0.dot(uDir), w0);
             if (uDir.lengthSquared() < MIN_PROJECTED_LENGTH_SQUARED || !Float.isFinite(uDir.lengthSquared())) {
-                fillStablePerpendicularTo(w0, uDir);
+                MeshTopology.tangentFrame(w0).getColumn(0, uDir);
             } else {
                 uDir.normalize();
             }
@@ -233,7 +226,7 @@ public class CurveSweepMeshNode implements MeshNode {
         if (uDir.lengthSquared() < MIN_LENGTH_SQUARED || !Float.isFinite(uDir.lengthSquared())) {
             uDir.set(uMesh).fma(-w0.dot(uMesh), w0);
             if (uDir.lengthSquared() < MIN_PROJECTED_LENGTH_SQUARED) {
-                fillStablePerpendicularTo(w0, uDir);
+                MeshTopology.tangentFrame(w0).getColumn(0, uDir);
             } else {
                 uDir.normalize();
             }
@@ -241,18 +234,6 @@ public class CurveSweepMeshNode implements MeshNode {
             uDir.normalize();
         }
         return uDir;
-    }
-
-    private static void fillStablePerpendicularTo(Vector3f w, Vector3f out) {
-        Vector3f ref = new Vector3f(1f, 0f, 0f);
-        if (Math.abs(w.dot(ref)) > NEAR_PARALLEL_DOT) {
-            ref.set(0f, 1f, 0f);
-        }
-        out.set(ref).fma(-w.dot(ref), w);
-        if (out.lengthSquared() < MIN_PERPENDICULAR_LENGTH_SQUARED) {
-            out.set(0f, 0f, 1f).fma(-w.z, w);
-        }
-        out.normalize();
     }
 
     /**
@@ -264,15 +245,7 @@ public class CurveSweepMeshNode implements MeshNode {
         uAxis.fma(-w.dot(uAxis), w);
         float uLenSq = uAxis.lengthSquared();
         if (uLenSq < MIN_AXIS_LENGTH_SQUARED) {
-            Vector3f ref = new Vector3f(1f, 0f, 0f);
-            if (Math.abs(w.dot(ref)) > NEAR_PARALLEL_DOT) {
-                ref.set(0f, 1f, 0f);
-            }
-            uAxis.set(ref).fma(-w.dot(ref), w);
-            uLenSq = uAxis.lengthSquared();
-        }
-        if (uLenSq < MIN_LENGTH_SQUARED) {
-            uAxis.set(0f, 0f, 1f).fma(-w.z, w);
+            MeshTopology.tangentFrame(w).getColumn(0, uAxis);
         }
         uAxis.normalize();
         vAxis.set(w).cross(uAxis);

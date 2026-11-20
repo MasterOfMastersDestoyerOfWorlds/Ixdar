@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -128,25 +129,19 @@ public final class MeshSkeletonExtractor {
 
 
     private void voxelizeScanline(MeshTopology mesh) {
-        float[] pos = new float[mesh.vertexIdBound() * MIN_PATH_LENGTH];
-        Vector3f position = new Vector3f();
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(pos, vertexId * MIN_PATH_LENGTH, position);
-        }
+        PackedPoints pos = SemanticPatchDecomposer.positionsById(mesh);
 
         @SuppressWarnings("unchecked")
         ArrayList<Float>[] crossings = new ArrayList[ry * rz];
 
         int[] triangles = mesh.triangulate(TriangulationRule.FAN, null);
         for (int triangleCorner = 0; triangleCorner < triangles.length; triangleCorner += 3) {
-            int i0 = triangles[triangleCorner] * MIN_PATH_LENGTH;
-            int i1 = triangles[triangleCorner + 1] * MIN_PATH_LENGTH;
-            int i2 = triangles[triangleCorner + 2] * MIN_PATH_LENGTH;
-            float ay = pos[i0 + 1], az = pos[i0 + 2];
-            float by = pos[i1 + 1], bz = pos[i1 + 2];
-            float cy = pos[i2 + 1], cz = pos[i2 + 2];
+            Vector3f a = pos.at(triangles[triangleCorner]);
+            Vector3f b = pos.at(triangles[triangleCorner + 1]);
+            Vector3f c = pos.at(triangles[triangleCorner + 2]);
+            float ay = a.y, az = a.z;
+            float by = b.y, bz = b.z;
+            float cy = c.y, cz = c.z;
 
             int iyMin = Math.max(0, (int) Math.floor((Math.min(ay, Math.min(by, cy)) - oy) / vs));
             int iyMax = Math.min(ry - 1, (int) Math.floor((Math.max(ay, Math.max(by, cy)) - oy) / vs));
@@ -167,7 +162,7 @@ public final class MeshSkeletonExtractor {
                     float u = (dy * e2z - dz * e2y) * invDet;
                     float v = (e1y * dz - e1z * dy) * invDet;
                     if (u >= 0 && v >= 0 && u + v <= 1.0f) {
-                        float xHit = (1 - u - v) * pos[i0] + u * pos[i1] + v * pos[i2];
+                        float xHit = (1 - u - v) * a.x + u * b.x + v * c.x;
                         int col = iy * rz + iz;
                         if (crossings[col] == null) crossings[col] = new ArrayList<>();
                         crossings[col].add(xHit);
@@ -371,10 +366,10 @@ public final class MeshSkeletonExtractor {
             for (int j = 1; j < worldPos.length; j++) rawLength += worldPos[j - 1].distance(worldPos[j]);
             if (rawLength < vs * MIN_BRANCH_VOXELS) continue;  // skip branches shorter than ~15 voxels
 
-            float[] packedPath = new float[worldPos.length * 3];
+            PackedPoints packedPath = new PackedPoints(worldPos.length);
             float[] radius = new float[worldPos.length];
             for (int i = 0; i < worldPos.length; i++) {
-                PackedPoints.store(packedPath, i * 3, worldPos[i]);
+                packedPath.set(i, worldPos[i]);
                 float r = dfb[path.get(i)[MIN_PATH_LENGTH]];
                 radius[i] = (r == Float.MAX_VALUE ? 0 : r) * vs;
             }
@@ -383,7 +378,7 @@ public final class MeshSkeletonExtractor {
 
             List<SkeletonJoint> joints = new ArrayList<>();
             for (int k = 0; k < simplified.pointCount(); k++) {
-                joints.add(new SkeletonJoint(PackedPoints.at(simplified.positions, k * 3),
+                joints.add(new SkeletonJoint(simplified.positions.at(k),
                         simplified.pointAttributes.get(RADIUS)[k]));
             }
 

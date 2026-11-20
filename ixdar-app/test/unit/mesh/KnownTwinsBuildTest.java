@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -21,11 +22,9 @@ public final class KnownTwinsBuildTest {
 
     @Test
     void anOpenGridBuildsTheSameWithKnownTwins() {
-        float[] positions = new float[GRID * GRID * 3];
+        PackedPoints positions = new PackedPoints(GRID * GRID);
         for (int vertex = 0; vertex < GRID * GRID; vertex++) {
-            positions[vertex * 3] = vertex % GRID;
-            positions[vertex * 3 + 1] = vertex / GRID;
-            positions[vertex * 3 + 2] = (vertex * 7 % 5) * 0.1f;
+            positions.set(vertex, vertex % GRID, vertex / GRID, (vertex * 7 % 5) * 0.1f);
         }
         int[] faces = new int[(GRID - 1) * (GRID - 1) * 6];
         int next = 0;
@@ -60,8 +59,8 @@ public final class KnownTwinsBuildTest {
             twins[corner] = cornerOfSide.getOrDefault(reversed, MeshTopology.NONE);
         }
 
-        HalfEdgeMesh found = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
-        HalfEdgeMesh given = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces, twins);
+        HalfEdgeMesh found = HalfEdgeMeshOps.buildFromIndexedMesh(positions.copy(), faces);
+        HalfEdgeMesh given = HalfEdgeMeshOps.buildFromIndexedMesh(positions.copy(), faces, twins);
 
         assertArrayEquals(found.halfEdgeTwin, given.halfEdgeTwin, "twins");
         assertArrayEquals(found.halfEdgeNext, given.halfEdgeNext, "next");

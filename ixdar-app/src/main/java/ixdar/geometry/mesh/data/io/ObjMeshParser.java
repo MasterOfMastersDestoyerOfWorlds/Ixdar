@@ -8,6 +8,7 @@ import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 public final class ObjMeshParser {
@@ -22,8 +23,8 @@ public final class ObjMeshParser {
      */
     public static MeshTopology load(String content) {
 
-        List<Float> positions = new ArrayList<>();
-        List<Float> normals = new ArrayList<>();
+        PackedPoints positions = new PackedPoints();
+        PackedPoints normals = new PackedPoints();
         List<int[]> faces = new ArrayList<>();
 
         try (BufferedReader stringReader = new BufferedReader(new StringReader(content))) {
@@ -45,21 +46,14 @@ public final class ObjMeshParser {
                     float x = Float.parseFloat(parts[1]);
                     float y = Float.parseFloat(parts[2]);
                     float z = Float.parseFloat(parts[MeshLoader.FLOATS_PER_VERTEX]);
-                    positions.add(x);
-                    positions.add(y);
-                    positions.add(z);
-                    normals.add(0f);
-                    normals.add(0f);
-                    normals.add(0f);
+                    positions.append(x, y, z);
+                    normals.append(0f, 0f, 0f);
                 } else if ("vn".equals(type) && parts.length >= 4) {
                     float x = Float.parseFloat(parts[1]);
                     float y = Float.parseFloat(parts[2]);
                     float z = Float.parseFloat(parts[MeshLoader.FLOATS_PER_VERTEX]);
-                    if (normals.size() / MeshLoader.FLOATS_PER_VERTEX < positions.size()
-                            / MeshLoader.FLOATS_PER_VERTEX) {
-                        normals.add(x);
-                        normals.add(y);
-                        normals.add(z);
+                    if (normals.size() < positions.size()) {
+                        normals.append(x, y, z);
                     }
                 } else if ("f".equals(type) && parts.length >= 4) {
                     int[] face = new int[parts.length - 1];
@@ -75,7 +69,7 @@ public final class ObjMeshParser {
             throw new RuntimeException(e);
         }
 
-        if (positions.isEmpty()) {
+        if (positions.size() == 0) {
             return new HalfEdgeMesh();
         }
 
@@ -86,19 +80,11 @@ public final class ObjMeshParser {
             }
         }
 
-        float[] posArray = new float[positions.size()];
-        float[] normArray = new float[positions.size()];
-        for (int i = 0; i < positions.size(); i++)
-            posArray[i] = positions.get(i);
-        for (int i = 0; i < Math.min(normals.size(), normArray.length); i++)
-            normArray[i] = normals.get(i);
-
+        normals.resize(positions.size());
         boolean hasVertexNormals = false;
-        for (int i = 0; i < normals.size(); i++) {
-            if (normals.get(i) != 0f) {
-                hasVertexNormals = true;
-                break;
-            }
+        for (int vertex = 0; vertex < normals.size() && !hasVertexNormals; vertex++) {
+            hasVertexNormals = normals.get(vertex, 0) != 0f || normals.get(vertex, 1) != 0f
+                    || normals.get(vertex, 2) != 0f;
         }
 
         int[] faceIndices = new int[totalTriIndices];
@@ -118,7 +104,7 @@ public final class ObjMeshParser {
         if (faceIndices.length == 0) {
             return new HalfEdgeMesh();
         }
-        return MeshLoader.indexedMesh(posArray, hasVertexNormals ? normArray : null, faceIndices,
+        return MeshLoader.indexedMesh(positions, hasVertexNormals ? normals : null, faceIndices,
                 MeshLoader.FLOATS_PER_VERTEX);
     }
 }

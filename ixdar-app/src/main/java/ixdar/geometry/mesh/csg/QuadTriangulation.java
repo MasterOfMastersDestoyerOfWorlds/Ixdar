@@ -2,11 +2,10 @@ package ixdar.geometry.mesh.csg;
 
 import java.util.Arrays;
 
-import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
@@ -22,8 +21,8 @@ public final class QuadTriangulation {
     /** Source mesh being triangulated. */
     public final MeshTopology mesh;
 
-    /** Vertex positions, three floats per vertex, in the source mesh's active-vertex order. */
-    public float[] positions;
+    /** Vertex positions in the source mesh's active-vertex order. */
+    public PackedPoints positions;
 
     /** Triangle corners as indices into {@link #positions}, three per triangle. */
     public int[] triangles;
@@ -59,20 +58,13 @@ public final class QuadTriangulation {
      */
     public QuadTriangulation build() {
         int vertexCount = mesh.vertexCount();
-        positions = new float[vertexCount * THREE];
         int maximumVertexId = -1;
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             maximumVertexId = Math.max(maximumVertexId, mesh.vertexIdAt(activeVertex));
         }
         activeVertexByVertexId = new int[maximumVertexId + 1];
         Arrays.fill(activeVertexByVertexId, -1);
-        Vector3f position = new Vector3f();
-        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            activeVertexByVertexId[vertexId] = activeVertex;
-            mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(positions, activeVertex * THREE, position);
-        }
+        positions = mesh.packedPositions(activeVertexByVertexId);
 
         triangleSourceFace = new int[mesh.triangleCount()];
         triangles = mesh.triangulate(TriangulationRule.SHORTER_DIAGONAL, triangleSourceFace);

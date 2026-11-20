@@ -13,6 +13,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 @MeshNodeAnnotation(id = "cube", category = NodeCategory.PRIMITIVES)
 public class CubeMeshNode implements MeshNode {
@@ -48,10 +49,15 @@ public class CubeMeshNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         Number sizeInput = ctx.getInput(SIZE.name, Number.class);
         float c = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * 0.5f;
-        float[] positions = {
-                -c, -c, -c,  c, -c, -c,  c,  c, -c, -c,  c, -c,
-                -c, -c,  c,  c, -c,  c,  c,  c,  c, -c,  c,  c,
-        };
+        PackedPoints positions = new PackedPoints(8);
+        positions.set(0, -c, -c, -c);
+        positions.set(1, c, -c, -c);
+        positions.set(2, c, c, -c);
+        positions.set(3, -c, c, -c);
+        positions.set(4, -c, -c, c);
+        positions.set(5, c, -c, c);
+        positions.set(6, c, c, c);
+        positions.set(7, -c, c, c);
         int[] quads = {
                 0, 3, 2, 1,   // Back  (-Z)
                 4, 5, 6, 7,   // Front (+Z)

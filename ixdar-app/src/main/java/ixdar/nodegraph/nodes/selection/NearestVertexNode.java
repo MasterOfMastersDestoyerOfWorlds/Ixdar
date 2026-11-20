@@ -4,6 +4,8 @@ import java.util.Objects;
 import java.util.List;
 import java.util.Map;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
@@ -69,7 +71,7 @@ public class NearestVertexNode implements MeshNode {
             throw new IllegalStateException("nearest vertex to (" + pt.x() + ", " + pt.y()
                     + ", " + pt.z() + "): the geometry has no mesh");
         }
-        int vertexId = NearestVertex.over(mesh).find(pt.x(), pt.y(), pt.z());
+        int vertexId = NearestVertex.over(mesh).find(new Vector3f(pt.x(), pt.y(), pt.z()));
         int vc = mesh.vertexCount();
         boolean[] sel = new boolean[vc];
         int index = -1;

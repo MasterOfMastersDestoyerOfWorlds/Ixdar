@@ -2,11 +2,11 @@ package ixdar.geometry.mesh.data.paths.query;
 
 import java.util.stream.IntStream;
 
-import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.TriangleSoup;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.Dijkstra;
@@ -117,7 +117,7 @@ public final class SurfaceCreases {
             valleyStrength[vertexId] = (float) Math.min(1.0,
                     saturation > 0.0 ? signal[vertexId] / saturation : 0.0);
         });
-        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PackedPoints positions = SemanticPatchDecomposer.positionsById(mesh);
         int edgeIdBound = 0;
         for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
             edgeIdBound = Math.max(edgeIdBound, mesh.edgeIdAt(activeEdge) + 1);
@@ -128,10 +128,7 @@ public final class SurfaceCreases {
             int halfEdge = mesh.edgeHalfEdge(edgeId);
             int fromVertexId = mesh.halfEdgeVertex(halfEdge);
             int toVertexId = mesh.halfEdgeEndVertex(halfEdge);
-            double length = Vector3f.distance(positions[3 * fromVertexId],
-                    positions[3 * fromVertexId + 1], positions[3 * fromVertexId + 2],
-                    positions[3 * toVertexId], positions[3 * toVertexId + 1],
-                    positions[3 * toVertexId + 2]);
+            double length = positions.at(fromVertexId).distance(positions.at(toVertexId));
             double groove = HALF * (valleyStrength[fromVertexId] + valleyStrength[toVertexId]);
             edgeCost[edgeId] = length
                     * (GROOVE_COST_OF_LENGTH + (1.0 - GROOVE_COST_OF_LENGTH) * (1.0 - groove));
@@ -187,9 +184,9 @@ public final class SurfaceCreases {
     public static SurfaceCreases of(MeshTopology mesh) {
         long start = System.nanoTime();
         int[] triangles = mesh.triangulate(TriangulationRule.FAN, null);
-        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PackedPoints positions = SemanticPatchDecomposer.positionsById(mesh);
         PrincipalDirectionField curvature = PrincipalDirectionField.compute(mesh, positions,
-                triangles, SemanticPatchDecomposer.triangleNormals(triangles, positions),
+                triangles, TriangleGeometry.normals(positions, triangles),
                 TriangleSoup.oneRings(triangles, mesh.vertexIdBound()));
         boolean outward = mesh.signedVolume() >= 0.0;
         float[] signal = new float[mesh.vertexIdBound()];

@@ -45,7 +45,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
     public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
 
-    private float[][] outHandles;
+    private PackedPoints[] outHandles;
     private boolean[] outGenerated;
 
     @Override
@@ -96,8 +96,8 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         Object regObj = FieldBroadcast.getInputOrDefault(ctx, REGION.name, REGION.defaultValue);
         boolean region = FieldBroadcast.boolAt(regObj, 0, false);
 
-        float[] hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, in);
-        float[] hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, in);
+        PackedPoints hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, in);
+        PackedPoints hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, in);
 
         HalfEdgeMesh outMesh = region
                 ? doExtrudeRegion(in, hStart, hEnd, offset, selObj)
@@ -114,7 +114,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
 
 
     private HalfEdgeMesh doExtrudeIndividual(
-            MeshTopology in, float[] hStart, float[] hEnd, float offset, Object selection) {
+            MeshTopology in, PackedPoints hStart, PackedPoints hEnd, float offset, Object selection) {
         int origFaceCount = in.faceCount();
         int origVertCount = in.vertexCount();
 
@@ -131,23 +131,15 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         }
 
         Map<Integer, Integer> oldToDense = new HashMap<>();
-        float[] origPos = new float[origVertCount * 3];
-        Vector3f tmp = new Vector3f();
         for (int i = 0; i < origVertCount; i++) {
-            int vid = in.vertexIdAt(i);
-            oldToDense.put(vid, i);
-            in.vertexPosition(vid, tmp);
-            PackedPoints.store(origPos, i * 3, tmp);
+            oldToDense.put(in.vertexIdAt(i), i);
         }
+        PackedPoints positions = in.packedPositions(null);
 
         Map<Long, Vector3f> dh = new HashMap<>();
         seedOriginalEdgeHandles(in, hStart, hEnd, oldToDense, dh);
 
-        int newVertsPerFace = 4;
-        int newVertTotal = selectedCount * newVertsPerFace;
-        ArrayList<Float> extraPos = new ArrayList<>(newVertTotal * 3);
         int[][] topVids = new int[origFaceCount][];
-        int nextVid = origVertCount;
 
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (!selected[fi]) continue;
@@ -176,12 +168,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
 
             int[] tops = new int[4];
             for (int k = 0; k < 4; k++) {
-                Vector3f p = corners[k];
-                Vector3f n = normals[k];
-                extraPos.add(p.x + n.x * offset);
-                extraPos.add(p.y + n.y * offset);
-                extraPos.add(p.z + n.z * offset);
-                tops[k] = nextVid++;
+                tops[k] = positions.append(corners[k].fma(offset, normals[k]));
             }
             topVids[fi] = tops;
         }
@@ -218,12 +205,12 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             }
         }
 
-        return buildOutput(in, origVertCount, origPos, extraPos, selected, topVids, dh, oldToDense);
+        return buildOutput(in, positions, selected, topVids, dh, oldToDense);
     }
 
 
     private HalfEdgeMesh doExtrudeRegion(
-            MeshTopology in, float[] hStart, float[] hEnd, float offset, Object selection) {
+            MeshTopology in, PackedPoints hStart, PackedPoints hEnd, float offset, Object selection) {
         int origFaceCount = in.faceCount();
         int origVertCount = in.vertexCount();
 
@@ -240,14 +227,10 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         }
 
         Map<Integer, Integer> oldToDense = new HashMap<>();
-        float[] origPos = new float[origVertCount * 3];
-        Vector3f tmp = new Vector3f();
         for (int i = 0; i < origVertCount; i++) {
-            int vid = in.vertexIdAt(i);
-            oldToDense.put(vid, i);
-            in.vertexPosition(vid, tmp);
-            PackedPoints.store(origPos, i * 3, tmp);
+            oldToDense.put(in.vertexIdAt(i), i);
         }
+        PackedPoints positions = in.packedPositions(null);
 
         int[] componentId = computeSelectionComponents(in, selected);
 
@@ -264,8 +247,6 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         }
 
         Map<Long, Integer> topVidByVidComp = new HashMap<>();
-        ArrayList<Float> extraPos = new ArrayList<>();
-        int nextVid = origVertCount;
 
         for (Map.Entry<Long, List<int[]>> e : vertIncidence.entrySet()) {
             long key = e.getKey();
@@ -295,11 +276,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             float len = avgN.length();
             if (len > MIN_NORMAL_LENGTH) avgN.mul(1f / len);
 
-            Vector3f p = in.vertexPosition(origVid);
-            extraPos.add(p.x + avgN.x * offset);
-            extraPos.add(p.y + avgN.y * offset);
-            extraPos.add(p.z + avgN.z * offset);
-            topVidByVidComp.put(key, nextVid++);
+            topVidByVidComp.put(key, positions.append(in.vertexPosition(origVid).fma(offset, avgN)));
         }
 
         Map<Long, Vector3f> dh = new HashMap<>();
@@ -359,7 +336,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
             }
         }
 
-        return buildOutputRegion(in, origVertCount, origPos, extraPos, selected, topVids,
+        return buildOutputRegion(in, positions, selected, topVids,
                 componentId, topVidByVidComp, oldToDense, dh);
     }
 
@@ -408,16 +385,12 @@ public class CoonsExtrudeMeshNode implements MeshNode {
 
 
     /** Passes topology through unchanged. Used for selection=empty / offset=0. */
-    private HalfEdgeMesh passThrough(MeshTopology in, float[] hStart, float[] hEnd) {
+    private HalfEdgeMesh passThrough(MeshTopology in, PackedPoints hStart, PackedPoints hEnd) {
         int vn = in.vertexCount();
-        float[] positions = new float[vn * 3];
-        Vector3f tmp = new Vector3f();
+        PackedPoints positions = in.packedPositions(null);
         Map<Integer, Integer> oldToDense = new HashMap<>();
         for (int i = 0; i < vn; i++) {
-            int vid = in.vertexIdAt(i);
-            oldToDense.put(vid, i);
-            in.vertexPosition(vid, tmp);
-            PackedPoints.store(positions, i * 3, tmp);
+            oldToDense.put(in.vertexIdAt(i), i);
         }
         int fn = in.faceCount();
         ArrayList<Integer> faceIdxList = new ArrayList<>();
@@ -440,20 +413,15 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     }
 
     private static void seedOriginalEdgeHandles(
-            MeshTopology in, float[] hStart, float[] hEnd,
+            MeshTopology in, PackedPoints startHandles, PackedPoints endHandles,
             Map<Integer, Integer> oldToDense, Map<Long, Vector3f> dh) {
         for (int ei = 0; ei < in.edgeCount(); ei++) {
             int eid = in.edgeIdAt(ei);
             int he = in.edgeHalfEdge(eid);
-            int ca = in.halfEdgeVertex(he);
-            int cb = in.halfEdgeEndVertex(he);
-            int dca = oldToDense.get(ca);
-            int dcb = oldToDense.get(cb);
-            int o = eid * 3;
-            dh.put(CoonsHandleBuilder.dirPack(dca, dcb),
-                    PackedPoints.at(hStart, o));
-            dh.put(CoonsHandleBuilder.dirPack(dcb, dca),
-                    PackedPoints.at(hEnd, o));
+            int dca = oldToDense.get(in.halfEdgeVertex(he));
+            int dcb = oldToDense.get(in.halfEdgeEndVertex(he));
+            dh.put(CoonsHandleBuilder.dirPack(dca, dcb), startHandles.at(eid));
+            dh.put(CoonsHandleBuilder.dirPack(dcb, dca), endHandles.at(eid));
         }
     }
 
@@ -464,16 +432,15 @@ public class CoonsExtrudeMeshNode implements MeshNode {
      * it matches origA→origB we use hStart/hEnd as-is, otherwise we swap.
      */
     private static void copyEdgeHandlesDirectional(
-            MeshTopology in, float[] hStart, float[] hEnd,
+            MeshTopology in, PackedPoints hStart, PackedPoints hEnd,
             int eid, int origA, int origB,
             int a, int b,
             Map<Long, Vector3f> dh) {
         int he = in.edgeHalfEdge(eid);
         int ca = in.halfEdgeVertex(he);
         int cb = in.halfEdgeEndVertex(he);
-        int o = eid * 3;
-        Vector3f atStart = PackedPoints.at(hStart, o);
-        Vector3f atEnd = PackedPoints.at(hEnd, o);
+        Vector3f atStart = hStart.at(eid);
+        Vector3f atEnd = hEnd.at(eid);
         Vector3f atOrigA = (ca == origA) ? atStart : atEnd;
         Vector3f atOrigB = (cb == origB) ? atEnd : atStart;
         dh.put(CoonsHandleBuilder.dirPack(a, b), atOrigA);
@@ -482,16 +449,9 @@ public class CoonsExtrudeMeshNode implements MeshNode {
 
     /** Builds the output mesh for INDIVIDUAL mode. */
     private HalfEdgeMesh buildOutput(
-            MeshTopology in, int origVertCount, float[] origPos, ArrayList<Float> extraPos,
+            MeshTopology in, PackedPoints positions,
             boolean[] selected, int[][] topVids,
             Map<Long, Vector3f> dh, Map<Integer, Integer> oldToDense) {
-        int totalVerts = origVertCount + extraPos.size() / 3;
-        float[] positions = new float[totalVerts * 3];
-        System.arraycopy(origPos, 0, positions, 0, origPos.length);
-        for (int i = 0; i < extraPos.size(); i++) {
-            positions[origPos.length + i] = extraPos.get(i);
-        }
-
         int origFaceCount = in.faceCount();
         ArrayList<Integer> faceIdxList = new ArrayList<>();
         ArrayList<Integer> faceVpfList = new ArrayList<>();
@@ -539,7 +499,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         return out;
     }
 
-    private static HalfEdgeMesh finalizeMixedMesh(float[] positions,
+    private static HalfEdgeMesh finalizeMixedMesh(PackedPoints points,
                                                   ArrayList<Integer> faceIdxList,
                                                   ArrayList<Integer> faceVpfList) {
         int[] faceIdxFlat = new int[faceIdxList.size()];
@@ -549,24 +509,18 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         boolean allQuads = true;
         for (int v : faceVpfArr) { if (v != 4) { allQuads = false; break; } }
         if (allQuads) {
-            return HalfEdgeMesh.bulkAllocate(positions, faceIdxFlat, 4);
+            return HalfEdgeMesh.bulkAllocate(points, faceIdxFlat, 4);
         }
-        return HalfEdgeMeshOps.bulkAllocateMixed(positions, faceVpfArr, faceIdxFlat);
+        return HalfEdgeMeshOps.bulkAllocateMixed(points, faceVpfArr, faceIdxFlat);
     }
 
     /** Builds the output mesh for REGION mode: side walls only on boundary edges. */
     private HalfEdgeMesh buildOutputRegion(
-            MeshTopology in, int origVertCount, float[] origPos, ArrayList<Float> extraPos,
+            MeshTopology in, PackedPoints positions,
             boolean[] selected, int[][] topVids,
             int[] componentId,
             Map<Long, Integer> topVidByVidComp, Map<Integer, Integer> oldToDense,
             Map<Long, Vector3f> dh) {
-        int totalVerts = origVertCount + extraPos.size() / 3;
-        float[] positions = new float[totalVerts * 3];
-        System.arraycopy(origPos, 0, positions, 0, origPos.length);
-        for (int i = 0; i < extraPos.size(); i++) {
-            positions[origPos.length + i] = extraPos.get(i);
-        }
 
         int origFaceCount = in.faceCount();
 

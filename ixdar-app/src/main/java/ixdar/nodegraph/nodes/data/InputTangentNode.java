@@ -60,7 +60,7 @@ public class InputTangentNode implements MeshNode {
             return;
         }
         int n = mesh.vertexCount();
-        float[] d = new float[n * 3];
+        PackedPoints d = new PackedPoints(n);
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
         Vector3f tan = new Vector3f();
@@ -77,7 +77,7 @@ public class InputTangentNode implements MeshNode {
             } else {
                 tan.normalize();
             }
-            PackedPoints.store(d, 3 * vi, tan);
+            d.set(vi, tan);
         }
         ctx.setOutput(VECTOR.name,new Vector3Field(d));
     }

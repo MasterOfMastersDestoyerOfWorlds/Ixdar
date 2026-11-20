@@ -189,9 +189,9 @@ public final class ConnectionTool extends Tool {
         }
         Item path = new Item();
         path.label = "path";
-        int middle = connection.pathPolyline.length / XYZ / 2;
-        if (middle * XYZ + XYZ <= connection.pathPolyline.length) {
-            path.location.set(PackedPoints.at(connection.pathPolyline, middle * XYZ));
+        PackedPoints polyline = connection.pathPolyline;
+        if (polyline.size() > 0) {
+            path.location.set(polyline.at(polyline.size() / 2));
         }
         path.size = connection.pathActiveFace.length;
         path.length = connection.pathLength;
@@ -368,7 +368,7 @@ public final class ConnectionTool extends Tool {
             return;
         }
         SurfaceConnection shown = connection;
-        List<float[]> polylines = new ArrayList<>();
+        List<PackedPoints> polylines = new ArrayList<>();
         List<Color> colors = new ArrayList<>();
         boolean joined = pickVertexId[1] >= 0 && shown.connected && draggingPick < 0;
         Vector3f position = new Vector3f();
@@ -376,11 +376,10 @@ public final class ConnectionTool extends Tool {
             polylines.add(shown.pathPolyline);
             colors.add(palette.accent);
             if (neckLoopVertexId.length > 0) {
-                float[] neck = new float[XYZ * (neckLoopVertexId.length + 1)];
+                PackedPoints neck = new PackedPoints(neckLoopVertexId.length + 1);
                 for (int index = 0; index <= neckLoopVertexId.length; index++) {
-                    shown.mesh.vertexPosition(neckLoopVertexId[index % neckLoopVertexId.length],
-                            position);
-                    PackedPoints.store(neck, XYZ * index, position);
+                    neck.set(index, shown.mesh.vertexPosition(neckLoopVertexId[index % neckLoopVertexId.length],
+                            position));
                 }
                 polylines.add(neck);
                 colors.add(palette.selected);

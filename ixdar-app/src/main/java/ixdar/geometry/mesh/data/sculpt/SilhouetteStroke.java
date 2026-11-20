@@ -42,17 +42,19 @@ public final class SilhouetteStroke extends SculptStroke {
         int vertexCount = mesh.vertexCount();
         int pointCount = pointWeight.length;
         float[] facingById = new float[mesh.vertexIdBound()];
+        Vector3f eyePosition = new Vector3f(eyeForward[0], eyeForward[1], eyeForward[2]);
+        Vector3f forward = new Vector3f(eyeForward[3], eyeForward[4], eyeForward[5]);
         Vector3f position = new Vector3f();
         Vector3f normal = new Vector3f();
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
-            mesh.vertexPosition(vertexId, position).sub(eyeForward[0], eyeForward[1], eyeForward[2]).normalize();
+            mesh.vertexPosition(vertexId, position).sub(eyePosition).normalize();
             facingById[vertexId] = mesh.vertexNormal(vertexId, normal).normalize().dot(position);
         }
         sum.ensureSources(vertexCount);
         boolean[] outlineBySeed = new boolean[vertexCount];
         boolean outlineReached = false;
-        float[] strokeAtDepth = new float[pointCount * 3];
+        PackedPoints strokeAtDepth = new PackedPoints(pointCount);
         Vector3f best = new Vector3f();
         int count = 0;
         for (int activeVertex = 0; activeVertex < vertexCount && pointCount >= 2; activeVertex++) {
@@ -67,37 +69,26 @@ public final class SilhouetteStroke extends SculptStroke {
                 continue;
             }
             mesh.vertexPosition(vertexId, position);
-            float depthAlongView = (position.x - eyeForward[0]) * eyeForward[3]
-                    + (position.y - eyeForward[1]) * eyeForward[4] + (position.z - eyeForward[2]) * eyeForward[5];
+            float depthAlongView = new Vector3f(position).sub(eyePosition).dot(forward);
             for (int ray = 0; ray < pointCount; ray++) {
-                float along = pointXyz[ray * 3] * eyeForward[3] + pointXyz[ray * 3 + 1] * eyeForward[4]
-                        + pointXyz[ray * 3 + 2] * eyeForward[5];
-                for (int axis = 0; axis < 3; axis++) {
-                    strokeAtDepth[ray * 3 + axis] = eyeForward[axis] + pointXyz[ray * 3 + axis] * depthAlongView / along;
-                }
+                Vector3f point = pointXyz.at(ray);
+                strokeAtDepth.set(ray, point.mul(depthAlongView / point.dot(forward)).add(eyePosition));
             }
             float bestDistance = Float.POSITIVE_INFINITY;
             boolean bestClamped = true;
             for (int segment = 0; segment + 1 < pointCount; segment++) {
-                int start = segment * 3;
-                int end = start + 3;
-                float segmentX = strokeAtDepth[end] - strokeAtDepth[start];
-                float segmentY = strokeAtDepth[end + 1] - strokeAtDepth[start + 1];
-                float segmentZ = strokeAtDepth[end + 2] - strokeAtDepth[start + 2];
-                float lengthSquared = segmentX * segmentX + segmentY * segmentY + segmentZ * segmentZ;
-                float fraction = lengthSquared == 0f ? 0f : ((position.x - strokeAtDepth[start]) * segmentX
-                        + (position.y - strokeAtDepth[start + 1]) * segmentY
-                        + (position.z - strokeAtDepth[start + 2]) * segmentZ) / lengthSquared;
+                Vector3f nearest = strokeAtDepth.at(segment);
+                Vector3f along = strokeAtDepth.at(segment + 1).sub(nearest);
+                float lengthSquared = along.lengthSquared();
+                float fraction = lengthSquared == 0f ? 0f
+                        : new Vector3f(position).sub(nearest).dot(along) / lengthSquared;
                 boolean clamped = segment == 0 && fraction < 0f || segment + 2 == pointCount && fraction > 1f;
-                fraction = Math.max(0f, Math.min(1f, fraction));
-                float nearestX = strokeAtDepth[start] + segmentX * fraction;
-                float nearestY = strokeAtDepth[start + 1] + segmentY * fraction;
-                float nearestZ = strokeAtDepth[start + 2] + segmentZ * fraction;
-                float distance = position.distance(nearestX, nearestY, nearestZ);
+                nearest.fma(Math.max(0f, Math.min(1f, fraction)), along);
+                float distance = position.distance(nearest);
                 if (distance < bestDistance) {
                     bestDistance = distance;
                     bestClamped = clamped;
-                    best.set(nearestX - position.x, nearestY - position.y, nearestZ - position.z);
+                    best.set(nearest).sub(position);
                 }
             }
             float seen = bestClamped || bestDistance > radius ? 0f
@@ -107,13 +98,14 @@ public final class SilhouetteStroke extends SculptStroke {
             }
             outlineBySeed[count] = seen == 1f;
             outlineReached |= seen == 1f;
-            PackedPoints.store(sum.seedDragXyz, count * 3, best);
+            sum.seedDragXyz.set(count, best);
             sum.sources[count++] = vertexId;
         }
         int kept = 0;
+        PackedPoints drags = sum.seedDragXyz;
         for (int seed = 0; seed < count; seed++) {
             if (outlineBySeed[seed] || !outlineReached) {
-                System.arraycopy(sum.seedDragXyz, seed * 3, sum.seedDragXyz, kept * 3, 3);
+                drags.set(kept, drags.get(seed, 0), drags.get(seed, 1), drags.get(seed, 2));
                 sum.sources[kept++] = sum.sources[seed];
             }
         }
@@ -138,17 +130,14 @@ public final class SilhouetteStroke extends SculptStroke {
      */
     @Override
     public float deposit(DisplacementSum sum, int activeVertex, float kernel, int seed, Vector3f direction) {
-        float dragX = sum.seedDragXyz[seed * 3] * kernel;
-        float dragY = sum.seedDragXyz[seed * 3 + 1] * kernel;
-        float dragZ = sum.seedDragXyz[seed * 3 + 2] * kernel;
-        float dragSquared = dragX * dragX + dragY * dragY + dragZ * dragZ;
-        float[] drag = sum.dragByActiveVertexXyz;
-        int at = activeVertex * 3;
-        if (dragSquared > drag[at] * drag[at] + drag[at + 1] * drag[at + 1] + drag[at + 2] * drag[at + 2]) {
-            drag[at] = dragX;
-            drag[at + 1] = dragY;
-            drag[at + 2] = dragZ;
+        Vector3f drag = sum.seedDragXyz.at(seed).mul(kernel);
+        PackedPoints drags = sum.dragByActiveVertexXyz;
+        float x = drags.get(activeVertex, 0);
+        float y = drags.get(activeVertex, 1);
+        float z = drags.get(activeVertex, 2);
+        if (drag.lengthSquared() > x * x + y * y + z * z) {
+            drags.set(activeVertex, drag);
         }
-        return (float) Math.sqrt(dragSquared);
+        return drag.length();
     }
 }

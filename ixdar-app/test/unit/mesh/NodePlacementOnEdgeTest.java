@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceChordWalk;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
@@ -185,7 +186,9 @@ class NodePlacementOnEdgeTest {
      * @return a working copy of it
      */
     private EmbeddedMeshTopology triangle() {
-        float[] positions = { 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f };
+        PackedPoints positions = new PackedPoints(3);
+        positions.set(1, 1.0f, 0.0f, 0.0f);
+        positions.set(2, 0.0f, 1.0f, 0.0f);
         int[] faceIndices = { 0, 1, 2 };
         HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
         return new EmbeddedMeshTopology(mesh);

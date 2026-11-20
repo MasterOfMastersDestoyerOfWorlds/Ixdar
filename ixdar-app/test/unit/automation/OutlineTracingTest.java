@@ -171,9 +171,8 @@ class OutlineTracingTest {
             float[] cell = angles[CELLS[view]];
             ReferenceOutlines probe = new ReferenceOutlines();
             probe.add(null, CELLS[view], cell[0], cell[1]);
-            float[] axes = probe.axesByView[0];
-            Vector3f right = new Vector3f(axes[0], axes[1], axes[2]);
-            Vector3f up = new Vector3f(axes[3], axes[4], axes[5]);
+            Vector3f right = probe.axesByView[0][ReferenceOutlines.RIGHT];
+            Vector3f up = probe.axesByView[0][ReferenceOutlines.UP];
             Vector3f forward = new Vector3f(right).cross(up);
             int size = (int) (PIXELS_PER_UNIT[view] * 2.6f);
             PixelImage picture = new PixelImage(size, size);
@@ -213,12 +212,13 @@ class OutlineTracingTest {
             assertEquals(CELL_SIZE / 2f - 0.5f, box[1] + box[3] / 2f, CENTRE_TOLERANCE);
         }
         float[] oblique = box(traced.placedOutline(CELLS.length - 1));
-        float[] axes = traced.axesByView[CELLS.length - 1];
+        Vector3f[] axes = traced.axesByView[CELLS.length - 1];
         float[] extent = new float[2];
         for (int side = 0; side < 2; side++) {
             float squared = 0f;
             for (int axis = 0; axis < 3; axis++) {
-                squared += axes[side * 3 + axis] * axes[side * 3 + axis] * RADII[axis] * RADII[axis];
+                float component = axes[side].get(axis);
+                squared += component * component * RADII[axis] * RADII[axis];
             }
             extent[side] = 2f * (float) Math.sqrt(squared) / traced.worldPerCellPixel;
         }

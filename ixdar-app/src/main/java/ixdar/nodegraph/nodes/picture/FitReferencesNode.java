@@ -1,6 +1,5 @@
 package ixdar.nodegraph.nodes.picture;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -157,7 +156,7 @@ public class FitReferencesNode implements MeshNode {
                         StrokeSketch.cellLayout(labels, COLUMNS, cellWidth, cellHeight));
         StrokeSketch template = StrokeSketch.parse(root + SVG_END, NODE_ID);
         StringBuilder svg = new StringBuilder(root);
-        float[] world = new float[0];
+        PackedPoints world = new PackedPoints();
         int[] offsets = new int[traced.views + 1];
         boolean[] closed = new boolean[traced.views];
         float[] viewByCurve = new float[traced.views];
@@ -183,12 +182,10 @@ public class FitReferencesNode implements MeshNode {
             svg.append("\"/>\n");
             Camera3D camera = template.cellCamera(cell);
             int points = kept.pointCount();
-            world = Arrays.copyOf(world, world.length + points * CurveGeometry.XYZ);
             for (int at = 0; at < points; at++) {
-                template.cellPlanePoint(camera, kept.positions[at * CurveGeometry.XYZ] - left,
-                        kept.positions[at * CurveGeometry.XYZ + 1] - top, point);
-                int base = (offsets[view] + at) * CurveGeometry.XYZ;
-                PackedPoints.store(world, base, point);
+                template.cellPlanePoint(camera, kept.positions.get(at, 0) - left, kept.positions.get(at, 1) - top,
+                        point);
+                world.append(point);
             }
             offsets[view + 1] = offsets[view] + points;
             closed[view] = true;

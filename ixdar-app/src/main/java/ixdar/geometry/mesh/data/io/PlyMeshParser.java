@@ -7,6 +7,7 @@ import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
@@ -81,19 +82,18 @@ public final class PlyMeshParser {
             return new HalfEdgeMesh();
         }
 
-        float[] positions = new float[vertexCount * MeshLoader.FLOATS_PER_VERTEX];
-        float[] normals = new float[vertexCount * MeshLoader.FLOATS_PER_VERTEX];
+        PackedPoints positions = new PackedPoints(vertexCount);
+        PackedPoints normals = new PackedPoints(vertexCount);
         int[] positionColumns = columns(vertexProperties, POSITION_PROPERTIES);
         int[] normalColumns = columns(vertexProperties, NORMAL_PROPERTIES);
         int cursor = bodyStart;
         for (int vertex = 0; vertex < vertexCount; vertex++) {
             String[] parts = bodyLine(lines, cursor, vertex, VERTEX_ELEMENT);
             cursor = nextLine(lines, cursor);
-            int offset = vertex * MeshLoader.FLOATS_PER_VERTEX;
-            for (int axis = 0; axis < MeshLoader.FLOATS_PER_VERTEX; axis++) {
-                positions[offset + axis] = component(parts, positionColumns[axis]);
-                normals[offset + axis] = component(parts, normalColumns[axis]);
-            }
+            positions.set(vertex, component(parts, positionColumns[0]), component(parts, positionColumns[1]),
+                    component(parts, positionColumns[2]));
+            normals.set(vertex, component(parts, normalColumns[0]), component(parts, normalColumns[1]),
+                    component(parts, normalColumns[2]));
         }
 
         int[] faceSizes = new int[faceCount];

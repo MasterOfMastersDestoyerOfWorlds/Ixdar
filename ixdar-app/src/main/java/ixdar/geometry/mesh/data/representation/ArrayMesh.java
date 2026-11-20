@@ -12,114 +12,76 @@ import org.joml.Vector3f;
  * build one. Edge connectivity is derived from the face buffer on the first topology query.
  */
 public final class ArrayMesh implements MeshTopology {
-    public static final float NORMAL_LENGTH_EPSILON = 1e-20f;
-
-    private static final int FLOATS_PER_VERTEX = 3;
-
-    /** Packed xyz triples, vertex id {@code i} at {@code 3 * i}; ids are dense. */
-    public final float[] positions;
+    /** Vertex positions by vertex id; ids are dense. */
+    public final PackedPoints positions;
 
     /** Corners of every face end to end, {@link #vertsPerFace} per face, as vertex ids. */
     public final int[] faceIndices;
 
     public final int vertsPerFace;
 
-    private final float[] normals;
-    private final float[] faceNormals;
+    private final PackedPoints normals;
+    private final PackedPoints faceNormals;
 
     private final AtomicReference<Topology> topology = new AtomicReference<>();
 
-    private float radiusCached = Float.NaN;
-    private final Vector3f boundsMin = new Vector3f();
-    private final Vector3f boundsMax = new Vector3f();
-    private final Vector3f centerVec = new Vector3f();
-    private boolean boundsDirty = true;
+    private float radiusCached;
+    private PackedPoints boundsCached;
     private double signedVolumeCached = Double.NaN;
     private volatile float[] vertexAreasCached;
 
     /**
-     * Wraps caller-owned arrays without copying. {@code normals} may be null and is
+     * Keeps caller-owned buffers without copying. {@code normals} may be null and is
      * then allocated as zeros.
      *
-     * @param positions    packed xyz triples; length must be divisible by 3
-     * @param normals      packed xyz triples matching {@code positions}, or
-     *                     {@code null} to allocate zeros
+     * @param positions    one point per vertex
+     * @param normals      one normal per vertex, or {@code null} to allocate zeros
      * @param faceIndices  vertex indices grouped by {@code vertsPerFace}
      * @param vertsPerFace fixed face arity (e.g. 3 for triangles, 4 for quads)
-     * @throws IllegalArgumentException if {@code positions} is not in xyz triples
-     *                                  or {@code faceIndices.length} is not a
+     * @throws IllegalArgumentException if {@code faceIndices.length} is not a
      *                                  multiple of {@code vertsPerFace}
      */
-    public ArrayMesh(float[] positions, float[] normals, int[] faceIndices, int vertsPerFace) {
-        if (positions.length % FLOATS_PER_VERTEX != 0) {
-            throw new IllegalArgumentException("positions must be XYZ triples");
-        }
+    public ArrayMesh(PackedPoints positions, PackedPoints normals, int[] faceIndices, int vertsPerFace) {
         if (faceIndices.length % vertsPerFace != 0) {
             throw new IllegalArgumentException("faceIndices must group by vertsPerFace");
         }
         this.positions = positions;
-        this.normals = normals != null ? normals : new float[positions.length];
-        this.faceNormals = new float[(faceIndices.length / vertsPerFace) * FLOATS_PER_VERTEX];
+        this.normals = normals != null ? normals : new PackedPoints(positions.size());
+        this.faceNormals = new PackedPoints(faceIndices.length / vertsPerFace);
         this.faceIndices = faceIndices;
         this.vertsPerFace = vertsPerFace;
     }
 
     /**
      * Recomputes per-face and per-vertex normals in place. Face normal is the unit
-     * cross product of the first two edges; vertex normals are the sum of the
-     * incident unit face normals, then normalized.
+     * cross product of the first two edges, {@code +y} for a degenerate face; vertex normals are
+     * the sum of the incident unit face normals, then normalized.
      */
     public void computeNormals() {
-        int v = vertexCount();
-        int f = faceCount();
-        Arrays.fill(normals, 0f);
-        Arrays.fill(faceNormals, 0f);
-        Vector3f p0 = new Vector3f();
-        Vector3f p1 = new Vector3f();
-        Vector3f p2 = new Vector3f();
-        Vector3f e1 = new Vector3f();
-        Vector3f e2 = new Vector3f();
-        Vector3f fn = new Vector3f();
-        for (int fi = 0; fi < f; fi++) {
-            vertexPosition(faceVertexAt(fi, 0), p0);
-            vertexPosition(faceVertexAt(fi, 1), p1);
-            vertexPosition(faceVertexAt(fi, 2), p2);
-            e1.set(p1).sub(p0);
-            e2.set(p2).sub(p0);
-            e1.cross(e2, fn);
-            float len = fn.length();
-            if (len > NORMAL_LENGTH_EPSILON) {
-                fn.mul(1.0f / len);
-            } else {
-                fn.set(0f, 1f, 0f);
-            }
-            int fo = fi * FLOATS_PER_VERTEX;
-            PackedPoints.store(faceNormals, fo, fn);
-            int n = faceVertexCount(fi);
-            for (int j = 0; j < n; j++) {
-                int vid = faceVertexAt(fi, j);
-                int vo = vid * FLOATS_PER_VERTEX;
-                normals[vo] += fn.x;
-                normals[vo + 1] += fn.y;
-                normals[vo + 2] += fn.z;
+        int[] firstTriangles = faceIndices;
+        if (vertsPerFace != 3) {
+            firstTriangles = new int[3 * faceCount()];
+            for (int corner = 0; corner < firstTriangles.length; corner++) {
+                firstTriangles[corner] = faceIndices[corner / 3 * vertsPerFace + corner % 3];
             }
         }
-        for (int i = 0; i < v; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            float nx = normals[o];
-            float ny = normals[o + 1];
-            float nz = normals[o + 2];
-            float il = 1.0f / Math.max(NORMAL_LENGTH_EPSILON, (float) Math.sqrt(nx * nx + ny * ny + nz * nz));
-            normals[o] = nx * il;
-            normals[o + 1] = ny * il;
-            normals[o + 2] = nz * il;
+        faceNormals.copyFrom(TriangleGeometry.normals(positions, firstTriangles, new Vector3f(0f, 1f, 0f)));
+        PackedPoints summed = new PackedPoints(normals.size());
+        Vector3f faceNormal = new Vector3f();
+        for (int faceId = 0; faceId < faceCount(); faceId++) {
+            faceNormal(faceId, faceNormal);
+            for (int corner = 0; corner < vertsPerFace; corner++) {
+                summed.add(faceVertexAt(faceId, corner), faceNormal);
+            }
         }
+        summed.normalizeEach();
+        normals.copyFrom(summed);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexCount() {
-        return positions.length / FLOATS_PER_VERTEX;
+        return positions.size();
     }
 
     /** {@inheritDoc}. */
@@ -215,15 +177,13 @@ public final class ArrayMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public Vector3f vertexPosition(int vertexId, Vector3f dest) {
-        int o = vertexId * FLOATS_PER_VERTEX;
-        return dest.set(positions[o], positions[o + 1], positions[o + 2]);
+        return dest.set(positions.get(vertexId, 0), positions.get(vertexId, 1), positions.get(vertexId, 2));
     }
 
     /** {@inheritDoc}. */
     @Override
     public Vector3f vertexNormal(int vertexId, Vector3f dest) {
-        int o = vertexId * FLOATS_PER_VERTEX;
-        return dest.set(normals[o], normals[o + 1], normals[o + 2]);
+        return dest.set(normals.get(vertexId, 0), normals.get(vertexId, 1), normals.get(vertexId, 2));
     }
 
     /** {@inheritDoc}. */
@@ -328,11 +288,11 @@ public final class ArrayMesh implements MeshTopology {
     @Override
     public float edgeLength(int edgeId) {
         int halfEdge = topology().edgeHalfEdge[edgeId];
-        int tail = halfEdgeVertex(halfEdge) * FLOATS_PER_VERTEX;
-        int head = halfEdgeEndVertex(halfEdge) * FLOATS_PER_VERTEX;
-        float dx = positions[head] - positions[tail];
-        float dy = positions[head + 1] - positions[tail + 1];
-        float dz = positions[head + 2] - positions[tail + 2];
+        int tail = halfEdgeVertex(halfEdge);
+        int head = halfEdgeEndVertex(halfEdge);
+        float dx = positions.get(head, 0) - positions.get(tail, 0);
+        float dy = positions.get(head, 1) - positions.get(tail, 1);
+        float dz = positions.get(head, 2) - positions.get(tail, 2);
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
@@ -340,10 +300,11 @@ public final class ArrayMesh implements MeshTopology {
     @Override
     public Vector3f edgeMidpoint(int edgeId, Vector3f dest) {
         int halfEdge = topology().edgeHalfEdge[edgeId];
-        int tail = halfEdgeVertex(halfEdge) * FLOATS_PER_VERTEX;
-        int head = halfEdgeEndVertex(halfEdge) * FLOATS_PER_VERTEX;
-        return dest.set(positions[tail] + positions[head], positions[tail + 1] + positions[head + 1],
-                positions[tail + 2] + positions[head + 2]).mul(0.5f);
+        int tail = halfEdgeVertex(halfEdge);
+        int head = halfEdgeEndVertex(halfEdge);
+        return dest.set(positions.get(tail, 0) + positions.get(head, 0),
+                positions.get(tail, 1) + positions.get(head, 1),
+                positions.get(tail, 2) + positions.get(head, 2)).mul(0.5f);
     }
 
     /** {@inheritDoc}. */
@@ -397,8 +358,7 @@ public final class ArrayMesh implements MeshTopology {
      */
     @Override
     public Vector3f faceNormal(int faceId, Vector3f dest) {
-        int o = faceId * FLOATS_PER_VERTEX;
-        return dest.set(faceNormals[o], faceNormals[o + 1], faceNormals[o + 2]);
+        return dest.set(faceNormals.get(faceId, 0), faceNormals.get(faceId, 1), faceNormals.get(faceId, 2));
     }
 
     /**
@@ -407,9 +367,7 @@ public final class ArrayMesh implements MeshTopology {
      */
     @Override
     public Vector3f faceNormalAtActiveIndex(int activeIndex, Vector3f dest) {
-
-        int o = activeIndex * FLOATS_PER_VERTEX;
-        return dest.set(faceNormals[o], faceNormals[o + 1], faceNormals[o + 2]);
+        return faceNormal(activeIndex, dest);
     }
 
     /** {@inheritDoc}. */
@@ -469,52 +427,21 @@ public final class ArrayMesh implements MeshTopology {
         return topology().halfEdgeTwin[halfEdgeId] == MeshTopology.NONE;
     }
 
-    /** {@inheritDoc} Bounds are computed lazily on first use. */
+    /** {@inheritDoc} Computed on first use, with the radius about its centre. */
     @Override
-    public Vector3f boundsMin(Vector3f dest) {
-        recomputeBoundsIfNeeded();
-        return dest.set(boundsMin);
+    public PackedPoints bounds() {
+        if (boundsCached == null) {
+            PackedPoints box = vertexCount() == 0 ? new PackedPoints(2) : positions.bounds();
+            radiusCached = (float) positions.maxDistance(box.centroid());
+            boundsCached = box;
+        }
+        return boundsCached;
     }
 
-    /** {@inheritDoc} Bounds are computed lazily on first use. */
-    @Override
-    public Vector3f boundsMax(Vector3f dest) {
-        recomputeBoundsIfNeeded();
-        return dest.set(boundsMax);
-    }
-
-    /** {@inheritDoc} Returns the center of the axis-aligned bounding box. */
-    @Override
-    public Vector3f center(Vector3f dest) {
-        recomputeBoundsIfNeeded();
-        return dest.set(centerVec);
-    }
-
-    /**
-     * {@inheritDoc} Bounding-sphere radius about {@link #center(Vector3f)}; cached
-     * after first call.
-     */
+    /** {@inheritDoc} Cached after the first call, like the bounds. */
     @Override
     public float radius() {
-        recomputeBoundsIfNeeded();
-        if (!Float.isNaN(radiusCached)) {
-            return radiusCached;
-        }
-        int v = vertexCount();
-        if (v == 0) {
-            radiusCached = 0f;
-            return 0f;
-        }
-        float maxD = 0f;
-        Vector3f p = new Vector3f();
-        for (int i = 0; i < v; i++) {
-            vertexPosition(i, p);
-            float d = p.distanceSquared(centerVec);
-            if (d > maxD) {
-                maxD = d;
-            }
-        }
-        radiusCached = (float) Math.sqrt(maxD);
+        bounds();
         return radiusCached;
     }
 
@@ -536,42 +463,6 @@ public final class ArrayMesh implements MeshTopology {
             vertexAreasCached = areas;
         }
         return areas.clone();
-    }
-
-    private void recomputeBoundsIfNeeded() {
-        if (!boundsDirty) {
-            return;
-        }
-        int v = vertexCount();
-        if (v == 0) {
-            boundsMin.zero();
-            boundsMax.zero();
-            centerVec.zero();
-            boundsDirty = false;
-            return;
-        }
-        float minX = Float.POSITIVE_INFINITY;
-        float minY = Float.POSITIVE_INFINITY;
-        float minZ = Float.POSITIVE_INFINITY;
-        float maxX = Float.NEGATIVE_INFINITY;
-        float maxY = Float.NEGATIVE_INFINITY;
-        float maxZ = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < v; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            float x = positions[o];
-            float y = positions[o + 1];
-            float z = positions[o + 2];
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            minZ = Math.min(minZ, z);
-            maxX = Math.max(maxX, x);
-            maxY = Math.max(maxY, y);
-            maxZ = Math.max(maxZ, z);
-        }
-        boundsMin.set(minX, minY, minZ);
-        boundsMax.set(maxX, maxY, maxZ);
-        centerVec.set((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, (minZ + maxZ) * 0.5f);
-        boundsDirty = false;
     }
 
     /**

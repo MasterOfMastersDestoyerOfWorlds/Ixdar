@@ -32,20 +32,15 @@ public final class SurfaceWaypoints {
     }
 
     /**
-     * Reads an authored waypoint list into packed xyz coordinates.
+     * Reads an authored waypoint list.
      *
      * @param text waypoint list as {@code "x,y,z; x,y,z; ..."}, or null for none
      * @throws IllegalArgumentException when a waypoint does not carry three numbers
-     * @return packed xyz, three floats per waypoint
+     * @return the waypoints, a growable buffer of as many as the text holds
      */
-    public static float[] parse(String text) {
-        if (text == null || text.isBlank()) {
-            return new float[0];
-        }
-        String[] chunks = text.split(";");
-        float[] packed = new float[COORDINATES_PER_WAYPOINT * chunks.length];
-        int waypointCount = 0;
-        for (String chunk : chunks) {
+    public static PackedPoints parse(String text) {
+        PackedPoints waypoints = new PackedPoints();
+        for (String chunk : text == null ? new String[0] : text.split(";")) {
             String trimmed = chunk.trim();
             if (trimmed.isEmpty()) {
                 continue;
@@ -55,14 +50,10 @@ public final class SurfaceWaypoints {
                 throw new IllegalArgumentException("waypoint '" + trimmed
                         + "' needs three comma-separated coordinates");
             }
-            for (int axis = 0; axis < COORDINATES_PER_WAYPOINT; axis++) {
-                packed[COORDINATES_PER_WAYPOINT * waypointCount + axis] = Float.parseFloat(parts[axis].trim());
-            }
-            waypointCount++;
+            waypoints.append(Float.parseFloat(parts[0].trim()), Float.parseFloat(parts[1].trim()),
+                    Float.parseFloat(parts[2].trim()));
         }
-        float[] exact = new float[COORDINATES_PER_WAYPOINT * waypointCount];
-        System.arraycopy(packed, 0, exact, 0, exact.length);
-        return exact;
+        return waypoints;
     }
 
     /**
@@ -73,9 +64,8 @@ public final class SurfaceWaypoints {
      * @return the point, or {@code null} when the text holds no point or more than one
      */
     public static Vector3f point(String text) {
-        float[] packed = parse(text);
-        return packed.length == COORDINATES_PER_WAYPOINT
-                ? new Vector3f(packed[0], packed[1], packed[2]) : null;
+        PackedPoints waypoints = parse(text);
+        return waypoints.size() == 1 ? waypoints.at(0) : null;
     }
 
     /**
@@ -97,15 +87,15 @@ public final class SurfaceWaypoints {
     }
 
     /**
-     * Prints packed coordinates back as the authored string, at fixed precision; the form a
-     * packed n-point array such as a saved ring's anchors is printed in.
+     * Prints points back as the authored string, at fixed precision; the form a saved ring's
+     * anchors are printed in.
      *
-     * @param packedXyz     packed xyz, three floats per waypoint
-     * @param waypointCount waypoints to print from the front of the array
+     * @param waypoints     the waypoints
+     * @param waypointCount waypoints to print from the front
      * @return the waypoint list {@code "x,y,z; x,y,z; ..."}
      */
-    public static String format(float[] packedXyz, int waypointCount) {
-        return format(points(packedXyz), waypointCount);
+    public static String format(PackedPoints waypoints, int waypointCount) {
+        return format(points(waypoints), waypointCount);
     }
 
     /**
@@ -127,16 +117,15 @@ public final class SurfaceWaypoints {
     }
 
     /**
-     * The points of a packed xyz array, one new vector each.
+     * The points of a buffer as a list, one new vector each.
      *
-     * @param packedXyz packed xyz, three floats per point
+     * @param packed the points
      * @return the points in order
      */
-    public static List<Vector3f> points(float[] packedXyz) {
-        List<Vector3f> points = new ArrayList<>(packedXyz.length / COORDINATES_PER_WAYPOINT);
-        for (int start = 0; start + COORDINATES_PER_WAYPOINT <= packedXyz.length;
-                start += COORDINATES_PER_WAYPOINT) {
-            points.add(PackedPoints.at(packedXyz, start));
+    public static List<Vector3f> points(PackedPoints packed) {
+        List<Vector3f> points = new ArrayList<>(packed.size());
+        for (int point = 0; point < packed.size(); point++) {
+            points.add(packed.at(point));
         }
         return points;
     }
@@ -149,20 +138,18 @@ public final class SurfaceWaypoints {
      *
      * @param grid          vertex grid of the mesh the waypoints are snapped
      *                      against
-     * @param packedXyz     packed xyz, three floats per waypoint
-     * @param waypointCount waypoints to snap from the front of the array
+     * @param waypoints     the waypoints
+     * @param waypointCount waypoints to snap from the front
      * @throws IllegalStateException naming every waypoint the grid refuses, one per
      *                               line
      * @return mesh vertex ids in waypoint order
      */
-    public static int[] snap(NearestVertex grid, float[] packedXyz, int waypointCount) {
+    public static int[] snap(NearestVertex grid, PackedPoints waypoints, int waypointCount) {
         int[][] copiesByWaypoint = new int[waypointCount][];
         String[] refusal = new String[waypointCount];
         for (int waypoint = 0; waypoint < waypointCount; waypoint++) {
-            int base = COORDINATES_PER_WAYPOINT * waypoint;
             try {
-                copiesByWaypoint[waypoint] = grid.sheetCopies(packedXyz[base],
-                        packedXyz[base + 1], packedXyz[base + 2]);
+                copiesByWaypoint[waypoint] = grid.sheetCopies(waypoints.at(waypoint));
             } catch (IllegalStateException unresolved) {
                 refusal[waypoint] = unresolved.getMessage();
             }
@@ -198,16 +185,15 @@ public final class SurfaceWaypoints {
      * @param vertexCount vertices to place from the front of the array
      * @throws IllegalArgumentException naming every vertex no written point
      *                                  resolves to
-     * @return packed xyz, three floats per vertex
+     * @return one point per vertex
      */
-    public static float[] resolvingPoints(NearestVertex grid, int[] vertexIds, int vertexCount) {
+    public static PackedPoints resolvingPoints(NearestVertex grid, int[] vertexIds, int vertexCount) {
         MeshTopology mesh = grid.mesh;
-        float[] packed = new float[COORDINATES_PER_WAYPOINT * vertexCount];
+        PackedPoints points = new PackedPoints(vertexCount);
         int[][] copiesByAnchor = new int[vertexCount][];
         Vector3f position = new Vector3f();
         Vector3f centroid = new Vector3f();
-        Vector3f corner = new Vector3f();
-        float[] written = new float[COORDINATES_PER_WAYPOINT];
+        Vector3f written = new Vector3f();
         for (int anchor = 0; anchor < vertexCount; anchor++) {
             int vertexId = vertexIds[anchor];
             mesh.vertexPosition(vertexId, position);
@@ -217,20 +203,16 @@ public final class SurfaceWaypoints {
                 centroid.set(position);
                 if (candidate >= 0) {
                     int faceId = mesh.vertexFaceAt(vertexId, candidate % faceCount);
-                    centroid.zero();
-                    for (int at = 0; at < mesh.faceVertexCount(faceId); at++) {
-                        centroid.add(mesh.vertexPosition(mesh.faceVertexAt(faceId, at), corner));
-                    }
-                    centroid.div(mesh.faceVertexCount(faceId)).sub(position)
+                    centroid.set(mesh.faceCentroid(faceId)).sub(position)
                             .mul(FACE_STEPS[candidate / faceCount]).add(position);
                 }
                 for (int axis = 0; axis < COORDINATES_PER_WAYPOINT; axis++) {
-                    written[axis] = Float.parseFloat(String.format(Locale.ROOT,
-                            COORDINATE_FORMAT, centroid.get(axis)));
+                    written.setComponent(axis, Float.parseFloat(String.format(Locale.ROOT,
+                            COORDINATE_FORMAT, centroid.get(axis))));
                 }
                 int[] copies;
                 try {
-                    copies = grid.sheetCopies(written[0], written[1], written[2]);
+                    copies = grid.sheetCopies(written);
                 } catch (IllegalStateException unresolved) {
                     continue;
                 }
@@ -238,8 +220,7 @@ public final class SurfaceWaypoints {
                 if (names && (copies.length == 1 || copiesByAnchor[anchor] == null)) {
                     copiesByAnchor[anchor] = copies;
                     placed = copies.length == 1;
-                    System.arraycopy(written, 0, packed, COORDINATES_PER_WAYPOINT * anchor,
-                            COORDINATES_PER_WAYPOINT);
+                    points.set(anchor, written);
                 }
             }
         }
@@ -267,6 +248,6 @@ public final class SurfaceWaypoints {
                     + "neighbouring anchors tells it from the other copies. Move that anchor a "
                     + "little along the ring, off the split point, and save again");
         }
-        return packed;
+        return points;
     }
 }

@@ -8,6 +8,7 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
@@ -37,7 +38,7 @@ public final class ManifoldShell {
      * @return the manifold surface, with this object's counters filled in
      */
     public HalfEdgeMesh of(ArrayMesh welded) {
-        float[] positions = welded.positions;
+        PackedPoints positions = welded.positions;
         int[] faces = welded.faceIndices;
         inputFaceCount = faces.length / TRIANGLE_CORNERS;
         Set<Long> usedDirectedEdges = new HashSet<>();
@@ -63,7 +64,7 @@ public final class ManifoldShell {
         }
         manifoldFaceCount = keptCount / TRIANGLE_CORNERS;
 
-        int vertexCount = positions.length / TRIANGLE_CORNERS;
+        int vertexCount = positions.size();
         int[] componentRoot = new int[vertexCount];
         for (int vertex = 0; vertex < vertexCount; vertex++) {
             componentRoot[vertex] = vertex;
@@ -85,7 +86,7 @@ public final class ManifoldShell {
 
         int[] compacted = new int[vertexCount];
         Arrays.fill(compacted, -1);
-        float[] outPositions = new float[positions.length];
+        PackedPoints outPositions = new PackedPoints(vertexCount);
         int[] outFaces = new int[keptCount];
         int outVertexCount = 0;
         int outFaceCorners = 0;
@@ -97,8 +98,8 @@ public final class ManifoldShell {
                 int vertex = kept[corner + offset];
                 if (compacted[vertex] < 0) {
                     compacted[vertex] = outVertexCount;
-                    System.arraycopy(positions, TRIANGLE_CORNERS * vertex, outPositions,
-                            TRIANGLE_CORNERS * outVertexCount, TRIANGLE_CORNERS);
+                    outPositions.set(outVertexCount, positions.get(vertex, 0), positions.get(vertex, 1),
+                            positions.get(vertex, 2));
                     outVertexCount++;
                 }
                 outFaces[outFaceCorners + offset] = compacted[vertex];
@@ -107,8 +108,8 @@ public final class ManifoldShell {
         }
         keptFaceCount = outFaceCorners / TRIANGLE_CORNERS;
         keptVertexCount = outVertexCount;
-        return HalfEdgeMeshOps.buildFromIndexedMesh(
-                Arrays.copyOf(outPositions, TRIANGLE_CORNERS * outVertexCount),
+        outPositions.resize(outVertexCount);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(outPositions,
                 Arrays.copyOf(outFaces, outFaceCorners));
     }
 

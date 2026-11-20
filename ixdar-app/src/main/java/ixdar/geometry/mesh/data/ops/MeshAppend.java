@@ -77,7 +77,7 @@ public final class MeshAppend {
             }
         }
         int vertexTotal = first.vertexCount() + second.vertexCount();
-        float[] positions = new float[vertexTotal * 3];
+        PackedPoints positions = new PackedPoints(vertexTotal);
         int[] faceSizes = new int[first.faceCount() + second.faceCount()];
         int[] faceCorners = new int[corners];
         int[] sourceVertex = new int[vertexTotal];
@@ -93,8 +93,7 @@ public final class MeshAppend {
             int[] outVertexOfId = new int[part.vertexIdBound()];
             for (int activeVertex = 0; activeVertex < part.vertexCount(); activeVertex++) {
                 int vertexId = part.vertexIdAt(activeVertex);
-                part.vertexPosition(vertexId, position);
-                PackedPoints.store(positions, outVertex * 3, position);
+                positions.set(outVertex, part.vertexPosition(vertexId, position));
                 sourceVertex[outVertex] = vertexId;
                 vertexOperand[outVertex] = operand;
                 outVertexOfId[vertexId] = outVertex++;
@@ -110,7 +109,7 @@ public final class MeshAppend {
                 faceSizes[outFace++] = size;
             }
         }
-        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceSizes, faceCorners);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions,faceSizes, faceCorners);
         if (out.vertexCount() > 0) {
             out.computeNormals();
         }

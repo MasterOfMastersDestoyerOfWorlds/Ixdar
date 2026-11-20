@@ -17,6 +17,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.nodes.modifier.SolidifyMeshNode;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.FieldBroadcast;
@@ -90,26 +91,14 @@ public class BiRailLoftNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle railAGb = ctx.getInput(RAIL_A.name, GeometryBundle.class);
-        GeometryBundle railBGb = ctx.getInput(RAIL_B.name, GeometryBundle.class);
-        GeometryBundle profileGb = ctx.getInput(PROFILE.name, GeometryBundle.class);
-        GeometryBundle profileBGb = ctx.getInput(PROFILE_B.name, GeometryBundle.class);
-
-        if (railAGb == null || railBGb == null || profileGb == null) {
-            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
-            return;
-        }
-
-        CurveGeometry railACg = extractCurve(railAGb);
-        CurveGeometry railBCg = extractCurve(railBGb);
-        CurveGeometry profileCg = extractCurve(profileGb);
-
+        CurveGeometry railACg = extractCurve(ctx.getInput(RAIL_A.name, GeometryBundle.class));
+        CurveGeometry railBCg = extractCurve(ctx.getInput(RAIL_B.name, GeometryBundle.class));
+        CurveGeometry profileCg = extractCurve(ctx.getInput(PROFILE.name, GeometryBundle.class));
+        CurveGeometry profileBCg = extractCurve(ctx.getInput(PROFILE_B.name, GeometryBundle.class));
         if (railACg == null || railBCg == null || profileCg == null) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
-
-        CurveGeometry profileBCg = (profileBGb != null) ? extractCurve(profileBGb) : null;
 
         int xRes = FieldBroadcast.intAt(
                 FieldBroadcast.getInputOrDefault(ctx, X_RESOLUTION.name, X_RESOLUTION.defaultValue), 0, DEFAULT_X_RESOLUTION);
@@ -123,10 +112,10 @@ public class BiRailLoftNode implements MeshNode {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
-        float[] railA = railACg.resampled(xRes).curvePositions(0);
-        float[] railB = railBCg.resampled(xRes).curvePositions(0);
+        PackedPoints railA = railACg.resampled(xRes).curvePositions(0);
+        PackedPoints railB = railBCg.resampled(xRes).curvePositions(0);
 
-        float[] profileA = profileCg.pointCount(0) == yRes ? profileCg.curvePositions(0)
+        PackedPoints profileA = profileCg.pointCount(0) == yRes ? profileCg.curvePositions(0)
                 : profileCg.resampled(yRes).curvePositions(0);
         float[] profileAU = new float[yRes];
         float[] profileAV = new float[yRes];
@@ -135,7 +124,7 @@ public class BiRailLoftNode implements MeshNode {
         float[] profileBU;
         float[] profileBV;
         if (profileBCg != null) {
-            float[] profileB = profileBCg.pointCount(0) == yRes ? profileBCg.curvePositions(0)
+            PackedPoints profileB = profileBCg.pointCount(0) == yRes ? profileBCg.curvePositions(0)
                     : profileBCg.resampled(yRes).curvePositions(0);
             profileBU = new float[yRes];
             profileBV = new float[yRes];
@@ -146,36 +135,85 @@ public class BiRailLoftNode implements MeshNode {
         }
 
         FloatCurveKernel blendKernel = ctx.getInput(BLEND_CLOSURE.name, FloatCurveKernel.class);
-
         float depthScale = FieldBroadcast.floatAt(
                 FieldBroadcast.getInputOrDefault(ctx, DEPTH_SCALE.name, DEPTH_SCALE.defaultValue), 0, 1f);
-
         float isoCurveT = FieldBroadcast.floatAt(
                 FieldBroadcast.getInputOrDefault(ctx, ISO_CURVE_T.name, ISO_CURVE_T.defaultValue), 0, -1f);
-
-        float[] isoCurvePositions = (isoCurveT >= 0f && isoCurveT <= 1f) ? new float[xRes * 3] : null;
+        PackedPoints isoCurvePositions = (isoCurveT >= 0f && isoCurveT <= 1f) ? new PackedPoints(xRes) : null;
         int isoRow = (isoCurvePositions != null) ? Math.round(isoCurveT * (yRes - 1)) : -1;
-
-        float[] boundaryAPositions = new float[xRes * 3];
-        float[] boundaryBPositions = new float[xRes * 3];
-
+        PackedPoints boundaryAPositions = new PackedPoints(xRes);
+        PackedPoints boundaryBPositions = new PackedPoints(xRes);
         float thickness = FieldBroadcast.floatAt(
                 FieldBroadcast.getInputOrDefault(ctx, THICKNESS.name, THICKNESS.defaultValue), 0, DEFAULT_THICKNESS);
 
-        HalfEdgeMesh mesh = buildLoftMesh(railA, railB, xRes, closedRails,
-                profileAU, profileAV, profileBU, profileBV, yRes, blendKernel, depthScale,
-                isoRow, isoCurvePositions, boundaryAPositions, boundaryBPositions);
-        mesh.computeNormals();
+        // Profile cross-sections placed at each rail station, blended from profile A at the start of
+        // the cross-section to profile B at its end; closed rails join the last station to the first.
+        int spans = closedRails ? xRes : xRes - 1;
+        HalfEdgeMesh mesh = new HalfEdgeMesh(xRes * yRes, 0, spans * (yRes - 1), 0);
+        Vector3f tangent = new Vector3f();
+        Vector3f across = new Vector3f(); // rail A → rail B direction
+        Vector3f up = new Vector3f();     // tangent × across
+        int[][] vid = new int[xRes][yRes];
+        for (int xi = 0; xi < xRes; xi++) {
+            Vector3f pA = railA.at(xi);
+            Vector3f pB = railB.at(xi);
+            boolean forward = closedRails || xi < xRes - 1;
+            int from = forward ? xi : xi - 1;
+            int to = forward ? (xi + 1) % xRes : xi;
+            tangent.set(railA.at(to).add(railB.at(to)).mul(0.5f)
+                    .sub(railA.at(from).add(railB.at(from)).mul(0.5f)));
+            if (tangent.lengthSquared() < MIN_TANGENT_LENGTH_SQUARED) tangent.set(0, 0, 1);
+            tangent.normalize();
 
-        MeshTopology finalMesh;
-        if (thickness > 0f) {
-            finalMesh = SolidifyMeshNode.solidify(mesh, thickness);
-        } else {
-            finalMesh = mesh;
+            across.set(pB).sub(pA);
+            float railSpacing = across.length();
+            if (railSpacing < MIN_LENGTH) railSpacing = FALLBACK_RAIL_SPACING;
+            across.normalize();
+
+            up.set(tangent).cross(across);
+            if (up.lengthSquared() < PARALLEL_LENGTH_SQUARED_THRESHOLD) {
+                MeshTopology.tangentFrame(across).getColumn(0, up);
+            }
+            up.normalize();
+
+            Vector3f centre = new Vector3f(pA).add(pB).mul(0.5f);
+
+            float stationBlend = (blendKernel != null)
+                    ? blendKernel.evaluate((xRes > 1) ? (float) xi / (xRes - 1) : 0.5f)
+                    : Float.NaN; // sentinel: use per-yi blend
+
+            for (int yi = 0; yi < yRes; yi++) {
+                float blend = Float.isNaN(stationBlend)
+                        ? ((yRes > 1) ? (float) yi / (yRes - 1) : 0.5f)
+                        : stationBlend;
+                float u = (profileAU[yi] * (1f - blend) + profileBU[yi] * blend) * railSpacing;
+                float v = (profileAV[yi] * (1f - blend) + profileBV[yi] * blend) * railSpacing * depthScale;
+
+                Vector3f point = new Vector3f(centre).fma(u, across).fma(v, up);
+                vid[xi][yi] = mesh.addVertex(point);
+
+                if (isoCurvePositions != null && yi == isoRow) {
+                    isoCurvePositions.set(xi, point);
+                }
+                if (yi == 0) {
+                    boundaryAPositions.set(xi, point);
+                }
+                if (yi == yRes - 1) {
+                    boundaryBPositions.set(xi, point);
+                }
+            }
         }
 
-        GeometryBundle outBundle = GeometryBundle.empty().withMesh(finalMesh);
-        ctx.setOutput(GEOMETRY.name, outBundle);
+        for (int xi = 0; xi < spans; xi++) {
+            int next = (xi + 1) % xRes;
+            for (int yi = 0; yi < yRes - 1; yi++) {
+                mesh.addFace(vid[xi][yi], vid[xi][yi + 1], vid[next][yi + 1], vid[next][yi]);
+            }
+        }
+        mesh.computeNormals();
+
+        MeshTopology finalMesh = thickness > 0f ? SolidifyMeshNode.solidify(mesh, thickness) : mesh;
+        ctx.setOutput(GEOMETRY.name, GeometryBundle.empty().withMesh(finalMesh));
 
         if (isoCurvePositions != null) {
             ctx.setOutput(ISO_CURVE.name, GeometryBundle.empty().withSlot(CurveGeometry.SLOT,
@@ -191,7 +229,7 @@ public class BiRailLoftNode implements MeshNode {
     }
 
     private static CurveGeometry extractCurve(GeometryBundle gb) {
-        Object raw = gb.slots().get(CurveGeometry.SLOT);
+        Object raw = gb == null ? null : gb.slots().get(CurveGeometry.SLOT);
         if (raw instanceof CurveGeometry cg && cg.pointCount() >= 2) {
             return cg;
         }
@@ -203,144 +241,24 @@ public class BiRailLoftNode implements MeshNode {
      * fills [-0.5, 0.5]. V takes the same scale factor, so a profile taller than it is wide keeps
      * its aspect ratio and extends past the rail spacing.
      */
-    private static void normalizeProfile(float[] profile, int n, float[] outU, float[] outV) {
+    private static void normalizeProfile(PackedPoints points, int n, float[] outU, float[] outV) {
         float cx = 0, cy = 0;
         for (int i = 0; i < n; i++) {
-            cx += profile[i * 3];
-            cy += profile[i * 3 + 1];
+            cx += points.get(i, 0);
+            cy += points.get(i, 1);
         }
         cx /= n;
         cy /= n;
 
         float maxU = 0;
         for (int i = 0; i < n; i++) {
-            maxU = Math.max(maxU, Math.abs(profile[i * 3] - cx));
+            maxU = Math.max(maxU, Math.abs(points.get(i, 0) - cx));
         }
         float scale = maxU > MIN_LENGTH ? 0.5f / maxU : 1f;
 
         for (int i = 0; i < n; i++) {
-            outU[i] = (profile[i * 3] - cx) * scale;
-            outV[i] = (profile[i * 3 + 1] - cy) * scale;
+            outU[i] = (points.get(i, 0) - cx) * scale;
+            outV[i] = (points.get(i, 1) - cy) * scale;
         }
-    }
-
-    /**
-     * Build the loft mesh by placing profile cross-sections at each station along the rails.
-     * When two profiles are provided, linearly interpolates between them across the cross-section:
-     * profile A dominates near the start of the cross-section, profile B near the end. Closed
-     * rails join the last station back to the first.
-     */
-    private static HalfEdgeMesh buildLoftMesh(float[] railA, float[] railB, int xRes, boolean closed,
-                                               float[] profileAU, float[] profileAV,
-                                               float[] profileBU, float[] profileBV, int yRes,
-                                               FloatCurveKernel blendKernel, float depthScale,
-                                               int isoRow, float[] isoCurveOut,
-                                               float[] boundaryAOut, float[] boundaryBOut) {
-        int spans = closed ? xRes : xRes - 1;
-        HalfEdgeMesh mesh = new HalfEdgeMesh(xRes * yRes, 0, spans * (yRes - 1), 0);
-
-        Vector3f pA = new Vector3f();
-        Vector3f pB = new Vector3f();
-        Vector3f tangent = new Vector3f();
-        Vector3f across = new Vector3f(); // rail A → rail B direction
-        Vector3f up = new Vector3f();     // tangent × across
-
-        int[][] vid = new int[xRes][yRes];
-
-        for (int xi = 0; xi < xRes; xi++) {
-            pA.set(railA[xi * 3], railA[xi * 3 + 1], railA[xi * 3 + 2]);
-            pB.set(railB[xi * 3], railB[xi * 3 + 1], railB[xi * 3 + 2]);
-
-            int next = (xi + 1) % xRes;
-            if (closed || xi < xRes - 1) {
-                tangent.set(
-                        (railA[next * 3] + railB[next * 3]) * 0.5f -
-                                (railA[xi * 3] + railB[xi * 3]) * 0.5f,
-                        (railA[next * 3 + 1] + railB[next * 3 + 1]) * 0.5f -
-                                (railA[xi * 3 + 1] + railB[xi * 3 + 1]) * 0.5f,
-                        (railA[next * 3 + 2] + railB[next * 3 + 2]) * 0.5f -
-                                (railA[xi * 3 + 2] + railB[xi * 3 + 2]) * 0.5f
-                );
-            } else {
-                tangent.set(
-                        (railA[xi * 3] + railB[xi * 3]) * 0.5f -
-                                (railA[(xi - 1) * 3] + railB[(xi - 1) * 3]) * 0.5f,
-                        (railA[xi * 3 + 1] + railB[xi * 3 + 1]) * 0.5f -
-                                (railA[(xi - 1) * 3 + 1] + railB[(xi - 1) * 3 + 1]) * 0.5f,
-                        (railA[xi * 3 + 2] + railB[xi * 3 + 2]) * 0.5f -
-                                (railA[(xi - 1) * 3 + 2] + railB[(xi - 1) * 3 + 2]) * 0.5f
-                );
-            }
-            if (tangent.lengthSquared() < MIN_TANGENT_LENGTH_SQUARED) tangent.set(0, 0, 1);
-            tangent.normalize();
-
-            across.set(pB).sub(pA);
-            float railSpacing = across.length();
-            if (railSpacing < MIN_LENGTH) railSpacing = FALLBACK_RAIL_SPACING;
-            across.normalize();
-
-            up.set(tangent).cross(across);
-            if (up.lengthSquared() < PARALLEL_LENGTH_SQUARED_THRESHOLD) {
-                float ax = Math.abs(across.x), ay = Math.abs(across.y), az = Math.abs(across.z);
-                if (ay <= ax && ay <= az) {
-                    up.set(0, 1, 0);
-                } else if (ax <= az) {
-                    up.set(1, 0, 0);
-                } else {
-                    up.set(0, 0, 1);
-                }
-                float dot = up.dot(across);
-                up.x -= dot * across.x;
-                up.y -= dot * across.y;
-                up.z -= dot * across.z;
-            }
-            up.normalize();
-
-            float cx = (pA.x + pB.x) * 0.5f;
-            float cy = (pA.y + pB.y) * 0.5f;
-            float cz = (pA.z + pB.z) * 0.5f;
-
-            float stationBlend = (blendKernel != null)
-                    ? blendKernel.evaluate((xRes > 1) ? (float) xi / (xRes - 1) : 0.5f)
-                    : Float.NaN; // sentinel: use per-yi blend
-
-            for (int yi = 0; yi < yRes; yi++) {
-                float blend = Float.isNaN(stationBlend)
-                        ? ((yRes > 1) ? (float) yi / (yRes - 1) : 0.5f)
-                        : stationBlend;
-                float u = (profileAU[yi] * (1f - blend) + profileBU[yi] * blend) * railSpacing;
-                float v = (profileAV[yi] * (1f - blend) + profileBV[yi] * blend) * railSpacing * depthScale;
-
-                float px = cx + across.x * u + up.x * v;
-                float py = cy + across.y * u + up.y * v;
-                float pz = cz + across.z * u + up.z * v;
-                vid[xi][yi] = mesh.addVertex(px, py, pz);
-
-                if (isoCurveOut != null && yi == isoRow) {
-                    isoCurveOut[xi * 3] = px;
-                    isoCurveOut[xi * 3 + 1] = py;
-                    isoCurveOut[xi * 3 + 2] = pz;
-                }
-                if (yi == 0 && boundaryAOut != null) {
-                    boundaryAOut[xi * 3] = px;
-                    boundaryAOut[xi * 3 + 1] = py;
-                    boundaryAOut[xi * 3 + 2] = pz;
-                }
-                if (yi == yRes - 1 && boundaryBOut != null) {
-                    boundaryBOut[xi * 3] = px;
-                    boundaryBOut[xi * 3 + 1] = py;
-                    boundaryBOut[xi * 3 + 2] = pz;
-                }
-            }
-        }
-
-        for (int xi = 0; xi < spans; xi++) {
-            int next = (xi + 1) % xRes;
-            for (int yi = 0; yi < yRes - 1; yi++) {
-                mesh.addFace(vid[xi][yi], vid[xi][yi + 1], vid[next][yi + 1], vid[next][yi]);
-            }
-        }
-
-        return mesh;
     }
 }

@@ -16,7 +16,6 @@ import org.joml.Vector3f;
  */
 public class HalfEdgeMeshOps {
     public static final String EDGE = "Edge ";
-    public static final String POSITION_DATA_MUST_BE_XYZ_TRIPLES = "Position data must be XYZ triples";
     public static final String AND = " and ";
 
     private static final int PARALLEL_BUILD_CORNERS = 100_000;
@@ -604,15 +603,16 @@ public class HalfEdgeMeshOps {
         Vector3f edgeA = new Vector3f();
         Vector3f edgeB = new Vector3f();
         Vector3f areaNormal = new Vector3f();
+        PackedPoints vertexNormals = mesh.vertexNormals;
+        PackedPoints faceNormals = mesh.faceNormals;
 
         for (int i = 0; i < mesh.vertexCount(); i++) {
-            int vertexId = mesh.vertexIdAt(i);
-            setVector(mesh.vertexNormals, vertexId, 0f, 0f, 0f);
+            vertexNormals.set(mesh.vertexIdAt(i), 0f, 0f, 0f);
         }
 
         for (int i = 0; i < mesh.faceCount(); i++) {
             int faceId = mesh.faceIdAt(i);
-            setVector(mesh.faceNormals, faceId, 0f, 0f, 0f);
+            faceNormals.set(faceId, 0f, 0f, 0f);
             if (mesh.faceVertexCount(faceId) < 3) {
                 continue;
             }
@@ -633,98 +633,65 @@ public class HalfEdgeMeshOps {
                 continue;
             }
 
-            Vector3f normalized = new Vector3f(areaNormal).normalize();
-            setVector(mesh.faceNormals, faceId, normalized.x, normalized.y, normalized.z);
+            faceNormals.set(faceId, edgeA.set(areaNormal).normalize());
             for (int j = 0; j < mesh.faceVertexCount(faceId); j++) {
-                int vertexId = mesh.faceVertexAt(faceId, j);
-                addVector(mesh.vertexNormals, vertexId, areaNormal.x, areaNormal.y, areaNormal.z);
+                vertexNormals.add(mesh.faceVertexAt(faceId, j), areaNormal);
             }
         }
-
-        for (int i = 0; i < mesh.vertexCount(); i++) {
-            int vertexId = mesh.vertexIdAt(i);
-            int offset = mesh.vertexOffset(vertexId);
-            p0.set(mesh.vertexNormals[offset], mesh.vertexNormals[offset + 1], mesh.vertexNormals[offset + 2]);
-            if (p0.lengthSquared() > 0f) {
-                p0.normalize();
-                setVector(mesh.vertexNormals, vertexId, p0.x, p0.y, p0.z);
-            }
-        }
+        vertexNormals.normalizeEach();
     }
 
     /**
      * Builds a triangle {@link HalfEdgeMesh} from packed positions and a flat triangle
      * index buffer, computing normals.
      *
-     * @param positions packed xyz triples
+     * @param positions   one point per vertex, kept by the mesh
      * @param faceIndices vertex indices in groups of three
-     * @throws IllegalArgumentException if {@code positions.length} is not divisible by 3 or
-     *         {@code faceIndices.length} is not divisible by 3
+     * @throws IllegalArgumentException if {@code faceIndices.length} is not divisible by 3
      * @return populated half-edge mesh with normals computed
      */
-    public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices) {
+    public static HalfEdgeMesh buildFromIndexedMesh(PackedPoints positions, int[] faceIndices) {
         return buildFromIndexedMesh(positions, faceIndices, null);
     }
 
     /**
-     * {@link #buildFromIndexedMesh(float[], int[])} for a caller that already knows which corner
-     * shares each corner's side, so the build skips finding the pairs; the mesh is the same id for
-     * id.
+     * {@link #buildFromIndexedMesh(PackedPoints, int[])} for a caller that already knows which
+     * corner shares each corner's side, so the build skips finding the pairs; the mesh is the same
+     * id for id.
      *
-     * @param positions   packed xyz triples
+     * @param positions   one point per vertex, kept by the mesh
      * @param faceIndices vertex indices in groups of three
      * @param cornerTwin  per corner, the corner running its side the other way, or
      *                    {@link MeshTopology#NONE} on an open side; null finds the pairs
-     * @throws IllegalArgumentException if {@code positions.length} is not divisible by 3 or
-     *         {@code faceIndices.length} is not divisible by 3
+     * @throws IllegalArgumentException if {@code faceIndices.length} is not divisible by 3
      * @return populated half-edge mesh with normals computed
      */
-    public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices,
+    public static HalfEdgeMesh buildFromIndexedMesh(PackedPoints positions, int[] faceIndices,
             int[] cornerTwin) {
-        if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
-            throw new IllegalArgumentException(POSITION_DATA_MUST_BE_XYZ_TRIPLES);
-        }
         if (faceIndices.length % 3 != 0) {
             throw new IllegalArgumentException("Face indices must be triangles");
         }
         HalfEdgeMesh mesh = cornerTwin != null ? triangleBuildWithTwins(positions, faceIndices, cornerTwin)
                 : packedBuild(positions, uniformFaceStarts(faceIndices.length, 3), faceIndices, null);
-        Vector3f p0 = new Vector3f();
-        Vector3f p1 = new Vector3f();
-        Vector3f p2 = new Vector3f();
+        Vector3f origin = new Vector3f();
         Vector3f edgeA = new Vector3f();
         Vector3f edgeB = new Vector3f();
         Vector3f areaNormal = new Vector3f();
         Vector3f normalized = new Vector3f();
         for (int faceId = 0; faceId < faceIndices.length / 3; faceId++) {
-            int a = faceIndices[faceId * 3] * HalfEdgeMesh.FLOATS_PER_VERTEX;
-            int b = faceIndices[faceId * 3 + 1] * HalfEdgeMesh.FLOATS_PER_VERTEX;
-            int c = faceIndices[faceId * 3 + 2] * HalfEdgeMesh.FLOATS_PER_VERTEX;
-            p0.set(positions[a], positions[a + 1], positions[a + 2]);
-            p1.set(positions[b], positions[b + 1], positions[b + 2]);
-            p2.set(positions[c], positions[c + 1], positions[c + 2]);
-            edgeA.set(p1).sub(p0);
-            edgeB.set(p2).sub(p0);
+            mesh.vertexPosition(faceIndices[faceId * 3], origin);
+            mesh.vertexPosition(faceIndices[faceId * 3 + 1], edgeA).sub(origin);
+            mesh.vertexPosition(faceIndices[faceId * 3 + 2], edgeB).sub(origin);
             edgeA.cross(edgeB, areaNormal);
             if (areaNormal.lengthSquared() == 0f) {
                 continue;
             }
-            normalized.set(areaNormal).normalize();
-            setVector(mesh.faceNormals, faceId, normalized.x, normalized.y, normalized.z);
+            mesh.faceNormals.set(faceId, normalized.set(areaNormal).normalize());
             for (int corner = 0; corner < 3; corner++) {
-                addVector(mesh.vertexNormals, faceIndices[faceId * 3 + corner], areaNormal.x,
-                        areaNormal.y, areaNormal.z);
+                mesh.vertexNormals.add(faceIndices[faceId * 3 + corner], areaNormal);
             }
         }
-        for (int vertexId = 0; vertexId < positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX; vertexId++) {
-            int offset = vertexId * HalfEdgeMesh.FLOATS_PER_VERTEX;
-            p0.set(mesh.vertexNormals[offset], mesh.vertexNormals[offset + 1],
-                    mesh.vertexNormals[offset + 2]);
-            if (p0.lengthSquared() > 0f) {
-                p0.normalize();
-                setVector(mesh.vertexNormals, vertexId, p0.x, p0.y, p0.z);
-            }
-        }
+        mesh.vertexNormals.normalizeEach();
         return mesh;
     }
 
@@ -733,17 +700,14 @@ public class HalfEdgeMeshOps {
      * For closed manifolds the edge/half-edge counts are derived exactly from total face vertices.
      * Does not compute normals — caller must call {@link HalfEdgeMesh#computeNormals()} when ready.
      *
-     * @param positions    xyz triples
+     * @param positions    one point per vertex, kept by the mesh
      * @param faceIndices  flat array of vertex indices, grouped by {@code vertsPerFace}
      * @param vertsPerFace vertices per face (3 or 4)
-     * @throws IllegalArgumentException if positions are not xyz triples or the index buffer
-     *         is not a multiple of {@code vertsPerFace}
+     * @throws IllegalArgumentException if the index buffer is not a multiple of
+     *         {@code vertsPerFace}
      * @return populated half-edge mesh; caller must invoke {@code computeNormals()} when ready
      */
-    public static HalfEdgeMesh bulkAllocate(float[] positions, int[] faceIndices, int vertsPerFace) {
-        if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
-            throw new IllegalArgumentException(POSITION_DATA_MUST_BE_XYZ_TRIPLES);
-        }
+    public static HalfEdgeMesh bulkAllocate(PackedPoints positions, int[] faceIndices, int vertsPerFace) {
         if (faceIndices.length % vertsPerFace != 0) {
             throw new IllegalArgumentException("Face indices must be groups of " + vertsPerFace);
         }
@@ -756,19 +720,16 @@ public class HalfEdgeMeshOps {
      * {@code faceVertexCounts[i]}, and {@code faceIndicesFlat} packs all faces' indices
      * end-to-end. Use {@link #bulkAllocate} instead when every face has the same size.
      *
-     * @param positions packed xyz triples
+     * @param positions one point per vertex, kept by the mesh
      * @param faceVertexCounts per-face vertex count (each &ge; 3)
      * @param faceIndicesFlat all face indices concatenated end-to-end
-     * @throws IllegalArgumentException if positions are not xyz triples, any face count is
-     *         &lt; 3, or the flat buffer length disagrees with the sum of face counts
+     * @throws IllegalArgumentException if any face count is &lt; 3, or the flat buffer length
+     *         disagrees with the sum of face counts
      * @return populated half-edge mesh; normals are not computed
      */
-    public static HalfEdgeMesh bulkAllocateMixed(float[] positions,
+    public static HalfEdgeMesh bulkAllocateMixed(PackedPoints positions,
                                                  int[] faceVertexCounts,
                                                  int[] faceIndicesFlat) {
-        if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
-            throw new IllegalArgumentException(POSITION_DATA_MUST_BE_XYZ_TRIPLES);
-        }
         int totalFaceVerts = 0;
         for (int c : faceVertexCounts) {
             if (c < 3) {
@@ -838,7 +799,7 @@ public class HalfEdgeMeshOps {
      * five passes: one counts, one numbers every side and writes everything a corner or a face
      * decides, and the rest file the vertices' rows.
      *
-     * @param positions   packed xyz triples
+     * @param positions   one point per vertex, kept by the mesh
      * @param faceIndices vertex ids in groups of three
      * @param cornerTwin  per corner, the corner running its side the other way or
      *                    {@link MeshTopology#NONE}
@@ -846,8 +807,8 @@ public class HalfEdgeMeshOps {
      *         degenerate
      * @return the populated mesh, every adjacency row packed, normals left zero
      */
-    private static HalfEdgeMesh triangleBuildWithTwins(float[] positions, int[] faceIndices, int[] cornerTwin) {
-        int vertexCount = positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX;
+    private static HalfEdgeMesh triangleBuildWithTwins(PackedPoints positions, int[] faceIndices, int[] cornerTwin) {
+        int vertexCount = positions.size();
         int cornerCount = faceIndices.length;
         int faceCount = cornerCount / 3;
         int[] faceRowStart = new int[vertexCount + 1];
@@ -937,8 +898,8 @@ public class HalfEdgeMeshOps {
                     ? outgoingHalfEdges[outgoingStart[vertexId]] : MeshTopology.NONE;
         }
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        mesh.setPositionsById(positions, vertexCount);
-        mesh.vertexNormals = new float[vertexCount * HalfEdgeMesh.FLOATS_PER_VERTEX];
+        mesh.setPositionsById(positions);
+        mesh.vertexNormals = new PackedPoints(vertexCount);
         mesh.vertexOutgoing = vertexOutgoing;
         mesh.vertexActive = new boolean[vertexCount];
         Arrays.fill(mesh.vertexActive, true);
@@ -946,7 +907,7 @@ public class HalfEdgeMeshOps {
         mesh.edgeActive = new boolean[edgeCount];
         Arrays.fill(mesh.edgeActive, true);
         mesh.faceHalfEdge = faceHalfEdge;
-        mesh.faceNormals = new float[faceCount * HalfEdgeMesh.FLOATS_PER_VERTEX];
+        mesh.faceNormals = new PackedPoints(faceCount);
         mesh.faceActive = new boolean[faceCount];
         Arrays.fill(mesh.faceActive, true);
         mesh.halfEdgeTwin = halfEdgeTwin;
@@ -978,7 +939,7 @@ public class HalfEdgeMeshOps {
      * Builds a half-edge mesh in linear passes over whole-mesh arrays, identical id for id to
      * adding every vertex and then every face through {@link #addFace}. Normals are left zero.
      *
-     * @param positions   packed xyz triples
+     * @param positions   one point per vertex, kept by the mesh
      * @param faceStarts  {@code faceCount + 1} offsets of each face's first corner in
      *                    {@code faceIndices}
      * @param faceIndices every face's vertex ids, end to end
@@ -988,9 +949,9 @@ public class HalfEdgeMeshOps {
      *         degenerate, or directed half-edges collide; a collision lists every offender
      * @return the populated mesh, every adjacency row packed
      */
-    private static HalfEdgeMesh packedBuild(float[] positions, int[] faceStarts, int[] faceIndices,
+    private static HalfEdgeMesh packedBuild(PackedPoints positions, int[] faceStarts, int[] faceIndices,
             int[] cornerTwin) {
-        int vertexCount = positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX;
+        int vertexCount = positions.size();
         int faceCount = faceStarts.length - 1;
         int cornerCount = faceIndices.length;
 
@@ -1098,8 +1059,8 @@ public class HalfEdgeMeshOps {
         range(cornerCount, parallel).forEach(corner -> faceEdgeIds[corner] = halfEdgeOfCorner[corner] >> 1);
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        mesh.setPositionsById(positions, vertexCount);
-        mesh.vertexNormals = new float[vertexCount * HalfEdgeMesh.FLOATS_PER_VERTEX];
+        mesh.setPositionsById(positions);
+        mesh.vertexNormals = new PackedPoints(vertexCount);
         mesh.vertexOutgoing = vertexOutgoing;
         mesh.vertexActive = new boolean[vertexCount];
         Arrays.fill(mesh.vertexActive, true);
@@ -1107,7 +1068,7 @@ public class HalfEdgeMeshOps {
         mesh.edgeActive = new boolean[edgeCount];
         Arrays.fill(mesh.edgeActive, true);
         mesh.faceHalfEdge = faceHalfEdge;
-        mesh.faceNormals = new float[faceCount * HalfEdgeMesh.FLOATS_PER_VERTEX];
+        mesh.faceNormals = new PackedPoints(faceCount);
         mesh.faceActive = new boolean[faceCount];
         Arrays.fill(mesh.faceActive, true);
         mesh.halfEdgeTwin = halfEdgeTwin;
@@ -1345,19 +1306,5 @@ public class HalfEdgeMeshOps {
         if (startVertexId == endVertexId) {
             throw new InvalidMeshTopologyException("Degenerate edge on vertex " + startVertexId);
         }
-    }
-
-    private static void setVector(float[] target, int id, float x, float y, float z) {
-        int offset = id * HalfEdgeMesh.FLOATS_PER_VERTEX;
-        target[offset] = x;
-        target[offset + 1] = y;
-        target[offset + 2] = z;
-    }
-
-    private static void addVector(float[] target, int id, float x, float y, float z) {
-        int offset = id * HalfEdgeMesh.FLOATS_PER_VERTEX;
-        target[offset] += x;
-        target[offset + 1] += y;
-        target[offset + 2] += z;
     }
 }

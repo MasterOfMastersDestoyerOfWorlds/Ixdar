@@ -51,11 +51,12 @@ class RingDslWriterTest {
 
     private static final int TEN_RINGS = 10;
 
-    private static final List<Vector3f> SQUARE = SurfaceWaypoints.points(
-            new float[] { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f });
+    private static final List<Vector3f> SQUARE = List.of(new Vector3f(0f, 0f, 0f),
+            new Vector3f(1f, 0f, 0f), new Vector3f(1f, 1f, 0f), new Vector3f(0f, 1f, 0f));
 
-    private static final List<Vector3f> MOVED_SQUARE = SurfaceWaypoints.points(
-            new float[] { 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 0f, 0f, 0.5f, 0f });
+    private static final List<Vector3f> MOVED_SQUARE = List.of(new Vector3f(0f, 0f, 0f),
+            new Vector3f(1f, 0f, 0f), new Vector3f(1f, 1f, 0f), new Vector3f(0f, 1f, 0f),
+            new Vector3f(0f, 0.5f, 0f));
 
     private static final int SQUARE_ANCHORS = 4;
 

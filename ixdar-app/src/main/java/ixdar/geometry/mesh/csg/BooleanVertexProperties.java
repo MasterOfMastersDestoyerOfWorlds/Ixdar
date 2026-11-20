@@ -54,12 +54,11 @@ public final class BooleanVertexProperties {
         int cornerCount = operand.triangles.length;
         triangleCorners = new long[cornerCount];
         if (propertiesPerVertex == THREE || operand.cornerU == null) {
-            int vertexCount = operand.positions.length / THREE;
+            int vertexCount = operand.positions.size();
             vertexProperties = new double[vertexCount * propertiesPerVertex];
             for (int vertex = 0; vertex < vertexCount; vertex++) {
                 for (int axis = 0; axis < THREE; axis++) {
-                    vertexProperties[vertex * propertiesPerVertex + axis] =
-                            operand.positions[vertex * THREE + axis];
+                    vertexProperties[vertex * propertiesPerVertex + axis] = operand.positions.get(vertex, axis);
                 }
             }
             for (int corner = 0; corner < cornerCount; corner++) {
@@ -69,7 +68,7 @@ public final class BooleanVertexProperties {
         }
 
         double[] properties = new double[cornerCount * propertiesPerVertex];
-        int[] firstCopy = new int[operand.positions.length / THREE];
+        int[] firstCopy = new int[operand.positions.size()];
         int[] nextCopy = new int[cornerCount];
         Arrays.fill(firstCopy, NO_COPY);
         int splitCount = 0;
@@ -91,7 +90,7 @@ public final class BooleanVertexProperties {
                 found = splitCount++;
                 int base = found * propertiesPerVertex;
                 for (int axis = 0; axis < THREE; axis++) {
-                    properties[base + axis] = operand.positions[vertex * THREE + axis];
+                    properties[base + axis] = operand.positions.get(vertex, axis);
                 }
                 properties[base + THREE] = cornerU;
                 properties[base + THREE + 1] = cornerV;

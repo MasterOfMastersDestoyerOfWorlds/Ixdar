@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.data.rings;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -94,7 +95,7 @@ public final class AuthoredSplineRing {
     private final double[] spread = new double[PLANE_FIT_MATRIX_ENTRIES];
     private final double[] eigenvectors = new double[PLANE_FIT_MATRIX_ENTRIES];
     private int[] referenceVertexId = new int[0];
-    private double[] cycleXyz = new double[0];
+    private final PackedPoints cycleXyz = new PackedPoints(0);
     private int[] spanLabel = new int[0];
     private boolean cycleDoublesBack;
     private int referencePoints;
@@ -195,12 +196,7 @@ public final class AuthoredSplineRing {
         if (loopPoints < 0) {
             return false;
         }
-        Vector3d centre = new Vector3d();
-        for (int point = 0; point < loopPoints; point++) {
-            centre.add(cut.path.positions[COORDINATES_PER_POINT * point] / loopPoints,
-                    cut.path.positions[COORDINATES_PER_POINT * point + 1] / loopPoints,
-                    cut.path.positions[COORDINATES_PER_POINT * point + 2] / loopPoints);
-        }
+        Vector3d centre = new Vector3d(cut.path.positions.centroid());
         double band = CREASE_BAND_OF_RADIUS * SplineAnchorFit.meanRadiusOf(cut.path.positions,
                 loopPoints);
         Vector3d planeAxis = new Vector3d(planeNormal);
@@ -350,8 +346,8 @@ public final class AuthoredSplineRing {
         if (referenceVertexId.length < points) {
             referenceVertexId = new int[points];
         }
-        if (cycleXyz.length < COORDINATES_PER_POINT * points) {
-            cycleXyz = new double[COORDINATES_PER_POINT * points];
+        if (cycleXyz.size() < points) {
+            cycleXyz.resize(points);
         }
         layStamp++;
         points = 0;
@@ -371,8 +367,7 @@ public final class AuthoredSplineRing {
                 layStampByState[state] = layStamp;
                 laidPointByState[state] = points;
                 referenceVertexId[points] = path[step];
-                mesh.vertexPosition(path[step], position);
-                PackedPoints.store(cycleXyz, COORDINATES_PER_POINT * points, position);
+                cycleXyz.set(points, mesh.vertexPosition(path[step], position));
                 points++;
             }
         }
@@ -403,8 +398,8 @@ public final class AuthoredSplineRing {
             if (referenceVertexId.length < points + span) {
                 referenceVertexId = Arrays.copyOf(referenceVertexId, 2 * (points + span));
             }
-            if (cycleXyz.length < COORDINATES_PER_POINT * (points + span)) {
-                cycleXyz = Arrays.copyOf(cycleXyz, 2 * COORDINATES_PER_POINT * (points + span));
+            if (cycleXyz.size() < points + span) {
+                cycleXyz.resize(2 * (points + span));
             }
             for (int step = 0; step < span; step++) {
                 int edgeId = geodesics.tracedEdgeId[step];
@@ -415,10 +410,7 @@ public final class AuthoredSplineRing {
                         : halfEdge < 0 ? mesh.faceVertexAt(faceId, 0)
                         : geodesics.tracedFraction[step] <= 0.5 ? mesh.halfEdgeVertex(halfEdge)
                         : mesh.halfEdgeEndVertex(halfEdge);
-                for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                    cycleXyz[COORDINATES_PER_POINT * points + axis] =
-                            geodesics.tracedXyz[COORDINATES_PER_POINT * step + axis];
-                }
+                cycleXyz.set(points, geodesics.tracedXyz.at(step));
                 points++;
             }
         }
@@ -456,16 +448,9 @@ public final class AuthoredSplineRing {
     private double arcLength(int from, int direction, int steps) {
         double length = 0.0;
         for (int step = 0; step < steps; step++) {
-            int here = COORDINATES_PER_POINT
-                    * Math.floorMod(from + direction * step, referencePoints);
-            int there = COORDINATES_PER_POINT
-                    * Math.floorMod(from + direction * (step + 1), referencePoints);
-            double squared = 0.0;
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                double gap = cycleXyz[there + axis] - cycleXyz[here + axis];
-                squared += gap * gap;
-            }
-            length += Math.sqrt(squared);
+            int here = Math.floorMod(from + direction * step, referencePoints);
+            int there = Math.floorMod(from + direction * (step + 1), referencePoints);
+            length += Math.sqrt(cycleXyz.distanceSquared(there, here));
         }
         return length;
     }
@@ -505,19 +490,8 @@ public final class AuthoredSplineRing {
         }
         for (int anchor = 0; anchor < distinct.length; anchor++) {
             mesh.vertexPosition(distinct[anchor], position);
-            double nearest = Double.POSITIVE_INFINITY;
-            for (int step = 0; step < points; step++) {
-                double dx = loop.positions[COORDINATES_PER_POINT * step] - position.x;
-                double dy = loop.positions[COORDINATES_PER_POINT * step + 1] - position.y;
-                double dz = loop.positions[COORDINATES_PER_POINT * step + 2] - position.z;
-                double squared = dx * dx + dy * dy + dz * dz;
-                if (squared < nearest) {
-                    nearest = squared;
-                    fit.authoredPoint[anchor] = step;
-                }
-            }
-            fit.authoredAllowance[anchor] = SurfaceSpline.distanceToPolyline(loop.positions,
-                    points, position.x, position.y, position.z);
+            fit.authoredPoint[anchor] = Math.max(0, loop.positions.nearest(position, 0, points));
+            fit.authoredAllowance[anchor] = SurfaceSpline.distanceToPolyline(loop.positions, points, position);
         }
         return points;
     }
@@ -528,7 +502,7 @@ public final class AuthoredSplineRing {
      *
      * @return true when a spline was traced
      */
-    private boolean fitAndTrace(MeshTopology mesh, double[] reference, int points,
+    private boolean fitAndTrace(MeshTopology mesh, PackedPoints reference, int points,
             int finalDepth) {
         simple = false;
         authoredVertexId = new int[0];
@@ -571,7 +545,7 @@ public final class AuthoredSplineRing {
         }
         int[] creaseAnchors = authoredVertexId.clone();
         boolean wasSimple = simple;
-        double[] curveXyz = Arrays.copyOf(cycleXyz, COORDINATES_PER_POINT * referencePoints);
+        PackedPoints curveXyz = cycleXyz.gather(IntStream.range(0, referencePoints).toArray());
         int[] curveVertexId = Arrays.copyOf(referenceVertexId, referencePoints);
         int[] start = Arrays.copyOf(tracer.anchorVertexId, tracer.anchorCount);
         mode = RingSegmentMode.GEODESIC;
@@ -741,8 +715,8 @@ public final class AuthoredSplineRing {
         double[] centre = new double[COORDINATES_PER_POINT];
         for (int anchor = 0; anchor < distinctCount; anchor++) {
             mesh.vertexPosition(sorted[anchor], position);
-            PackedPoints.store(xyz, COORDINATES_PER_POINT * anchor, position);
             for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+                xyz[COORDINATES_PER_POINT * anchor + axis] = position.get(axis);
                 centre[axis] += xyz[COORDINATES_PER_POINT * anchor + axis] / distinctCount;
             }
         }

@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -184,13 +185,22 @@ public final class SculptSync {
             float[] moved = stroke.silhouette() ? stroke.pixels.clone() : stroke.anchors.clone();
             for (Map.Entry<Integer, float[]> move : stroke.moves.entrySet()) {
                 int point = move.getKey() / sketch.viewCameras.length;
-                float[] hit = stroke.silhouette() ? move.getValue() : castAll(sculptedTriangles,
+                PackedPoints landed = stroke.silhouette() ? null : castAll(sculptedTriangles,
                         move.getKey() % sketch.viewCameras.length, move.getValue(), refusals, "point " + point
                                 + " of stroke " + stroke.id + (stroke.layer.isEmpty() ? "" : " in group "
                                         + stroke.layer));
+                float[] hit = landed == null ? move.getValue() : new float[landed.size() * FaceAnchors.FIELDS];
+                for (int landing = 0; landed != null && landing < landed.size(); landing++) {
+                    // Located on the sculpt, carried to the same place on the refined surface, which
+                    // lies on the base, and anchored there.
+                    int at = landing * FaceAnchors.FIELDS;
+                    sculptedAnchors.anchor(landed.at(landing), hit, at);
+                    hit[at] = refinedFaceBySculptedFace[(int) hit[at]];
+                    baseAnchors.anchor(FaceAnchors.position(refined, hit, at, new Vector3f()), hit, at);
+                }
                 int fields = stroke.silhouette() ? 2 : FaceAnchors.FIELDS;
                 if (hit.length > 0) {
-                    System.arraycopy(stroke.silhouette() ? hit : toBase(hit), 0, moved, point * fields, fields);
+                    System.arraycopy(hit, 0, moved, point * fields, fields);
                 }
             }
             movedAnchors.put(stroke, moved);
@@ -230,18 +240,17 @@ public final class SculptSync {
                     refusals.add("new stroke in cell " + stroke.cell + ": " + refused.getMessage());
                     continue;
                 }
-                float[] onBase = stroke.polygon ? castAll(baseTriangles, stroke.cell, pixels, refusals,
+                PackedPoints onBase = stroke.polygon ? castAll(baseTriangles, stroke.cell, pixels, refusals,
                         "the new polygon " + stroke.id + (stroke.layer.isEmpty() ? "" : " in group " + stroke.layer))
                         : single.liftedXyzByShape[0];
-                if (onBase.length == 0) {
+                if (onBase.size() == 0) {
                     refusals.add("the new " + (stroke.polygon ? "polygon " : "polyline ") + stroke.id + " in cell "
                             + stroke.cell + " lands nowhere on the base its cell sees face-on: move it onto the surface");
                     continue;
                 }
-                stroke.anchors = new float[onBase.length / 3 * FaceAnchors.FIELDS];
-                for (int point = 0; point < onBase.length / 3; point++) {
-                    baseAnchors.anchor(onBase[point * 3], onBase[point * 3 + 1], onBase[point * 3 + 2], stroke.anchors,
-                            point * FaceAnchors.FIELDS);
+                stroke.anchors = new float[onBase.size() * FaceAnchors.FIELDS];
+                for (int point = 0; point < onBase.size(); point++) {
+                    baseAnchors.anchor(onBase.at(point), stroke.anchors, point * FaceAnchors.FIELDS);
                 }
             }
             created.add(stroke);
@@ -298,14 +307,13 @@ public final class SculptSync {
                 drawing.shapes.add(span(drawing, stroke, stroke.cell, stroke.pixels, indexRange(count), count, false));
                 continue;
             }
-            double[] onBase = stroke.curve(base).positions;
-            float[] onSculpt = new float[count * 3];
+            TracedSurfacePath traced = stroke.curve(base);
+            PackedPoints onBase = traced.curve(traced.positions).positions;
+            PackedPoints sculptPoints = new PackedPoints(count);
             for (int point = 0; point < count; point++) {
-                refinedAnchors.anchor((float) onBase[point * 3], (float) onBase[point * 3 + 1],
-                        (float) onBase[point * 3 + 2], anchor, 0);
+                refinedAnchors.anchor(onBase.at(point), anchor, 0);
                 anchor[0] = sculptedFaceByRefinedFace[(int) anchor[0]];
-                FaceAnchors.position(sculpted, anchor, 0, position);
-                PackedPoints.store(onSculpt, point * 3, position);
+                sculptPoints.set(point, FaceAnchors.position(sculpted, anchor, 0, position));
             }
             for (int cell = 0; cell < drawing.viewCameras.length; cell++) {
                 Camera3D camera = drawing.cellCamera(cell);
@@ -313,7 +321,7 @@ public final class SculptSync {
                 int[] state = new int[count];
                 boolean seen = false;
                 for (int point = 0; point < count; point++) {
-                    position.set(onSculpt[point * 3], onSculpt[point * 3 + 1], onSculpt[point * 3 + 2]);
+                    position.set(sculptPoints.at(point));
                     float[] pixel = new float[2];
                     boolean inFront = drawing.cellPixel(camera, position, pixel);
                     pixels[point * 2] = pixel[0];
@@ -321,8 +329,7 @@ public final class SculptSync {
                     Vector3f toEye = drawing.orthographic ? new Vector3f(camera.position).sub(camera.target)
                             : new Vector3f(camera.position).sub(position);
                     float slack = HIDDEN_SLACK_FRACTION * extent / toEye.length();
-                    Vector3f origin = new Vector3f(position.x + toEye.x * slack, position.y + toEye.y * slack,
-                            position.z + toEye.z * slack);
+                    Vector3f origin = new Vector3f(position).fma(slack, toEye);
                     state[point] = !inFront || pixel[0] < 0f || pixel[1] < 0f || pixel[0] >= drawing.cellWidth
                             || pixel[1] >= drawing.cellHeight ? OUTSIDE
                                     : sculptedTriangles.nearestHit(origin, toEye, drawing.orthographic
@@ -367,26 +374,6 @@ public final class SculptSync {
     }
 
     /**
-     * Points on the sculpt held on the base: each located on the sculpt, carried to the same place
-     * on the refined surface, which lies on the base, and anchored there.
-     *
-     * @param onSculpt packed xyz on {@link #sculpted}
-     * @return {@link FaceAnchors#FIELDS} floats per point, on {@link #base}
-     */
-    private float[] toBase(float[] onSculpt) {
-        float[] anchors = new float[onSculpt.length / 3 * FaceAnchors.FIELDS];
-        Vector3f position = new Vector3f();
-        for (int point = 0; point < onSculpt.length / 3; point++) {
-            int at = point * FaceAnchors.FIELDS;
-            sculptedAnchors.anchor(onSculpt[point * 3], onSculpt[point * 3 + 1], onSculpt[point * 3 + 2], anchors, at);
-            anchors[at] = refinedFaceBySculptedFace[(int) anchors[at]];
-            FaceAnchors.position(refined, anchors, at, position);
-            baseAnchors.anchor(position.x, position.y, position.z, anchors, at);
-        }
-        return anchors;
-    }
-
-    /**
      * Cast cell pixels through the cell's camera onto a surface: the sculpt for a moved point, the
      * base for a new shape.
      *
@@ -395,11 +382,11 @@ public final class SculptSync {
      * @param pixels   packed xy from the cell's top left
      * @param refusals receives a refusal per pixel that misses
      * @param what     what the pixels are, for the refusal
-     * @return packed xyz of the hits, empty when any missed
+     * @return the hits, none when any missed
      */
-    private float[] castAll(TriangleBvh surface, int cell, float[] pixels, List<String> refusals, String what) {
+    private PackedPoints castAll(TriangleBvh surface, int cell, float[] pixels, List<String> refusals, String what) {
         Camera3D camera = sketch.cellCamera(cell);
-        float[] hits = new float[pixels.length / 2 * 3];
+        PackedPoints hits = new PackedPoints(pixels.length / 2);
         Vector3f origin = new Vector3f();
         Vector3f direction = new Vector3f();
         int[] surfaceStack = new int[Math.max(1, surface.nodeCount)];
@@ -411,11 +398,9 @@ public final class SculptSync {
                         + "misses the surface; move it onto the surface", what, cell, sketch.gridPoints(cell,
                                 new float[] { pixels[point * 2], pixels[point * 2 + 1] }, 1), pixels[point * 2],
                         pixels[point * 2 + 1]));
-                return new float[0];
+                return new PackedPoints(0);
             }
-            for (int axis = 0; axis < 3; axis++) {
-                hits[point * 3 + axis] = origin.get(axis) + (float) surface.hitParameter * direction.get(axis);
-            }
+            hits.set(point, origin.fma((float) surface.hitParameter, direction));
         }
         return hits;
     }

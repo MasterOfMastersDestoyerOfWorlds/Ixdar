@@ -27,6 +27,7 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
@@ -224,7 +225,7 @@ class BisectorTest {
         assertEquals(BisectorTool.WAITING_LABEL, waiting.label);
         assertFalse(waiting.valid);
         assertArrayEquals(new String[] { BisectorTool.WAITING_END }, waiting.pointLabels);
-        assertArrayEquals(tool.positionsOf(new int[] { tool.bisector.startVertexId }), waiting.points);
+        assertArrayEquals(tool.positionsOf(new int[] { tool.bisector.startVertexId }).toArray(), waiting.points.toArray());
         assertTrue(waiting.detail.contains(tool.liveLabel(0)), waiting.detail);
         assertTrue(tool.escapePressed());
         assertNull(tool.draft(), "leaving the bisector left the waiting end reported");
@@ -237,16 +238,16 @@ class BisectorTest {
     @Test
     void aThreeEdgeNeckConfirmsAsARingThroughItsVertices() {
         int rows = TUBE_RINGS;
-        float[] positions = new float[COORDINATES * PINCH_SIDES * rows];
+        PackedPoints positions = new PackedPoints(PINCH_SIDES * rows);
         int[] faces = new int[2 * COORDINATES * PINCH_SIDES * (rows - 1)];
         int corner = 0;
         for (int row = 0; row < rows; row++) {
             for (int side = 0; side < PINCH_SIDES; side++) {
                 double angle = 2.0 * Math.PI * side / PINCH_SIDES;
-                int base = COORDINATES * (PINCH_SIDES * row + side);
-                positions[base] = -TUBE_HALF_LENGTH + 2f * TUBE_HALF_LENGTH * row / (rows - 1);
-                positions[base + 1] = (float) (TUBE_RADIUS * Math.cos(angle));
-                positions[base + 2] = (float) (TUBE_RADIUS * Math.sin(angle));
+                positions.set(PINCH_SIDES * row + side,
+                        -TUBE_HALF_LENGTH + 2f * TUBE_HALF_LENGTH * row / (rows - 1),
+                        (float) (TUBE_RADIUS * Math.cos(angle)),
+                        (float) (TUBE_RADIUS * Math.sin(angle)));
                 int next = (side + 1) % PINCH_SIDES;
                 if (row + 1 < rows) {
                     int here = PINCH_SIDES * row;
@@ -685,10 +686,10 @@ class BisectorTest {
         assertEquals(tool.confirmedRings.get(first).statementId + EdgeMarks.LABEL_SEPARATOR + " "
                 + tool.confirmedRings.get(far).statementId,
                 written.arguments.get(SplineCutNode.ENDS.name), saved);
-        float[] points = SurfaceWaypoints.parse(String.valueOf(
+        PackedPoints points = SurfaceWaypoints.parse(String.valueOf(
                 written.arguments.get(SplineCutNode.POINTS.name)));
         assertArrayEquals(placed, SurfaceWaypoints.snap(tool.geodesics.metric.nearestVertex, points,
-                points.length / COORDINATES), "the save wrote other anchors than the ones placed");
+                points.size()), "the save wrote other anchors than the ones placed");
 
         for (int ring = 0; ring < tool.confirmedRings.size(); ring++) {
             tool.scene.ringMarksByLabel.put(tool.confirmedRings.get(ring).statementId,
@@ -776,7 +777,8 @@ class BisectorTest {
                 assertEquals(EdgeMarks.fingerprint(tube, traced.spline.marks.markedByEdgeId),
                         EdgeMarks.fingerprint(tube, adopted.spline.marks.markedByEdgeId),
                         adopted.sourceLabel + " marks other edges than its trace");
-                assertArrayEquals(traced.spline.path.positions, adopted.spline.path.positions,
+                assertArrayEquals(traced.spline.path.positions.toArray(),
+                        adopted.spline.path.positions.toArray(),
                         adopted.sourceLabel + " runs another path than its trace");
                 assertArrayEquals(traced.authoredVertexId, adopted.authoredVertexId,
                         adopted.sourceLabel + " holds other anchors than its trace");
@@ -1130,7 +1132,7 @@ class BisectorTest {
      * {@link #GROOVE_BEND} sides round at the middle row.
      */
     private static MeshTopology tube(double grooveDepth) {
-        float[] positions = new float[COORDINATES * TUBE_SIDES * TUBE_RINGS];
+        PackedPoints positions = new PackedPoints(TUBE_SIDES * TUBE_RINGS);
         for (int row = 0; row < TUBE_RINGS; row++) {
             float x = -TUBE_HALF_LENGTH + 2f * TUBE_HALF_LENGTH * row / (TUBE_RINGS - 1);
             double along = (row - FIRST_RING_ROW) / (double) (SECOND_RING_ROW - FIRST_RING_ROW);
@@ -1140,10 +1142,8 @@ class BisectorTest {
                 double fromGroove = (side - grooveSide) / GROOVE_HALF_WIDTH_SIDES;
                 double radius = TUBE_RADIUS - (along < 0.0 || along > 1.0 ? 0.0
                         : grooveDepth * Math.exp(-fromGroove * fromGroove));
-                int base = COORDINATES * vertex(row, side);
-                positions[base] = x;
-                positions[base + 1] = (float) (radius * Math.cos(angle));
-                positions[base + 2] = (float) (radius * Math.sin(angle));
+                positions.set(vertex(row, side), x, (float) (radius * Math.cos(angle)),
+                        (float) (radius * Math.sin(angle)));
             }
         }
         int[] faces = new int[2 * COORDINATES * TUBE_SIDES * (TUBE_RINGS - 1)];

@@ -2,6 +2,7 @@ package ixdar.procgen.dungeon.algo;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.procgen.dungeon.values.CellType;
 
 /**
@@ -29,7 +30,7 @@ public final class GridToMesh3D {
      */
     public static HalfEdgeMesh emit(int width, int height, int depth, CellType[] cells, float cellSize) {
         int faces = countFaces(width, height, depth, cells) * 2;
-        float[] positions = new float[faces * 4 * 3];
+        PackedPoints positions = new PackedPoints(faces * 4);
         int[] quads = new int[faces * 4];
         float offsetX = -width * cellSize * 0.5f;
         float offsetY = -height * cellSize * 0.5f;
@@ -37,7 +38,6 @@ public final class GridToMesh3D {
 
         int vIdx = 0;
         int qIdx = 0;
-        int writeFloats = 0;
 
         for (int y = 0; y < height; y++) {
             for (int z = 0; z < depth; z++) {
@@ -52,32 +52,32 @@ public final class GridToMesh3D {
                     float maxZ = minZ + cellSize;
 
                     if (y == 0 || cells[idx(x, y - 1, z, width, depth)] == CellType.EMPTY) {
-                        writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                        writeQuad(positions, quads, qIdx, vIdx,
                                 minX, minY, maxZ,  maxX, minY, maxZ,  maxX, minY, minZ,  minX, minY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
                     if (y == height - 1 || cells[idx(x, y + 1, z, width, depth)] == CellType.EMPTY) {
-                        writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                        writeQuad(positions, quads, qIdx, vIdx,
                                 maxX, maxY, minZ,  maxX, maxY, maxZ,  minX, maxY, maxZ,  minX, maxY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
                     if (x == 0 || cells[idx(x - 1, y, z, width, depth)] == CellType.EMPTY) {
-                        writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                        writeQuad(positions, quads, qIdx, vIdx,
                                 minX, maxY, minZ,  minX, maxY, maxZ,  minX, minY, maxZ,  minX, minY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
                     if (x == width - 1 || cells[idx(x + 1, y, z, width, depth)] == CellType.EMPTY) {
-                        writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                        writeQuad(positions, quads, qIdx, vIdx,
                                 maxX, minY, maxZ,  maxX, maxY, maxZ,  maxX, maxY, minZ,  maxX, minY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
                     if (z == 0 || cells[idx(x, y, z - 1, width, depth)] == CellType.EMPTY) {
-                        writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                        writeQuad(positions, quads, qIdx, vIdx,
                                 maxX, minY, minZ,  maxX, maxY, minZ,  minX, maxY, minZ,  minX, minY, minZ);
                         vIdx += 8; qIdx += 8;
                     }
                     if (z == depth - 1 || cells[idx(x, y, z + 1, width, depth)] == CellType.EMPTY) {
-                        writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
+                        writeQuad(positions, quads, qIdx, vIdx,
                                 minX, maxY, maxZ,  maxX, maxY, maxZ,  maxX, minY, maxZ,  minX, minY, maxZ);
                         vIdx += 8; qIdx += 8;
                     }
@@ -113,27 +113,26 @@ public final class GridToMesh3D {
     }
 
     /** Writes one quad in the given winding plus a second quad in reverse (both sides visible). */
-    private static int writeQuad(float[] positions, int p, int[] quads, int q, int vBase,
+    private static void writeQuad(PackedPoints positions, int[] quads, int q, int vBase,
                                  float ax, float ay, float az,
                                  float bx, float by, float bz,
                                  float cx, float cy, float cz,
                                  float dx, float dy, float dz) {
-        positions[p++] = ax; positions[p++] = ay; positions[p++] = az;
-        positions[p++] = bx; positions[p++] = by; positions[p++] = bz;
-        positions[p++] = cx; positions[p++] = cy; positions[p++] = cz;
-        positions[p++] = dx; positions[p++] = dy; positions[p++] = dz;
+        positions.set(vBase, ax, ay, az);
+        positions.set(vBase + 1, bx, by, bz);
+        positions.set(vBase + 2, cx, cy, cz);
+        positions.set(vBase + 3, dx, dy, dz);
         quads[q]     = vBase;
         quads[q + 1] = vBase + 1;
         quads[q + 2] = vBase + 2;
         quads[q + 3] = vBase + 3;
-        positions[p++] = ax; positions[p++] = ay; positions[p++] = az;
-        positions[p++] = dx; positions[p++] = dy; positions[p++] = dz;
-        positions[p++] = cx; positions[p++] = cy; positions[p++] = cz;
-        positions[p++] = bx; positions[p++] = by; positions[p++] = bz;
+        positions.set(vBase + 4, ax, ay, az);
+        positions.set(vBase + 5, dx, dy, dz);
+        positions.set(vBase + 6, cx, cy, cz);
+        positions.set(vBase + 7, bx, by, bz);
         quads[q + 4] = vBase + 4;
         quads[q + 5] = vBase + 5;
         quads[q + 6] = vBase + 6;
         quads[q + 7] = vBase + 7;
-        return p;
     }
 }

@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.data.rings;
 
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
@@ -18,13 +19,10 @@ public final class RingAttachment {
      *
      * @param mesh          surface the wall lies on
      * @param marksByEdgeId the wall's edges, edge-id-indexed
-     * @param x             point x
-     * @param y             point y
-     * @param z             point z
+     * @param point         the point
      * @return the vertex id, or -1 when the wall marks no edge of the mesh
      */
-    public static int attach(MeshTopology mesh, boolean[] marksByEdgeId, float x, float y,
-            float z) {
+    public static int attach(MeshTopology mesh, boolean[] marksByEdgeId, Vector3fc point) {
         Vector3f position = new Vector3f();
         double nearest = Double.POSITIVE_INFINITY;
         int attached = -1;
@@ -36,7 +34,7 @@ public final class RingAttachment {
             for (int vertexId : new int[] { mesh.halfEdgeVertex(halfEdge),
                 mesh.halfEdgeEndVertex(halfEdge) }) {
                 mesh.vertexPosition(vertexId, position);
-                double distance = position.distanceSquared(x, y, z);
+                double distance = position.distanceSquared(point);
                 if (distance < nearest) {
                     nearest = distance;
                     attached = vertexId;

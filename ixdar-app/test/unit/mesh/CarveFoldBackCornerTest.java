@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.SnappingCarve;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
@@ -208,10 +209,9 @@ class CarveFoldBackCornerTest {
      * @return the fixture mesh
      */
     private static HalfEdgeMesh fanPair() {
-        float[] positions = new float[PLANAR.length / 2 * COORDINATES];
+        PackedPoints positions = new PackedPoints(PLANAR.length / 2);
         for (int vertex = 0; vertex < PLANAR.length / 2; vertex++) {
-            positions[vertex * COORDINATES] = PLANAR[vertex * 2];
-            positions[vertex * COORDINATES + 1] = PLANAR[vertex * 2 + 1];
+            positions.set(vertex, PLANAR[vertex * 2], PLANAR[vertex * 2 + 1], 0f);
         }
         int[] faceIndices = new int[FACES.length * COORDINATES];
         for (int index = 0; index < FACES.length; index++) {

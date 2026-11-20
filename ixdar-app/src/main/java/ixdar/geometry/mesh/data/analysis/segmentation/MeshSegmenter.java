@@ -6,12 +6,14 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
+import ixdar.numeric.cluster.EMeans;
 import ixdar.numeric.graph.UnionFind;
 
 /**
@@ -23,7 +25,6 @@ public final class MeshSegmenter {
     public static final float EPSILON = 1e-6f;
     public static final int FEATURE_DIM = 4;
 
-    private static final int KMEANS_MAX_ITER = 40;
     private static final float CURVATURE_WEIGHT = 1.0f;
     private static final float POSITION_WEIGHT = 0.35f;
     private static final long KMEANS_SEED = 0x1ED4CAFEL;
@@ -68,7 +69,7 @@ public final class MeshSegmenter {
      * @return tag map keyed {@code curvature_<i>}, each value a sorted vertex-index array
      */
     public static Map<String, int[]> segmentCurvature(MeshTopology mesh, int nClusters) {
-        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PackedPoints positions = SemanticPatchDecomposer.positionsById(mesh);
         float[] curvature = SemanticPatchDecomposer.computeVertexCurvature(mesh);
         int[] bucket = liveVertexIds(mesh);
         float[] bounds = computeBounds(positions, bucket);
@@ -98,7 +99,7 @@ public final class MeshSegmenter {
      * @return tag map keyed {@code spatial_<axis><sign>_<i>}, each value a sorted vertex-index array
      */
     public static Map<String, int[]> segmentSpatial(MeshTopology mesh, int nClusters) {
-        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PackedPoints positions = SemanticPatchDecomposer.positionsById(mesh);
         float[] flatCurv = new float[mesh.vertexIdBound()];
         int[] bucket = liveVertexIds(mesh);
         float[] bounds = computeBounds(positions, bucket);
@@ -114,15 +115,12 @@ public final class MeshSegmenter {
         Map<String, int[]> out = new LinkedHashMap<>();
         String[] axisNames = {"X", "Y", "Z"};
         for (Map.Entry<Integer, List<Integer>> e : byLabel.entrySet()) {
-            float cx = 0f, cy = 0f, cz = 0f;
+            Vector3f sum = new Vector3f();
             for (int v : e.getValue()) {
-                cx += positions[v * 3];
-                cy += positions[v * 3 + 1];
-                cz += positions[v * 3 + 2];
+                sum.add(positions.at(v));
             }
-            int n = e.getValue().size();
-            cx /= n; cy /= n; cz /= n;
-            Vector3f off = new Vector3f(cx - meanX, cy - meanY, cz - meanZ);
+            float n = e.getValue().size();
+            Vector3f off = sum.div(n, n, n).sub(meanX, meanY, meanZ);
             int dominant = new Vector3f(off).absolute().maxComponent();
             String sign = off.get(dominant) > 0 ? "+" : "-";
             int[] arr = e.getValue().stream().mapToInt(Integer::intValue).toArray();
@@ -150,111 +148,60 @@ public final class MeshSegmenter {
     /**
      * Axis-aligned bounds of the given vertices and their largest extent.
      *
-     * @param positions xyz positions by vertex id
+     * @param positions positions by vertex id
      * @param vertexIds vertices to bound
      * @return {@code [minX, minY, minZ, maxX, maxY, maxZ, extent]}
      */
-    private static float[] computeBounds(float[] positions, int[] vertexIds) {
-        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
-        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
+    private static float[] computeBounds(PackedPoints positions, int[] vertexIds) {
+        Vector3f min = new Vector3f(Float.POSITIVE_INFINITY);
+        Vector3f max = new Vector3f(Float.NEGATIVE_INFINITY);
         for (int vertexId : vertexIds) {
-            int i = vertexId * 3;
-            float x = positions[i], y = positions[i + 1], z = positions[i + 2];
-            if (x < minX) minX = x; if (y < minY) minY = y; if (z < minZ) minZ = z;
-            if (x > maxX) maxX = x; if (y > maxY) maxY = y; if (z > maxZ) maxZ = z;
+            Vector3f position = positions.at(vertexId);
+            min.min(position);
+            max.max(position);
         }
-        float extX = maxX - minX, extY = maxY - minY, extZ = maxZ - minZ;
-        float ext = Math.max(extX, Math.max(extY, extZ));
-        return new float[]{minX, minY, minZ, maxX, maxY, maxZ, ext};
+        Vector3f extent = new Vector3f(max).sub(min);
+        return new float[]{min.x, min.y, min.z, max.x, max.y, max.z, extent.get(extent.maxComponent())};
     }
 
-    private static int[] kmeans(int[] bucket, float[] positions, float[] curvature,
+    /**
+     * E-means labels of the vertices in a curvature-plus-position feature space, seeded from the
+     * first vertex id so a mesh always splits the same way; at most {@code k} vertices each get
+     * their own cluster.
+     *
+     * @param bucket    vertex ids to cluster
+     * @param positions positions by vertex id
+     * @param curvature curvature by vertex id
+     * @param bounds    {@link #computeBounds} of the bucket
+     * @param posScale  reciprocal of the bucket's largest extent
+     * @param k         cluster count
+     * @return cluster label per bucket entry, in {@code [0, k)}
+     */
+    private static int[] kmeans(int[] bucket, PackedPoints positions, float[] curvature,
                                 float[] bounds, float posScale, int k) {
         int n = bucket.length;
-        int featDim = FEATURE_DIM;
-        float[] feat = new float[n * featDim];
+        if (n <= k) {
+            return IntStream.range(0, n).toArray();
+        }
+        double[] feat = new double[n * FEATURE_DIM];
         float curvMax = 0f;
         for (int v : bucket) curvMax = Math.max(curvMax, curvature[v]);
         if (curvMax < EPSILON) curvMax = 1f;
         for (int i = 0; i < n; i++) {
             int v = bucket[i];
-            feat[i * featDim] = CURVATURE_WEIGHT * (curvature[v] / curvMax);
-            feat[i * featDim + 1] = POSITION_WEIGHT * (positions[v * 3] - bounds[0]) * posScale;
-            feat[i * featDim + 2] = POSITION_WEIGHT * (positions[v * 3 + 1] - bounds[1]) * posScale;
-            feat[i * featDim + 3] = POSITION_WEIGHT * (positions[v * 3 + 2] - bounds[2]) * posScale;
-        }
-        Random rnd = new Random(KMEANS_SEED ^ (bucket.length > 0 ? bucket[0] : 0));
-        float[] centroids = new float[k * featDim];
-        int first = rnd.nextInt(n);
-        System.arraycopy(feat, first * featDim, centroids, 0, featDim);
-        float[] d2 = new float[n];
-        Arrays.fill(d2, Float.MAX_VALUE);
-        for (int ci = 1; ci < k; ci++) {
-            double total = 0;
-            for (int i = 0; i < n; i++) {
-                float dd = distSq(feat, i, centroids, ci - 1, featDim);
-                if (dd < d2[i]) d2[i] = dd;
-                total += d2[i];
-            }
-            double target = rnd.nextDouble() * total;
-            double acc = 0;
-            int pick = n - 1;
-            for (int i = 0; i < n; i++) {
-                acc += d2[i];
-                if (acc >= target) {
-                    pick = i;
-                    break;
-                }
-            }
-            System.arraycopy(feat, pick * featDim, centroids, ci * featDim, featDim);
-        }
-        int[] labels = new int[n];
-        float[] newCentroids = new float[k * featDim];
-        int[] counts = new int[k];
-        for (int iter = 0; iter < KMEANS_MAX_ITER; iter++) {
-            boolean changed = false;
-            for (int i = 0; i < n; i++) {
-                int best = 0;
-                float bestD = Float.MAX_VALUE;
-                for (int c = 0; c < k; c++) {
-                    float dd = distSq(feat, i, centroids, c, featDim);
-                    if (dd < bestD) {
-                        bestD = dd;
-                        best = c;
-                    }
-                }
-                if (labels[i] != best) {
-                    changed = true;
-                    labels[i] = best;
-                }
-            }
-            if (!changed && iter > 0) break;
-            Arrays.fill(newCentroids, 0f);
-            Arrays.fill(counts, 0);
-            for (int i = 0; i < n; i++) {
-                int c = labels[i];
-                counts[c]++;
-                for (int d = 0; d < featDim; d++) {
-                    newCentroids[c * featDim + d] += feat[i * featDim + d];
-                }
-            }
-            for (int c = 0; c < k; c++) {
-                if (counts[c] == 0) continue;
-                for (int d = 0; d < featDim; d++) {
-                    centroids[c * featDim + d] = newCentroids[c * featDim + d] / counts[c];
-                }
+            feat[i * FEATURE_DIM] = CURVATURE_WEIGHT * (curvature[v] / curvMax);
+            for (int axis = 0; axis < 3; axis++) {
+                feat[i * FEATURE_DIM + 1 + axis] =
+                        POSITION_WEIGHT * (positions.get(v, axis) - bounds[axis]) * posScale;
             }
         }
-        return labels;
-    }
-
-    private static float distSq(float[] feat, int i, float[] centroids, int c, int d) {
-        float s = 0f;
-        for (int k = 0; k < d; k++) {
-            float diff = feat[i * d + k] - centroids[c * d + k];
-            s += diff * diff;
+        EMeans clustering = new EMeans(FEATURE_DIM, k);
+        clustering.seed = KMEANS_SEED ^ bucket[0];
+        clustering.begin(feat, n, EMeans.sampleCentroids(feat, n, k, FEATURE_DIM, clustering.seed));
+        while (clustering.step()) {
+            continue;
         }
-        return s;
+        return clustering.labels;
     }
 
 

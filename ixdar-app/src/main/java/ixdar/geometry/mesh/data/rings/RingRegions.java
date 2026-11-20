@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.RegionColouring;
 import ixdar.numeric.graph.UnionFind;
@@ -210,7 +211,7 @@ public final class RingRegions {
 
     private double[] faceArea = new double[0];
 
-    private float[] faceCentroid = new float[0];
+    private PackedPoints faceCentroid = new PackedPoints(0);
 
     private int[] slotStart = new int[0];
 
@@ -369,29 +370,15 @@ public final class RingRegions {
                 activeFaceByFaceId[mesh.faceIdAt(activeFace)] = activeFace;
             }
             faceArea = new double[faceCount];
-            faceCentroid = new float[TRIANGLE_CORNERS * faceCount];
+            faceCentroid = mesh.faceCentroids();
             slotEdgeId = new int[slots];
             slotNeighbour = new int[slots];
             IntStream.range(0, (faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK).parallel()
                     .forEach(task -> {
-                Vector3f anchor = new Vector3f();
                 for (int activeFace = task * FACES_PER_TASK;
                         activeFace < Math.min(faceCount, (task + 1) * FACES_PER_TASK); activeFace++) {
                     int faceId = mesh.faceIdAt(activeFace);
-                    int corners = mesh.faceVertexCount(faceId);
                     faceArea[activeFace] = mesh.faceArea(faceId);
-                    float sumX = 0f;
-                    float sumY = 0f;
-                    float sumZ = 0f;
-                    for (int slot = 0; slot < corners; slot++) {
-                        mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), anchor);
-                        sumX += anchor.x;
-                        sumY += anchor.y;
-                        sumZ += anchor.z;
-                    }
-                    faceCentroid[TRIANGLE_CORNERS * activeFace] = sumX / corners;
-                    faceCentroid[TRIANGLE_CORNERS * activeFace + 1] = sumY / corners;
-                    faceCentroid[TRIANGLE_CORNERS * activeFace + 2] = sumZ / corners;
                     int slot = slotStart[activeFace];
                     for (int side = 0; side < mesh.faceHalfEdgeCount(faceId); side++) {
                         int halfEdge = mesh.faceHalfEdgeAt(faceId, side);
@@ -1083,26 +1070,14 @@ public final class RingRegions {
      * @return dense index of the nearest face, or {@link MeshTopology#NONE} on an empty surface
      */
     public int nearestActiveFace(Vector3f point) {
-        int faceCount = faceCentroid.length / TRIANGLE_CORNERS;
+        int faceCount = faceCentroid.size();
         int tasks = (faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK;
         int[] nearestOfTask = new int[tasks];
         double[] distanceOfTask = new double[tasks];
         IntStream.range(0, tasks).parallel().forEach(task -> {
-            int nearest = MeshTopology.NONE;
-            double nearestDistance = Double.POSITIVE_INFINITY;
-            for (int activeFace = task * FACES_PER_TASK;
-                    activeFace < Math.min(faceCount, (task + 1) * FACES_PER_TASK); activeFace++) {
-                double dx = faceCentroid[TRIANGLE_CORNERS * activeFace] - point.x;
-                double dy = faceCentroid[TRIANGLE_CORNERS * activeFace + 1] - point.y;
-                double dz = faceCentroid[TRIANGLE_CORNERS * activeFace + 2] - point.z;
-                double distance = dx * dx + dy * dy + dz * dz;
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
-                    nearest = activeFace;
-                }
-            }
-            nearestOfTask[task] = nearest;
-            distanceOfTask[task] = nearestDistance;
+            nearestOfTask[task] = faceCentroid.nearest(point, task * FACES_PER_TASK,
+                    Math.min(faceCount, (task + 1) * FACES_PER_TASK));
+            distanceOfTask[task] = faceCentroid.distanceSquared(nearestOfTask[task], point);
         });
         int nearest = MeshTopology.NONE;
         double nearestDistance = Double.POSITIVE_INFINITY;
@@ -1249,9 +1224,11 @@ public final class RingRegions {
             if (sides[0] == MeshTopology.NONE || !connection.findPath(sides[0], sides[1])) {
                 continue;
             }
-            int middle = connection.pathPolyline.length / TRIANGLE_CORNERS / 2;
-            System.arraycopy(connection.pathPolyline, TRIANGLE_CORNERS * middle, ringJoinPoint,
-                    TRIANGLE_CORNERS * ring, TRIANGLE_CORNERS);
+            int middle = connection.pathPolyline.size() / 2;
+            for (int axis = 0; axis < TRIANGLE_CORNERS; axis++) {
+                ringJoinPoint[TRIANGLE_CORNERS * ring + axis] = connection.pathPolyline.get(middle,
+                        axis);
+            }
             ringJoinPathLength[ring] = connection.pathLength;
         }
     }
@@ -1413,7 +1390,8 @@ public final class RingRegions {
         regionPeakCurvature = new double[regionCount];
         regionCreasePoint = new float[TRIANGLE_CORNERS * regionCount];
         regionCreaseInterior = new boolean[regionCount];
-        Vector3f corner = new Vector3f();
+        PackedPoints labelPoints = PackedPoints.view(regionLabelPoint, 0, TRIANGLE_CORNERS);
+        PackedPoints creasePoints = PackedPoints.view(regionCreasePoint, 0, TRIANGLE_CORNERS);
         for (int region = 0; region < regionCount; region++) {
             if (!measured[region]) {
                 int former = formerRegionByRegion[region];
@@ -1427,14 +1405,7 @@ public final class RingRegions {
                         TRIANGLE_CORNERS * region, TRIANGLE_CORNERS);
                 continue;
             }
-            int labelFaceId = mesh.faceIdAt(deepestFace[region]);
-            int labelCorners = mesh.faceVertexCount(labelFaceId);
-            for (int slot = 0; slot < labelCorners; slot++) {
-                mesh.vertexPosition(mesh.faceVertexAt(labelFaceId, slot), corner);
-                regionLabelPoint[TRIANGLE_CORNERS * region] += corner.x / labelCorners;
-                regionLabelPoint[TRIANGLE_CORNERS * region + 1] += corner.y / labelCorners;
-                regionLabelPoint[TRIANGLE_CORNERS * region + 2] += corner.z / labelCorners;
-            }
+            labelPoints.set(region, mesh.faceCentroid(mesh.faceIdAt(deepestFace[region])));
             double area = regionArea[region];
             regionCreaseShare[region] = area > 0.0 ? creaseArea[region] / area : 0.0;
             regionInteriorCreaseShare[region] = area > 0.0 ? interiorArea[region] / area : 0.0;
@@ -1448,14 +1419,7 @@ public final class RingRegions {
             }
             regionPeakCurvature[region] = faceCurvature[peakFace[region]];
             regionCreaseInterior[region] = faceInterior[pointFace];
-            int faceId = mesh.faceIdAt(pointFace);
-            int corners = mesh.faceVertexCount(faceId);
-            for (int slot = 0; slot < corners; slot++) {
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), corner);
-                regionCreasePoint[TRIANGLE_CORNERS * region] += corner.x / corners;
-                regionCreasePoint[TRIANGLE_CORNERS * region + 1] += corner.y / corners;
-                regionCreasePoint[TRIANGLE_CORNERS * region + 2] += corner.z / corners;
-            }
+            creasePoints.set(region, mesh.faceCentroid(mesh.faceIdAt(pointFace)));
         }
         flatnessCreases = creases;
     }

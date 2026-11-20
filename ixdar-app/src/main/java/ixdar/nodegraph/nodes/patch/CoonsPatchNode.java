@@ -20,8 +20,10 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 import ixdar.geometry.mesh.data.patches.CharrotGregoryPatch;
+import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
 /**
  * Bilinearly blended Coons patch per quad face using cubic bezier boundaries
  * from {@link AssignBezierHandlesNode} slots. Each face is subdivided in
@@ -98,13 +100,12 @@ public class CoonsPatchNode implements MeshNode {
             }
         }
 
-        float[] hStart = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
-        float[] hEnd = slotFloat3(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
+        PackedPoints hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
+        PackedPoints hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
 
-        ArrayList<Float> positionsList = new ArrayList<>();
+        PackedPoints positions = new PackedPoints();
         ArrayList<Integer> faceIndicesList = new ArrayList<>();
         ArrayList<Integer> faceVertexCountsList = new ArrayList<>();
-        int[] vertCountBox = new int[]{0};
 
         Vector3f tmp0 = new Vector3f();
         Vector3f tmp1 = new Vector3f();
@@ -146,7 +147,7 @@ public class CoonsPatchNode implements MeshNode {
                 evalFaceEdge(mesh, hStart, hEnd, e2, v3, 0f, p01, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
                 evalFaceEdge(mesh, hStart, hEnd, e2, v3, 1f, p11, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
 
-                int baseIdx = vertCountBox[0];
+                int baseIdx = positions.size();
                 float invN = 1f / n;
                 for (int j = 0; j <= n; j++) {
                     float v = j * invN;
@@ -165,12 +166,7 @@ public class CoonsPatchNode implements MeshNode {
                         mix1.set(p00).lerp(p10, uS);
                         mix2.set(p01).lerp(p11, uS);
                         bilinear.set(mix1).lerp(mix2, vS);
-                        out.set(loftU).add(loftV).sub(bilinear);
-
-                        positionsList.add(out.x);
-                        positionsList.add(out.y);
-                        positionsList.add(out.z);
-                        vertCountBox[0]++;
+                        positions.append(out.set(loftU).add(loftV).sub(bilinear));
                     }
                 }
                 for (int j = 0; j < n; j++) {
@@ -188,24 +184,21 @@ public class CoonsPatchNode implements MeshNode {
                 }
             } else if (vpf >= 3) {
                 emitGregoryFan(mesh, hStart, hEnd, fid, vpf, n,
-                        positionsList, faceIndicesList, faceVertexCountsList, vertCountBox);
+                        positions, faceIndicesList, faceVertexCountsList);
             }
         }
 
-        int vertCount = vertCountBox[0];
-        if (vertCount == 0) {
+        if (positions.size() == 0) {
             ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
-        float[] positions = new float[positionsList.size()];
-        for (int i = 0; i < positionsList.size(); i++) positions[i] = positionsList.get(i);
         int[] faceIdxFlat = new int[faceIndicesList.size()];
         for (int i = 0; i < faceIndicesList.size(); i++) faceIdxFlat[i] = faceIndicesList.get(i);
         int[] faceVertexCounts = new int[faceVertexCountsList.size()];
         for (int i = 0; i < faceVertexCountsList.size(); i++) faceVertexCounts[i] = faceVertexCountsList.get(i);
 
-        HalfEdgeMesh outMesh = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceVertexCounts, faceIdxFlat);
+        HalfEdgeMesh outMesh = HalfEdgeMeshOps.bulkAllocateMixed(positions,faceVertexCounts, faceIdxFlat);
         outMesh.computeNormals();
 
         HashMap<String, Object> nextSlots = new HashMap<>(base.slots());
@@ -213,34 +206,6 @@ public class CoonsPatchNode implements MeshNode {
         nextSlots.remove(AssignBezierHandlesNode.SLOT_HANDLES_END);
         GeometryBundle outBundle = new GeometryBundle(outMesh, Map.copyOf(nextSlots));
         ctx.setOutput(GEOMETRY.name, outBundle);
-    }
-
-    private static float[] slotFloat3(GeometryBundle base, String name, MeshTopology mesh) {
-        Object o = base.slots().get(name);
-        if (!(o instanceof float[] arr)) {
-            return zeroHandles(mesh);
-        }
-        int maxEdgeId = maxEdgeId(mesh);
-        int need = (maxEdgeId + 1) * 3;
-        if (arr.length < need) {
-            float[] padded = new float[need];
-            System.arraycopy(arr, 0, padded, 0, Math.min(arr.length, need));
-            return padded;
-        }
-        return arr;
-    }
-
-    private static float[] zeroHandles(MeshTopology mesh) {
-        int maxEdgeId = maxEdgeId(mesh);
-        return new float[(maxEdgeId + 1) * 3];
-    }
-
-    private static int maxEdgeId(MeshTopology mesh) {
-        int max = 0;
-        for (int i = 0; i < mesh.edgeCount(); i++) {
-            max = Math.max(max, mesh.edgeIdAt(i));
-        }
-        return max;
     }
 
     private static float smootherStep(float t) {
@@ -251,18 +216,15 @@ public class CoonsPatchNode implements MeshNode {
      * Emit a Charrot-Gregory fill of {@code fid} as {@code n} concentric rings around its centroid,
      * {@code N · n²} triangles whose outer ring is the boundary at step / n, so seams weld.
      */
-    private static void emitGregoryFan(MeshTopology mesh, float[] hStart, float[] hEnd,
+    private static void emitGregoryFan(MeshTopology mesh, PackedPoints hStart, PackedPoints hEnd,
                                        int fid, int N, int n,
-                                       ArrayList<Float> positionsList,
+                                       PackedPoints positions,
                                        ArrayList<Integer> faceIndicesList,
-                                       ArrayList<Integer> faceVertexCountsList,
-                                       int[] vertCountBox) {
+                                       ArrayList<Integer> faceVertexCountsList) {
         Vector3f[][] curves = new Vector3f[N][];
         for (int k = 0; k < N; k++) {
-            int eid = mesh.faceEdgeAt(fid, k);
-            int startVid = mesh.faceVertexAt(fid, k);
-            int endVid = mesh.faceVertexAt(fid, (k + 1) % N);
-            curves[k] = extractOrientedBezier(mesh, hStart, hEnd, eid, startVid, endVid);
+            curves[k] = CoonsHandleBuilder.getEdgeControlPoints(mesh, hStart, hEnd,
+                    mesh.faceEdgeAt(fid, k), mesh.faceVertexAt(fid, k));
         }
 
         float twoPi = (float) (2.0 * Math.PI);
@@ -275,20 +237,15 @@ public class CoonsPatchNode implements MeshNode {
             vertsV[k] = (float) Math.sin(theta);
         }
 
-        int baseIdx = vertCountBox[0];
-        int centroidIdx = baseIdx;
         Vector3f sampled = new Vector3f();
 
         CharrotGregoryPatch.evaluate(curves, 0f, 0f, sampled);
-        positionsList.add(sampled.x);
-        positionsList.add(sampled.y);
-        positionsList.add(sampled.z);
-        vertCountBox[0]++;
+        int centroidIdx = positions.append(sampled);
 
         int[] ringStart = new int[n + 1];
         ringStart[0] = centroidIdx;
         for (int ring = 1; ring <= n; ring++) {
-            ringStart[ring] = vertCountBox[0];
+            ringStart[ring] = positions.size();
             float scale = 1f - (float) Math.sqrt(1.0 - (double) ring / n);
             for (int k = 0; k < N; k++) {
                 float uA = vertsU[k];
@@ -299,10 +256,7 @@ public class CoonsPatchNode implements MeshNode {
                     float s = (float) step / (float) ring;
                     CharrotGregoryPatch.evaluate(curves, (uA + (uB - uA) * s) * scale,
                             (vA + (vB - vA) * s) * scale, sampled);
-                    positionsList.add(sampled.x);
-                    positionsList.add(sampled.y);
-                    positionsList.add(sampled.z);
-                    vertCountBox[0]++;
+                    positions.append(sampled);
                 }
             }
         }
@@ -329,42 +283,6 @@ public class CoonsPatchNode implements MeshNode {
     }
 
     /**
-     * Build a cubic bezier curve's 4 control points oriented
-     * {@code startVid → endVid}, using the half-edge's canonical handles.
-     * Returns {P0, P1, P2, P3} where P0 = startVid's position and P3 = endVid's.
-     */
-    private static Vector3f[] extractOrientedBezier(MeshTopology mesh, float[] hStart, float[] hEnd,
-                                                    int eid, int startVid, int endVid) {
-        int he = mesh.edgeHalfEdge(eid);
-        int ca = mesh.halfEdgeVertex(he);
-        int o = eid * 3;
-        Vector3f p0 = new Vector3f();
-        Vector3f p3 = new Vector3f();
-        mesh.vertexPosition(startVid, p0);
-        mesh.vertexPosition(endVid, p3);
-
-        Vector3f offStart = new Vector3f();
-        Vector3f offEnd = new Vector3f();
-        if (hStart != null && o + 3 <= hStart.length) {
-            offStart.set(hStart[o], hStart[o + 1], hStart[o + 2]);
-        }
-        if (hEnd != null && o + 3 <= hEnd.length) {
-            offEnd.set(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
-        }
-
-        Vector3f p1 = new Vector3f(p0);
-        Vector3f p2 = new Vector3f(p3);
-        if (startVid == ca) {
-            p1.add(offStart);
-            p2.add(offEnd);
-        } else {
-            p1.add(offEnd);
-            p2.add(offStart);
-        }
-        return new Vector3f[]{p0, p1, p2, p3};
-    }
-
-    /**
      * Evaluates the cubic bezier on undirected edge {@code eid} so that {@code t=0}
      * is at {@code expectedStartVertex}, matching face winding. When the face
      * traverses the edge against the canonical half-edge direction the parameter
@@ -373,8 +291,8 @@ public class CoonsPatchNode implements MeshNode {
      */
     private static void evalFaceEdge(
             MeshTopology mesh,
-            float[] hStart,
-            float[] hEnd,
+            PackedPoints hStart,
+            PackedPoints hEnd,
             int eid,
             int expectedStartVertex,
             float t,
@@ -390,11 +308,10 @@ public class CoonsPatchNode implements MeshNode {
         int he = mesh.edgeHalfEdge(eid);
         int ca = mesh.halfEdgeVertex(he);
         int cb = mesh.halfEdgeEndVertex(he);
-        int o = eid * 3;
         mesh.vertexPosition(ca, posCa);
         mesh.vertexPosition(cb, posCb);
-        handle(hStart, o, offStart);
-        handle(hEnd, o, offEnd);
+        handle(hStart, eid, offStart);
+        handle(hEnd, eid, offEnd);
 
         p0.set(posCa);
         p1.set(posCa).add(offStart);
@@ -405,12 +322,12 @@ public class CoonsPatchNode implements MeshNode {
         cubicBezier(p0, p1, p2, p3, evalT, dest);
     }
 
-    private static void handle(float[] arr, int o, Vector3f dest) {
-        if (arr == null || o + 3 > arr.length) {
+    private static void handle(PackedPoints handles, int eid, Vector3f dest) {
+        if (handles == null || eid >= handles.size()) {
             dest.set(0f, 0f, 0f);
             return;
         }
-        dest.set(arr[o], arr[o + 1], arr[o + 2]);
+        dest.set(handles.get(eid, 0), handles.get(eid, 1), handles.get(eid, 2));
     }
 
     private static void cubicBezier(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float t, Vector3f dest) {

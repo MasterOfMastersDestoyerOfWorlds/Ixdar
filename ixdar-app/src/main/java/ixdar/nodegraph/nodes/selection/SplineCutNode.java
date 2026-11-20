@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RingAttachment;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
@@ -141,17 +142,16 @@ public class SplineCutNode implements MeshNode {
                     + "measured on another mesh; read the geometry from the surface_metric "
                     + "statement that measured it, or from a ring downstream of it");
         }
-        float[] points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
-        int anchorCount = points.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
+        PackedPoints points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
+        int anchorCount = points.size();
         String[] ends = EdgeMarks.parseLabels(ctx.getInput(ENDS.name, String.class));
         if (anchorCount < SurfaceWaypoints.OPEN_PATH_MINIMUM || ends.length != 2) {
             throw new IllegalArgumentException(NODE_ID + " " + label + " needs at least two "
                     + "points and two end walls written ends=\"ring_a; ring_b\"");
         }
-        float[] stretchPoints = SurfaceWaypoints.parse(ctx.getInput(STRETCH.name, String.class));
-        boolean stretch = stretchPoints.length > 0;
-        if (stretch && stretchPoints.length != STRETCH_POINTS
-                * SurfaceWaypoints.COORDINATES_PER_WAYPOINT) {
+        PackedPoints stretchPoints = SurfaceWaypoints.parse(ctx.getInput(STRETCH.name, String.class));
+        boolean stretch = stretchPoints.size() > 0;
+        if (stretch && stretchPoints.size() != STRETCH_POINTS) {
             throw new IllegalArgumentException(NODE_ID + " " + label + ": stretch takes four "
                     + "points, the ring's anchor before, the two meeting points and the anchor "
                     + "after");
@@ -162,10 +162,8 @@ public class SplineCutNode implements MeshNode {
             String wall = ends[end];
             walls[end] = EdgeMarks.bools(bundle, wall);
             int anchor = end == 0 ? 0 : anchorCount - 1;
-            int base = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * anchor;
             anchors[anchor] = walls[end] == null ? -1 : stretch ? anchors[anchor]
-                    : RingAttachment.attach(mesh, walls[end], points[base], points[base + 1],
-                            points[base + 2]);
+                    : RingAttachment.attach(mesh, walls[end], points.at(anchor));
             if (anchors[anchor] < 0) {
                 throw new IllegalArgumentException(NODE_ID + " " + label + ": the bundle carries "
                         + "no wall " + wall + " for its " + (end == 0 ? "first" : "last")
@@ -176,9 +174,7 @@ public class SplineCutNode implements MeshNode {
             int[] frame = SurfaceWaypoints.snap(metric.nearestVertex, stretchPoints,
                     STRETCH_POINTS);
             for (int end = 0; end < 2; end++) {
-                int base = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * (1 + end);
-                frame[1 + end] = RingAttachment.attach(mesh, walls[end], stretchPoints[base],
-                        stretchPoints[base + 1], stretchPoints[base + 2]);
+                frame[1 + end] = RingAttachment.attach(mesh, walls[end], stretchPoints.at(1 + end));
             }
             publish(ctx, bundle, label, SurfaceSpline.ringStretch(SurfaceGeodesics.over(metric),
                     anchors, frame, walls[0], walls[1]));

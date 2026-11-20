@@ -16,7 +16,6 @@ import java.util.Map;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
-import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
@@ -133,8 +132,6 @@ public final class GltfMeshParser {
 
     private final Matrix3f normalTransform = new Matrix3f();
 
-    private final Vector3f scratch = new Vector3f();
-
     private final Map<Integer, byte[]> resolvedBuffers = new HashMap<>();
 
     private final Map<Integer, Integer> resolvedBufferBases = new HashMap<>();
@@ -177,9 +174,9 @@ public final class GltfMeshParser {
 
     private float[] sourceWeldKey;
 
-    private float[] weldedPositions;
+    private PackedPoints weldedPositions;
 
-    private float[] weldedNormals;
+    private PackedPoints weldedNormals;
 
     private int weldedVertexCount;
 
@@ -348,13 +345,12 @@ public final class GltfMeshParser {
                 normalConflicts += sameNormal(table[slot], sourceVertex) ? 0 : 1;
             }
         }
-        weldedPositions = new float[weldedVertexCount * FLOATS_PER_VERTEX];
-        weldedNormals = new float[weldedVertexCount * FLOATS_PER_VERTEX];
+        weldedPositions = new PackedPoints(weldedVertexCount);
+        weldedNormals = new PackedPoints(weldedVertexCount);
         for (int welded = 0; welded < weldedVertexCount; welded++) {
-            System.arraycopy(positions, representative[welded] * FLOATS_PER_VERTEX, weldedPositions,
-                    welded * FLOATS_PER_VERTEX, FLOATS_PER_VERTEX);
-            System.arraycopy(normals, representative[welded] * FLOATS_PER_VERTEX, weldedNormals,
-                    welded * FLOATS_PER_VERTEX, FLOATS_PER_VERTEX);
+            int source = representative[welded] * FLOATS_PER_VERTEX;
+            weldedPositions.set(welded, positions[source], positions[source + 1], positions[source + 2]);
+            weldedNormals.set(welded, normals[source], normals[source + 1], normals[source + 2]);
         }
         for (int corner = 0; corner < triangleIndices.length; corner++) {
             triangleIndices[corner] = weldedOf[triangleIndices[corner]];
@@ -690,16 +686,11 @@ public final class GltfMeshParser {
             return;
         }
         world.normal(normalTransform);
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            int offset = floatOffset + vertex * FLOATS_PER_VERTEX;
-            scratch.set(positions[offset], positions[offset + 1], positions[offset + 2]);
-            world.transformPosition(scratch);
-            PackedPoints.store(positions, offset, scratch);
-            if (hasNormals) {
-                scratch.set(normals[offset], normals[offset + 1], normals[offset + 2]);
-                normalTransform.transform(scratch).normalize();
-                PackedPoints.store(normals, offset, scratch);
-            }
+        PackedPoints.view(positions, floatOffset, FLOATS_PER_VERTEX, vertexCount).transformPositions(world);
+        if (hasNormals) {
+            PackedPoints normalPoints = PackedPoints.view(normals, floatOffset, FLOATS_PER_VERTEX, vertexCount);
+            normalPoints.transform(normalTransform);
+            normalPoints.normalizeEach();
         }
     }
 

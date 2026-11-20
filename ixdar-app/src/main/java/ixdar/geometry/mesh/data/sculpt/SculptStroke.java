@@ -40,8 +40,8 @@ public abstract class SculptStroke {
     /** Whether the stroke also applies reflected across x. */
     public boolean mirror;
 
-    /** Lifted points packed xyz; a silhouette's are view rays from its eye. */
-    public float[] pointXyz = new float[0];
+    /** Lifted points; a silhouette's are view rays from its eye. */
+    public PackedPoints pointXyz = new PackedPoints(0);
 
     /** Whether consecutive points are joined into segments (a chain), not lone samples or rays. */
     public boolean joinsPoints;
@@ -109,21 +109,19 @@ public abstract class SculptStroke {
                     + strokeText);
         }
         String[] pointTexts = strokeText.substring(colon + 1).split(StrokeSculpt.POINT_SEPARATOR);
-        float[] xyz = new float[pointTexts.length * 3];
+        PackedPoints points = new PackedPoints();
         float[] weights = new float[pointTexts.length];
-        int pointCount = 0;
         for (String pointText : pointTexts) {
             String[] fields = pointText.trim().split(StrokeSculpt.FIELD_SEPARATOR);
             if (fields.length < 3) {
                 continue;
             }
-            for (int axis = 0; axis < 3; axis++) {
-                xyz[pointCount * 3 + axis] = Float.parseFloat(fields[axis]);
-            }
-            weights[pointCount++] = fields.length >= StrokeSculpt.WEIGHTED_POINT_FIELDS ? Float.parseFloat(fields[3]) : 1f;
+            int point = points.append(Float.parseFloat(fields[0]), Float.parseFloat(fields[1]),
+                    Float.parseFloat(fields[2]));
+            weights[point] = fields.length >= StrokeSculpt.WEIGHTED_POINT_FIELDS ? Float.parseFloat(fields[3]) : 1f;
         }
-        stroke.pointXyz = Arrays.copyOf(xyz, pointCount * 3);
-        stroke.pointWeight = Arrays.copyOf(weights, pointCount);
+        stroke.pointXyz = points;
+        stroke.pointWeight = Arrays.copyOf(weights, points.size());
         return stroke;
     }
 
@@ -147,8 +145,10 @@ public abstract class SculptStroke {
      * @return this stroke, reflected
      */
     public SculptStroke reflect(int axis) {
-        for (int coordinate = axis; coordinate < pointXyz.length; coordinate += 3) {
-            pointXyz[coordinate] = -pointXyz[coordinate];
+        for (int point = 0; point < pointXyz.size(); point++) {
+            Vector3f reflected = pointXyz.at(point);
+            reflected.setComponent(axis, -reflected.get(axis));
+            pointXyz.set(point, reflected);
         }
         elementGrid = null;
         if (eyeForward != null) {
@@ -170,13 +170,13 @@ public abstract class SculptStroke {
         for (SculptStroke copy : copies) {
             float gap = copy.radius;
             for (SculptStroke other : copies) {
-                if (!copy.refines() || other.source == copy.source || !other.refines() || other.pointXyz.length == 0
-                        || copy.pointXyz.length == 0 || copy.depth * other.depth >= 0f) {
+                if (!copy.refines() || other.source == copy.source || !other.refines() || other.pointXyz.size() == 0
+                        || copy.pointXyz.size() == 0 || copy.depth * other.depth >= 0f) {
                     continue;
                 }
                 double meanNearest = 0.0;
                 for (float distance : nearestDistances(copy.pointXyz, other.pointXyz)) {
-                    meanNearest += distance / (copy.pointXyz.length / 3);
+                    meanNearest += distance / copy.pointXyz.size();
                 }
                 gap = Math.min(gap, (float) meanNearest);
             }
@@ -215,26 +215,24 @@ public abstract class SculptStroke {
      * radius across the stroke's mean normal and within its gather depth along it, facing its eye.
      *
      * @param mesh                   the surface being refined
-     * @param vertexXyz              its positions, packed xyz by dense vertex index
+     * @param vertices               its positions by dense vertex index
      * @param nearestVertex          vertex index over the surface
      * @param requiredByActiveVertex required edge length by dense vertex index, lowered in place
      */
-    public void requireEdgeLengths(MeshTopology mesh, float[] vertexXyz, NearestVertex nearestVertex,
+    public void requireEdgeLengths(MeshTopology mesh, PackedPoints vertices, NearestVertex nearestVertex,
             float[] requiredByActiveVertex) {
-        if (!refines() || pointXyz.length == 0) {
+        if (!refines() || pointXyz.size() == 0) {
             return;
         }
         float depthReach = radius * GATHER_REACH + Math.abs(depth);
-        Vector3f low = new Vector3f(Float.POSITIVE_INFINITY);
-        Vector3f high = new Vector3f(Float.NEGATIVE_INFINITY);
-        Vector3f reach = new Vector3f(depthReach);
+        PackedPoints box = pointXyz.bounds();
+        Vector3f low = box.at(0).sub(depthReach, depthReach, depthReach);
+        Vector3f high = box.at(1).add(depthReach, depthReach, depthReach);
         Vector3f direction = new Vector3f();
         Vector3f normal = new Vector3f();
-        for (int coordinate = 0; coordinate + 2 < pointXyz.length; coordinate += 3) {
-            Vector3f point = PackedPoints.at(pointXyz, coordinate);
-            low.min(new Vector3f(point).sub(reach));
-            high.max(new Vector3f(point).add(reach));
-            if (mesh.vertexNormal(nearestVertex.nearest(point.x, point.y, point.z, Float.POSITIVE_INFINITY),
+        for (int index = 0; index < pointXyz.size(); index++) {
+            Vector3f point = pointXyz.at(index);
+            if (mesh.vertexNormal(nearestVertex.nearest(point, Float.POSITIVE_INFINITY),
                     normal).length() >= MINIMUM_NORMAL_LENGTH) {
                 direction.add(normal.normalize());
             }
@@ -246,23 +244,19 @@ public abstract class SculptStroke {
         Vector3f scratch = new Vector3f();
         StrokeElementGrid grid = elementGrid(direction);
         for (int activeVertex = 0; activeVertex < requiredByActiveVertex.length; activeVertex++) {
-            int at = activeVertex * 3;
-            if (requiredByActiveVertex[activeVertex] <= refineTarget || vertexXyz[at] < low.x
-                    || vertexXyz[at] > high.x || vertexXyz[at + 1] < low.y || vertexXyz[at + 1] > high.y
-                    || vertexXyz[at + 2] < low.z || vertexXyz[at + 2] > high.z) {
+            Vector3f vertex = vertices.at(activeVertex);
+            if (requiredByActiveVertex[activeVertex] <= refineTarget || vertex.x < low.x || vertex.x > high.x
+                    || vertex.y < low.y || vertex.y > high.y || vertex.z < low.z || vertex.z > high.z) {
                 continue;
             }
-            int cell = grid == null ? 0 : grid.cellOf(vertexXyz[at], vertexXyz[at + 1], vertexXyz[at + 2]);
-            int elements = grid == null ? pointXyz.length / 3 : cell < 0 ? 0 : grid.first(cell + 1) - grid.first(cell);
+            int cell = grid == null ? 0 : grid.cellOf(vertex);
+            int elements = grid == null ? pointXyz.size() : cell < 0 ? 0 : grid.first(cell + 1) - grid.first(cell);
             for (int slot = 0; slot < elements; slot++) {
-                int point = 3 * (grid == null ? slot : grid.element(grid.first(cell) + slot));
-                int end = joinsPoints && point + 3 < pointXyz.length ? point + 3 : point;
-                float across = elementFraction(point, end, offset.set(vertexXyz[at], vertexXyz[at + 1],
-                        vertexXyz[at + 2]), direction, scratch);
-                offset.set(vertexXyz[at] - pointXyz[point], vertexXyz[at + 1] - pointXyz[point + 1],
-                        vertexXyz[at + 2] - pointXyz[point + 2]);
-                offset.sub((pointXyz[end] - pointXyz[point]) * elementAlong, (pointXyz[end + 1] - pointXyz[point + 1])
-                        * elementAlong, (pointXyz[end + 2] - pointXyz[point + 2]) * elementAlong);
+                int point = grid == null ? slot : grid.element(grid.first(cell) + slot);
+                int end = joinsPoints && point + 1 < pointXyz.size() ? point + 1 : point;
+                float across = elementFraction(point, end, offset.set(vertex), direction, scratch);
+                Vector3f start = pointXyz.at(point);
+                offset.set(vertex).sub(start).sub(pointXyz.at(end).sub(start).mul(elementAlong));
                 if (Math.abs(offset.dot(direction)) <= depthReach && across <= 1f) {
                     int vertexId = mesh.vertexIdAt(activeVertex);
                     boolean facing = eyeForward == null
@@ -325,18 +319,18 @@ public abstract class SculptStroke {
      * A vertex's distance across the stroke's direction to one element (a segment, or a sample when
      * its ends are one point) over the radius; where along it lands in {@link #elementAlong}.
      *
-     * @param start     the element's first point's offset in {@link #pointXyz}
-     * @param end       its last point's offset, {@code start} for a sample
+     * @param start     the element's first point, an index into {@link #pointXyz}
+     * @param end       its last point, {@code start} for a sample
      * @param position  the vertex's position, overwritten
      * @param direction the stroke's mean normal, unit length
      * @param scratch   scratch vector, overwritten
      * @return the distance over the radius
      */
     public float elementFraction(int start, int end, Vector3f position, Vector3f direction, Vector3f scratch) {
-        position.sub(pointXyz[start], pointXyz[start + 1], pointXyz[start + 2]);
+        Vector3f first = pointXyz.at(start);
+        position.sub(first);
         position.fma(-position.dot(direction), direction);
-        scratch.set(pointXyz[end] - pointXyz[start], pointXyz[end + 1] - pointXyz[start + 1],
-                pointXyz[end + 2] - pointXyz[start + 2]);
+        scratch.set(pointXyz.get(end, 0), pointXyz.get(end, 1), pointXyz.get(end, 2)).sub(first);
         scratch.fma(-scratch.dot(direction), direction);
         float lengthSquared = scratch.lengthSquared();
         elementAlong = lengthSquared == 0f ? 0f : Math.max(0f, Math.min(1f, position.dot(scratch) / lengthSquared));
@@ -376,41 +370,20 @@ public abstract class SculptStroke {
     }
 
     /**
-     * The point of a packed set nearest a position.
-     *
-     * @param points   the points, packed xyz
-     * @param position where to measure from
-     * @return the nearest point's index, the first on a tie, or -1 for an empty set
-     */
-    public static int nearestPoint(float[] points, Vector3f position) {
-        int nearest = -1;
-        float nearestDistance = Float.POSITIVE_INFINITY;
-        for (int point = 0; point < points.length / 3; point++) {
-            float distance = position.distanceSquared(points[point * 3], points[point * 3 + 1], points[point * 3 + 2]);
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearest = point;
-            }
-        }
-        return nearest;
-    }
-
-    /**
      * Each point's distance to the nearest of another packed set: how far one copy lies from
      * another, read as its gap, its overlap with its reflection, or its coincidence with it.
      *
-     * @param points the points measured, packed xyz
-     * @param others the points measured to, packed xyz
+     * @param points the points measured
+     * @param others the points measured to
      * @return one distance per point, infinite when {@code others} is empty
      */
-    public static float[] nearestDistances(float[] points, float[] others) {
-        float[] distances = new float[points.length / 3];
-        Vector3f sample = new Vector3f();
+    public static float[] nearestDistances(PackedPoints points, PackedPoints others) {
+        float[] distances = new float[points.size()];
         for (int point = 0; point < distances.length; point++) {
-            sample.set(points[point * 3], points[point * 3 + 1], points[point * 3 + 2]);
-            int nearest = nearestPoint(others, sample) * 3;
+            Vector3f sample = points.at(point);
+            int nearest = others.nearest(sample, 0, others.size());
             distances[point] = nearest < 0 ? Float.POSITIVE_INFINITY
-                    : sample.distance(others[nearest], others[nearest + 1], others[nearest + 2]);
+                    : (float) Math.sqrt(others.distanceSquared(nearest, sample));
         }
         return distances;
     }

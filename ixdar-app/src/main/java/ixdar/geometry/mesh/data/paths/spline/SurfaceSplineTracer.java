@@ -19,8 +19,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
  */
 public final class SurfaceSplineTracer {
 
-    public static final int COORDINATES_PER_POINT = 3;
-
     public static final int MINIMUM_ANCHORS = 3;
 
     public static final int CONTROL_POINTS = 4;
@@ -75,8 +73,8 @@ public final class SurfaceSplineTracer {
      */
     public boolean[] anchorAuthored = new boolean[0];
 
-    /** Unit tangent of the spline at each anchor, packed xyz, the two handles lie along it. */
-    public float[] anchorTangent = new float[0];
+    /** Unit tangent of the spline at each anchor, the two handles lie along it. */
+    public PackedPoints anchorTangent = new PackedPoints(0);
 
     /** Vertex the outgoing handle of each segment's first anchor sits on. */
     public int[] outgoingHandleVertexId = new int[0];
@@ -84,11 +82,11 @@ public final class SurfaceSplineTracer {
     /** Vertex the incoming handle of each segment's last anchor sits on. */
     public int[] incomingHandleVertexId = new int[0];
 
-    /** Packed xyz of each segment's traced points, its last anchor excluded. */
-    public double[][] segmentXyz = new double[0][];
+    /** Each segment's traced points, its last anchor excluded. */
+    public PackedPoints[] segmentXyz = new PackedPoints[0];
 
-    /** Packed xyz on the surface of each segment's traced points, under {@link #segmentXyz}. */
-    public double[][] segmentSurfaceXyz = new double[0][];
+    /** Each segment's traced points on the surface, under {@link #segmentXyz}. */
+    public PackedPoints[] segmentSurfaceXyz = new PackedPoints[0];
 
     /** Mesh vertex id per traced point of each segment, -1 elsewhere. */
     public int[][] segmentVertexId = new int[0][];
@@ -111,12 +109,12 @@ public final class SurfaceSplineTracer {
     private final Vector3f incoming = new Vector3f();
     private final Vector3f outgoing = new Vector3f();
     private int[] controlVertex = new int[0];
-    private float[] controlXyz = new float[0];
+    private PackedPoints controls = new PackedPoints(0);
     private int[] midpointVertex = new int[0];
-    private float[] midpointXyz = new float[0];
-    private double[] emittedXyz = new double[0];
+    private PackedPoints midpoints = new PackedPoints(0);
+    private final PackedPoints emittedXyz = new PackedPoints();
     private int[] emittedVertexId = new int[0];
-    private double[] emittedSurfaceXyz = new double[0];
+    private final PackedPoints emittedSurfaceXyz = new PackedPoints();
     private int[] emittedEdgeId = new int[0];
     private int[] emittedFaceId = new int[0];
     private double[] emittedFraction = new double[0];
@@ -195,9 +193,9 @@ public final class SurfaceSplineTracer {
         anchorAuthored = grownAuthored;
         anchorCount++;
         int[] keptDepth = segmentDepth;
-        double[][] keptXyz = segmentXyz;
+        PackedPoints[] keptXyz = segmentXyz;
         int[][] keptVertexId = segmentVertexId;
-        double[][] keptSurfaceXyz = segmentSurfaceXyz;
+        PackedPoints[] keptSurfaceXyz = segmentSurfaceXyz;
         int[][] keptEdgeId = segmentEdgeId;
         int[][] keptFaceId = segmentFaceId;
         double[][] keptFraction = segmentFraction;
@@ -238,9 +236,9 @@ public final class SurfaceSplineTracer {
      */
     public void retraceSegment(int segment) {
         if (open && segment == anchorCount - 1) {
-            segmentXyz[segment] = new double[0];
+            segmentXyz[segment] = new PackedPoints(0);
             segmentVertexId[segment] = new int[0];
-            segmentSurfaceXyz[segment] = new double[0];
+            segmentSurfaceXyz[segment] = new PackedPoints(0);
             segmentEdgeId[segment] = new int[0];
             segmentFaceId[segment] = new int[0];
             segmentFraction[segment] = new double[0];
@@ -254,16 +252,16 @@ public final class SurfaceSplineTracer {
             incomingHandleVertexId[segment], anchorVertexId[(segment + 1) % anchorCount] };
         for (int control = 0; control < CONTROL_POINTS; control++) {
             controlVertex[control] = seed[control];
-            geodesics.mesh.vertexPosition(seed[control], anchorPosition);
-            PackedPoints.store(controlXyz, COORDINATES_PER_POINT * control, anchorPosition);
+            controls.set(control, geodesics.mesh.vertexPosition(seed[control], anchorPosition));
         }
         emittedCount = 0;
+        emittedXyz.resize(0);
+        emittedSurfaceXyz.resize(0);
         emittedDepth = 0;
         subdivide(0, depthFor(segment));
-        segmentXyz[segment] = Arrays.copyOf(emittedXyz, COORDINATES_PER_POINT * emittedCount);
+        segmentXyz[segment] = emittedXyz.copy();
         segmentVertexId[segment] = Arrays.copyOf(emittedVertexId, emittedCount);
-        segmentSurfaceXyz[segment] =
-                Arrays.copyOf(emittedSurfaceXyz, COORDINATES_PER_POINT * emittedCount);
+        segmentSurfaceXyz[segment] = emittedSurfaceXyz.copy();
         segmentEdgeId[segment] = Arrays.copyOf(emittedEdgeId, emittedCount);
         segmentFaceId[segment] = Arrays.copyOf(emittedFaceId, emittedCount);
         segmentFraction[segment] = Arrays.copyOf(emittedFraction, emittedCount);
@@ -281,8 +279,8 @@ public final class SurfaceSplineTracer {
         for (int segment = 0; segment < anchorCount; segment++) {
             total += segmentVertexId[segment].length;
         }
-        double[] positions = new double[COORDINATES_PER_POINT * total];
-        double[] surfacePositions = new double[COORDINATES_PER_POINT * total];
+        PackedPoints positions = new PackedPoints(total);
+        PackedPoints surfacePositions = new PackedPoints(total);
         int[] vertexId = new int[total];
         int[] edgeId = new int[total];
         int[] faceId = new int[total];
@@ -290,10 +288,8 @@ public final class SurfaceSplineTracer {
         int cursor = 0;
         for (int segment = 0; segment < anchorCount; segment++) {
             int points = segmentVertexId[segment].length;
-            System.arraycopy(segmentXyz[segment], 0, positions,
-                    COORDINATES_PER_POINT * cursor, COORDINATES_PER_POINT * points);
-            System.arraycopy(segmentSurfaceXyz[segment], 0, surfacePositions,
-                    COORDINATES_PER_POINT * cursor, COORDINATES_PER_POINT * points);
+            positions.slice(cursor, points).copyFrom(segmentXyz[segment]);
+            surfacePositions.slice(cursor, points).copyFrom(segmentSurfaceXyz[segment]);
             System.arraycopy(segmentVertexId[segment], 0, vertexId, cursor, points);
             System.arraycopy(segmentEdgeId[segment], 0, edgeId, cursor, points);
             System.arraycopy(segmentFaceId[segment], 0, faceId, cursor, points);
@@ -302,17 +298,15 @@ public final class SurfaceSplineTracer {
         }
         if (open && anchorCount > 0) {
             geodesics.mesh.vertexPosition(anchorVertexId[anchorCount - 1], anchorPosition);
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                positions[COORDINATES_PER_POINT * cursor + axis] = anchorPosition.get(axis);
-                surfacePositions[COORDINATES_PER_POINT * cursor + axis] = anchorPosition.get(axis);
-            }
+            positions.set(cursor, anchorPosition);
+            surfacePositions.set(cursor, anchorPosition);
             vertexId[cursor] = anchorVertexId[anchorCount - 1];
             edgeId[cursor] = -1;
             faceId[cursor] = -1;
             fraction[cursor] = -1.0;
         }
         return new TracedSurfacePath(positions, surfacePositions, vertexId, edgeId, faceId,
-                fraction, total, !open);
+                fraction, !open);
     }
 
     private void prepareRecursionStack() {
@@ -321,9 +315,9 @@ public final class SurfaceSplineTracer {
             return;
         }
         controlVertex = new int[CONTROL_POINTS * levels];
-        controlXyz = new float[COORDINATES_PER_POINT * CONTROL_POINTS * levels];
+        controls = new PackedPoints(CONTROL_POINTS * levels);
         midpointVertex = new int[MIDPOINTS_PER_BISECTION * levels];
-        midpointXyz = new float[COORDINATES_PER_POINT * MIDPOINTS_PER_BISECTION * levels];
+        midpoints = new PackedPoints(MIDPOINTS_PER_BISECTION * levels);
     }
 
     private void resizeSegments() {
@@ -336,8 +330,8 @@ public final class SurfaceSplineTracer {
         segmentDepth = Arrays.copyOf(segmentDepth, anchorCount);
         for (int segment = 0; segment < anchorCount; segment++) {
             if (segmentXyz[segment] == null) {
-                segmentXyz[segment] = new double[0];
-                segmentSurfaceXyz[segment] = new double[0];
+                segmentXyz[segment] = new PackedPoints(0);
+                segmentSurfaceXyz[segment] = new PackedPoints(0);
                 segmentVertexId[segment] = new int[0];
                 segmentEdgeId[segment] = new int[0];
                 segmentFaceId[segment] = new int[0];
@@ -353,7 +347,7 @@ public final class SurfaceSplineTracer {
      * keeps the junction smooth.
      */
     private void setTangents() {
-        anchorTangent = new float[COORDINATES_PER_POINT * anchorCount];
+        anchorTangent = new PackedPoints(anchorCount);
         MeshTopology mesh = geodesics.mesh;
         for (int anchor = 0; anchor < anchorCount; anchor++) {
             mesh.vertexPosition(anchorVertexId[anchor], anchorPosition);
@@ -383,7 +377,7 @@ public final class SurfaceSplineTracer {
             if (incoming.lengthSquared() > 0f) {
                 incoming.normalize();
             }
-            PackedPoints.store(anchorTangent, COORDINATES_PER_POINT * anchor, incoming);
+            anchorTangent.set(anchor, incoming);
         }
         outgoingHandleVertexId = new int[anchorCount];
         incomingHandleVertexId = new int[anchorCount];
@@ -414,9 +408,8 @@ public final class SurfaceSplineTracer {
     }
 
     private int handleVertex(int anchor, double chord, float sign) {
-        Vector3f tangent = PackedPoints.at(anchorTangent, COORDINATES_PER_POINT * anchor);
-        double alignment = tangent.dot(outgoing);
-        double turn = Math.acos(Math.max(0.0, Math.min(1.0, alignment)));
+        Vector3f tangent = anchorTangent.at(anchor);
+        double turn = tangent.angle(outgoing);
         double length = turn < SMALL_TURN_RADIANS
                 ? STRAIGHT_HANDLE_FRACTION * chord
                 : CIRCLE_HANDLE_SCALE * Math.tan(Math.min(turn, LARGEST_TURN_RADIANS) / 2.0)
@@ -462,20 +455,16 @@ public final class SurfaceSplineTracer {
         }
         int middle = MIDPOINTS_PER_BISECTION * level;
         for (int pair = 0; pair < CONTROL_POINTS - 1; pair++) {
-            average(controlVertex[control + pair], controlXyz, COORDINATES_PER_POINT
-                    * (control + pair), controlVertex[control + pair + 1], controlXyz,
-                    COORDINATES_PER_POINT * (control + pair + 1), middle + pair);
+            average(controlVertex[control + pair], controls.at(control + pair),
+                    controlVertex[control + pair + 1], controls.at(control + pair + 1), middle + pair);
         }
         for (int pair = 0; pair < CONTROL_POINTS - 2; pair++) {
-            average(midpointVertex[middle + pair], midpointXyz,
-                    COORDINATES_PER_POINT * (middle + pair), midpointVertex[middle + pair + 1],
-                    midpointXyz, COORDINATES_PER_POINT * (middle + pair + 1),
+            average(midpointVertex[middle + pair], midpoints.at(middle + pair),
+                    midpointVertex[middle + pair + 1], midpoints.at(middle + pair + 1),
                     middle + CONTROL_POINTS - 1 + pair);
         }
-        average(midpointVertex[middle + CONTROL_POINTS - 1], midpointXyz,
-                COORDINATES_PER_POINT * (middle + CONTROL_POINTS - 1),
-                midpointVertex[middle + CONTROL_POINTS], midpointXyz,
-                COORDINATES_PER_POINT * (middle + CONTROL_POINTS),
+        average(midpointVertex[middle + CONTROL_POINTS - 1], midpoints.at(middle + CONTROL_POINTS - 1),
+                midpointVertex[middle + CONTROL_POINTS], midpoints.at(middle + CONTROL_POINTS),
                 middle + MIDPOINTS_PER_BISECTION - 1);
 
         int child = CONTROL_POINTS * (level + 1);
@@ -496,12 +485,10 @@ public final class SurfaceSplineTracer {
      * The manifold average of two control points at one half: the midpoint of the geodesic between
      * their vertices, moved by the same blend of the two points' own offsets from those vertices.
      */
-    private void average(int fromVertexId, float[] fromXyz, int fromBase, int toVertexId,
-            float[] toXyz, int toBase, int slot) {
-        int base = COORDINATES_PER_POINT * slot;
+    private void average(int fromVertexId, Vector3f from, int toVertexId, Vector3f to, int slot) {
         if (fromVertexId == toVertexId || !geodesics.geodesic(fromVertexId, toVertexId)) {
             midpointVertex[slot] = fromVertexId;
-            System.arraycopy(fromXyz, fromBase, midpointXyz, base, COORDINATES_PER_POINT);
+            midpoints.set(slot, from);
             return;
         }
         Vector3f middle = geodesics.pointAtFraction(0.5);
@@ -509,21 +496,18 @@ public final class SurfaceSplineTracer {
         midpointVertex[slot] = vertexId < 0 ? fromVertexId : vertexId;
         geodesics.mesh.vertexPosition(fromVertexId, previousPosition);
         geodesics.mesh.vertexPosition(toVertexId, nextPosition);
-        Vector3f offset = PackedPoints.at(fromXyz, fromBase).sub(previousPosition)
-                .add(PackedPoints.at(toXyz, toBase)).sub(nextPosition);
-        PackedPoints.store(midpointXyz, base, middle.fma(0.5f, offset));
+        Vector3f offset = from.sub(previousPosition).add(to).sub(nextPosition);
+        midpoints.set(slot, middle.fma(0.5f, offset));
     }
 
     private void copyControl(int fromSlot, int toSlot) {
         controlVertex[toSlot] = controlVertex[fromSlot];
-        System.arraycopy(controlXyz, COORDINATES_PER_POINT * fromSlot, controlXyz,
-                COORDINATES_PER_POINT * toSlot, COORDINATES_PER_POINT);
+        controls.set(toSlot, controls.at(fromSlot));
     }
 
     private void copyMidpoint(int fromSlot, int toSlot) {
         controlVertex[toSlot] = midpointVertex[fromSlot];
-        System.arraycopy(midpointXyz, COORDINATES_PER_POINT * fromSlot, controlXyz,
-                COORDINATES_PER_POINT * toSlot, COORDINATES_PER_POINT);
+        controls.set(toSlot, midpoints.at(fromSlot));
     }
 
     /**
@@ -539,13 +523,14 @@ public final class SurfaceSplineTracer {
         int control = CONTROL_POINTS * level;
         int fromVertexId = controlVertex[control];
         int toVertexId = controlVertex[control + 3];
-        int fromBase = COORDINATES_PER_POINT * control;
-        int toBase = COORDINATES_PER_POINT * (control + 3);
+        Vector3f start = controls.at(control);
         if (fromVertexId == toVertexId || !geodesics.geodesic(fromVertexId, toVertexId)) {
-            appendPoint(controlXyz[fromBase], controlXyz[fromBase + 1], controlXyz[fromBase + 2],
-                    fromVertexId, -1);
+            appendPoint(start, fromVertexId, -1);
             return;
         }
+        Vector3f outHandle = controls.at(control + 1);
+        Vector3f inHandle = controls.at(control + 2);
+        Vector3f end = controls.at(control + 3);
         for (int point = 0; point < geodesics.tracedPointCount - 1; point++) {
             double along = geodesics.pathLength <= 0.0 ? 0.0
                     : geodesics.tracedArcLength[point] / geodesics.pathLength;
@@ -553,19 +538,10 @@ public final class SurfaceSplineTracer {
             double second = 3.0 * along * (1.0 - along) * (1.0 - along);
             double third = 3.0 * along * along * (1.0 - along);
             double fourth = along * along * along;
-            appendPoint(
-                    first * controlXyz[fromBase]
-                            + second * controlXyz[fromBase + COORDINATES_PER_POINT]
-                            + third * controlXyz[fromBase + 2 * COORDINATES_PER_POINT]
-                            + fourth * controlXyz[toBase],
-                    first * controlXyz[fromBase + 1]
-                            + second * controlXyz[fromBase + COORDINATES_PER_POINT + 1]
-                            + third * controlXyz[fromBase + 2 * COORDINATES_PER_POINT + 1]
-                            + fourth * controlXyz[toBase + 1],
-                    first * controlXyz[fromBase + 2]
-                            + second * controlXyz[fromBase + COORDINATES_PER_POINT + 2]
-                            + third * controlXyz[fromBase + 2 * COORDINATES_PER_POINT + 2]
-                            + fourth * controlXyz[toBase + 2],
+            appendPoint(new Vector3f(
+                    (float) (first * start.x + second * outHandle.x + third * inHandle.x + fourth * end.x),
+                    (float) (first * start.y + second * outHandle.y + third * inHandle.y + fourth * end.y),
+                    (float) (first * start.z + second * outHandle.z + third * inHandle.z + fourth * end.z)),
                     geodesics.tracedVertexId[point], point);
         }
     }
@@ -574,22 +550,17 @@ public final class SurfaceSplineTracer {
      * Appends one sample of the cubic over the point of the last geodesic it stands for, or over
      * a bare vertex when {@code tracedPoint} is -1.
      */
-    private void appendPoint(double x, double y, double z, int vertexId, int tracedPoint) {
+    private void appendPoint(Vector3f position, int vertexId, int tracedPoint) {
         ensureEmitCapacity();
-        int base = COORDINATES_PER_POINT * emittedCount;
-        emittedXyz[base] = x;
-        emittedXyz[base + 1] = y;
-        emittedXyz[base + 2] = z;
+        emittedXyz.append(position);
         emittedVertexId[emittedCount] = vertexId;
         if (tracedPoint < 0) {
-            geodesics.mesh.vertexPosition(vertexId, anchorPosition);
-            PackedPoints.store(emittedSurfaceXyz, base, anchorPosition);
+            emittedSurfaceXyz.append(geodesics.mesh.vertexPosition(vertexId, anchorPosition));
             emittedEdgeId[emittedCount] = -1;
             emittedFaceId[emittedCount] = -1;
             emittedFraction[emittedCount] = -1.0;
         } else {
-            System.arraycopy(geodesics.tracedXyz, COORDINATES_PER_POINT * tracedPoint,
-                    emittedSurfaceXyz, base, COORDINATES_PER_POINT);
+            emittedSurfaceXyz.append(geodesics.tracedXyz.at(tracedPoint));
             emittedEdgeId[emittedCount] = geodesics.tracedEdgeId[tracedPoint];
             emittedFaceId[emittedCount] = geodesics.tracedFaceId[tracedPoint];
             emittedFraction[emittedCount] = geodesics.tracedFraction[tracedPoint];
@@ -602,9 +573,7 @@ public final class SurfaceSplineTracer {
             return;
         }
         int grown = Math.max(256, 2 * emittedVertexId.length);
-        emittedXyz = Arrays.copyOf(emittedXyz, COORDINATES_PER_POINT * grown);
         emittedVertexId = Arrays.copyOf(emittedVertexId, grown);
-        emittedSurfaceXyz = Arrays.copyOf(emittedSurfaceXyz, COORDINATES_PER_POINT * grown);
         emittedEdgeId = Arrays.copyOf(emittedEdgeId, grown);
         emittedFaceId = Arrays.copyOf(emittedFaceId, grown);
         emittedFraction = Arrays.copyOf(emittedFraction, grown);

@@ -25,7 +25,6 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
-import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
@@ -221,26 +220,25 @@ class SliverCollapseToolTest {
             { 70, 180 }, { 60, 270 }, { 1, -30 } };
         float cosine = (float) Math.cos(Math.toRadians(MERIDIAN_DEGREES));
         float sine = (float) Math.sin(Math.toRadians(MERIDIAN_DEGREES));
-        float[][] rings = { new float[3 * ANCHORS[0]], new float[3 * zipperLatLon.length],
-            { cosine, 0f, sine, 0f, 1f, 0f, -cosine, 0f, -sine, 0f, -1f, 0f } };
+        List<List<Vector3f>> rings = List.of(new ArrayList<>(), new ArrayList<>(),
+                List.of(new Vector3f(cosine, 0f, sine), new Vector3f(0f, 1f, 0f),
+                        new Vector3f(-cosine, 0f, -sine), new Vector3f(0f, -1f, 0f)));
         for (int index = 0; index < ANCHORS[0]; index++) {
             double angle = 2 * Math.PI * index / ANCHORS[0];
-            rings[0][3 * index] = (float) Math.cos(angle);
-            rings[0][3 * index + 2] = (float) Math.sin(angle);
+            rings.get(0).add(new Vector3f((float) Math.cos(angle), 0f, (float) Math.sin(angle)));
         }
-        for (int index = 0; index < zipperLatLon.length; index++) {
-            double lat = Math.toRadians(zipperLatLon[index][0]);
-            double lon = Math.toRadians(zipperLatLon[index][1]);
-            rings[1][3 * index] = (float) (Math.cos(lat) * Math.cos(lon));
-            rings[1][3 * index + 1] = (float) Math.sin(lat);
-            rings[1][3 * index + 2] = (float) (Math.cos(lat) * Math.sin(lon));
+        for (double[] latLon : zipperLatLon) {
+            double lat = Math.toRadians(latLon[0]);
+            double lon = Math.toRadians(latLon[1]);
+            rings.get(1).add(new Vector3f((float) (Math.cos(lat) * Math.cos(lon)),
+                    (float) Math.sin(lat), (float) (Math.cos(lat) * Math.sin(lon))));
         }
         Vector3f[] ringNormals = { new Vector3f(0f, 1f, 0f), null, new Vector3f(-sine, 0f, cosine) };
         StringBuilder source = new StringBuilder(SPHERE);
         String input = SURFACE_GEOMETRY;
         for (int ring = 0; ring < LABELS.length; ring++) {
             source.append(RingDslWriter.splineStatement(LABELS[ring], input,
-                    SurfaceWaypoints.points(rings[ring]), rings[ring].length / 3,
+                    rings.get(ring), rings.get(ring).size(),
                     ringNormals[ring])).append(LINE_BREAK);
             input = LABELS[ring] + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
         }
@@ -313,7 +311,7 @@ class SliverCollapseToolTest {
         Vector3f normalC = raw.normalize();
         Vector3f[] planeNormals = { normalA, normalB, normalC };
         float[] distances = { 0f, distanceB, distanceC };
-        float[][] points = new float[LABELS.length][];
+        List<List<Vector3f>> points = new ArrayList<>();
         Vector3f[] normals = new Vector3f[LABELS.length];
         for (int ring = 0; ring < LABELS.length; ring++) {
             Vector3f normal = planeNormals[ring];
@@ -321,23 +319,21 @@ class SliverCollapseToolTest {
             Vector3f first = new Vector3f(1f, 0f, 0f);
             first.sub(new Vector3f(normal).mul(first.dot(normal))).normalize();
             Vector3f second = new Vector3f(normal).cross(first);
-            points[ring] = new float[3 * ANCHORS[ring]];
+            List<Vector3f> anchors = new ArrayList<>();
             for (int anchor = 0; anchor < ANCHORS[ring]; anchor++) {
                 double angle = 2 * Math.PI * (anchor + 0.5) / ANCHORS[ring];
-                Vector3f point = new Vector3f(normal).mul(distances[ring])
+                anchors.add(new Vector3f(normal).mul(distances[ring])
                         .add(new Vector3f(first).mul((float) (radius * Math.cos(angle))))
-                        .add(new Vector3f(second).mul((float) (radius * Math.sin(angle))));
-                points[ring][3 * anchor] = point.x;
-                points[ring][3 * anchor + 1] = point.y;
-                points[ring][3 * anchor + 2] = point.z;
+                        .add(new Vector3f(second).mul((float) (radius * Math.sin(angle)))));
             }
+            points.add(anchors);
             normals[ring] = new Vector3f(normal);
         }
         StringBuilder source = new StringBuilder(SPHERE);
         String input = SURFACE_GEOMETRY;
         for (int ring = 0; ring < LABELS.length; ring++) {
             source.append(RingDslWriter.splineStatement(LABELS[ring], input,
-                    SurfaceWaypoints.points(points[ring]), ANCHORS[ring], normals[ring]))
+                    points.get(ring), ANCHORS[ring], normals[ring]))
                     .append(LINE_BREAK);
             input = LABELS[ring] + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
         }
@@ -411,7 +407,7 @@ class SliverCollapseToolTest {
             lowest = height < bottom ? vertexId : lowest;
             bottom = Math.min(bottom, height);
         }
-        int[] anchors = { highest, metric.nearestVertex.find(0f, -1f, 0f), lowest };
+        int[] anchors = { highest, metric.nearestVertex.find(new Vector3f(0f, -1f, 0f)), lowest };
         int[] ends = { middle.serial, middle.serial };
         SurfaceSpline traced = tool.bisector.traced(anchors, ends, RingSegmentMode.GEODESIC, null);
         assertNotNull(traced, tool.lastError);

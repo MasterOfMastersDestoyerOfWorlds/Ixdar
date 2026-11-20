@@ -21,6 +21,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ring.RingTool;
@@ -64,13 +65,12 @@ class RingAnchorOrderTest {
     @Test
     void anchorsAddedInAnyOrderGiveTheSameSimpleRingByLeastAddedLength() {
         MeshTopology tube = tube(FLAT_HALF_WIDTH, HALF_THICKNESS, SHUFFLED_TUBE_SIDES);
-        float[] xyz = new float[XYZ * 2 * ACROSS.length];
+        PackedPoints xyz = new PackedPoints(2 * ACROSS.length);
         for (int face = 0; face < 2; face++) {
             for (int anchor = 0; anchor < ACROSS.length; anchor++) {
-                int base = XYZ * (face * ACROSS.length + anchor);
-                xyz[base] = (anchor + face) % 2 == 0 ? ALONG_JITTER : -ALONG_JITTER;
-                xyz[base + 1] = ACROSS[anchor];
-                xyz[base + 2] = face == 0 ? HALF_THICKNESS : -HALF_THICKNESS;
+                xyz.set(face * ACROSS.length + anchor,
+                        (anchor + face) % 2 == 0 ? ALONG_JITTER : -ALONG_JITTER, ACROSS[anchor],
+                        face == 0 ? HALF_THICKNESS : -HALF_THICKNESS);
             }
         }
         int[] anchors = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, 2 * ACROSS.length);
@@ -148,11 +148,11 @@ class RingAnchorOrderTest {
     @Test
     void aMoveThatWouldCrossTheRingIsRefused() {
         MeshTopology tube = tube(0f, ROUND_RADIUS);
-        float[] xyz = new float[XYZ * QUARTERS];
+        PackedPoints xyz = new PackedPoints(QUARTERS);
         for (int quarter = 0; quarter < QUARTERS; quarter++) {
             double angle = 2.0 * Math.PI * quarter / QUARTERS;
-            xyz[XYZ * quarter + 1] = (float) (ROUND_RADIUS * Math.cos(angle));
-            xyz[XYZ * quarter + 2] = (float) (ROUND_RADIUS * Math.sin(angle));
+            xyz.set(quarter, 0f, (float) (ROUND_RADIUS * Math.cos(angle)),
+                    (float) (ROUND_RADIUS * Math.sin(angle)));
         }
         int[] quarters = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, QUARTERS);
         RingTool tool = draftOn(SurfaceMetric.of(tube), quarters[0], TUBE_AXIS);
@@ -162,9 +162,8 @@ class RingAnchorOrderTest {
         int[] before = tool.draftAuthoredVertexId;
         SurfaceSpline drawn = tool.draft;
         double angle = Math.toRadians(MOVED_ANCHOR_DEGREES);
-        int moved = SurfaceWaypoints.snap(NearestVertex.over(tube),new float[] { 0f,
-            (float) (ROUND_RADIUS * Math.cos(angle)), (float) (ROUND_RADIUS * Math.sin(angle)) },
-                1)[0];
+        int moved = NearestVertex.over(tube).find(new Vector3f(0f,
+                (float) (ROUND_RADIUS * Math.cos(angle)), (float) (ROUND_RADIUS * Math.sin(angle))));
         tool.selectedAnchorVertexId = quarters[1];
 
         assertFalse(tool.moveSelectedAnchor(moved), "the crossing move was taken");
@@ -229,7 +228,7 @@ class RingAnchorOrderTest {
     private static MeshTopology tube(float flatHalfWidth, float radius, int sides) {
         double flat = 2.0 * flatHalfWidth;
         double perimeter = 2.0 * flat + 2.0 * Math.PI * radius;
-        float[] positions = new float[XYZ * sides * RINGS];
+        PackedPoints positions = new PackedPoints(sides * RINGS);
         for (int ring = 0; ring < RINGS; ring++) {
             float x = -HALF_LENGTH + 2f * HALF_LENGTH * ring / (RINGS - 1);
             for (int side = 0; side < sides; side++) {
@@ -252,10 +251,7 @@ class RingAnchorOrderTest {
                     y = flatHalfWidth + radius * Math.cos(angle);
                     z = radius * Math.sin(angle);
                 }
-                int base = XYZ * (sides * ring + side);
-                positions[base] = x;
-                positions[base + 1] = (float) y;
-                positions[base + 2] = (float) z;
+                positions.set(sides * ring + side, x, (float) y, (float) z);
             }
         }
         int[] faces = new int[2 * XYZ * sides * (RINGS - 1)];

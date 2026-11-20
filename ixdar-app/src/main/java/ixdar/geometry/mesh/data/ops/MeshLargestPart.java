@@ -45,10 +45,9 @@ public final class MeshLargestPart {
         }
         int[] kept = new int[vertexCount];
         Arrays.fill(kept, -1);
-        float[] positions = new float[vertexCount * 3];
+        PackedPoints positions = new PackedPoints();
         int[] faceSizes = new int[mesh.faceCount()];
         int[] corners = new int[mesh.faceCount() * 4];
-        int keptVertices = 0;
         int keptFaces = 0;
         int keptCorners = 0;
         Vector3f position = new Vector3f();
@@ -64,15 +63,13 @@ public final class MeshLargestPart {
             for (int corner = 0; corner < size; corner++) {
                 int vertex = activeOf[mesh.faceVertexAt(faceId, corner)];
                 if (kept[vertex] < 0) {
-                    mesh.vertexPosition(mesh.vertexIdAt(vertex), position);
-                    PackedPoints.store(positions, keptVertices * 3, position);
-                    kept[vertex] = keptVertices++;
+                    kept[vertex] = positions.append(mesh.vertexPosition(mesh.vertexIdAt(vertex), position));
                 }
                 corners[keptCorners++] = kept[vertex];
             }
             faceSizes[keptFaces++] = size;
         }
-        HalfEdgeMesh part = HalfEdgeMeshOps.bulkAllocateMixed(Arrays.copyOf(positions, keptVertices * 3),
+        HalfEdgeMesh part = HalfEdgeMeshOps.bulkAllocateMixed(positions,
                 Arrays.copyOf(faceSizes, keptFaces), Arrays.copyOf(corners, keptCorners));
         part.computeNormals();
         return part;

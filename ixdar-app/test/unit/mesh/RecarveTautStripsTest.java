@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetworkRecarve;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.SnappingCarve;
@@ -283,11 +284,10 @@ class RecarveTautStripsTest {
      * @return a working copy of that strip
      */
     private EmbeddedMeshTopology stripTopology() {
-        float[] positions = new float[ROW_VERTICES * 2 * CORNERS];
+        PackedPoints positions = new PackedPoints(ROW_VERTICES * 2);
         for (int column = 0; column < ROW_VERTICES; column++) {
-            positions[column * CORNERS] = column;
-            positions[(ROW_VERTICES + column) * CORNERS] = column;
-            positions[(ROW_VERTICES + column) * CORNERS + 1] = 1.0f;
+            positions.set(column, column, 0f, 0f);
+            positions.set(ROW_VERTICES + column, column, 1.0f, 0f);
         }
         List<Integer> faces = new ArrayList<>();
         for (int column = 0; column < ROW_VERTICES - 1; column++) {

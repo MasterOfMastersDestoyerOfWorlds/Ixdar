@@ -13,6 +13,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Circle curve primitive: generates a closed circular polyline as a CurveGeometry.
@@ -73,15 +74,13 @@ public class CircleCurveNode implements MeshNode {
             cz = v.z();
         }
 
-        float[] positions = new float[resolution * 3];
+        PackedPoints positions = new PackedPoints(resolution);
         float twoPi = 2.0f * (float) Math.PI;
 
         for (int i = 0; i < resolution; i++) {
             float theta = (i / (float) resolution) * twoPi;
-            int base = i * 3;
-            positions[base] = cx + radius * (float) Math.cos(theta);
-            positions[base + 1] = cy;
-            positions[base + 2] = cz + radius * (float) Math.sin(theta);
+            positions.set(i, cx + radius * (float) Math.cos(theta), cy,
+                    cz + radius * (float) Math.sin(theta));
         }
 
         CurveGeometry curve = CurveGeometry.singlePolyline(positions, true);

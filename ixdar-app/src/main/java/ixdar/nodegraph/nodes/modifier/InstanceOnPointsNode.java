@@ -6,9 +6,7 @@ import org.joml.Matrix4f;
 
 import java.util.Map;
 import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -24,6 +22,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "instance_on_points", category = NodeCategory.MODIFIERS)
@@ -69,24 +68,23 @@ public class InstanceOnPointsNode implements MeshNode {
             return;
         }
 
-        float[] positions = positionsFromBundle(pts);
-        if (positions.length < 3) {
+        Object curve = pts.slots().get(CurveGeometry.SLOT);
+        MeshTopology pointMesh = pts.mesh();
+        PackedPoints points = curve instanceof CurveGeometry curveGeometry ? curveGeometry.positions
+                : pointMesh == null ? new PackedPoints() : pointMesh.packedPositions(null);
+        if (points.size() == 0) {
             ctx.setOutput(GEOMETRY.name, pts.withSlot(INSTANCE_MESH, inst));
             return;
         }
 
-        int n = positions.length / 3;
         HalfEdgeMesh out = new HalfEdgeMesh();
         Matrix4f mat = new Matrix4f();
         Quaternionf q = new Quaternionf();
-        for (int i = 0; i < n; i++) {
-            float x = positions[3 * i];
-            float y = positions[3 * i + 1];
-            float z = positions[3 * i + 2];
+        for (int i = 0; i < points.size(); i++) {
             RotationValue rv = rotationAt(rotObj, i);
             q.set(rv.x(), rv.y(), rv.z(), rv.w());
             mat.identity();
-            mat.translation(x, y, z);
+            mat.translation(points.at(i));
             mat.rotate(q);
             MeshAppend.append(out, inst, mat);
         }
@@ -94,23 +92,6 @@ public class InstanceOnPointsNode implements MeshNode {
         ctx.setOutput(GEOMETRY.name, pts.withMesh(out).withSlot(INSTANCE_MESH, inst));
     }
 
-    private static float[] positionsFromBundle(GeometryBundle gb) {
-        Object c = gb.slots().get(CurveGeometry.SLOT);
-        if (c instanceof CurveGeometry cg) {
-            return cg.positions;
-        }
-        MeshTopology m = gb.mesh();
-        if (m == null || m.vertexCount() == 0) {
-            return new float[0];
-        }
-        float[] p = new float[m.vertexCount() * 3];
-        Vector3f tmp = new Vector3f();
-        for (int i = 0; i < m.vertexCount(); i++) {
-            m.vertexPosition(m.vertexIdAt(i), tmp);
-            PackedPoints.store(p, 3 * i, tmp);
-        }
-        return p;
-    }
 
     private static RotationValue rotationAt(Object rot, int i) {
         if (rot instanceof RotationField rf) {

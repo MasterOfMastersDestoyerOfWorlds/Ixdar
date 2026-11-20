@@ -47,8 +47,6 @@ public final class ReferenceStrokes {
 
     public static final float RESAMPLE_PIXELS = 3f;
 
-    public static final int COVERED_FIELDS = 4;
-
     public static final float CAVITY_DEPTH_PER_INSET = 2.5f;
 
     public static final double ROUND_HOLLOW = 0.5;
@@ -112,17 +110,17 @@ public final class ReferenceStrokes {
     /** The template cell each picture is drawn in: the one looking most nearly its way. */
     public int[] templateCellByView;
 
-    /** Base points earlier pictures' marks landed on, {@link #COVERED_FIELDS} each: xyz, the mark's radius. */
-    public float[] covered = new float[0];
+    /**
+     * Base points marks landed on: the first {@link #coveredPoints} from earlier pictures, the rest the
+     * current picture's, which join them once the picture is done.
+     */
+    public PackedPoints landed = new PackedPoints();
 
-    /** Points in {@link #covered}. */
+    /** Each landed point's mark radius, how near another mark it covers. */
+    public float[] landedRadius = new float[0];
+
+    /** Landed points from finished pictures. */
     public int coveredPoints;
-
-    /** The current picture's landed points, joining {@link #covered} once the picture is done. */
-    public float[] pending = new float[0];
-
-    /** Points in {@link #pending}. */
-    public int pendingPoints;
 
     /**
      * Turn every picture's shading into strokes on the sculpt's camera: each mark placed by the fit,
@@ -149,9 +147,9 @@ public final class ReferenceStrokes {
         strokes.backByView = new float[views][];
         strokes.templateCellByView = new int[views];
         for (int view = 0; view < views; view++) {
-            float[] axes = traced.axesByView[view];
-            Vector3f back = new Vector3f(axes[0], axes[1], axes[2]).cross(axes[ReferenceOutlines.UP],
-                    axes[ReferenceOutlines.UP + 1], axes[ReferenceOutlines.UP + 2]).normalize();
+            Vector3f[] axes = traced.axesByView[view];
+            Vector3f back = new Vector3f(axes[ReferenceOutlines.RIGHT])
+                    .cross(axes[ReferenceOutlines.UP]).normalize();
             strokes.backByView[view] = new float[] { back.x, back.y, back.z };
             float nearest = -Float.MAX_VALUE;
             for (int cell = 0; cell < template.viewCameras.length; cell++) {
@@ -247,12 +245,7 @@ public final class ReferenceStrokes {
                 strokes.fillsByView[view]++;
             }
             groupByView[view] = "<g id=\"" + GROUP_PREFIX + names[view] + "\">\n" + group + GROUP_END;
-            strokes.covered = Arrays.copyOf(strokes.covered, (strokes.coveredPoints + strokes.pendingPoints)
-                    * COVERED_FIELDS);
-            System.arraycopy(strokes.pending, 0, strokes.covered, strokes.coveredPoints * COVERED_FIELDS,
-                    strokes.pendingPoints * COVERED_FIELDS);
-            strokes.coveredPoints += strokes.pendingPoints;
-            strokes.pendingPoints = 0;
+            strokes.coveredPoints = strokes.landed.size();
             int width = marks.width;
             int height = marks.height;
             strokes.pictureSvgByView[view] = String.format(Locale.ROOT, "<svg xmlns=\"http://www.w3.org/2000/svg\" "
@@ -282,7 +275,7 @@ public final class ReferenceStrokes {
      * @return pieces of {@link #PLACED_FIELDS} floats per point: template cell pixel, then picture pixel
      */
     public List<float[]> place(int view, float[] sparse, boolean closed, float radius) {
-        int ownStart = pendingPoints;
+        int ownStart = landed.size();
         float[] picture = new float[0];
         int filled = 0;
         for (int point = 0; point < sparse.length / 2; point++) {
@@ -299,7 +292,8 @@ public final class ReferenceStrokes {
         picture = Arrays.copyOf(picture, filled);
         float[] box = { traced.subjectByView[view].box[0] + traced.subjectByView[view].box[2] / 2f,
             traced.subjectByView[view].box[1] + traced.subjectByView[view].box[3] / 2f };
-        float[] axes = traced.axesByView[view];
+        Vector3f right = traced.axesByView[view][ReferenceOutlines.RIGHT];
+        Vector3f upAxis = traced.axesByView[view][ReferenceOutlines.UP];
         float[] back = backByView[view];
         float extent = traced.extents.get(traced.extents.maxComponent());
         int cell = templateCellByView[view];
@@ -320,7 +314,7 @@ public final class ReferenceStrokes {
             float across = (cellX - (traced.cellWidth / 2f - 0.5f)) * traced.worldPerCellPixel;
             float up = (traced.cellHeight / 2f - 0.5f - cellY) * traced.worldPerCellPixel;
             for (int axis = 0; axis < 3; axis++) {
-                origin.setComponent(axis, axes[axis] * across + axes[ReferenceOutlines.UP + axis] * up
+                origin.setComponent(axis, right.get(axis) * across + upAxis.get(axis) * up
                         + back[axis] * extent * RAY_START_EXTENTS);
             }
             int triangle = triangles.nearestHit(origin, direction, Double.POSITIVE_INFINITY, stack);
@@ -330,20 +324,18 @@ public final class ReferenceStrokes {
                 base.faceNormal(faceOfTriangle[triangle], normal).normalize();
                 kept = normal.dot(back[0], back[1], back[2]) >= PLACE_COSINE && template.cellPixel(camera, hit, pixel)
                         && pixel[0] >= 0f && pixel[1] >= 0f && pixel[0] < template.cellWidth && pixel[1] < template.cellHeight;
-                for (int earlier = 0; earlier < coveredPoints + (closed ? 0 : ownStart) && kept; earlier++) {
-                    float[] from = earlier < coveredPoints ? covered : pending;
-                    int at = (earlier < coveredPoints ? earlier : earlier - coveredPoints) * COVERED_FIELDS;
-                    float reach = Math.max(radius, from[at + 3]);
-                    kept = hit.distanceSquared(from[at], from[at + 1], from[at + 2]) >= reach * reach;
+                for (int earlier = 0; earlier < (closed ? coveredPoints : ownStart) && kept; earlier++) {
+                    float reach = Math.max(radius, landedRadius[earlier]);
+                    kept = hit.distanceSquared(landed.get(earlier, 0), landed.get(earlier, 1),
+                            landed.get(earlier, 2)) >= reach * reach;
                 }
             }
             if (kept) {
-                if ((pendingPoints + 1) * COVERED_FIELDS > pending.length) {
-                    pending = Arrays.copyOf(pending, pending.length * 2 + COVERED_FIELDS);
+                int landedPoint = landed.append(hit);
+                if (landedPoint >= landedRadius.length) {
+                    landedRadius = Arrays.copyOf(landedRadius, landedRadius.length * 2 + 1);
                 }
-                PackedPoints.store(pending, pendingPoints * COVERED_FIELDS, hit);
-                pending[pendingPoints * COVERED_FIELDS + 3] = radius;
-                pendingPoints++;
+                landedRadius[landedPoint] = radius;
                 piece[length * PLACED_FIELDS] = pixel[0];
                 piece[length * PLACED_FIELDS + 1] = pixel[1];
                 piece[length * PLACED_FIELDS + 2] = picture[point * 2];

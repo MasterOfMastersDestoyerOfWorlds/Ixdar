@@ -15,6 +15,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.FloatCurveKernel;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
@@ -98,17 +99,17 @@ public class CurveDeformNode implements MeshNode {
         float range = fromMax - fromMin;
         if (Math.abs(range) < MIN_RANGE) range = 1f;
 
-        float[] srcPos = cg.positions;
-        float[] dstPos = srcPos.clone();
-        int nPts = srcPos.length / 3;
+        PackedPoints srcPos = cg.positions;
+        int nPts = srcPos.size();
+        PackedPoints dstPos = new PackedPoints(nPts);
 
         for (int i = 0; i < nPts; i++) {
-            int base3 = i * 3;
-            float src = dstPos[base3 + srcIdx];
-            float t = (src - fromMin) / range;
+            float t = (srcPos.get(i, srcIdx) - fromMin) / range;
             t = Math.max(0f, Math.min(1f, t));
             float offset = kernel.evaluate(t) * amplitude;
-            dstPos[base3 + tgtIdx] += offset;
+            dstPos.set(i, srcPos.get(i, 0) + (tgtIdx == 0 ? offset : 0f),
+                    srcPos.get(i, 1) + (tgtIdx == 1 ? offset : 0f),
+                    srcPos.get(i, 2) + (tgtIdx == 2 ? offset : 0f));
         }
 
         CurveGeometry deformed = cg.withPositions(dstPos);

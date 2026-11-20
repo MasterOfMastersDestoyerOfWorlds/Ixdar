@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.rings.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
@@ -38,10 +39,8 @@ class LoopThroughPointsTest {
 
     private static final int MINOR_SEGMENTS = 48;
 
-    private static final float[] TUBE_POINTS = {
-        1.350000f, 0.000000f, 0.000000f,
-        0.445749f, 0.303109f, 0.694214f,
-        0.512828f, -0.303109f, -0.646245f };
+    private static final PackedPoints TUBE_POINTS = SurfaceWaypoints.parse(
+            "1.350000,0.000000,0.000000; 0.445749,0.303109,0.694214; 0.512828,-0.303109,-0.646245");
 
     private static final List<Vector3f> TUBE_WAYPOINTS = SurfaceWaypoints.points(TUBE_POINTS);
 
@@ -76,7 +75,7 @@ class LoopThroughPointsTest {
         SurfaceRing ring = SurfaceRing.through(torus, TUBE_POINTS, TUBE_POINT_COUNT, true, 0, -1);
 
         double analytic = 2.0 * Math.PI * MINOR_RADIUS;
-        double[] centroid = ring.path.centroid;
+        Vector3f centroid = ring.path.centroid;
         assertTrue(Math.abs(ring.path.length - analytic) / analytic < 0.01,
                 "ring length " + ring.path.length + " is not within 1% of the analytic meridian "
                         + analytic);
@@ -87,19 +86,19 @@ class LoopThroughPointsTest {
                 "a meridian should mark at least one edge per tube segment, marked "
                         + ring.marks.markedEdgeCount);
         assertTrue(ring.path.closed, "the ring path does not close on its first point");
-        assertTrue(Math.abs(centroid[0] * centroid[0] + centroid[2] * centroid[2]
+        assertTrue(Math.abs((double) centroid.x * centroid.x + (double) centroid.z * centroid.z
                 - MAJOR_RADIUS * MAJOR_RADIUS) < 0.01,
                 "the ring centroid should sit on the torus centre line, not at "
-                        + centroid[0] + ", " + centroid[2]);
+                        + centroid.x + ", " + centroid.z);
     }
 
     @Test
     void thePointsInAnotherOrderGiveTheSameRing() {
         MeshTopology torus = torus();
-        float[] rotated = {
-            TUBE_POINTS[3], TUBE_POINTS[4], TUBE_POINTS[5],
-            TUBE_POINTS[6], TUBE_POINTS[7], TUBE_POINTS[8],
-            TUBE_POINTS[0], TUBE_POINTS[1], TUBE_POINTS[2] };
+        PackedPoints rotated = new PackedPoints(TUBE_POINT_COUNT);
+        for (int point = 0; point < TUBE_POINT_COUNT; point++) {
+            rotated.set(point, TUBE_POINTS.at((point + 1) % TUBE_POINT_COUNT));
+        }
 
         SurfaceRing authored =
                 SurfaceRing.through(torus, TUBE_POINTS, TUBE_POINT_COUNT, true, 0, -1);
@@ -152,14 +151,14 @@ class LoopThroughPointsTest {
     @Test
     void aPinnedRingStaysAtThePinWhileAFreeOneSlidesToTheWaist() {
         MeshTopology tube = waistedTube();
-        float[] points = ringAround(PIN_X, PINNED_WAYPOINTS);
+        PackedPoints points = ringAround(PIN_X, PINNED_WAYPOINTS);
 
         SurfaceRing free = SurfaceRing.through(tube, points, PINNED_WAYPOINTS, true, 0, -1);
         SurfaceRing pinned =
                 SurfaceRing.through(tube, points, PINNED_WAYPOINTS, true, PINNED_WAYPOINTS, -1);
 
-        double freeX = free.path.centroid[0];
-        double pinnedX = pinned.path.centroid[0];
+        double freeX = free.path.centroid.x;
+        double pinnedX = pinned.path.centroid.x;
         assertTrue(Math.abs(freeX) < 0.2f,
                 "the unpinned ring should slide to the waist at x = 0, not sit at " + freeX);
         assertTrue(Math.abs(pinnedX - PIN_X) < 0.1f,
@@ -178,7 +177,21 @@ class LoopThroughPointsTest {
         MeshTopology tube = waistedTube();
         SurfaceRing live = SurfaceRing.through(tube, ringAround(PIN_X, PINNED_WAYPOINTS),
                 PINNED_WAYPOINTS, true, PINNED_WAYPOINTS, -1);
-        float[] written = onRingWaypoints(tube, live, PINNED_WAYPOINTS);
+        int loopPoints = live.path.pointCount;
+        PackedPoints sampled = new PackedPoints(PINNED_WAYPOINTS);
+        for (int waypoint = 0; waypoint < PINNED_WAYPOINTS; waypoint++) {
+            int point = (int) (Math.round((double) loopPoints * waypoint / PINNED_WAYPOINTS)
+                    % loopPoints);
+            sampled.set(waypoint, live.path.positions.at(point));
+        }
+        int[] vertexIds = SurfaceWaypoints.snap(NearestVertex.over(tube), sampled,
+                PINNED_WAYPOINTS);
+        PackedPoints chosen = new PackedPoints(PINNED_WAYPOINTS);
+        for (int waypoint = 0; waypoint < PINNED_WAYPOINTS; waypoint++) {
+            chosen.set(waypoint, tube.vertexPosition(vertexIds[waypoint], new Vector3f()));
+        }
+        PackedPoints written = SurfaceWaypoints.parse(SurfaceWaypoints.format(chosen,
+                PINNED_WAYPOINTS));
 
         LoopThroughPointsNode node = new LoopThroughPointsNode();
         MapNodeContext ctx = new MapNodeContext(node);
@@ -222,45 +235,15 @@ class LoopThroughPointsTest {
     }
 
     /**
-     * Waypoints spread by arclength around the tightened ring and written as the positions of the
-     * vertices they snap to, the form the ring tool writes a pinned statement in.
-     */
-    private static float[] onRingWaypoints(MeshTopology mesh, SurfaceRing ring,
-            int waypointCount) {
-        int coordinates = SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        int loopPoints = ring.path.pointCount;
-        float[] sampled = new float[coordinates * waypointCount];
-        for (int waypoint = 0; waypoint < waypointCount; waypoint++) {
-            int point = (int) Math.round((double) loopPoints * waypoint / waypointCount);
-            for (int axis = 0; axis < coordinates; axis++) {
-                sampled[coordinates * waypoint + axis] =
-                        (float) ring.path.positions[coordinates * (point % loopPoints) + axis];
-            }
-        }
-        int[] vertexIds = SurfaceWaypoints.snap(NearestVertex.over(mesh), sampled, waypointCount);
-        float[] chosen = new float[coordinates * waypointCount];
-        Vector3f position = new Vector3f();
-        for (int waypoint = 0; waypoint < waypointCount; waypoint++) {
-            mesh.vertexPosition(vertexIds[waypoint], position);
-            chosen[coordinates * waypoint] = position.x;
-            chosen[coordinates * waypoint + 1] = position.y;
-            chosen[coordinates * waypoint + 2] = position.z;
-        }
-        return SurfaceWaypoints.parse(SurfaceWaypoints.format(chosen, waypointCount));
-    }
-
-    /**
      * Points spread around the tapered tube's surface at one station along its axis.
      */
-    private static float[] ringAround(float x, int pointCount) {
+    private static PackedPoints ringAround(float x, int pointCount) {
         float radius = waistRadius(x);
-        float[] points = new float[SurfaceWaypoints.COORDINATES_PER_WAYPOINT * pointCount];
+        PackedPoints points = new PackedPoints(pointCount);
         for (int point = 0; point < pointCount; point++) {
             double angle = 2.0 * Math.PI * point / pointCount;
-            int base = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * point;
-            points[base] = x;
-            points[base + 1] = (float) (radius * Math.cos(angle));
-            points[base + 2] = (float) (radius * Math.sin(angle));
+            points.set(point, x, (float) (radius * Math.cos(angle)),
+                    (float) (radius * Math.sin(angle)));
         }
         return points;
     }
@@ -276,21 +259,18 @@ class LoopThroughPointsTest {
      * the waist and a ring anywhere else has to be pinned to stay there.
      */
     private static MeshTopology waistedTube() {
-        int coordinates = SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        float[] positions = new float[coordinates * WAIST_TUBE_SIDES * WAIST_TUBE_RINGS];
+        PackedPoints positions = new PackedPoints(WAIST_TUBE_SIDES * WAIST_TUBE_RINGS);
         for (int ring = 0; ring < WAIST_TUBE_RINGS; ring++) {
             float x = -WAIST_TUBE_HALF_LENGTH
                     + 2f * WAIST_TUBE_HALF_LENGTH * ring / (WAIST_TUBE_RINGS - 1);
             float radius = waistRadius(x);
             for (int side = 0; side < WAIST_TUBE_SIDES; side++) {
                 double angle = 2.0 * Math.PI * side / WAIST_TUBE_SIDES;
-                int base = coordinates * (WAIST_TUBE_SIDES * ring + side);
-                positions[base] = x;
-                positions[base + 1] = (float) (radius * Math.cos(angle));
-                positions[base + 2] = (float) (radius * Math.sin(angle));
+                positions.set(WAIST_TUBE_SIDES * ring + side, x, (float) (radius * Math.cos(angle)),
+                        (float) (radius * Math.sin(angle)));
             }
         }
-        int[] faces = new int[2 * coordinates * WAIST_TUBE_SIDES * (WAIST_TUBE_RINGS - 1)];
+        int[] faces = new int[2 * 3 * WAIST_TUBE_SIDES * (WAIST_TUBE_RINGS - 1)];
         int corner = 0;
         for (int ring = 0; ring + 1 < WAIST_TUBE_RINGS; ring++) {
             for (int side = 0; side < WAIST_TUBE_SIDES; side++) {

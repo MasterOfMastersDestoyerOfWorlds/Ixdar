@@ -21,6 +21,7 @@ import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.modifier.RepairMeshNode;
@@ -95,10 +96,13 @@ class MeshRepairTest {
 
     @Test
     void seamSplitSquareWeldsToFourVerticesWithUvsIntactPerCorner() {
-        float[] positions = {
-            0, 0, 0, 1, 0, 0, 1, 1, 0,
-            0, 0, 0, 1, 1, 0, 0, 1, 0,
-        };
+        PackedPoints positions = new PackedPoints();
+        positions.append(0, 0, 0);
+        positions.append(1, 0, 0);
+        positions.append(1, 1, 0);
+        positions.append(0, 0, 0);
+        positions.append(1, 1, 0);
+        positions.append(0, 1, 0);
         int[] faces = { 0, 1, 2, 3, 4, 5 };
         double[] cornerU = { 0, 1, 1, 0, 1, 0 };
         double[] cornerV = { 0, 0, 1, 0, 1, 1 };
@@ -488,7 +492,7 @@ class MeshRepairTest {
         int side = CUBE_GRID + 1;
         int[] vertexOfLattice = new int[side * side * side];
         Arrays.fill(vertexOfLattice, -1);
-        float[] positions = new float[(vertexOfLattice.length + 2 * CUBE_GRID) * TRIANGLE_CORNERS];
+        PackedPoints positions = new PackedPoints(vertexOfLattice.length + 2 * CUBE_GRID);
         int vertexCount = 0;
         int[] faces = new int[(CUBE_SIDES * CUBE_GRID + 2) * CUBE_GRID * 2 * TRIANGLE_CORNERS];
         int faceCount = 0;
@@ -506,11 +510,8 @@ class MeshRepairTest {
                             int key = (lattice[0] * side + lattice[1]) * side + lattice[2];
                             if (vertexOfLattice[key] < 0) {
                                 vertexOfLattice[key] = vertexCount;
-                                for (int component = 0; component < TRIANGLE_CORNERS; component++) {
-                                    positions[vertexCount * TRIANGLE_CORNERS + component] =
-                                            -1 + 2f * lattice[component] / CUBE_GRID;
-                                }
-                                vertexCount++;
+                                positions.set(vertexCount++, -1 + 2f * lattice[0] / CUBE_GRID,
+                                        -1 + 2f * lattice[1] / CUBE_GRID, -1 + 2f * lattice[2] / CUBE_GRID);
                             }
                             cell[corner] = vertexOfLattice[key];
                         }
@@ -545,11 +546,8 @@ class MeshRepairTest {
         railB[CUBE_GRID] = vertexOfLattice[((sheetX + 1) * side + SHEET_ROW + 1) * side];
         for (int step = 1; step < CUBE_GRID; step++) {
             for (int rail = 0; rail < 2; rail++) {
-                positions[vertexCount * TRIANGLE_CORNERS] =
-                        -1 + 2f * (sheetX + (float) step / CUBE_GRID) / CUBE_GRID;
-                positions[vertexCount * TRIANGLE_CORNERS + 1] =
-                        -1 + 2f * (SHEET_ROW + rail) / CUBE_GRID;
-                positions[vertexCount * TRIANGLE_CORNERS + 2] = 1 - 2f * step / CUBE_GRID;
+                positions.set(vertexCount, -1 + 2f * (sheetX + (float) step / CUBE_GRID) / CUBE_GRID,
+                        -1 + 2f * (SHEET_ROW + rail) / CUBE_GRID, 1 - 2f * step / CUBE_GRID);
                 if (rail == 0) {
                     railA[step] = vertexCount++;
                 } else {
@@ -563,9 +561,9 @@ class MeshRepairTest {
         }
         int footC = vertexOfLattice[((sheetX + 1) * side + SHEET_ROW + 2) * side];
         faceCount = appendFace(faces, faceCount, railB[CUBE_GRID - 1], footC, railB[CUBE_GRID]);
-        return GeometryBundle.ofMesh(new ArrayMesh(Arrays.copyOf(positions,
-                vertexCount * TRIANGLE_CORNERS), null, Arrays.copyOf(faces,
-                        faceCount * TRIANGLE_CORNERS), TRIANGLE_CORNERS));
+        positions.resize(vertexCount);
+        return GeometryBundle.ofMesh(new ArrayMesh(positions, null, Arrays.copyOf(faces,
+                faceCount * TRIANGLE_CORNERS), TRIANGLE_CORNERS));
     }
 
     /**
@@ -620,11 +618,8 @@ class MeshRepairTest {
     /** Gridded parallelograms emitted as unwelded triangles, for fixtures the weld joins. */
     private static final class GridSoup {
 
-        /** Packed xyz triples. */
-        private float[] positions = new float[0];
-
         /** Vertices written. */
-        private int vertexCount;
+        private PackedPoints positions = new PackedPoints();
 
         /** Flat triangle index buffer. */
         private int[] faces = new int[0];
@@ -645,18 +640,13 @@ class MeshRepairTest {
          */
         void add(float[] origin, float[] along, float[] across, int alongCells, int acrossCells,
                 int holeFirstCell) {
-            int first = vertexCount;
+            int first = positions.size();
             int columns = acrossCells + 1;
-            positions = Arrays.copyOf(positions,
-                    (vertexCount + (alongCells + 1) * columns) * TRIANGLE_CORNERS);
             for (int step = 0; step <= alongCells; step++) {
                 for (int cross = 0; cross <= acrossCells; cross++) {
-                    for (int component = 0; component < TRIANGLE_CORNERS; component++) {
-                        positions[vertexCount * TRIANGLE_CORNERS + component] = origin[component]
-                                + along[component] * step / alongCells
-                                + across[component] * cross / acrossCells;
-                    }
-                    vertexCount++;
+                    positions.append(origin[0] + along[0] * step / alongCells + across[0] * cross / acrossCells,
+                            origin[1] + along[1] * step / alongCells + across[1] * cross / acrossCells,
+                            origin[2] + along[2] * step / alongCells + across[2] * cross / acrossCells);
                 }
             }
             faces = Arrays.copyOf(faces,
@@ -682,9 +672,8 @@ class MeshRepairTest {
          * @return a bundle over the unwelded triangles
          */
         GeometryBundle bundle() {
-            return GeometryBundle.ofMesh(new ArrayMesh(Arrays.copyOf(positions,
-                    vertexCount * TRIANGLE_CORNERS), null, Arrays.copyOf(faces,
-                            faceCount * TRIANGLE_CORNERS), TRIANGLE_CORNERS));
+            return GeometryBundle.ofMesh(new ArrayMesh(positions.copy(), null, Arrays.copyOf(faces,
+                    faceCount * TRIANGLE_CORNERS), TRIANGLE_CORNERS));
         }
     }
 
@@ -695,11 +684,14 @@ class MeshRepairTest {
      * @return the fixture bundle
      */
     private static GeometryBundle cubeWithFin() {
-        float[] positions = {
-            0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
-            0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
-            0.5f, -0.5f, -0.5f,
-        };
+        PackedPoints positions = new PackedPoints();
+        for (int z = 0; z < 2; z++) {
+            positions.append(0, 0, z);
+            positions.append(1, 0, z);
+            positions.append(1, 1, z);
+            positions.append(0, 1, z);
+        }
+        positions.append(0.5f, -0.5f, -0.5f);
         int[] faces = {
             0, 3, 2, 0, 2, 1,
             4, 5, 6, 4, 6, 7,
@@ -719,20 +711,17 @@ class MeshRepairTest {
      * @return the fixture bundle
      */
     private static GeometryBundle mobiusStrip() {
-        float[] positions = new float[MOBIUS_SEGMENTS * 2 * TRIANGLE_CORNERS];
+        PackedPoints positions = new PackedPoints(MOBIUS_SEGMENTS * 2);
         for (int segment = 0; segment < MOBIUS_SEGMENTS; segment++) {
             double angle = TAU * segment / MOBIUS_SEGMENTS;
             double half = angle / 2;
             double outer = 1 + MOBIUS_HALF_WIDTH * Math.cos(half);
             double inner = 1 - MOBIUS_HALF_WIDTH * Math.cos(half);
             double height = MOBIUS_HALF_WIDTH * Math.sin(half);
-            int rail = segment * 2 * TRIANGLE_CORNERS;
-            positions[rail] = (float) (outer * Math.cos(angle));
-            positions[rail + 1] = (float) (outer * Math.sin(angle));
-            positions[rail + 2] = (float) height;
-            positions[rail + TRIANGLE_CORNERS] = (float) (inner * Math.cos(angle));
-            positions[rail + TRIANGLE_CORNERS + 1] = (float) (inner * Math.sin(angle));
-            positions[rail + TRIANGLE_CORNERS + 2] = (float) -height;
+            positions.set(segment * 2, (float) (outer * Math.cos(angle)), (float) (outer * Math.sin(angle)),
+                    (float) height);
+            positions.set(segment * 2 + 1, (float) (inner * Math.cos(angle)), (float) (inner * Math.sin(angle)),
+                    (float) -height);
         }
         int[] faces = new int[MOBIUS_SEGMENTS * 2 * TRIANGLE_CORNERS];
         for (int segment = 0; segment < MOBIUS_SEGMENTS; segment++) {
@@ -758,15 +747,14 @@ class MeshRepairTest {
      * @return the fixture bundle
      */
     private static GeometryBundle sphereWithBubble() {
-        float[] spherePositions = octahedronPositions(1);
+        PackedPoints positions = octahedronPositions(1);
         int[] sphereFaces = octahedronFaces();
-        int sphereVertexCount = spherePositions.length / TRIANGLE_CORNERS;
-        float[] bubblePositions = tetrahedronPositions(BUBBLE_RADIUS);
+        int sphereVertexCount = positions.size();
+        PackedPoints bubblePositions = tetrahedronPositions(BUBBLE_RADIUS);
+        for (int vertex = 0; vertex < bubblePositions.size(); vertex++) {
+            positions.append(bubblePositions.at(vertex));
+        }
         int[] bubbleFaces = tetrahedronFaces();
-        float[] positions = Arrays.copyOf(spherePositions,
-                spherePositions.length + bubblePositions.length);
-        System.arraycopy(bubblePositions, 0, positions, spherePositions.length,
-                bubblePositions.length);
         int[] faces = Arrays.copyOf(sphereFaces, sphereFaces.length + bubbleFaces.length);
         for (int index = 0; index < bubbleFaces.length; index++) {
             faces[sphereFaces.length + index] = bubbleFaces[index] + sphereVertexCount;
@@ -778,13 +766,16 @@ class MeshRepairTest {
      * The four corners of a regular tetrahedron at the given radius.
      *
      * @param radius distance of each vertex from the origin
-     * @return packed xyz triples
+     * @return the four corners
      */
-    private static float[] tetrahedronPositions(float radius) {
+    private static PackedPoints tetrahedronPositions(float radius) {
         float leg = (float) (radius / Math.sqrt(TRIANGLE_CORNERS));
-        return new float[] {
-            leg, leg, leg, leg, -leg, -leg, -leg, leg, -leg, -leg, -leg, leg,
-        };
+        PackedPoints positions = new PackedPoints();
+        positions.append(leg, leg, leg);
+        positions.append(leg, -leg, -leg);
+        positions.append(-leg, leg, -leg);
+        positions.append(-leg, -leg, leg);
+        return positions;
     }
 
     /**
@@ -800,14 +791,17 @@ class MeshRepairTest {
      * The six axis vertices of an octahedron at the given radius.
      *
      * @param radius distance of each vertex from the origin
-     * @return packed xyz triples
+     * @return the six vertices
      */
-    private static float[] octahedronPositions(float radius) {
-        return new float[] {
-            radius, 0, 0, -radius, 0, 0,
-            0, radius, 0, 0, -radius, 0,
-            0, 0, radius, 0, 0, -radius,
-        };
+    private static PackedPoints octahedronPositions(float radius) {
+        PackedPoints positions = new PackedPoints();
+        positions.append(radius, 0, 0);
+        positions.append(-radius, 0, 0);
+        positions.append(0, radius, 0);
+        positions.append(0, -radius, 0);
+        positions.append(0, 0, radius);
+        positions.append(0, 0, -radius);
+        return positions;
     }
 
     /**
@@ -848,17 +842,15 @@ class MeshRepairTest {
      */
     private static GeometryBundle annulusWithSixEdgeHole() {
         int outerCount = RIM_VERTICES * OUTER_PER_RIM;
-        float[] positions = new float[(RIM_VERTICES + outerCount) * TRIANGLE_CORNERS];
+        PackedPoints positions = new PackedPoints(RIM_VERTICES + outerCount);
         for (int rim = 0; rim < RIM_VERTICES; rim++) {
             double angle = TAU * rim / RIM_VERTICES;
-            positions[rim * TRIANGLE_CORNERS] = (float) (RIM_RADIUS * Math.cos(angle));
-            positions[rim * TRIANGLE_CORNERS + 1] = (float) (RIM_RADIUS * Math.sin(angle));
+            positions.set(rim, (float) (RIM_RADIUS * Math.cos(angle)), (float) (RIM_RADIUS * Math.sin(angle)), 0f);
         }
         for (int outer = 0; outer < outerCount; outer++) {
             double angle = TAU * outer / outerCount;
-            int vertex = RIM_VERTICES + outer;
-            positions[vertex * TRIANGLE_CORNERS] = (float) (OUTER_RADIUS * Math.cos(angle));
-            positions[vertex * TRIANGLE_CORNERS + 1] = (float) (OUTER_RADIUS * Math.sin(angle));
+            positions.set(RIM_VERTICES + outer, (float) (OUTER_RADIUS * Math.cos(angle)),
+                    (float) (OUTER_RADIUS * Math.sin(angle)), 0f);
         }
         int[] faces = new int[RIM_VERTICES * (OUTER_PER_RIM + 1) * TRIANGLE_CORNERS];
         int faceCount = 0;

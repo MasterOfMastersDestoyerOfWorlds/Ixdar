@@ -97,21 +97,21 @@ public class SkeletonNode implements MeshNode {
         List<SkeletonBranch> branches = skeleton.branches();
         if (branches.isEmpty()) {
             ctx.setOutput(GEOMETRY.name, bundle.withSlot(CurveGeometry.SLOT,
-                    CurveGeometry.singlePolyline(new float[0], false)));
+                    CurveGeometry.singlePolyline(new PackedPoints(), false)));
             return;
         }
         int[] offsets = new int[branches.size() + 1];
         for (int branch = 0; branch < branches.size(); branch++) {
             offsets[branch + 1] = offsets[branch] + branches.get(branch).joints().size();
         }
-        float[] positions = new float[CurveGeometry.XYZ * offsets[branches.size()]];
+        PackedPoints positions = new PackedPoints(offsets[branches.size()]);
         float[] radii = new float[offsets[branches.size()]];
         float[] lengths = new float[branches.size()];
         for (int branch = 0; branch < branches.size(); branch++) {
             List<MeshSkeletonExtractor.SkeletonJoint> joints = branches.get(branch).joints();
             for (int joint = 0; joint < joints.size(); joint++) {
                 int point = offsets[branch] + joint;
-                PackedPoints.store(positions, CurveGeometry.XYZ * point, joints.get(joint).position());
+                positions.set(point, joints.get(joint).position());
                 radii[point] = joints.get(joint).radius();
             }
             lengths[branch] = branches.get(branch).length();

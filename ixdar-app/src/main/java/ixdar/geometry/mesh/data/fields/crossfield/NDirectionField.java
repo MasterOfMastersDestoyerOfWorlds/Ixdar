@@ -16,6 +16,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.numeric.sparse.AdaptiveSolver;
 import ixdar.numeric.sparse.DirectSolver;
 import ixdar.numeric.sparse.Preconditioner;
@@ -241,13 +242,10 @@ public class NDirectionField {
 
             Vector3f normal = mesh.faceNormal(faceId);
 
-            float xDotN = xAxis.dot(normal);
-            xAxis.x -= xDotN * normal.x;
-            xAxis.y -= xDotN * normal.y;
-            xAxis.z -= xDotN * normal.z;
+            xAxis.fma(-xAxis.dot(normal), normal);
             float xLen = xAxis.length();
             if (xLen < CrossField.EPSILON) {
-                CrossField.arbitraryTangent(normal, xAxis);
+                MeshTopology.tangentFrame(normal).getColumn(0, xAxis);
             } else {
                 xAxis.div(xLen);
             }

@@ -12,6 +12,7 @@ import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 
 /**
@@ -134,7 +135,7 @@ class RegionFlatnessTest {
      */
     private static MeshTopology bentTube() {
         int sideVertices = (ROWS + 1) * SEGMENTS_AROUND;
-        float[] positions = new float[3 * (sideVertices + 2)];
+        PackedPoints positions = new PackedPoints(sideVertices + 2);
         double[] centre = new double[3];
         double[] across = new double[3];
         for (int row = 0; row <= ROWS; row++) {
@@ -159,15 +160,12 @@ class RegionFlatnessTest {
             for (int segment = 0; segment < SEGMENTS_AROUND; segment++) {
                 double angle = 2 * Math.PI * segment / SEGMENTS_AROUND;
                 int vertex = row * SEGMENTS_AROUND + segment;
-                positions[3 * vertex] = (float) (TUBE_RADIUS * Math.cos(angle));
-                positions[3 * vertex + 1] = (float) (centre[1]
-                        + TUBE_RADIUS * Math.sin(angle) * across[1]);
-                positions[3 * vertex + 2] = (float) (centre[2]
-                        + TUBE_RADIUS * Math.sin(angle) * across[2]);
+                positions.set(vertex, (float) (TUBE_RADIUS * Math.cos(angle)),
+                        (float) (centre[1] + TUBE_RADIUS * Math.sin(angle) * across[1]),
+                        (float) (centre[2] + TUBE_RADIUS * Math.sin(angle) * across[2]));
             }
             if (row == ROWS) {
-                positions[3 * (sideVertices + 1) + 1] = (float) centre[1];
-                positions[3 * (sideVertices + 1) + 2] = (float) centre[2];
+                positions.set(sideVertices + 1, 0f, (float) centre[1], (float) centre[2]);
             }
         }
         int bottomCentre = sideVertices;

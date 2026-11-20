@@ -23,6 +23,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.rings.SliverCollapse;
@@ -63,7 +64,8 @@ class SliverCollapseTest {
 
     private static final int CIRCLE_ANCHORS = 8;
 
-    private static final float[] EQUATOR = { 1f, 0f, 0f, 0f, 0f, 1f, -1f, 0f, 0f, 0f, 0f, -1f };
+    private static final List<Vector3f> EQUATOR = List.of(new Vector3f(1f, 0f, 0f),
+            new Vector3f(0f, 0f, 1f), new Vector3f(-1f, 0f, 0f), new Vector3f(0f, 0f, -1f));
 
     private static final float[] EQUATOR_NORMAL = { 0f, 1f, 0f };
 
@@ -86,7 +88,7 @@ class SliverCollapseTest {
 
     @Test
     void aLensBecomesABisectorOnTheKeeperThatReloadsWithNoSliver() throws Exception {
-        float[][] points = { EQUATOR, dippingCircle() };
+        List<List<Vector3f>> points = List.of(EQUATOR, dippingCircle());
         float[][] normals = { EQUATOR_NORMAL, dippingNormal() };
         Collapsed result = collapse(points, normals, GEODESIC);
         int dropped = result.collapse.ringDropped[0] ? 0 : 1;
@@ -138,7 +140,7 @@ class SliverCollapseTest {
 
     @Test
     void theBisectorMarksTheDroppedRingsOwnEdgesOnItsStretch() throws Exception {
-        Collapsed result = collapse(new float[][] { EQUATOR, dippingCircle() },
+        Collapsed result = collapse(List.of(EQUATOR, dippingCircle()),
                 new float[][] { EQUATOR_NORMAL, dippingNormal() }, GEODESIC);
         assertTrue(result.collapse.routeDifferences.isEmpty(),
                 result.collapse.routeDifferences.toString());
@@ -181,21 +183,19 @@ class SliverCollapseTest {
     void aRingStretchMarksTheSameEdgesAsTheRing() throws Exception {
         float height = (float) Math.sin(Math.toRadians(LATITUDE_DEGREES));
         float radius = (float) Math.cos(Math.toRadians(LATITUDE_DEGREES));
-        float[] circle = new float[SurfaceWaypoints.COORDINATES_PER_WAYPOINT * LATITUDE_ANCHORS];
+        List<Vector3f> circle = new ArrayList<>();
         for (int anchor = 0; anchor < LATITUDE_ANCHORS; anchor++) {
             double angle = 2 * Math.PI * (anchor + 0.5) / LATITUDE_ANCHORS;
-            circle[3 * anchor] = (float) (radius * Math.cos(angle));
-            circle[3 * anchor + 1] = height;
-            circle[3 * anchor + 2] = (float) (radius * Math.sin(angle));
+            circle.add(new Vector3f((float) (radius * Math.cos(angle)), height,
+                    (float) (radius * Math.sin(angle))));
         }
-        float[][] points = { meridian(0.0), meridian(STRETCH_DEGREES), circle };
+        List<List<Vector3f>> points = List.of(meridian(0.0), meridian(STRETCH_DEGREES), circle);
         String[] labels = { LABELS[0], LABELS[1], "ring_02" };
         StringBuilder source = new StringBuilder(SPHERE);
         String input = SURFACE_GEOMETRY;
         for (int ring = 0; ring < labels.length; ring++) {
             source.append(RingDslWriter.splineStatement(labels[ring], input,
-                    SurfaceWaypoints.points(points[ring]),
-                    points[ring].length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT, null))
+                    points.get(ring), points.get(ring).size(), null))
                     .append(LINE_BREAK);
             input = labels[ring] + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
         }
@@ -274,14 +274,12 @@ class SliverCollapseTest {
     void aLensWhoseTipIsAnEdgeBothRingsShareCollapses() throws Exception {
         int around = FINE_SEGMENTS;
         int rows = FINE_ROWS;
-        float[] positions = new float[3 * (rows + 1) * around];
+        PackedPoints positions = new PackedPoints((rows + 1) * around);
         for (int row = 0; row <= rows; row++) {
             for (int segment = 0; segment < around; segment++) {
                 double angle = 2 * Math.PI * segment / around;
-                int vertex = row * around + segment;
-                positions[3 * vertex] = (float) Math.cos(angle);
-                positions[3 * vertex + 1] = (float) Math.sin(angle);
-                positions[3 * vertex + 2] = (float) row / around * 2;
+                positions.set(row * around + segment, (float) Math.cos(angle),
+                        (float) Math.sin(angle), (float) row / around * 2);
             }
         }
         int[] triangles = new int[3 * 2 * rows * around];
@@ -352,13 +350,13 @@ class SliverCollapseTest {
     /**
      * Trace the rings and collapse every sliver they pinch.
      *
-     * @param points  each ring's anchors, packed xyz
+     * @param points  each ring's anchors
      * @param normals each ring's base normal, or {@code null}
      * @param modes   each ring's segment mode
      * @return the collapse and what it ran on
      */
-    private static Collapsed collapse(float[][] points, float[][] normals, RingSegmentMode[] modes)
-            throws Exception {
+    private static Collapsed collapse(List<List<Vector3f>> points, float[][] normals,
+            RingSegmentMode[] modes) throws Exception {
         StringBuilder source = new StringBuilder(SPHERE);
         String input = SURFACE_GEOMETRY;
         for (int ring = 0; ring < LABELS.length; ring++) {
@@ -414,8 +412,8 @@ class SliverCollapseTest {
      * @param modes   each ring's mode
      * @return the reloaded regions
      */
-    private static RingRegions reload(Collapsed result, float[][] points, float[][] normals,
-            RingSegmentMode[] modes) throws Exception {
+    private static RingRegions reload(Collapsed result, List<List<Vector3f>> points,
+            float[][] normals, RingSegmentMode[] modes) throws Exception {
         String saved = SPHERE;
         String input = SURFACE_GEOMETRY;
         String last = null;
@@ -470,11 +468,10 @@ class SliverCollapseTest {
      * @param modes   each ring's mode
      * @return the statement
      */
-    private static String ringStatement(int ring, String input, float[][] points,
+    private static String ringStatement(int ring, String input, List<List<Vector3f>> points,
             float[][] normals, RingSegmentMode[] modes) {
         String statement = RingDslWriter.splineStatement(LABELS[ring], input,
-                SurfaceWaypoints.points(points[ring]),
-                points[ring].length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT,
+                points.get(ring), points.get(ring).size(),
                 normals[ring] == null ? null : new Vector3f(normals[ring]));
         return RingDslWriter.withMode(statement, LABELS[ring], modes[ring]);
     }
@@ -518,11 +515,11 @@ class SliverCollapseTest {
      * @param tilt the tilt in radians
      * @return both rings' anchors
      */
-    private static float[][] tiltedGreatCircles(double tilt) {
+    private static List<List<Vector3f>> tiltedGreatCircles(double tilt) {
         float sine = (float) Math.sin(tilt);
         float cosine = (float) Math.cos(tilt);
-        return new float[][] { EQUATOR,
-            { 1f, 0f, 0f, 0f, sine, cosine, -1f, 0f, 0f, 0f, -sine, -cosine } };
+        return List.of(EQUATOR, List.of(new Vector3f(1f, 0f, 0f), new Vector3f(0f, sine, cosine),
+                new Vector3f(-1f, 0f, 0f), new Vector3f(0f, -sine, -cosine)));
     }
 
     /**
@@ -541,31 +538,28 @@ class SliverCollapseTest {
      * Four points of the meridian great circle at a longitude, through both poles.
      *
      * @param longitudeDegrees the meridian's longitude
-     * @return its anchors, packed xyz
+     * @return its anchors
      */
-    private static float[] meridian(double longitudeDegrees) {
+    private static List<Vector3f> meridian(double longitudeDegrees) {
         float x = (float) Math.cos(Math.toRadians(longitudeDegrees));
         float z = (float) Math.sin(Math.toRadians(longitudeDegrees));
-        return new float[] { x, 0f, z, 0f, 1f, 0f, -x, 0f, -z, 0f, -1f, 0f };
+        return List.of(new Vector3f(x, 0f, z), new Vector3f(0f, 1f, 0f), new Vector3f(-x, 0f, -z),
+                new Vector3f(0f, -1f, 0f));
     }
 
     /** Evenly spaced points round the circle of the plane y = SLOPE z + OFFSET on the sphere. */
-    private static float[] dippingCircle() {
+    private static List<Vector3f> dippingCircle() {
         Vector3f normal = new Vector3f(dippingNormal());
         float distance = OFFSET / new Vector3f(0f, 1f, -SLOPE).length();
         float radius = (float) Math.sqrt(1.0 - distance * distance);
         Vector3f across = new Vector3f(1f, 0f, 0f);
         Vector3f down = new Vector3f(normal).cross(across);
-        float[] points = new float[SurfaceWaypoints.COORDINATES_PER_WAYPOINT * CIRCLE_ANCHORS];
+        List<Vector3f> points = new ArrayList<>();
         for (int anchor = 0; anchor < CIRCLE_ANCHORS; anchor++) {
             double angle = 2 * Math.PI * anchor / CIRCLE_ANCHORS;
-            Vector3f point = new Vector3f(normal).mul(distance)
+            points.add(new Vector3f(normal).mul(distance)
                     .add(new Vector3f(across).mul((float) (radius * Math.cos(angle))))
-                    .add(new Vector3f(down).mul((float) (radius * Math.sin(angle))));
-            int base = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * anchor;
-            points[base] = point.x;
-            points[base + 1] = point.y;
-            points[base + 2] = point.z;
+                    .add(new Vector3f(down).mul((float) (radius * Math.sin(angle)))));
         }
         return points;
     }

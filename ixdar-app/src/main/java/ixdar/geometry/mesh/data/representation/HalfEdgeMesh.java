@@ -37,14 +37,16 @@ public class HalfEdgeMesh implements MeshTopology {
     public final IntIdTable faceVertices;
     public final IntIdTable faceEdges;
 
-    public float[] vertexNormals;
+    /** Vertex normals by vertex id, one point per reserved id slot. */
+    public PackedPoints vertexNormals;
     public int[] vertexOutgoing;
     public boolean[] vertexActive;
 
     public int[] edgeHalfEdge;
 
     public int[] faceHalfEdge;
-    public float[] faceNormals;
+    /** Face normals by face id, one point per reserved id slot. */
+    public PackedPoints faceNormals;
 
     public int[] halfEdgeTwin;
     public int[] halfEdgeNext;
@@ -100,8 +102,11 @@ public class HalfEdgeMesh implements MeshTopology {
     boolean[] faceActive;
     boolean[] halfEdgeActive;
 
-    /** Packed xyz by vertex id; written only through methods that advance {@link #geometryVersion}. */
-    private float[] vertexPositions;
+    /**
+     * Positions by vertex id, one point per reserved id slot; written only through methods that
+     * advance {@link #geometryVersion}.
+     */
+    private PackedPoints vertexPositions;
 
     /** Advanced by every position write and every vertex or face added or removed. */
     private int geometryVersion;
@@ -113,7 +118,7 @@ public class HalfEdgeMesh implements MeshTopology {
      * <p>Each cache's volatile version is written after its value, so a reader seeing the current
      * version sees the whole value.
      */
-    private final float[] boundsCache = new float[2 * FLOATS_PER_VERTEX];
+    private PackedPoints boundsCache = new PackedPoints(2);
     private float radiusCache;
     private volatile int boundsVersion = -1;
     private double signedVolumeCache;
@@ -154,14 +159,14 @@ public class HalfEdgeMesh implements MeshTopology {
         this.faceHalfEdges = new IntIdTable(MIN_CAPACITY);
         this.faceVertices = new IntIdTable(MIN_CAPACITY);
         this.faceEdges = new IntIdTable(MIN_CAPACITY);
-        this.vertexPositions = new float[vc * FLOATS_PER_VERTEX];
-        this.vertexNormals = new float[vc * FLOATS_PER_VERTEX];
+        this.vertexPositions = new PackedPoints(vc);
+        this.vertexNormals = new PackedPoints(vc);
         this.vertexOutgoing = new int[vc];
         this.vertexActive = new boolean[vc];
         this.edgeHalfEdge = new int[ec];
         this.edgeActive = new boolean[ec];
         this.faceHalfEdge = new int[fc];
-        this.faceNormals = new float[fc * FLOATS_PER_VERTEX];
+        this.faceNormals = new PackedPoints(fc);
         this.faceActive = new boolean[fc];
         this.halfEdgeTwin = new int[hc];
         this.halfEdgeNext = new int[hc];
@@ -513,13 +518,13 @@ public class HalfEdgeMesh implements MeshTopology {
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshOps#buildFromIndexedMesh(float[], int[])}.
+     * {@link HalfEdgeMeshOps#buildFromIndexedMesh(PackedPoints, int[])}.
      *
-     * @param positions   packed xyz triples
+     * @param positions   one point per vertex, kept by the mesh
      * @param faceIndices triangle vertex indices in groups of three
      * @return populated half-edge mesh with normals computed
      */
-    public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices) {
+    public static HalfEdgeMesh buildFromIndexedMesh(PackedPoints positions, int[] faceIndices) {
         return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
     }
 
@@ -528,12 +533,12 @@ public class HalfEdgeMesh implements MeshTopology {
      * Does not compute normals — call {@link #computeNormals()} when the mesh is
      * ready for rendering.
      *
-     * @param positions    packed xyz triples
+     * @param positions    one point per vertex, kept by the mesh
      * @param faceIndices  flat face index buffer, grouped by {@code vertsPerFace}
      * @param vertsPerFace fixed face arity
      * @return populated half-edge mesh; normals are not computed
      */
-    public static HalfEdgeMesh bulkAllocate(float[] positions, int[] faceIndices, int vertsPerFace) {
+    public static HalfEdgeMesh bulkAllocate(PackedPoints positions, int[] faceIndices, int vertsPerFace) {
         return HalfEdgeMeshOps.bulkAllocate(positions, faceIndices, vertsPerFace);
     }
 
@@ -656,8 +661,8 @@ public class HalfEdgeMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public Vector3f vertexPosition(int vertexId, Vector3f dest) {
-        int offset = vertexOffset(vertexId);
-        return dest.set(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
+        return dest.set(vertexPositions.get(vertexId, 0), vertexPositions.get(vertexId, 1),
+                vertexPositions.get(vertexId, 2));
     }
 
     /**
@@ -667,15 +672,14 @@ public class HalfEdgeMesh implements MeshTopology {
      * @return new {@link Vector3f} with the vertex position
      */
     public Vector3f vertexPosition(int vertexId) {
-        int offset = vertexOffset(vertexId);
-        return PackedPoints.at(vertexPositions, offset);
+        return vertexPosition(vertexId, new Vector3f());
     }
 
     /** {@inheritDoc}. */
     @Override
     public Vector3f vertexNormal(int vertexId, Vector3f dest) {
-        int offset = vertexOffset(vertexId);
-        return dest.set(vertexNormals[offset], vertexNormals[offset + 1], vertexNormals[offset + 2]);
+        return dest.set(vertexNormals.get(vertexId, 0), vertexNormals.get(vertexId, 1),
+                vertexNormals.get(vertexId, 2));
     }
 
     /** {@inheritDoc}. */
@@ -759,11 +763,11 @@ public class HalfEdgeMesh implements MeshTopology {
     @Override
     public float edgeLength(int edgeId) {
         int halfEdge = edgeHalfEdge[edgeId];
-        int tail = vertexOffset(halfEdgeVertex(halfEdge));
-        int head = vertexOffset(halfEdgeEndVertex(halfEdge));
-        float dx = vertexPositions[head] - vertexPositions[tail];
-        float dy = vertexPositions[head + 1] - vertexPositions[tail + 1];
-        float dz = vertexPositions[head + 2] - vertexPositions[tail + 2];
+        int tail = halfEdgeVertex(halfEdge);
+        int head = halfEdgeEndVertex(halfEdge);
+        float dx = vertexPositions.get(head, 0) - vertexPositions.get(tail, 0);
+        float dy = vertexPositions.get(head, 1) - vertexPositions.get(tail, 1);
+        float dz = vertexPositions.get(head, 2) - vertexPositions.get(tail, 2);
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
@@ -771,11 +775,11 @@ public class HalfEdgeMesh implements MeshTopology {
     @Override
     public Vector3f edgeMidpoint(int edgeId, Vector3f dest) {
         int halfEdge = edgeHalfEdge[edgeId];
-        int tail = vertexOffset(halfEdgeVertex(halfEdge));
-        int head = vertexOffset(halfEdgeEndVertex(halfEdge));
-        return dest.set(vertexPositions[tail] + vertexPositions[head],
-                vertexPositions[tail + 1] + vertexPositions[head + 1],
-                vertexPositions[tail + 2] + vertexPositions[head + 2]).mul(0.5f);
+        int tail = halfEdgeVertex(halfEdge);
+        int head = halfEdgeEndVertex(halfEdge);
+        return dest.set(vertexPositions.get(tail, 0) + vertexPositions.get(head, 0),
+                vertexPositions.get(tail, 1) + vertexPositions.get(head, 1),
+                vertexPositions.get(tail, 2) + vertexPositions.get(head, 2)).mul(0.5f);
     }
 
     /**
@@ -839,20 +843,7 @@ public class HalfEdgeMesh implements MeshTopology {
      */
     @Override
     public Vector3f faceNormal(int faceId, Vector3f dest) {
-
-        int offset = faceOffset(faceId);
-        return dest.set(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
-    }
-
-    /**
-     * Allocating convenience form of {@link #faceNormal(int, Vector3f)}.
-     *
-     * @param faceId face id
-     * @return new {@link Vector3f} with the cached face normal
-     */
-    public Vector3f faceNormal(int faceId) {
-        int offset = faceOffset(faceId);
-        return PackedPoints.at(faceNormals, offset);
+        return dest.set(faceNormals.get(faceId, 0), faceNormals.get(faceId, 1), faceNormals.get(faceId, 2));
     }
 
     /**
@@ -861,9 +852,7 @@ public class HalfEdgeMesh implements MeshTopology {
      */
     @Override
     public Vector3f faceNormalAtActiveIndex(int activeIndex, Vector3f dest) {
-
-        int offset = faceOffset(activeFaceIds.get(activeIndex));
-        return dest.set(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
+        return faceNormal(activeFaceIds.get(activeIndex), dest);
     }
 
     /** {@inheritDoc}. */
@@ -919,27 +908,6 @@ public class HalfEdgeMesh implements MeshTopology {
 
     /** {@inheritDoc} Cached until the geometry next changes. */
     @Override
-    public Vector3f boundsMin(Vector3f dest) {
-        float[] box = bounds();
-        return dest.set(box[0], box[1], box[2]);
-    }
-
-    /** {@inheritDoc} Cached until the geometry next changes. */
-    @Override
-    public Vector3f boundsMax(Vector3f dest) {
-        float[] box = bounds();
-        return dest.set(box[3], box[4], box[5]);
-    }
-
-    /** {@inheritDoc} Cached until the geometry next changes. */
-    @Override
-    public Vector3f center(Vector3f dest) {
-        float[] box = bounds();
-        return dest.set(box[0] + box[3], box[1] + box[4], box[2] + box[5]).mul(0.5f);
-    }
-
-    /** {@inheritDoc} Cached until the geometry next changes. */
-    @Override
     public float radius() {
         bounds();
         return radiusCache;
@@ -976,57 +944,37 @@ public class HalfEdgeMesh implements MeshTopology {
      * @param z        new z coordinate
      */
     public void setVertexPosition(int vertexId, float x, float y, float z) {
-        setVector(vertexPositions, vertexId, x, y, z);
+        vertexPositions.set(vertexId, x, y, z);
         geometryVersion++;
     }
 
     /**
-     * Replace the position storage with a copy of a bulk build's positions, indexed by vertex id.
+     * Replace the position storage with a bulk build's positions, indexed by vertex id; the mesh
+     * keeps the buffer itself, so the caller hands it over.
      *
-     * @param positions   packed xyz by vertex id, at least {@code vertexCount} triples
-     * @param vertexCount number of vertex ids the copy addresses
+     * @param positions one point per vertex id
      */
-    public void setPositionsById(float[] positions, int vertexCount) {
-        vertexPositions = Arrays.copyOf(positions, vertexCount * FLOATS_PER_VERTEX);
+    public void setPositionsById(PackedPoints positions) {
+        vertexPositions = positions;
         geometryVersion++;
     }
 
     /**
-     * The cached box at the current geometry version, refilled when stale: one pass for the box,
-     * one for the radius about its centre; all zero for a mesh with no vertices.
-     *
-     * @return {@link #boundsCache}
+     * {@inheritDoc} Refilled when stale, with the radius about its centre.
      */
-    private float[] bounds() {
+    @Override
+    public PackedPoints bounds() {
         int version = geometryVersion;
         if (boundsVersion == version) {
             return boundsCache;
         }
-        Vector3f min = new Vector3f();
-        Vector3f max = new Vector3f();
-        Vector3f position = new Vector3f();
-        int vertexCount = vertexCount();
-        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            vertexPosition(vertexIdAt(activeVertex), position);
-            if (activeVertex == 0) {
-                min.set(position);
-                max.set(position);
-            } else {
-                min.min(position);
-                max.max(position);
-            }
+        int[] live = new int[vertexCount()];
+        for (int activeVertex = 0; activeVertex < live.length; activeVertex++) {
+            live[activeVertex] = vertexIdAt(activeVertex);
         }
-        Vector3f center = new Vector3f(min).add(max).mul(0.5f);
-        float farthestSquared = 0f;
-        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            farthestSquared = Math.max(farthestSquared,
-                    vertexPosition(vertexIdAt(activeVertex), position).distanceSquared(center));
-        }
-        boundsCache[0] = min.x;
-        boundsCache[1] = min.y;
-        boundsCache[2] = min.z;
-        PackedPoints.store(boundsCache, FLOATS_PER_VERTEX, max);
-        radiusCache = (float) Math.sqrt(farthestSquared);
+        PackedPoints box = live.length == 0 ? new PackedPoints(2) : vertexPositions.bounds(live);
+        boundsCache = box;
+        radiusCache = (float) vertexPositions.gather(live).maxDistance(box.centroid());
         boundsVersion = version;
         return boundsCache;
     }
@@ -1046,9 +994,9 @@ public class HalfEdgeMesh implements MeshTopology {
         vertexActive[vertexId] = true;
         activeVertexIds.add(vertexId);
         vertexOutgoing[vertexId] = NONE;
-        setVector(vertexPositions, vertexId, x, y, z);
+        vertexPositions.set(vertexId, x, y, z);
         geometryVersion++;
-        setVector(vertexNormals, vertexId, 0f, 0f, 0f);
+        vertexNormals.set(vertexId, 0f, 0f, 0f);
         vertexOutgoingHalfEdges.clear(vertexId);
         vertexEdges.clear(vertexId);
         vertexFaces.clear(vertexId);
@@ -1082,7 +1030,7 @@ public class HalfEdgeMesh implements MeshTopology {
         activeFaceIds.add(faceId);
         geometryVersion++;
         faceHalfEdge[faceId] = NONE;
-        setVector(faceNormals, faceId, 0f, 0f, 0f);
+        faceNormals.set(faceId, 0f, 0f, 0f);
         faceHalfEdges.clear(faceId);
         faceVertices.clear(faceId);
         faceEdges.clear(faceId);
@@ -1120,7 +1068,7 @@ public class HalfEdgeMesh implements MeshTopology {
         activeFaceIds.remove(faceId);
         geometryVersion++;
         faceHalfEdge[faceId] = NONE;
-        setVector(faceNormals, faceId, 0f, 0f, 0f);
+        faceNormals.set(faceId, 0f, 0f, 0f);
         faceHalfEdges.clear(faceId);
         faceVertices.clear(faceId);
         faceEdges.clear(faceId);
@@ -1163,27 +1111,12 @@ public class HalfEdgeMesh implements MeshTopology {
         vertexActive[vertexId] = false;
         activeVertexIds.remove(vertexId);
         vertexOutgoing[vertexId] = NONE;
-        setVector(vertexPositions, vertexId, 0f, 0f, 0f);
+        vertexPositions.set(vertexId, 0f, 0f, 0f);
         geometryVersion++;
-        setVector(vertexNormals, vertexId, 0f, 0f, 0f);
+        vertexNormals.set(vertexId, 0f, 0f, 0f);
         vertexOutgoingHalfEdges.clear(vertexId);
         vertexEdges.clear(vertexId);
         vertexFaces.clear(vertexId);
-    }
-
-    /**
-     * Index of the first float for this vertex within the packed position or
-     * {@link #vertexNormals} arrays.
-     *
-     * @param vertexId vertex id
-     * @return base offset into the packed xyz array
-     */
-    public int vertexOffset(int vertexId) {
-        return vertexId * FLOATS_PER_VERTEX;
-    }
-
-    int faceOffset(int faceId) {
-        return faceId * FLOATS_PER_VERTEX;
     }
 
     /**
@@ -1199,8 +1132,8 @@ public class HalfEdgeMesh implements MeshTopology {
         int nextCapacity = nextCapacity(vertexActive.length, requiredVertexCount);
         vertexActive = resizeBooleanArray(vertexActive, nextCapacity);
         vertexOutgoing = resizeIntArray(vertexOutgoing, nextCapacity);
-        vertexPositions = resizeFloatTupleArray(vertexPositions, nextCapacity);
-        vertexNormals = resizeFloatTupleArray(vertexNormals, nextCapacity);
+        vertexPositions.resize(nextCapacity);
+        vertexNormals.resize(nextCapacity);
         for (int layer = 0; layer < vertexLayers.length; layer++) {
             vertexLayers[layer] = growLayer(vertexLayers[layer], nextCapacity, vertexLayerFill[layer]);
         }
@@ -1237,7 +1170,7 @@ public class HalfEdgeMesh implements MeshTopology {
         int nextCapacity = nextCapacity(faceActive.length, requiredFaceCount);
         faceActive = resizeBooleanArray(faceActive, nextCapacity);
         faceHalfEdge = resizeIntArray(faceHalfEdge, nextCapacity);
-        faceNormals = resizeFloatTupleArray(faceNormals, nextCapacity);
+        faceNormals.resize(nextCapacity);
         for (int layer = 0; layer < faceLayers.length; layer++) {
             faceLayers[layer] = growLayer(faceLayers[layer], nextCapacity, faceLayerFill[layer]);
         }
@@ -1272,22 +1205,6 @@ public class HalfEdgeMesh implements MeshTopology {
      */
     public static boolean isActive(boolean[] active, int id) {
         return id >= 0 && id < active.length && active[id];
-    }
-
-    /**
-     * Writes an xyz triple into a packed float array at the slot for the given id.
-     *
-     * @param target packed xyz array
-     * @param id     slot id (vertex or face)
-     * @param x      x component
-     * @param y      y component
-     * @param z      z component
-     */
-    public static void setVector(float[] target, int id, float x, float y, float z) {
-        int offset = id * FLOATS_PER_VERTEX;
-        target[offset] = x;
-        target[offset + 1] = y;
-        target[offset + 2] = z;
     }
 
     /**
@@ -1335,20 +1252,6 @@ public class HalfEdgeMesh implements MeshTopology {
     }
 
     /**
-     * Returns a packed xyz float array sized for {@code nextCapacity} entries (i.e.
-     * length {@code nextCapacity * 3}) with {@code source} copied into the prefix.
-     *
-     * @param source       array to copy from
-     * @param nextCapacity number of xyz entries the returned array should hold
-     * @return new float array sized to {@code nextCapacity * FLOATS_PER_VERTEX}
-     */
-    public static float[] resizeFloatTupleArray(float[] source, int nextCapacity) {
-        float[] resized = new float[nextCapacity * FLOATS_PER_VERTEX];
-        System.arraycopy(source, 0, resized, 0, source.length);
-        return resized;
-    }
-
-    /**
      * Growth policy for parallel arrays: doubles the current capacity but never
      * returns less than the required size or the floor of 4.
      *
@@ -1392,55 +1295,7 @@ public class HalfEdgeMesh implements MeshTopology {
      * @return mean Euclidean length of active edges, or 1 for an empty mesh
      */
     public float computeAverageEdgeLength() {
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        double sum = 0;
-        int count = 0;
-        for (int i = 0; i < activeEdgeIds.size(); i++) {
-            int halfEdge = edgeHalfEdge[activeEdgeIds.get(i)];
-            vertexPosition(halfEdgeVertex[halfEdge], a);
-            vertexPosition(halfEdgeVertex[halfEdgeNext[halfEdge]], b);
-            sum += Math.sqrt(
-                    (b.x - a.x) * (b.x - a.x) +
-                            (b.y - a.y) * (b.y - a.y) +
-                            (b.z - a.z) * (b.z - a.z));
-            count++;
-        }
-        return count == 0 ? 1f : (float) (sum / count);
-    }
-
-    /**
-     * Interior angle of face {@code fId} at vertex {@code vId}.
-     *
-     * @param fId  face id
-     * @param vId  vertex id (must be a corner of {@code fId})
-     * @param vPos position of {@code vId}
-     * @param a    scratch vector overwritten with the previous-corner edge
-     *             direction
-     * @param b    scratch vector overwritten with the next-corner edge direction
-     * @return angle in radians, or 0 for degenerate triangles or when {@code vId}
-     *         is not a corner of {@code fId}
-     */
-    public float interiorAngleAtVertex(int fId, int vId, Vector3f vPos, Vector3f a, Vector3f b) {
-        int adj = faceHalfEdgeCount(fId);
-        for (int i = 0; i < adj; i++) {
-            int he = faceHalfEdgeAt(fId, i);
-            if (halfEdgeVertex(he) == vId) {
-                int prev = halfEdgePrev(he);
-                int prevStart = halfEdgeVertex(prev);
-                int nextEnd = halfEdgeEndVertex(he);
-                vertexPosition(prevStart, a);
-                vertexPosition(nextEnd, b);
-                a.sub(vPos);
-                b.sub(vPos);
-                float la = a.length();
-                float lb = b.length();
-                float c = a.dot(b) / (la * lb);
-                c = Math.max(-1f, Math.min(1f, c));
-                return (float) Math.acos(c);
-            }
-        }
-        return 0f;
+        return edgeCount() == 0 ? 1f : (float) meanEdgeLength();
     }
 
     /**
@@ -1455,13 +1310,8 @@ public class HalfEdgeMesh implements MeshTopology {
      *         radians
      */
     public float projectDirectionToFaceAngle(Vector3f dirWorld, int faceIndex, Vector3f faceY, Vector3f faceX) {
-        Vector3f n = new Vector3f();
-        faceNormal(faceIdAt(faceIndex), n);
-        float dotN = dirWorld.dot(n);
-        Vector3f planar = new Vector3f(
-                dirWorld.x - dotN * n.x,
-                dirWorld.y - dotN * n.y,
-                dirWorld.z - dotN * n.z);
+        Vector3f n = faceNormal(faceIdAt(faceIndex));
+        Vector3f planar = new Vector3f(dirWorld).fma(-dirWorld.dot(n), n);
         return (float) Math.atan2(planar.dot(faceY), planar.dot(faceX));
     }
 

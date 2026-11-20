@@ -4,6 +4,7 @@ import org.joml.Matrix4f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.scenes.Scene;
@@ -85,19 +86,15 @@ public final class DebugCapsuleRuntime {
 
     private static HalfEdgeMesh buildCapsuleMesh(float r, float h) {
         int vertCount = 2 + 2 * LAT * LON;
-        float[] positions = new float[vertCount * 3];
+        PackedPoints positions = new PackedPoints(vertCount);
 
         int topPole = 0;
-        positions[topPole * 3 + 0] = 0f;
-        positions[topPole * 3 + 1] = h + r;
-        positions[topPole * 3 + 2] = 0f;
+        positions.set(topPole, 0f, h + r, 0f);
 
         int topRingBase = 1;          // ring 1 starts here; ring i starts at topRingBase + (i-1)*LON
         int bottomRingBase = 1 + LAT * LON;  // bottom ring 0 starts here; ring i at bottomRingBase + i*LON
         int bottomPole = 1 + 2 * LAT * LON;
-        positions[bottomPole * 3 + 0] = 0f;
-        positions[bottomPole * 3 + 1] = -h - r;
-        positions[bottomPole * 3 + 2] = 0f;
+        positions.set(bottomPole, 0f, -h - r, 0f);
 
         for (int i = 1; i <= LAT; i++) {
             float theta = (float) (i * Math.PI / (2.0 * LAT));
@@ -107,9 +104,7 @@ public final class DebugCapsuleRuntime {
             for (int j = 0; j < LON; j++) {
                 float phi = (float) (j * 2.0 * Math.PI / LON);
                 int v = base + j;
-                positions[v * 3 + 0] = ringR * (float) Math.cos(phi);
-                positions[v * 3 + 1] = ringY;
-                positions[v * 3 + 2] = ringR * (float) Math.sin(phi);
+                positions.set(v, ringR * (float) Math.cos(phi), ringY, ringR * (float) Math.sin(phi));
             }
         }
         for (int i = 0; i < LAT; i++) {
@@ -120,9 +115,7 @@ public final class DebugCapsuleRuntime {
             for (int j = 0; j < LON; j++) {
                 float lon = (float) (j * 2.0 * Math.PI / LON);
                 int v = base + j;
-                positions[v * 3 + 0] = ringR * (float) Math.cos(lon);
-                positions[v * 3 + 1] = ringY;
-                positions[v * 3 + 2] = ringR * (float) Math.sin(lon);
+                positions.set(v, ringR * (float) Math.cos(lon), ringY, ringR * (float) Math.sin(lon));
             }
         }
 

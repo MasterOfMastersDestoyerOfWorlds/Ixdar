@@ -212,14 +212,14 @@ public final class StrokeSketch {
     /** Each shape's kind: silhouette, fill, smooth, or the sign's ridge or valley. */
     public String[] kindByShape = new String[0];
 
-    /** Each shape's lifted surface points, packed xyz; silhouettes hold none. */
-    public float[][] liftedXyzByShape = new float[0][];
+    /** Each shape's lifted surface points; silhouettes hold none. */
+    public PackedPoints[] liftedXyzByShape = new PackedPoints[0];
 
     /**
-     * Each chain's points on the base its sidecar holds them at, packed xyz, which {@link #lift}
-     * takes instead of casting its pixels; null for a shape lifted from its pixels.
+     * Each chain's points on the base its sidecar holds them at, which {@link #lift} takes instead
+     * of casting its pixels; null for a shape lifted from its pixels.
      */
-    public float[][] anchoredXyzByShape = new float[0][];
+    public PackedPoints[] anchoredXyzByShape = new PackedPoints[0];
 
     /** Each shape's stable stroke id from its sidecar, null for a shape no sync has seen. */
     public String[] idByShape = new String[0];
@@ -384,12 +384,9 @@ public final class StrokeSketch {
     public float[] cellPixels(int cell, CurveGeometry curves, int curve) {
         Camera3D camera = cellCamera(cell);
         float[] pixel = new float[2];
-        Vector3f at = new Vector3f();
         float[] projected = new float[curves.pointCount(curve) * 2];
         for (int point = 0; point < curves.pointCount(curve); point++) {
-            int base = (curves.firstPoint(curve) + point) * CurveGeometry.XYZ;
-            cellPixel(camera, at.set(curves.positions[base], curves.positions[base + 1], curves.positions[base + 2]),
-                    pixel);
+            cellPixel(camera, curves.positions.at(curves.firstPoint(curve) + point), pixel);
             projected[point * 2] = pixel[0];
             projected[point * 2 + 1] = pixel[1];
         }
@@ -530,7 +527,8 @@ public final class StrokeSketch {
         camera.setDistanceBounds(0f, Float.MAX_VALUE);
         camera.fov = viewCamera[VIEW_FIELD_OF_VIEW];
         camera.roll = viewCamera[VIEW_ROLL];
-        camera.moveTarget(PackedPoints.at(viewCamera, VIEW_CENTER));
+        camera.moveTarget(new Vector3f(viewCamera[VIEW_CENTER], viewCamera[VIEW_CENTER + 1],
+                viewCamera[VIEW_CENTER + 2]));
         camera.setOrbit(viewCamera[VIEW_AZIMUTH], viewCamera[VIEW_ELEVATION], viewDistance);
         camera.updateProjection(orthographic, cellWidth / (float) cellHeight, viewDistance * NEAR_PLANE_FRACTION,
                 viewDistance * FAR_PLANE_MULTIPLE);
@@ -593,7 +591,7 @@ public final class StrokeSketch {
         bowlInsetByShape = new float[shapeTotal];
         sampleSpacingByShape = new float[shapeTotal];
         kindByShape = new String[shapeTotal];
-        liftedXyzByShape = new float[shapeTotal][];
+        liftedXyzByShape = new PackedPoints[shapeTotal];
         int[] faceOfTriangle = new int[mesh.triangleCount()];
         TriangleBvh bvh = TriangleBvh.over(mesh, faceOfTriangle);
         int[] stack = new int[Math.max(1, bvh.nodeCount)];
@@ -609,7 +607,7 @@ public final class StrokeSketch {
             String shape = shapes.get(stroke);
             strokeByShape[stroke] = "";
             viewByShape[stroke] = -1;
-            liftedXyzByShape[stroke] = new float[0];
+            liftedXyzByShape[stroke] = new PackedPoints();
             boolean fill = shape.startsWith(SVG_TEXT_START + POLYGON);
             Matcher depthMatch = DEPTH_ATTRIBUTE.matcher(shape);
             Matcher radiusMatch = RADIUS_ATTRIBUTE.matcher(shape);
@@ -650,9 +648,10 @@ public final class StrokeSketch {
             float stepPixels = Math.max(MINIMUM_FILL_STEP_PIXELS, spacing / centerWorldPerPixel);
             float[] samples = fill ? PolygonScan.coveredPoints(pixels, stepPixels) : pixels;
             sampleSpacingByShape[stroke] = fill ? stepPixels * centerWorldPerPixel : 0f;
-            float[] anchored = stroke < anchoredXyzByShape.length && !fill && !silhouette ? anchoredXyzByShape[stroke] : null;
-            int pointBound = Math.max(samples.length / 2, anchored == null ? 0 : anchored.length / 3);
-            float[] lifted = new float[pointBound * 3];
+            PackedPoints anchored = stroke < anchoredXyzByShape.length && !fill && !silhouette
+                    ? anchoredXyzByShape[stroke] : null;
+            int pointBound = Math.max(samples.length / 2, anchored == null ? 0 : anchored.size());
+            PackedPoints lifted = new PackedPoints(pointBound);
             float[] weights = new float[pointBound];
             float[] insetBySample = fill && BOWL_ATTRIBUTE.matcher(shape).find()
                     ? PolygonScan.outlineDistances(pixels, samples) : new float[0];
@@ -661,9 +660,9 @@ public final class StrokeSketch {
                 deepestInset = Math.max(deepestInset, inset);
             }
             bowlInsetByShape[stroke] = deepestInset * centerWorldPerPixel;
-            int liftedCount = anchored == null ? 0 : anchored.length / 3;
+            int liftedCount = anchored == null ? 0 : anchored.size();
             if (anchored != null) {
-                System.arraycopy(anchored, 0, lifted, 0, anchored.length);
+                lifted.slice(0, liftedCount).copyFrom(anchored);
                 Arrays.fill(weights, 1f);
             }
             for (int point = 0; anchored == null && point < samples.length / 2; point++) {
@@ -692,28 +691,28 @@ public final class StrokeSketch {
                         grazingByShape[stroke]++;
                         continue;
                     }
-                    if (!fill && liftedCount > 0 && hit.distance(lifted[liftedCount * 3 - 3],
-                            lifted[liftedCount * 3 - 2], lifted[liftedCount * 3 - 1]) < spacing) {
+                    if (!fill && liftedCount > 0 && hit.distance(lifted.at(liftedCount - 1)) < spacing) {
                         continue;
                     }
                 }
-                PackedPoints.store(lifted, liftedCount * 3, hit);
+                lifted.set(liftedCount, hit);
                 float inset = deepestInset > 0f ? insetBySample[point] / deepestInset : 1f;
                 weights[liftedCount++] = inset * (2f - inset);
             }
             liftedByShape[stroke] = liftedCount;
-            liftedXyzByShape[stroke] = silhouette ? new float[0] : Arrays.copyOf(lifted, liftedCount * 3);
             StringBuilder text = new StringBuilder(String.format(Locale.ROOT, "%.5f r=%.5f", silhouette ? 1f : depth,
                     radius)).append(silhouette ? " " + StrokeSculpt.SILHOUETTE_FLAG : "")
                     .append(fill ? " " + StrokeSculpt.FILL_FLAG : "").append(mirror ? " " + StrokeSculpt.MIRROR_FLAG : "")
                     .append(smooth ? " " + StrokeSculpt.SMOOTH_FLAG : "").append(eyeFlag)
                     .append(StrokeSculpt.HEADER_SEPARATOR);
             for (int point = 0; point < liftedCount; point++) {
+                Vector3f at = lifted.at(point);
                 text.append(point == 0 ? " " : POINT_SEPARATOR).append(String.format(Locale.ROOT,
-                        "%.5f %.5f %.5f %.3f", lifted[point * 3], lifted[point * 3 + 1], lifted[point * 3 + 2],
-                        weights[point]));
+                        "%.5f %.5f %.5f %.3f", at.x, at.y, at.z, weights[point]));
             }
             strokeByShape[stroke] = liftedCount > 0 ? text.toString() : "";
+            lifted.resize(silhouette ? 0 : liftedCount);
+            liftedXyzByShape[stroke] = lifted;
             if (!strokeByShape[stroke].isEmpty()) {
                 allStrokes.append(allStrokes.length() == 0 ? "" : STROKE_SEPARATOR).append(strokeByShape[stroke]);
             }

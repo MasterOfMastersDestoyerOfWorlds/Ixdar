@@ -59,29 +59,20 @@ public final class FieldContextImpl implements MeshFieldContext {
     private Vector3Field buildPositions() {
         int n = elementCount();
         if (n == 0) {
-            return new Vector3Field(new float[0]);
+            return new Vector3Field(new PackedPoints(0));
         }
-        float[] d = new float[n * 3];
-        Vector3f tmp = new Vector3f();
-        for (int i = 0; i < n; i++) {
-            int vid = mesh.vertexIdAt(i);
-            mesh.vertexPosition(vid, tmp);
-            PackedPoints.store(d, 3 * i, tmp);
-        }
-        return new Vector3Field(d);
+        return new Vector3Field(mesh.packedPositions(null));
     }
 
     private Vector3Field buildNormals() {
         int n = elementCount();
         if (n == 0) {
-            return new Vector3Field(new float[0]);
+            return new Vector3Field(new PackedPoints(0));
         }
-        float[] d = new float[n * 3];
+        PackedPoints d = new PackedPoints(n);
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < n; i++) {
-            int vid = mesh.vertexIdAt(i);
-            mesh.vertexNormal(vid, tmp);
-            PackedPoints.store(d, 3 * i, tmp);
+            d.set(i, mesh.vertexNormal(mesh.vertexIdAt(i), tmp));
         }
         return new Vector3Field(d);
     }

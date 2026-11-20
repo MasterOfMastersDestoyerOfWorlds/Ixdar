@@ -22,7 +22,7 @@ public final class IntrinsicPathTracer {
     /** Steps the unfolding walk may take along one intrinsic half-edge before it gives up. */
     public int maxUnfoldSteps;
 
-    private double[] positions = new double[0];
+    private final PackedPoints positions = new PackedPoints();
     private int[] pointVertexId = new int[0];
     private int[] pointEdgeId = new int[0];
     private int[] pointFaceId = new int[0];
@@ -57,8 +57,9 @@ public final class IntrinsicPathTracer {
     public TracedSurfacePath trace(IntrinsicTriangulation intrinsic, int[] pathHalfEdges,
             boolean closed) {
         pointCount = 0;
+        positions.resize(0);
         if (pathHalfEdges.length == 0) {
-            return new TracedSurfacePath(new double[0], new int[0], new int[0], new double[0], 0,
+            return new TracedSurfacePath(new PackedPoints(0), new int[0], new int[0], new double[0],
                     closed);
         }
         for (int index = 0; index < pathHalfEdges.length; index++) {
@@ -71,10 +72,10 @@ public final class IntrinsicPathTracer {
         if (!closed) {
             appendVertex(intrinsic.halfEdgeHead(pathHalfEdges[pathHalfEdges.length - 1]));
         }
-        double[] packed = Arrays.copyOf(positions, 3 * pointCount);
+        PackedPoints packed = positions.copy();
         return new TracedSurfacePath(packed, packed, Arrays.copyOf(pointVertexId, pointCount),
                 Arrays.copyOf(pointEdgeId, pointCount), Arrays.copyOf(pointFaceId, pointCount),
-                Arrays.copyOf(pointFraction, pointCount), pointCount, closed);
+                Arrays.copyOf(pointFraction, pointCount), closed);
     }
 
     /**
@@ -222,8 +223,7 @@ public final class IntrinsicPathTracer {
         ensureCapacity();
         int vertexId = metric.sourceVertexId[intrinsicVertex];
         metric.sourceMesh.vertexPosition(vertexId, scratchPosition);
-        int base = 3 * pointCount;
-        PackedPoints.store(positions, base, scratchPosition);
+        positions.append(scratchPosition);
         pointVertexId[pointCount] = vertexId;
         pointEdgeId[pointCount] = -1;
         pointFaceId[pointCount] = -1;
@@ -245,10 +245,9 @@ public final class IntrinsicPathTracer {
         double tailY = scratchPosition.y;
         double tailZ = scratchPosition.z;
         metric.sourceMesh.vertexPosition(headVertexId, scratchPosition);
-        int base = 3 * pointCount;
-        positions[base] = tailX + parameter * (scratchPosition.x - tailX);
-        positions[base + 1] = tailY + parameter * (scratchPosition.y - tailY);
-        positions[base + 2] = tailZ + parameter * (scratchPosition.z - tailZ);
+        positions.append((float) (tailX + parameter * (scratchPosition.x - tailX)),
+                (float) (tailY + parameter * (scratchPosition.y - tailY)),
+                (float) (tailZ + parameter * (scratchPosition.z - tailZ)));
         pointVertexId[pointCount] = -1;
         pointEdgeId[pointCount] = metric.sourceEdgeId[edge];
         pointFaceId[pointCount] = -1;
@@ -265,7 +264,6 @@ public final class IntrinsicPathTracer {
             return;
         }
         int grown = Math.max(64, pointVertexId.length * 2);
-        positions = Arrays.copyOf(positions, 3 * grown);
         pointVertexId = Arrays.copyOf(pointVertexId, grown);
         pointEdgeId = Arrays.copyOf(pointEdgeId, grown);
         pointFaceId = Arrays.copyOf(pointFaceId, grown);

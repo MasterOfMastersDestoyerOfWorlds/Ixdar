@@ -59,7 +59,7 @@ class SkeletonNodeTest {
                 "the longest branch leans off the axis: " + span);
 
         float[] radii = curves.pointAttributes.get(MeshSkeletonExtractor.RADIUS);
-        assertEquals(curves.positions.length / CurveGeometry.XYZ, radii.length);
+        assertEquals(curves.positions.size(), radii.length);
         for (int joint = first + 1; joint < last; joint++) {
             assertEquals(RADIUS, radii[joint], RADIUS_SLACK * RADIUS,
                     "barrel joint " + joint + " carries another radius than the cylinder's");
@@ -67,8 +67,6 @@ class SkeletonNodeTest {
     }
 
     private static Vector3f point(CurveGeometry curves, int point) {
-        return new Vector3f(curves.positions[CurveGeometry.XYZ * point],
-                curves.positions[CurveGeometry.XYZ * point + 1],
-                curves.positions[CurveGeometry.XYZ * point + 2]);
+        return curves.positions.at(point);
     }
 }

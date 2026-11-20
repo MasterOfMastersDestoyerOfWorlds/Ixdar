@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * One ring through authored surface waypoints: the seed edge walk, the geodesic FlipOut tightens
@@ -50,8 +51,8 @@ public final class SurfaceRing {
      * FlipOut (Sharp and Crane 2020).
      *
      * @param mesh          surface the ring is snapped and tightened on
-     * @param packedXyz     authored waypoint coordinates, three floats per waypoint
-     * @param waypointCount waypoints to use from the front of {@code packedXyz}
+     * @param waypoints     authored waypoints
+     * @param waypointCount waypoints to use from the front of {@code waypoints}
      * @param closed        whether the walk returns from the last waypoint to the first
      * @param pinned        leading waypoints the tightening must keep the ring on; {@code 0}
      *                      lets the whole ring slide to the nearest geodesic
@@ -60,7 +61,7 @@ public final class SurfaceRing {
      * @throws IllegalArgumentException when too few waypoints are given for the requested shape
      * @return the finished ring
      */
-    public static SurfaceRing through(MeshTopology mesh, float[] packedXyz, int waypointCount,
+    public static SurfaceRing through(MeshTopology mesh, PackedPoints waypoints, int waypointCount,
             boolean closed, int pinned, int iterations) {
         int minimum = closed ? SurfaceWaypoints.CLOSED_LOOP_MINIMUM
                 : SurfaceWaypoints.OPEN_PATH_MINIMUM;
@@ -69,7 +70,7 @@ public final class SurfaceRing {
                     + " needs at least " + minimum + " surface points, got " + waypointCount
                     + (closed ? "; two points bound a loop only with a third side point" : ""));
         }
-        return build(mesh, SurfaceWaypoints.snap(NearestVertex.over(mesh), packedXyz, waypointCount), closed, pinned,
+        return build(mesh, SurfaceWaypoints.snap(NearestVertex.over(mesh), waypoints, waypointCount), closed, pinned,
                 iterations);
     }
 

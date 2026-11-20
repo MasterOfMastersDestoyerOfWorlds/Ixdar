@@ -18,7 +18,8 @@ public final class ChainStroke extends SculptStroke {
         float meanWeight = 0f;
         Vector3f position = new Vector3f();
         for (int seed = 0; seed < count; seed++) {
-            int nearest = nearestPoint(pointXyz, sum.mesh.vertexPosition(chain.vertexIds[seed], position));
+            int nearest = pointXyz.nearest(sum.mesh.vertexPosition(chain.vertexIds[seed], position), 0,
+                    pointXyz.size());
             meanWeight += (nearest < 0 ? 0f : pointWeight[nearest]) / count;
         }
         for (int edgeId : smooth ? new int[0] : chain.edgeIds) {
@@ -35,18 +36,17 @@ public final class ChainStroke extends SculptStroke {
         Vector3f scratch = new Vector3f();
         float largest = 0f;
         StrokeElementGrid grid = elementGrid(direction);
-        int cell = grid == null ? 0 : grid.cellOf(vertex.x, vertex.y, vertex.z);
+        int cell = grid == null ? 0 : grid.cellOf(vertex);
         int elements = grid == null ? segments : cell < 0 ? 0 : grid.first(cell + 1) - grid.first(cell);
         for (int slot = 0; slot < elements; slot++) {
             int segment = grid == null ? slot : grid.element(grid.first(cell) + slot);
             if (segment >= segments) {
                 continue;
             }
-            int start = segment * 3;
-            int end = pointCount == 1 ? start : start + 3;
-            float fraction = elementFraction(start, end, position.set(vertex), direction, scratch);
+            int end = pointCount == 1 ? segment : segment + 1;
+            float fraction = elementFraction(segment, end, position.set(vertex), direction, scratch);
             if (fraction < 1f) {
-                float weight = pointWeight[segment] + (pointWeight[end / 3] - pointWeight[segment]) * elementAlong;
+                float weight = pointWeight[segment] + (pointWeight[end] - pointWeight[segment]) * elementAlong;
                 largest = Math.max(largest, weight * (1f - fraction * fraction) * (1f - fraction * fraction));
             }
         }

@@ -1,7 +1,10 @@
 package ixdar.geometry.mesh.data.representation;
 
 import java.util.Arrays;
+import java.util.stream.IntStream;
 
+import org.joml.Matrix3f;
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 /**
@@ -11,6 +14,9 @@ import org.joml.Vector3f;
  */
 public interface MeshTopology {
     int NONE = -1;
+
+    /** The |x| of an axis past which {@link #tangentFrame(Vector3f)} crosses it with y, not x. */
+    float FRAME_HELPER_LIMIT = 0.9f;
 
     int QUAD_CORNERS = 4;
 
@@ -165,18 +171,17 @@ public interface MeshTopology {
      *
      * @param activeVertexById receives each vertex id's dense index when not null; sized to
      *                         {@link #vertexIdBound}
-     * @return packed positions, three floats per vertex
+     * @return the positions, a new buffer indexed by dense vertex
      */
-    default float[] packedPositions(int[] activeVertexById) {
+    default PackedPoints packedPositions(int[] activeVertexById) {
         Vector3f position = new Vector3f();
-        float[] xyz = new float[vertexCount() * 3];
+        PackedPoints xyz = new PackedPoints(vertexCount());
         for (int activeVertex = 0; activeVertex < vertexCount(); activeVertex++) {
             int vertexId = vertexIdAt(activeVertex);
             if (activeVertexById != null) {
                 activeVertexById[vertexId] = activeVertex;
             }
-            vertexPosition(vertexId, position);
-            PackedPoints.store(xyz, activeVertex * 3, position);
+            xyz.set(activeVertex, vertexPosition(vertexId, position));
         }
         return xyz;
     }
@@ -446,6 +451,70 @@ public interface MeshTopology {
     Vector3f faceNormal(int faceId, Vector3f dest);
 
     /**
+     * Allocating form of {@link #faceNormal(int, Vector3f)}.
+     *
+     * @param faceId face to read
+     * @return a new vector holding the cached normal
+     */
+    default Vector3f faceNormal(int faceId) {
+        return faceNormal(faceId, new Vector3f());
+    }
+
+    /**
+     * A face's corner positions in loop order, point {@code slot} for corner {@code slot}, so the
+     * triangle maths of {@link TriangleGeometry} runs on the face directly.
+     *
+     * @param faceId live face to read
+     * @return a new buffer of {@link #faceVertexCount} points
+     */
+    default PackedPoints facePoints(int faceId) {
+        int corners = faceVertexCount(faceId);
+        PackedPoints points = new PackedPoints(corners);
+        for (int slot = 0; slot < corners; slot++) {
+            points.set(slot, vertexPosition(faceVertexAt(faceId, slot)));
+        }
+        return points;
+    }
+
+    /**
+     * The interior angle of a face at the source vertex of one of its half-edges, between that
+     * half-edge and the previous one reversed.
+     *
+     * @param halfEdgeId half-edge leaving the corner, on the face measured
+     * @return the angle in radians, 0 when an edge is degenerate
+     */
+    default double cornerAngle(int halfEdgeId) {
+        Vector3f apex = vertexPosition(halfEdgeVertex(halfEdgeId));
+        Vector3f toNext = vertexPosition(halfEdgeEndVertex(halfEdgeId)).sub(apex);
+        Vector3f toPrev = vertexPosition(halfEdgeVertex(halfEdgePrev(halfEdgeId))).sub(apex);
+        return toNext.lengthSquared() == 0f || toPrev.lengthSquared() == 0f ? 0.0 : toNext.angle(toPrev);
+    }
+
+    /**
+     * {@link #tangentFrame(Vector3f)} about a vertex's cached normal.
+     *
+     * @param vertexId vertex to read
+     * @return a new frame, columns tangent, bitangent, normal
+     */
+    default Matrix3f tangentFrame(int vertexId) {
+        return tangentFrame(vertexNormal(vertexId, new Vector3f()).normalize());
+    }
+
+    /**
+     * A right-handed orthonormal frame round a unit axis: the tangent is x with its component along
+     * the axis removed, or y once the axis leans within {@link #FRAME_HELPER_LIMIT} of x, and the
+     * bitangent is the axis crossed with the tangent.
+     *
+     * @param normal unit axis, the frame's third column
+     * @return a new frame, columns tangent, bitangent, normal
+     */
+    static Matrix3f tangentFrame(Vector3f normal) {
+        Vector3f tangent = Math.abs(normal.x) < FRAME_HELPER_LIMIT ? new Vector3f(1f, 0f, 0f) : new Vector3f(0f, 1f, 0f);
+        tangent.fma(-tangent.dot(normal), normal).normalize();
+        return new Matrix3f(tangent, normal.cross(tangent, new Vector3f()), normal);
+    }
+
+    /**
      * The axis a face's normal points along most strongly: the axis a planar projection of the
      * face drops so the projection never collapses.
      *
@@ -530,12 +599,23 @@ public interface MeshTopology {
     boolean isBoundaryHalfEdge(int halfEdgeId);
 
     /**
+     * The axis-aligned box round every live vertex, cached until the geometry next changes.
+     *
+     * @return the mesh's own two-point buffer, minimum then maximum, both zero for a mesh with no
+     *         vertices; not to be modified
+     */
+    PackedPoints bounds();
+
+    /**
      * Read the axis-aligned bounding-box minimum into {@code dest}.
      *
      * @param dest scratch vector to fill
      * @return {@code dest} for chaining
      */
-    Vector3f boundsMin(Vector3f dest);
+    default Vector3f boundsMin(Vector3f dest) {
+        PackedPoints box = bounds();
+        return dest.set(box.get(0, 0), box.get(0, 1), box.get(0, 2));
+    }
 
     /**
      * Read the axis-aligned bounding-box maximum into {@code dest}.
@@ -543,7 +623,10 @@ public interface MeshTopology {
      * @param dest scratch vector to fill
      * @return {@code dest} for chaining
      */
-    Vector3f boundsMax(Vector3f dest);
+    default Vector3f boundsMax(Vector3f dest) {
+        PackedPoints box = bounds();
+        return dest.set(box.get(1, 0), box.get(1, 1), box.get(1, 2));
+    }
 
     /**
      * Read the bounding-box center into {@code dest}.
@@ -551,7 +634,9 @@ public interface MeshTopology {
      * @param dest scratch vector to fill
      * @return {@code dest} for chaining
      */
-    Vector3f center(Vector3f dest);
+    default Vector3f center(Vector3f dest) {
+        return dest.set(bounds().centroid());
+    }
 
     /**
      * Bounding-sphere radius about {@link #center}, the default scene scale.
@@ -601,35 +686,41 @@ public interface MeshTopology {
     default double faceArea(int faceId) {
         int[] corners = new int[3 * Math.max(3, faceVertexCount(faceId))];
         int triangles = faceTriangleCorners(faceId, TriangulationRule.FAN, corners);
-        Vector3f anchor = new Vector3f();
-        Vector3f first = new Vector3f();
-        Vector3f second = new Vector3f();
+        PackedPoints points = facePoints(faceId);
         double area = 0.0;
         for (int slot = 0; slot < 3 * triangles; slot += 3) {
-            vertexPosition(faceVertexAt(faceId, corners[slot]), anchor);
-            vertexPosition(faceVertexAt(faceId, corners[slot + 1]), first).sub(anchor);
-            vertexPosition(faceVertexAt(faceId, corners[slot + 2]), second).sub(anchor);
-            area += 0.5 * first.cross(second).length();
+            area += TriangleGeometry.area(points, corners[slot], corners[slot + 1], corners[slot + 2]);
         }
         return area;
     }
 
     /**
-     * The mean of a face's corner positions, each corner divided by the count before it is summed:
-     * the point a region pick stands for, which the nearest-face lookup maps back to the face.
+     * The mean of a face's corner positions: the point a region pick stands for, which the
+     * nearest-face lookup maps back to the face.
      *
      * @param faceId live face to measure
      * @return a new vector at the centroid, the origin for a face without corners
      */
     default Vector3f faceCentroid(int faceId) {
-        Vector3f centroid = new Vector3f();
-        Vector3f corner = new Vector3f();
         int corners = faceVertexCount(faceId);
+        Vector3d sum = new Vector3d();
+        Vector3f corner = new Vector3f();
         for (int slot = 0; slot < corners; slot++) {
-            vertexPosition(faceVertexAt(faceId, slot), corner);
-            centroid.add(corner.x / corners, corner.y / corners, corner.z / corners);
+            sum.add(vertexPosition(faceVertexAt(faceId, slot), corner));
         }
-        return centroid;
+        return corners == 0 ? new Vector3f() : new Vector3f(sum.div(corners));
+    }
+
+    /**
+     * Every live face's {@link #faceCentroid}, worked in parallel.
+     *
+     * @return a new buffer indexed by active face
+     */
+    default PackedPoints faceCentroids() {
+        PackedPoints centroids = new PackedPoints(faceCount());
+        IntStream.range(0, centroids.size()).parallel()
+                .forEach(activeFace -> centroids.set(activeFace, faceCentroid(faceIdAt(activeFace))));
+        return centroids;
     }
 
     /**
@@ -654,7 +745,7 @@ public interface MeshTopology {
      */
     default float[] vertexAreas() {
         int[] activeVertexById = new int[vertexIdBound()];
-        float[] xyz = packedPositions(activeVertexById);
+        PackedPoints xyz = packedPositions(activeVertexById);
         int[] corners = triangulate(TriangulationRule.FAN, null);
         float[] area = new float[vertexCount()];
         for (int corner = 0; corner + 2 < corners.length; corner += 3) {

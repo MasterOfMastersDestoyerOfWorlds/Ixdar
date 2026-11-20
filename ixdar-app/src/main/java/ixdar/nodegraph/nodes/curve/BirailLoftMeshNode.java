@@ -89,18 +89,15 @@ public class BirailLoftMeshNode implements MeshNode {
             return;
         }
 
-        float[] aRes = cga.resampled(uSeg).curvePositions(0);
-        float[] bRes = cgb.resampled(uSeg).curvePositions(0);
+        PackedPoints railA = cga.resampled(uSeg).curvePositions(0);
+        PackedPoints railB = cgb.resampled(uSeg).curvePositions(0);
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
         int[][] vid = new int[uSeg][vSeg];
         for (int i = 0; i < uSeg; i++) {
             for (int j = 0; j < vSeg; j++) {
                 float t = j / (float) (vSeg - 1);
-                float x = aRes[i * 3] + t * (bRes[i * 3] - aRes[i * 3]);
-                float y = aRes[i * 3 + 1] + t * (bRes[i * 3 + 1] - aRes[i * 3 + 1]);
-                float z = aRes[i * 3 + 2] + t * (bRes[i * 3 + 2] - aRes[i * 3 + 2]);
-                vid[i][j] = mesh.addVertex(x, y, z);
+                vid[i][j] = mesh.addVertex(railA.at(i).lerp(railB.at(i), t));
             }
         }
 
@@ -143,13 +140,14 @@ public class BirailLoftMeshNode implements MeshNode {
         }
         Vector3f min = new Vector3f(Float.MAX_VALUE);
         Vector3f max = new Vector3f(-Float.MAX_VALUE);
-        float[] points = cg.curvePositions(0);
-        for (int at = 0; at < points.length; at += 3) {
-            if (!Float.isFinite(points[at]) || !Float.isFinite(points[at + 1]) || !Float.isFinite(points[at + 2])) {
+        PackedPoints points = cg.curvePositions(0);
+        for (int at = 0; at < points.size(); at++) {
+            Vector3f point = points.at(at);
+            if (!point.isFinite()) {
                 return false;
             }
-            min.min(PackedPoints.at(points, at));
-            max.max(PackedPoints.at(points, at));
+            min.min(point);
+            max.max(point);
         }
         return max.sub(min).length() >= MIN_ARC_LENGTH;
     }

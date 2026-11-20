@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * A polygon's fill samples: seeded by every vertex within the sample spacing, and shaped by the
@@ -64,9 +65,7 @@ public final class FillStroke extends SculptStroke {
         if (nearest >= radius) {
             return false;
         }
-        int ownLength = pointXyz.length;
-        pointXyz = Arrays.copyOf(pointXyz, ownLength + reflection.pointXyz.length);
-        System.arraycopy(reflection.pointXyz, 0, pointXyz, ownLength, reflection.pointXyz.length);
+        pointXyz = PackedPoints.concat(pointXyz, reflection.pointXyz);
         int ownCount = pointWeight.length;
         pointWeight = Arrays.copyOf(pointWeight, ownCount + reflection.pointWeight.length);
         System.arraycopy(reflection.pointWeight, 0, pointWeight, ownCount, reflection.pointWeight.length);
@@ -86,10 +85,9 @@ public final class FillStroke extends SculptStroke {
         int pointCount = pointWeight.length;
         float spacingSquared = Float.POSITIVE_INFINITY;
         for (int point = 0; point < pointCount; point++) {
+            Vector3f first = pointXyz.at(point);
             for (int other = point + 1; other < pointCount; other++) {
-                spacingSquared = Math.min(spacingSquared, Vector3f.distanceSquared(pointXyz[point * 3],
-                        pointXyz[point * 3 + 1], pointXyz[point * 3 + 2], pointXyz[other * 3],
-                        pointXyz[other * 3 + 1], pointXyz[other * 3 + 2]));
+                spacingSquared = Math.min(spacingSquared, (float) pointXyz.distanceSquared(other, first));
             }
         }
         int vertexCount = sum.mesh.vertexCount();
@@ -103,8 +101,8 @@ public final class FillStroke extends SculptStroke {
             if (!(pointWeight[point] > 0f)) {
                 continue;
             }
-            int[] near = index == null ? null : index.within(pointXyz[point * 3], pointXyz[point * 3 + 1],
-                    pointXyz[point * 3 + 2], margin * (1f + NEAR_QUERY_SLACK));
+            Vector3f sample = pointXyz.at(point);
+            int[] near = index == null ? null : index.within(sample, margin * (1f + NEAR_QUERY_SLACK));
             for (int slot = 0; near != null && slot < near.length; slot++) {
                 near[slot] = sum.activeVertexById[near[slot]];
             }
@@ -116,8 +114,7 @@ public final class FillStroke extends SculptStroke {
             float nearestDistance = Float.POSITIVE_INFINITY;
             for (int slot = 0; slot < nearCount; slot++) {
                 int vertexId = sum.mesh.vertexIdAt(near == null ? slot : near[slot]);
-                float distance = sum.mesh.vertexPosition(vertexId, position).distanceSquared(pointXyz[point * 3],
-                        pointXyz[point * 3 + 1], pointXyz[point * 3 + 2]);
+                float distance = sum.mesh.vertexPosition(vertexId, position).distanceSquared(sample);
                 if (distance < nearestDistance) {
                     nearestDistance = distance;
                     nearestId = vertexId;
@@ -130,8 +127,7 @@ public final class FillStroke extends SculptStroke {
             for (int activeVertex = 0; activeVertex < vertexCount && nearestDistance > spacingSquared;
                     activeVertex++) {
                 int vertexId = sum.mesh.vertexIdAt(activeVertex);
-                float distance = sum.mesh.vertexPosition(vertexId, position).distanceSquared(pointXyz[point * 3],
-                        pointXyz[point * 3 + 1], pointXyz[point * 3 + 2]);
+                float distance = sum.mesh.vertexPosition(vertexId, position).distanceSquared(sample);
                 if (distance < nearestDistance) {
                     nearestDistance = distance;
                     nearestId = vertexId;
@@ -162,11 +158,11 @@ public final class FillStroke extends SculptStroke {
         float weightedBumps = 0f;
         float bumps = 0f;
         StrokeElementGrid grid = elementGrid(direction);
-        int cell = grid == null ? 0 : grid.cellOf(vertex.x, vertex.y, vertex.z);
+        int cell = grid == null ? 0 : grid.cellOf(vertex);
         int samples = grid == null ? pointWeight.length : cell < 0 ? 0 : grid.first(cell + 1) - grid.first(cell);
         for (int slot = 0; slot < samples; slot++) {
             int sample = grid == null ? slot : grid.element(grid.first(cell) + slot);
-            float fraction = elementFraction(sample * 3, sample * 3, position.set(vertex), direction, scratch);
+            float fraction = elementFraction(sample, sample,position.set(vertex), direction, scratch);
             if (fraction < 1f) {
                 float bump = (1f - fraction * fraction) * (1f - fraction * fraction);
                 uncovered *= 1f - bump;

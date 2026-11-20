@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.TagGeometryNode;
 import ixdar.nodegraph.nodes.modifier.MergeByDistanceNode;
@@ -126,14 +127,13 @@ class MergeByDistanceSlotTest {
      * @return the unwelded strip
      */
     private static ArrayMesh splitStrip() {
-        float[] positions = {
-            0f, 0f, 0f,
-            1f, 0f, 0f,
-            1f, 1f, 0f,
-            1f + GAP, 0f, 0f,
-            1f, 1f + GAP, 0f,
-            0f, 1f, 0f,
-        };
+        PackedPoints positions = new PackedPoints();
+        positions.append(0f, 0f, 0f);
+        positions.append(1f, 0f, 0f);
+        positions.append(1f, 1f, 0f);
+        positions.append(1f + GAP, 0f, 0f);
+        positions.append(1f, 1f + GAP, 0f);
+        positions.append(0f, 1f, 0f);
         int[] indices = { 0, 1, 2, 4, 3, 5 };
         ArrayMesh mesh = new ArrayMesh(positions, null, indices, CornerUvField.CORNERS_PER_FACE);
         mesh.computeNormals();

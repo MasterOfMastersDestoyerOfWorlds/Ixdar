@@ -7,6 +7,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+
 /**
  * N-sided generalized Coons patch sampler for cells whose boundary does not split into four
  * chains, sampled by fan-triangulating a regular n-gon domain.
@@ -42,11 +44,11 @@ public final class CharrotGregoryPatchSampler {
                                        Vector3f[][] sideBeziers,
                                        int ringsPerSpoke,
                                        int edgeSamples,
-                                       int[] faceIdx, float[] positions,
+                                       int[] faceIdx, PackedPoints positions,
                                        int vertexCount) {
         int n = sideBeziers.length;
         if (n < 3) {
-            return new SampledPatch(false, new float[0], new int[0], new float[vertexCount], 0f, 0f);
+            return new SampledPatch(false, new PackedPoints(0), new int[0], new float[vertexCount], 0f, 0f);
         }
         if (ringsPerSpoke < 1) ringsPerSpoke = 1;
 
@@ -61,11 +63,11 @@ public final class CharrotGregoryPatchSampler {
         int innerVerts = 1 + n * ringsPerSpoke;
         int extraBoundaryPerEdge = Math.max(0, edgeSamples - 2);  // exclude both corner endpoints
         int totalVerts = innerVerts + n * extraBoundaryPerEdge;
-        float[] outPositions = new float[totalVerts * 3];
+        PackedPoints outPositions = new PackedPoints(totalVerts);
 
         Vector3f tmp = new Vector3f();
         CharrotGregoryPatch.evaluate(sideBeziers, 0f, 0f, tmp);
-        outPositions[0] = tmp.x; outPositions[1] = tmp.y; outPositions[2] = tmp.z;
+        outPositions.set(0, tmp);
         for (int k = 1; k <= ringsPerSpoke; k++) {
             float t = k / (float) ringsPerSpoke;
             for (int j = 0; j < n; j++) {
@@ -73,9 +75,7 @@ public final class CharrotGregoryPatchSampler {
                 float v = t * cornerV[j];
                 int idx = 1 + (k - 1) * n + j;
                 CharrotGregoryPatch.evaluate(sideBeziers, u, v, tmp);
-                outPositions[idx * 3]     = tmp.x;
-                outPositions[idx * 3 + 1] = tmp.y;
-                outPositions[idx * 3 + 2] = tmp.z;
+                outPositions.set(idx, tmp);
             }
         }
         for (int i = 0; i < n; i++) {
@@ -88,9 +88,7 @@ public final class CharrotGregoryPatchSampler {
                 float v = v0 + t * (v1 - v0);
                 int idx = innerVerts + i * extraBoundaryPerEdge + (m - 1);
                 CharrotGregoryPatch.evaluate(sideBeziers, u, v, tmp);
-                outPositions[idx * 3]     = tmp.x;
-                outPositions[idx * 3 + 1] = tmp.y;
-                outPositions[idx * 3 + 2] = tmp.z;
+                outPositions.set(idx, tmp);
             }
         }
 
@@ -126,7 +124,7 @@ public final class CharrotGregoryPatchSampler {
                 if (touched.get(v)) continue;
                 touched.set(v);
                 float dsq = nearestDistanceSquared(outPositions,
-                        positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]);
+                        positions.get(v, 0), positions.get(v, 1), positions.get(v, 2));
                 float d = (float) Math.sqrt(dsq);
                 errors[v] = d;
                 if (d > maxE) maxE = d;
@@ -144,12 +142,12 @@ public final class CharrotGregoryPatchSampler {
         return new SampledPatch(/*fourSided=*/n == 4, outPositions, faceArr, errors, p95, maxE);
     }
 
-    private static float nearestDistanceSquared(float[] grid, float px, float py, float pz) {
+    private static float nearestDistanceSquared(PackedPoints grid, float px, float py, float pz) {
         float best = Float.POSITIVE_INFINITY;
-        for (int i = 0; i < grid.length; i += 3) {
-            float dx = grid[i]     - px;
-            float dy = grid[i + 1] - py;
-            float dz = grid[i + 2] - pz;
+        for (int i = 0; i < grid.size(); i++) {
+            float dx = grid.get(i, 0) - px;
+            float dy = grid.get(i, 1) - py;
+            float dz = grid.get(i, 2) - pz;
             float d = dx * dx + dy * dy + dz * dz;
             if (d < best) best = d;
         }
@@ -163,8 +161,7 @@ public final class CharrotGregoryPatchSampler {
      * @param fourSided        whether the input was a 4-sided patch (always
      *                         true for {@code sides.length == 4} since the
      *                         Coons evaluator handles it natively).
-     * @param sampledPositions flat xyz packed array of sampled surface
-     *                         points.
+     * @param sampledPositions sampled surface points.
      * @param sampledFaces     flat triangle vertex indices (3 ints per
      *                         triangle).
      * @param vertexError      per-mesh-vertex world-space distance to
@@ -173,7 +170,7 @@ public final class CharrotGregoryPatchSampler {
      * @param maxError         max vertex error.
      */
     public record SampledPatch(boolean fourSided,
-                                float[] sampledPositions,
+                                PackedPoints sampledPositions,
                                 int[] sampledFaces,
                                 float[] vertexError,
                                 float p95Error,

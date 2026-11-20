@@ -71,8 +71,8 @@ class SurfaceMetricTest {
         assertTrue(firstFlipper.flipCount > 0 && secondFlipper.flipCount > 0,
                 "both runs must flip for the test to mean anything");
         IntrinsicPathTracer tracer = IntrinsicPathTracer.over(shared);
-        double[] firstTrace = tracer.trace(first, firstPath, false).positions;
-        double[] secondTrace = tracer.trace(second, secondPath, false).positions;
+        float[] firstTrace = tracer.trace(first, firstPath, false).positions.toArray();
+        float[] secondTrace = tracer.trace(second, secondPath, false).positions.toArray();
 
         SurfaceMetric firstOwn = SurfaceMetric.of(sphere);
         IntrinsicTriangulation firstAlone = IntrinsicTriangulation.over(firstOwn);
@@ -85,9 +85,9 @@ class SurfaceMetricTest {
                 GeodesicSeedPath.throughVertices(secondAlone, SECOND_USER_PAIRS[2], false), false,
                 FlipGeodesics.UNBOUNDED_ITERATIONS);
         assertArrayEquals(IntrinsicPathTracer.over(firstOwn).trace(firstAlone, firstAlonePath,
-                false).positions, firstTrace, 0.0, "the first run saw the second run's flips");
+                false).positions.toArray(), firstTrace, 0f, "the first run saw the second run's flips");
         assertArrayEquals(IntrinsicPathTracer.over(secondOwn).trace(secondAlone, secondAlonePath,
-                false).positions, secondTrace, 0.0, "the second run saw the first run's flips");
+                false).positions.toArray(), secondTrace, 0f, "the second run saw the first run's flips");
     }
 
     @Test

@@ -321,8 +321,8 @@ class RegionControlAutomationTest {
     @Test
     void selectByPartNamePicksEveryRegionItLabels() {
         RingRegions regions = scene.regionLayer.regions;
-        scene.regionLayer.partLabels.add(PART, TOP_POINT.clone());
-        scene.regionLayer.partLabels.add(PART, BOTTOM_POINT.clone());
+        scene.regionLayer.partLabels.add(PART, new Vector3f(TOP_POINT));
+        scene.regionLayer.partLabels.add(PART, new Vector3f(BOTTOM_POINT));
         scene.regionLayer.labelsChanged();
         scene.updateScene();
         terminal.run(SELECT + PART);
@@ -408,7 +408,7 @@ class RegionControlAutomationTest {
     void aNamedRegionDrawsOneLabelWithItsNumberAndPartName() throws Exception {
         RingRegions regions = scene.regionLayer.regions;
         int below = regions.regionByActiveFace[regions.nearestActiveFace(new Vector3f(BOTTOM_POINT))];
-        scene.regionLayer.partLabels.add(PART, BOTTOM_POINT.clone());
+        scene.regionLayer.partLabels.add(PART, new Vector3f(BOTTOM_POINT));
         scene.regionLayer.labelsChanged();
         scene.updateScene();
         assertEquals(0, scene.shownLabels.size(), "a part name drawn before the labels row turned them on");
@@ -649,7 +649,7 @@ class RegionControlAutomationTest {
         };
         scene.meshRuntime.upload(cylinder);
         RegionLayer layer = scene.regionLayer;
-        layer.partLabels.add(PART, TOP_POINT.clone());
+        layer.partLabels.add(PART, new Vector3f(TOP_POINT));
         layer.labelsChanged();
         RingRegions regions = layer.regions;
         Vector4f[] regionColours = new Vector4f[regions.regionCount];

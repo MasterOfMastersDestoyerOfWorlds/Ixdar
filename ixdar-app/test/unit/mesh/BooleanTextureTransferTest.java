@@ -22,6 +22,7 @@ import ixdar.geometry.mesh.data.bundle.MaterialSet;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
@@ -303,9 +304,9 @@ public class BooleanTextureTransferTest {
         double[] cornerU = new double[split.triangles.length];
         double[] cornerV = new double[split.triangles.length];
         for (int corner = 0; corner < split.triangles.length; corner++) {
-            int vertex = split.triangles[corner] * THREE;
-            cornerU[corner] = split.positions[vertex] + UV_ORIGIN;
-            cornerV[corner] = split.positions[vertex + 1] + UV_ORIGIN;
+            int vertex = split.triangles[corner];
+            cornerU[corner] = split.positions.get(vertex, 0) + UV_ORIGIN;
+            cornerV[corner] = split.positions.get(vertex, 1) + UV_ORIGIN;
         }
         HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(split.positions, split.triangles, THREE);
         mesh.computeNormals();
@@ -348,10 +349,12 @@ public class BooleanTextureTransferTest {
     private static GeometryBundle plainCube(float offset) {
         float low = -HALF + offset;
         float high = HALF + offset;
-        float[] positions = {
-            low, low, low, high, low, low, high, high, low, low, high, low,
-            low, low, high, high, low, high, high, high, high, low, high, high,
-        };
+        PackedPoints positions = new PackedPoints(2 * QUAD_CORNERS);
+        for (int corner = 0; corner < 2 * QUAD_CORNERS; corner++) {
+            int around = corner % QUAD_CORNERS;
+            positions.set(corner, (around + 1) % QUAD_CORNERS < 2 ? low : high,
+                    around < 2 ? low : high, corner < QUAD_CORNERS ? low : high);
+        }
         int[] quads = {
             0, THREE, 2, 1,
             QUAD_CORNERS, 5, SIX, 7,

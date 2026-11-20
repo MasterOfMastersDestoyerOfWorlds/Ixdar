@@ -2,8 +2,6 @@ package ixdar.automation.endpoints.ring;
 
 import java.io.IOException;
 
-import org.joml.Vector3f;
-
 import com.google.gson.JsonObject;
 
 import ixdar.annotations.automation.APIMethod;
@@ -13,6 +11,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.platform.Platforms;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
@@ -28,14 +27,14 @@ public class Project extends AutomationEndpoint implements AutomationRoute {
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        float[] point = SurfaceWaypoints.parse(body.has(POINT) ? body.get(POINT).getAsString()
+        PackedPoints point = SurfaceWaypoints.parse(body.has(POINT) ? body.get(POINT).getAsString()
                 : "");
         try {
             return runtime.runOnMainThread(() -> {
                 if (!(runtime.canvas instanceof MeshNodeViewerScene viewer)) {
                     return failure("no mesh viewer scene is active");
                 }
-                String refusal = point.length == SurfacePicker.COORDINATES_PER_POINT
+                String refusal = point.size() == 1
                         ? viewer.pickRefusal()
                         : "point takes one point, \"x,y,z\"";
                 if (!refusal.isEmpty()) {
@@ -43,7 +42,7 @@ public class Project extends AutomationEndpoint implements AutomationRoute {
                 }
                 float[] pixel = new float[2];
                 SurfacePicker occluder = new SurfacePicker();
-                boolean inFront = viewer.projectPoint(new Vector3f(point), pixel, occluder);
+                boolean inFront = viewer.projectPoint(point.at(0), pixel, occluder);
                 boolean onScreen = inFront && pixel[0] > -MeshNodeViewerScene.PIXEL_CENTRE
                         && pixel[1] > -MeshNodeViewerScene.PIXEL_CENTRE
                         && pixel[0] < Platforms.get().getFrameBufferWidth()

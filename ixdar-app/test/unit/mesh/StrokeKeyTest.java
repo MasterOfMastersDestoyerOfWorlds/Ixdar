@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.sculpt.AnchoredStroke;
 import ixdar.geometry.mesh.data.sculpt.FaceAnchors;
 import ixdar.geometry.mesh.data.sculpt.StrokeKey;
@@ -120,18 +121,15 @@ class StrokeKeyTest {
      * so the key's normalisation leaves the frame alone.
      */
     private static MeshTopology goal(MeshTopology sphere, boolean dent) {
-        float[] xyz = sphere.packedPositions(null);
-        float[] offset = new float[xyz.length];
-        for (int vertex = 0; vertex < xyz.length; vertex += 3) {
-            Vector3f position = new Vector3f(xyz[vertex], xyz[vertex + 1], xyz[vertex + 2]);
+        PackedPoints xyz = sphere.packedPositions(null);
+        PackedPoints offset = new PackedPoints(xyz.size());
+        for (int vertex = 0; vertex < xyz.size(); vertex++) {
+            Vector3f position = xyz.at(vertex);
             float fraction = dent ? position.distance(DENT_CENTRE) / DENT_RADIUS : creaseDistance(position)
                     / CREASE_RADIUS;
             float press = fraction < 1f ? (dent ? DENT_DEPTH : CREASE_DEPTH) * (1f - fraction * fraction)
                     * (1f - fraction * fraction) : 0f;
-            Vector3f move = new Vector3f(position).normalize().mul(-press);
-            offset[vertex] = move.x;
-            offset[vertex + 1] = move.y;
-            offset[vertex + 2] = move.z;
+            offset.set(vertex, new Vector3f(position).normalize().mul(-press));
         }
         return MeshVertexOffset.apply(sphere, Vector3Field.copyOf(offset));
     }

@@ -6,12 +6,10 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ops.MeshSmoothing;
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.nodegraph.field.Vector3Field;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Every stroke's move over one refined surface, summed: distinct strokes add, while the copies of
@@ -43,8 +41,8 @@ public final class DisplacementSum {
     /** Dense index of each sparse vertex id of {@link #mesh}. */
     public final int[] activeVertexById;
 
-    /** Vertex normals averaged over the one-ring, packed xyz by dense index: raw normals fold. */
-    public float[] normalXyz;
+    /** Vertex normals averaged over the one-ring, by dense index: raw normals fold. */
+    public PackedPoints normalXyz;
 
     /** Whether strokes move vertices; false only creases their chains. */
     public final boolean displace;
@@ -64,17 +62,17 @@ public final class DisplacementSum {
     /** Seed vertex ids the last {@link SculptStroke#seed} wrote. */
     public int[] sources = new int[1];
 
-    /** A silhouette's drag per seed, packed xyz, parallel to {@link #sources}. */
-    public float[] seedDragXyz = new float[3];
+    /** A silhouette's drag per seed, parallel to {@link #sources}. */
+    public PackedPoints seedDragXyz = new PackedPoints(1);
 
     /** Crease every chain asked for, by edge id of {@link #mesh}. */
     public final float[] strokeCreaseByEdgeId;
 
-    /** Summed move of every finished stroke, packed xyz by dense index. */
-    public final float[] offsetXyz;
+    /** Summed move of every finished stroke, by dense index. */
+    public final PackedPoints offsetXyz;
 
-    /** Largest silhouette drag per vertex, packed xyz by dense index. */
-    public float[] dragByActiveVertexXyz;
+    /** Largest silhouette drag per vertex, by dense index. */
+    public PackedPoints dragByActiveVertexXyz;
 
     /** Largest smoothing step per vertex, by dense index. */
     public final float[] smoothByActiveVertex;
@@ -85,11 +83,11 @@ public final class DisplacementSum {
     /** Deepest sink of the stroke being added, by dense index. */
     public final float[] lowerByActiveVertex;
 
-    /** Offset-weighted raise directions of the stroke being added, packed xyz. */
-    public final float[] raiseDirectionXyz;
+    /** Offset-weighted raise directions of the stroke being added, by dense index. */
+    public final PackedPoints raiseDirectionXyz;
 
-    /** Offset-weighted sink directions of the stroke being added, packed xyz. */
-    public final float[] lowerDirectionXyz;
+    /** Offset-weighted sink directions of the stroke being added, by dense index. */
+    public final PackedPoints lowerDirectionXyz;
 
     /** Dense indices the stroke being added has moved, {@link #touchedLength} of them. */
     public final int[] touched;
@@ -156,7 +154,7 @@ public final class DisplacementSum {
         this.creaseScale = creaseScale;
         int vertexCount = mesh.vertexCount();
         activeVertexById = mesh.activeIndexById();
-        normalXyz = new float[vertexCount * 3];
+        normalXyz = new PackedPoints(vertexCount);
         Vector3f normal = new Vector3f();
         Vector3f center = mesh.center(new Vector3f());
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
@@ -165,25 +163,22 @@ public final class DisplacementSum {
             if (normal.length() < SculptStroke.MINIMUM_NORMAL_LENGTH) {
                 mesh.vertexPosition(vertexId, normal).sub(center);
             }
-            normal.normalize();
-            PackedPoints.store(normalXyz, activeVertex * 3, normal);
+            normalXyz.set(activeVertex, normal.normalize());
         }
         int[][] rings = mesh.oneRings();
         for (int pass = 0; pass < NORMAL_SMOOTHING_PASSES; pass++) {
-            float[] smoothed = new float[normalXyz.length];
-            MeshSmoothing.ringMean(rings, normalXyz, 3, true, smoothed);
-            normalXyz = smoothed;
+            normalXyz = normalXyz.ringMean(rings, true);
         }
         bvh = !displace ? null : tree != null ? tree : TriangleBvh.over(mesh, new int[mesh.triangleCount()]);
         bvhStack = new int[bvh == null ? 0 : Math.max(1, bvh.nodeCount)];
         strokeCreaseByEdgeId = new float[mesh.edgeIdBound()];
-        offsetXyz = new float[vertexCount * 3];
-        dragByActiveVertexXyz = new float[vertexCount * 3];
+        offsetXyz = new PackedPoints(vertexCount);
+        dragByActiveVertexXyz = new PackedPoints(vertexCount);
         smoothByActiveVertex = new float[vertexCount];
         raiseByActiveVertex = new float[vertexCount];
         lowerByActiveVertex = new float[vertexCount];
-        raiseDirectionXyz = new float[vertexCount * 3];
-        lowerDirectionXyz = new float[vertexCount * 3];
+        raiseDirectionXyz = new PackedPoints(vertexCount);
+        lowerDirectionXyz = new PackedPoints(vertexCount);
         touched = new int[vertexCount];
         touchedByActiveVertex = new boolean[vertexCount];
         peakDisplacementBySource = new float[strokes];
@@ -210,10 +205,9 @@ public final class DisplacementSum {
             return;
         }
         Vector3f direction = new Vector3f();
-        Vector3f normal = new Vector3f();
         for (int seed = 0; seed < count; seed++) {
-            int at = activeVertexById[sources[seed]] * 3;
-            direction.add(normal.set(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]).normalize());
+            int activeVertex = activeVertexById[sources[seed]];
+            direction.add(normalXyz.at(activeVertex).normalize());
         }
         direction.normalize();
         falloff.expand(mesh, sources, count, stroke.gatherReach(), -1, stroke.refines() || stroke.smooth
@@ -222,9 +216,9 @@ public final class DisplacementSum {
         int hiddenCount = 0;
         for (int settled = 0; settled < falloff.settledLength && seeing; settled++) {
             int vertexId = falloff.settledVertexIds[settled];
-            int at = activeVertexById[vertexId] * 3;
-            if (falloff.distance(vertexId) < stroke.radius && visibility(stroke, at / 3,
-                    normal.set(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]), 1f) == 0f) {
+            int activeVertex = activeVertexById[vertexId];
+            if (falloff.distance(vertexId) < stroke.radius
+                    && visibility(stroke, activeVertex, normalXyz.at(activeVertex), 1f) == 0f) {
                 hiddenIds[hiddenCount++] = vertexId;
             }
         }
@@ -240,10 +234,9 @@ public final class DisplacementSum {
             float kernel = stroke.kernel(mesh.vertexPosition(vertexId, position), direction,
                     falloff.distance(vertexId) / stroke.radius);
             if (seeing && kernel > 0f) {
-                int at = activeVertex * 3;
-                kernel *= visibility(stroke, activeVertex, normal.set(normalXyz[at], normalXyz[at + 1],
-                        normalXyz[at + 2]), 1f) * Math.min(1f, shadow.distance(vertexId)
-                                / (stroke.radius * SHADOW_FEATHER));
+                Vector3f normal = normalXyz.at(activeVertex);
+                kernel *= visibility(stroke, activeVertex, normal, 1f)
+                        * Math.min(1f, shadow.distance(vertexId) / (stroke.radius * SHADOW_FEATHER));
                 float[] eye = stroke.eyeForward;
                 mesh.vertexPosition(vertexId, position).sub(eye[0], eye[1], eye[2]).normalize();
                 float facing = -normal.dot(position) / Math.max(SculptStroke.MINIMUM_NORMAL_LENGTH, normal.length());
@@ -266,7 +259,7 @@ public final class DisplacementSum {
     public void ensureSources(int count) {
         if (sources.length < count) {
             sources = new int[count];
-            seedDragXyz = new float[count * 3];
+            seedDragXyz = new PackedPoints(count);
         }
     }
 
@@ -283,12 +276,10 @@ public final class DisplacementSum {
             touchedByActiveVertex[activeVertex] = true;
             touched[touchedLength++] = activeVertex;
         }
-        float[] directionXyz = offset > 0f ? raiseDirectionXyz : lowerDirectionXyz;
+        PackedPoints directionXyz = offset > 0f ? raiseDirectionXyz : lowerDirectionXyz;
         raiseByActiveVertex[activeVertex] = Math.max(raiseByActiveVertex[activeVertex], offset);
         lowerByActiveVertex[activeVertex] = Math.min(lowerByActiveVertex[activeVertex], offset);
-        directionXyz[activeVertex * 3] += Math.abs(offset) * direction.x;
-        directionXyz[activeVertex * 3 + 1] += Math.abs(offset) * direction.y;
-        directionXyz[activeVertex * 3 + 2] += Math.abs(offset) * direction.z;
+        directionXyz.add(activeVertex, new Vector3f(direction).mul(Math.abs(offset)));
     }
 
     /**
@@ -300,53 +291,42 @@ public final class DisplacementSum {
      */
     public MeshTopology sculpted(float tangentialRelax) {
         finishStroke();
+        int vertexCount = mesh.vertexCount();
         int[][] rings = mesh.oneRings();
         for (int pass = 0; pass < DRAG_SMOOTHING_PASSES; pass++) {
-            float[] smoothed = new float[dragByActiveVertexXyz.length];
-            MeshSmoothing.ringMean(rings, dragByActiveVertexXyz, 3, true, smoothed);
-            dragByActiveVertexXyz = smoothed;
+            dragByActiveVertexXyz = dragByActiveVertexXyz.ringMean(rings, true);
         }
-        int vertexCount = mesh.vertexCount();
-        float[] combinedXyz = new float[vertexCount * 3];
+        PackedPoints moveXyz = offsetXyz.copy();
+        moveXyz.addScaled(dragByActiveVertexXyz, 1f);
+        PackedPoints movedXyz = mesh.packedPositions(null);
+        movedXyz.addScaled(moveXyz, 1f);
         float[] relaxWeight = new float[vertexCount];
         boolean relaxing = false;
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            float lengthSquared = 0f;
-            for (int axis = 0; axis < 3; axis++) {
-                int at = activeVertex * 3 + axis;
-                combinedXyz[at] = offsetXyz[at] + dragByActiveVertexXyz[at];
-                lengthSquared += combinedXyz[at] * combinedXyz[at];
-            }
-            relaxWeight[activeVertex] = lengthSquared > 0f ? tangentialRelax : 0f;
+            relaxWeight[activeVertex] = moveXyz.at(activeVertex).lengthSquared() > 0f ? tangentialRelax : 0f;
             relaxing |= relaxWeight[activeVertex] > 0f || smoothByActiveVertex[activeVertex] > 0f;
         }
-        MeshTopology sculpted = MeshVertexOffset.apply(mesh, Vector3Field.copyOf(combinedXyz));
+        MeshTopology sculpted = MeshVertexOffset.atPositions(mesh, movedXyz);
         if (!relaxing) {
             return sculpted;
         }
         int[] sculptedActiveById = new int[sculpted.vertexIdBound()];
-        float[] relaxed = sculpted.packedPositions(sculptedActiveById);
-        Vector3f laplacian = new Vector3f();
+        PackedPoints relaxed = sculpted.packedPositions(sculptedActiveById);
         Vector3f normal = new Vector3f();
-        float[] ring = new float[relaxed.length];
         int[][] sculptedRings = sculpted.oneRings();
         for (int iteration = 0; iteration < RELAX_ITERATIONS; iteration++) {
-            float[] next = relaxed.clone();
-            MeshSmoothing.ringMean(sculptedRings, relaxed, 3, false, ring);
+            PackedPoints next = relaxed.copy();
+            PackedPoints ring = relaxed.ringMean(sculptedRings);
             for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
                 float smooth = smoothByActiveVertex[activeVertex];
-                if (relaxWeight[activeVertex] == 0f && smooth == 0f) {
+                float relax = relaxWeight[activeVertex];
+                if (relax == 0f && smooth == 0f) {
                     continue;
                 }
-                int vertexId = sculpted.vertexIdAt(activeVertex);
-                int at = activeVertex * 3;
-                laplacian.set(ring[at], ring[at + 1], ring[at + 2]).sub(relaxed[at], relaxed[at + 1], relaxed[at + 2]);
-                sculpted.vertexNormal(vertexId, normal);
+                Vector3f laplacian = ring.at(activeVertex).sub(relaxed.at(activeVertex));
+                sculpted.vertexNormal(sculpted.vertexIdAt(activeVertex), normal);
                 float along = normal.dot(laplacian);
-                for (int axis = 0; axis < 3; axis++) {
-                    next[at + axis] += smooth * laplacian.get(axis)
-                            + relaxWeight[activeVertex] * (laplacian.get(axis) - along * normal.get(axis));
-                }
+                next.add(activeVertex, normal.mul(-along).add(laplacian).mul(relax).add(laplacian.mul(smooth)));
             }
             relaxed = next;
         }
@@ -428,33 +408,25 @@ public final class DisplacementSum {
      * vertices it folds are {@link #touched}'s first {@link #touchedLength} entries until it runs.
      */
     public void finishStroke() {
-        Vector3f direction = new Vector3f();
         for (int index = 0; index < touchedLength; index++) {
             int activeVertex = touched[index];
-            int at = activeVertex * 3;
             float move = raiseByActiveVertex[activeVertex] - lowerByActiveVertex[activeVertex];
             if (move > strongestMoveByActiveVertex[activeVertex]) {
                 strongestMoveByActiveVertex[activeVertex] = move;
                 strongestSourceByActiveVertex[activeVertex] = currentSource;
             }
-            direction.set(raiseDirectionXyz[at], raiseDirectionXyz[at + 1], raiseDirectionXyz[at + 2]);
+            Vector3f direction = raiseDirectionXyz.at(activeVertex);
             if (direction.length() >= SculptStroke.MINIMUM_NORMAL_LENGTH) {
-                direction.mul(raiseByActiveVertex[activeVertex] / direction.length());
-                offsetXyz[at] += direction.x;
-                offsetXyz[at + 1] += direction.y;
-                offsetXyz[at + 2] += direction.z;
+                offsetXyz.add(activeVertex, direction.mul(raiseByActiveVertex[activeVertex] / direction.length()));
             }
-            direction.set(lowerDirectionXyz[at], lowerDirectionXyz[at + 1], lowerDirectionXyz[at + 2]);
+            direction = lowerDirectionXyz.at(activeVertex);
             if (direction.length() >= SculptStroke.MINIMUM_NORMAL_LENGTH) {
-                direction.mul(lowerByActiveVertex[activeVertex] / direction.length());
-                offsetXyz[at] += direction.x;
-                offsetXyz[at + 1] += direction.y;
-                offsetXyz[at + 2] += direction.z;
+                offsetXyz.add(activeVertex, direction.mul(lowerByActiveVertex[activeVertex] / direction.length()));
             }
             raiseByActiveVertex[activeVertex] = 0f;
             lowerByActiveVertex[activeVertex] = 0f;
-            Arrays.fill(raiseDirectionXyz, at, at + 3, 0f);
-            Arrays.fill(lowerDirectionXyz, at, at + 3, 0f);
+            raiseDirectionXyz.set(activeVertex, 0f, 0f, 0f);
+            lowerDirectionXyz.set(activeVertex, 0f, 0f, 0f);
             touchedByActiveVertex[activeVertex] = false;
         }
         touchedLength = 0;

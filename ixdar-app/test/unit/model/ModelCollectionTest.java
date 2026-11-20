@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.models.CollectionManifest;
 import ixdar.models.ModelCatalog;
 import ixdar.models.ModelChoice;
@@ -342,10 +343,14 @@ class ModelCollectionTest {
      * @return a fresh triangle
      */
     private static GeometryBundle triangle() {
-        return GeometryBundle.ofMesh(new ArrayMesh(
-                new float[] {0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f},
-                new float[] {0f, 0f, 1f, 0f, 0f, 1f, 0f, 0f, 1f},
-                new int[] {0, 1, 2}, 3));
+        PackedPoints positions = new PackedPoints(3);
+        positions.set(1, 1f, 0f, 0f);
+        positions.set(2, 0f, 1f, 0f);
+        PackedPoints normals = new PackedPoints(3);
+        for (int vertex = 0; vertex < normals.size(); vertex++) {
+            normals.set(vertex, 0f, 0f, 1f);
+        }
+        return GeometryBundle.ofMesh(new ArrayMesh(positions, normals, new int[] {0, 1, 2}, 3));
     }
 
     /**

@@ -17,6 +17,7 @@ import ixdar.automation.AutomationEndpoint;
 import ixdar.geometry.mesh.data.analysis.curvature.SurfaceRidges;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.sculpt.AnchoredStroke;
 import ixdar.geometry.mesh.data.sculpt.FaceAnchors;
 import ixdar.geometry.mesh.data.sculpt.SculptSync;
@@ -73,7 +74,7 @@ public class SurfaceRidgesRoute extends AutomationEndpoint implements Automation
             StrokeAnchors drawn = new StrokeAnchors();
             int[] countByKind = new int[2];
             for (int line = 0; line < ridges.lines.size(); line++) {
-                float[] points = ridges.lines.get(line);
+                PackedPoints linePoints = ridges.lines.get(line);
                 boolean valley = ridges.valleyByLine.get(line);
                 AnchoredStroke stroke = new AnchoredStroke();
                 stroke.layer = valley ? VALLEY_LAYER : RIDGE_LAYER;
@@ -81,10 +82,9 @@ public class SurfaceRidgesRoute extends AutomationEndpoint implements Automation
                 stroke.attributes = String.format(Locale.ROOT, "data-kind=\"%s\" data-depth=\"%.4f\" data-radius=\"%.5f\" "
                         + "fill=\"none\"", valley ? StrokeSketch.VALLEY : StrokeSketch.RIDGE, ridges.strengthByLine.get(line),
                         DRAWN_RADIUS);
-                stroke.anchors = new float[points.length / 3 * FaceAnchors.FIELDS];
-                for (int point = 0; point * 3 < points.length; point++) {
-                    anchors.anchor(points[point * 3], points[point * 3 + 1], points[point * 3 + 2], stroke.anchors,
-                            point * FaceAnchors.FIELDS);
+                stroke.anchors = new float[linePoints.size() * FaceAnchors.FIELDS];
+                for (int point = 0; point < linePoints.size(); point++) {
+                    anchors.anchor(linePoints.at(point), stroke.anchors, point * FaceAnchors.FIELDS);
                 }
                 drawn.strokes.add(stroke);
             }

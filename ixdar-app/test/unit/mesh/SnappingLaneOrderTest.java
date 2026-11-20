@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 
 /**
@@ -157,8 +158,10 @@ class SnappingLaneOrderTest {
      * @return a working copy of them
      */
     private EmbeddedMeshTopology twoTriangles() {
-        float[] positions = { 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-            1.0f, 1.0f, 0.0f };
+        PackedPoints positions = new PackedPoints(4);
+        positions.set(1, 1.0f, 0.0f, 0.0f);
+        positions.set(2, 0.0f, 1.0f, 0.0f);
+        positions.set(3, 1.0f, 1.0f, 0.0f);
         int[] faceIndices = { 0, 1, 2, 2, 1, CORNERS };
         HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
         return new EmbeddedMeshTopology(mesh);

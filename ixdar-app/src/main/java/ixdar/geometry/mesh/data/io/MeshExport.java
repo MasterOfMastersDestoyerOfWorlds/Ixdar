@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.bundle.CornerUvSplit;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.nodegraph.field.UvField;
 
@@ -25,13 +26,11 @@ public final class MeshExport {
 
     public static final int UV_COMPONENTS = 2;
 
-    public static final float NORMAL_LENGTH_EPSILON = 1e-20f;
+    /** Positions of the exported vertices, {@link #vertexCount()} of them. */
+    public PackedPoints positions = new PackedPoints(0);
 
-    /** Positions of the exported vertices, {@link #vertexCount()} triples. */
-    public float[] positions = new float[0];
-
-    /** Normals of the exported vertices, the same length and order as {@link #positions}. */
-    public float[] normals = new float[0];
+    /** Normals of the exported vertices, the same count and order as {@link #positions}. */
+    public PackedPoints normals = new PackedPoints(0);
 
     /** Vertex index per triangle corner, {@link #triangleCount()} triples. */
     public int[] triangleIndices = new int[0];
@@ -84,10 +83,10 @@ public final class MeshExport {
     /**
      * Vertices the export writes, after the seam split.
      *
-     * @return one third of the position array's length
+     * @return the number of positions
      */
     public int vertexCount() {
-        return positions.length / FLOATS_PER_VERTEX;
+        return positions.size();
     }
 
     /**
@@ -116,22 +115,12 @@ public final class MeshExport {
         UvField uv = bundle.slots().get(CornerUvField.SLOT) instanceof UvField field ? field : null;
 
         int count = mesh.vertexCount();
-        int maxVertexId = 0;
-        for (int index = 0; index < count; index++) {
-            maxVertexId = Math.max(maxVertexId, mesh.vertexIdAt(index));
-        }
-        denseOfVertexId = new int[maxVertexId + 1];
-        positions = new float[count * FLOATS_PER_VERTEX];
-        normals = new float[count * FLOATS_PER_VERTEX];
+        denseOfVertexId = new int[mesh.vertexIdBound()];
+        positions = mesh.packedPositions(denseOfVertexId);
+        normals = new PackedPoints(count);
         Vector3f scratch = new Vector3f();
         for (int index = 0; index < count; index++) {
-            int vertexId = mesh.vertexIdAt(index);
-            denseOfVertexId[vertexId] = index;
-            int offset = index * FLOATS_PER_VERTEX;
-            mesh.vertexPosition(vertexId, scratch);
-            PackedPoints.store(positions, offset, scratch);
-            mesh.vertexNormal(vertexId, scratch);
-            PackedPoints.store(normals, offset, scratch);
+            normals.set(index, mesh.vertexNormal(mesh.vertexIdAt(index), scratch));
         }
 
         int faceCount = mesh.faceCount();
@@ -166,43 +155,18 @@ public final class MeshExport {
         }
 
         boolean anyNormal = false;
-        for (int slot = 0; slot < normals.length && !anyNormal; slot++) {
-            anyNormal = normals[slot] != 0;
+        for (int vertex = 0; vertex < count && !anyNormal; vertex++) {
+            anyNormal = normals.get(vertex, 0) != 0 || normals.get(vertex, 1) != 0 || normals.get(vertex, 2) != 0;
         }
         if (!anyNormal && triangleCount() > 0) {
-            Vector3f corner0 = new Vector3f();
-            Vector3f edgeA = new Vector3f();
-            Vector3f edgeB = new Vector3f();
+            PackedPoints triangleNormals = TriangleGeometry.normals(positions, triangleIndices, new Vector3f(0f, 1f, 0f));
             for (int triangle = 0; triangle < triangleCount(); triangle++) {
-                int first = triangle * CORNERS_PER_TRIANGLE;
-                int offset0 = triangleIndices[first] * FLOATS_PER_VERTEX;
-                int offsetA = triangleIndices[first + 1] * FLOATS_PER_VERTEX;
-                int offsetB = triangleIndices[first + 2] * FLOATS_PER_VERTEX;
-                corner0.set(positions[offset0], positions[offset0 + 1], positions[offset0 + 2]);
-                edgeA.set(positions[offsetA], positions[offsetA + 1], positions[offsetA + 2]).sub(corner0);
-                edgeB.set(positions[offsetB], positions[offsetB + 1], positions[offsetB + 2]).sub(corner0);
-                edgeA.cross(edgeB);
-                float length = edgeA.length();
-                if (length > NORMAL_LENGTH_EPSILON) {
-                    edgeA.mul(1.0f / length);
-                } else {
-                    edgeA.set(0f, 1f, 0f);
-                }
-                for (int corner = first; corner < first + CORNERS_PER_TRIANGLE; corner++) {
-                    int offset = triangleIndices[corner] * FLOATS_PER_VERTEX;
-                    normals[offset] += edgeA.x;
-                    normals[offset + 1] += edgeA.y;
-                    normals[offset + 2] += edgeA.z;
+                Vector3f normal = triangleNormals.at(triangle);
+                for (int corner = 0; corner < CORNERS_PER_TRIANGLE; corner++) {
+                    normals.add(triangleIndices[triangle * CORNERS_PER_TRIANGLE + corner], normal);
                 }
             }
-            for (int offset = 0; offset < normals.length; offset += FLOATS_PER_VERTEX) {
-                float inverse = 1.0f / Math.max(NORMAL_LENGTH_EPSILON, (float) Math.sqrt(
-                        normals[offset] * normals[offset] + normals[offset + 1] * normals[offset + 1]
-                                + normals[offset + 2] * normals[offset + 2]));
-                normals[offset] *= inverse;
-                normals[offset + 1] *= inverse;
-                normals[offset + 2] *= inverse;
-            }
+            normals.normalizeEach();
         }
 
         Integer[] order = new Integer[count];
@@ -212,8 +176,8 @@ public final class MeshExport {
         Arrays.sort(order, (left, right) -> {
             for (int axis = 0; axis < FLOATS_PER_VERTEX; axis++) {
                 int compared = Integer.compare(
-                        Float.floatToRawIntBits(positions[left * FLOATS_PER_VERTEX + axis]),
-                        Float.floatToRawIntBits(positions[right * FLOATS_PER_VERTEX + axis]));
+                        Float.floatToRawIntBits(positions.get(left, axis)),
+                        Float.floatToRawIntBits(positions.get(right, axis)));
                 if (compared != 0) {
                     return compared;
                 }
@@ -227,8 +191,8 @@ public final class MeshExport {
             int vertex = order[rank];
             boolean same = true;
             for (int axis = 0; axis < FLOATS_PER_VERTEX && same; axis++) {
-                same = Float.floatToRawIntBits(positions[previous * FLOATS_PER_VERTEX + axis])
-                        == Float.floatToRawIntBits(positions[vertex * FLOATS_PER_VERTEX + axis]);
+                same = Float.floatToRawIntBits(positions.get(previous, axis))
+                        == Float.floatToRawIntBits(positions.get(vertex, axis));
             }
             if (same) {
                 keys[vertex] = keys[previous] + 1;
@@ -246,16 +210,9 @@ public final class MeshExport {
         int splitCount = CornerUvSplit.split(triangleIndices, new CornerUvField(cornerU, cornerV), null,
                 splitUv, splitCorners, weldedOfSplit);
         int[] denseCorners = triangleIndices;
-        float[] splitPositions = new float[splitCount * FLOATS_PER_VERTEX];
-        float[] splitNormals = new float[splitCount * FLOATS_PER_VERTEX];
-        for (int copy = 0; copy < splitCount; copy++) {
-            System.arraycopy(positions, weldedOfSplit[copy] * FLOATS_PER_VERTEX, splitPositions,
-                    copy * FLOATS_PER_VERTEX, FLOATS_PER_VERTEX);
-            System.arraycopy(normals, weldedOfSplit[copy] * FLOATS_PER_VERTEX, splitNormals,
-                    copy * FLOATS_PER_VERTEX, FLOATS_PER_VERTEX);
-        }
-        positions = splitPositions;
-        normals = splitNormals;
+        int[] welded = Arrays.copyOf(weldedOfSplit, splitCount);
+        positions = positions.gather(welded);
+        normals = normals.gather(welded);
         triangleIndices = splitCorners;
         vertexUv = Arrays.copyOf(splitUv, splitCount * UV_COMPONENTS);
         if (weldKey != null) {

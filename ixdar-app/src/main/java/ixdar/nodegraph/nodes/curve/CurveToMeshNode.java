@@ -17,6 +17,7 @@ import ixdar.nodegraph.field.FloatCurveKernel;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
@@ -33,8 +34,6 @@ public class CurveToMeshNode implements MeshNode {
     public static final int MAX_RESOLUTION = 128;
     public static final float DEGENERATE_TANGENT_LENGTH_SQ = 1e-20f;
     public static final float DEGENERATE_TRANSPORT_LENGTH_SQ = 1e-12f;
-    public static final float NEAR_PARALLEL_DOT = 0.9f;
-    public static final float DEGENERATE_PERP_LENGTH_SQ = 1e-10f;
 
     public static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort PROFILE_CURVE = new InputPort("profile_curve", PortType.GEOMETRY_BUNDLE, null);
@@ -102,12 +101,12 @@ public class CurveToMeshNode implements MeshNode {
             Object rawProfile = profileGb.slots().get(CurveGeometry.SLOT);
             if (rawProfile instanceof CurveGeometry profileCg && profileCg.pointCount() >= 3) {
                 int pn = profileCg.pointCount();
-                float[] ppos = profileCg.positions;
+                PackedPoints profilePoints = profileCg.positions;
                 profileU = new float[pn];
                 profileV = new float[pn];
                 for (int i = 0; i < pn; i++) {
-                    profileU[i] = ppos[i * 3];      // X as U
-                    profileV[i] = ppos[i * 3 + 1];  // Y as V
+                    profileU[i] = profilePoints.get(i, 0); // X as U
+                    profileV[i] = profilePoints.get(i, 1); // Y as V
                 }
             } else {
                 profileU = circleU(resolution, radius);
@@ -119,7 +118,7 @@ public class CurveToMeshNode implements MeshNode {
         }
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        float[] pos = cg.positions;
+        PackedPoints pos = cg.positions;
 
         for (int ci = 0; ci < cg.curveCount(); ci++) {
             int off0 = cg.firstPoint(ci);
@@ -128,8 +127,7 @@ public class CurveToMeshNode implements MeshNode {
 
             Vector3f[] pts = new Vector3f[nPts];
             for (int i = 0; i < nPts; i++) {
-                int b = 3 * (off0 + i);
-                pts[i] = PackedPoints.at(pos, b);
+                pts[i] = pos.at(off0 + i);
             }
 
             boolean closed = cg.closed[ci] && nPts > 2;
@@ -168,7 +166,7 @@ public class CurveToMeshNode implements MeshNode {
 
         Vector3f uDir = new Vector3f();
         Vector3f vDir = new Vector3f();
-        stablePerp(w, uDir);
+        MeshTopology.tangentFrame(w).getColumn(0, uDir);
         vDir.set(w).cross(uDir).normalize();
         uDir.set(vDir).cross(w).normalize();
 
@@ -180,7 +178,7 @@ public class CurveToMeshNode implements MeshNode {
                 if (w.lengthSquared() < DEGENERATE_TANGENT_LENGTH_SQ) w.set(0, 1, 0);
                 w.normalize();
                 uDir.fma(-w.dot(uDir), w);
-                if (uDir.lengthSquared() < DEGENERATE_TRANSPORT_LENGTH_SQ) stablePerp(w, uDir);
+                if (uDir.lengthSquared() < DEGENERATE_TRANSPORT_LENGTH_SQ) MeshTopology.tangentFrame(w).getColumn(0, uDir);
                 else uDir.normalize();
                 vDir.set(w).cross(uDir).normalize();
                 uDir.set(vDir).cross(w).normalize();
@@ -233,14 +231,6 @@ public class CurveToMeshNode implements MeshNode {
         if (i == 0) return new Vector3f(pts[1]).sub(pts[0]);
         if (i == n - 1) return new Vector3f(pts[i]).sub(pts[i - 1]);
         return new Vector3f(pts[i + 1]).sub(pts[i - 1]);
-    }
-
-    private static void stablePerp(Vector3f w, Vector3f out) {
-        Vector3f ref = new Vector3f(1, 0, 0);
-        if (Math.abs(w.dot(ref)) > NEAR_PARALLEL_DOT) ref.set(0, 1, 0);
-        out.set(ref).fma(-w.dot(ref), w);
-        if (out.lengthSquared() < DEGENERATE_PERP_LENGTH_SQ) out.set(0, 0, 1).fma(-w.z, w);
-        out.normalize();
     }
 
     private static void addCap(HalfEdgeMesh mesh, int[] ring, int m, boolean flip) {

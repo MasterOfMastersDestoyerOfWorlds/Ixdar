@@ -21,6 +21,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.graphics.render.model.LineSet;
 import ixdar.tools.ring.RingTool;
@@ -53,9 +54,8 @@ class RingLineNormalsTest {
         int rings = 0;
         NearestVertex grid = NearestVertex.over(mesh);
         while (statement.find()) {
-            float[] points = SurfaceWaypoints.parse(statement.group(2));
-            int[] anchors = SurfaceWaypoints.snap(grid, points,
-                    points.length / SurfaceSpline.COORDINATES_PER_POINT);
+            PackedPoints points = SurfaceWaypoints.parse(statement.group(2));
+            int[] anchors = SurfaceWaypoints.snap(grid, points, points.size());
             AuthoredSplineRing ring = new AuthoredSplineRing(geodesics);
             assertTrue(ring.trace(anchors, anchors.length,
                     SurfaceWaypoints.point(statement.group(NORMAL_OFFSET)),
@@ -63,7 +63,8 @@ class RingLineNormalsTest {
             LineSet lines = RingTool.splineLines(mesh, SurfaceSpline.of(ring.tracer));
             int unknownSurface = 0;
             int offSurface = 0;
-            float[] endpoint = new float[2 * SurfaceSpline.COORDINATES_PER_POINT];
+            PackedPoints linePositions = PackedPoints.view(lines.vertices, 0, LineSet.FLOATS_PER_VERTEX);
+            PackedPoints endpoint = new PackedPoints(2);
             for (int vertex = 0; vertex < lines.vertexCount(); vertex++) {
                 int base = vertex * LineSet.FLOATS_PER_VERTEX;
                 if (lines.vertices[base + NORMAL_OFFSET] == 0f
@@ -71,10 +72,8 @@ class RingLineNormalsTest {
                         && lines.vertices[base + NORMAL_OFFSET + 2] == 0f) {
                     unknownSurface++;
                 }
-                for (int coordinate = 0; coordinate < endpoint.length; coordinate++) {
-                    endpoint[coordinate] = lines.vertices[base
-                            + coordinate % SurfaceSpline.COORDINATES_PER_POINT];
-                }
+                endpoint.set(0, linePositions.at(vertex));
+                endpoint.set(1, linePositions.at(vertex));
                 LineSet located = new LineSet(1);
                 locator.appendSegments(endpoint, located);
                 if (located.vertices[NORMAL_OFFSET] == 0f

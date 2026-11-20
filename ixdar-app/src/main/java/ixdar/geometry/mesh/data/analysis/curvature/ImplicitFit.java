@@ -10,6 +10,7 @@ import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.volume.VoxelGrid;
 import ixdar.numeric.DenseLinearSystem;
 import ixdar.numeric.sparse.DirectSolver;
@@ -90,8 +91,8 @@ public final class ImplicitFit {
     /** Points bucketed on a lattice, for those within one step of a place. */
     public static final class Buckets {
 
-        /** The points, packed xyz. */
-        public final double[] xyz;
+        /** The points. */
+        public final PackedPoints points;
 
         /** The lattice, one step per cell. */
         public final VoxelGrid lattice;
@@ -105,22 +106,22 @@ public final class ImplicitFit {
         /**
          * Bucket points.
          *
-         * @param xyz   the points, packed xyz
-         * @param step  the lattice step, the farthest a query looks
-         * @param low   a corner below every point on every axis
-         * @param reach how far past {@code low} the points reach on every axis
+         * @param points the points
+         * @param step   the lattice step, the farthest a query looks
+         * @param low    a corner below every point on every axis
+         * @param reach  how far past {@code low} the points reach on every axis
          */
-        public Buckets(double[] xyz, double step, double low, double reach) {
-            this.xyz = xyz;
+        public Buckets(PackedPoints points, double step, double low, double reach) {
+            this.points = points;
             int side = (int) Math.ceil(reach / step) + 1;
             lattice = new VoxelGrid(new int[] { side, side, side }, new Vector3f((float) low),
                     (float) step);
-            int count = xyz.length / 3;
+            int count = points.size();
             int[] cellOf = new int[count];
             cellStart = new int[lattice.values.length + 1];
             for (int point = 0; point < count; point++) {
-                cellOf[point] = lattice.index((int) ((xyz[point * 3] - low) / step), (int) ((xyz[point * 3 + 1] - low) / step),
-                        (int) ((xyz[point * 3 + 2] - low) / step));
+                cellOf[point] = lattice.index((int) ((points.get(point, 0) - low) / step),
+                        (int) ((points.get(point, 1) - low) / step), (int) ((points.get(point, 2) - low) / step));
                 cellStart[cellOf[point] + 1]++;
             }
             for (int index = 0; index + 1 < cellStart.length; index++) {
@@ -136,17 +137,16 @@ public final class ImplicitFit {
         /**
          * The points that may lie within one step of a place: those in its cell and the 26 around it.
          *
-         * @param place  holds the place's xyz
-         * @param offset where it starts in {@code place}
-         * @param found  receives the points; replaced by a longer copy when too short
+         * @param place the place
+         * @param found receives the points; replaced by a longer copy when too short
          * @return {@code found} or its longer copy, terminated by -1 when not full
          */
-        public int[] near(double[] place, int offset, int[] found) {
+        public int[] near(Vector3f place, int[] found) {
             int[] result = found;
             int count = 0;
             int[] at = new int[3];
             for (int axis = 0; axis < 3; axis++) {
-                at[axis] = (int) Math.floor((place[offset + axis] - lattice.origin.get(axis)) / lattice.spacing);
+                at[axis] = (int) Math.floor(((double) place.get(axis) - lattice.origin.get(axis)) / lattice.spacing);
             }
             for (int near = 0; near < NEIGHBOUR_CELLS; near++) {
                 int x = at[0] + near % 3 - 1;
@@ -172,14 +172,13 @@ public final class ImplicitFit {
         /**
          * The nearest point to a place within a distance, skipping those a test rejects.
          *
-         * @param place  holds the place's xyz
-         * @param offset where it starts in {@code place}
+         * @param place  the place
          * @param within the farthest a found point may be, at most one lattice step
          * @param skip   rejects points by index, or null to take any
          * @return the point's index, or -1 when none is near enough
          */
-        public int nearest(double[] place, int offset, double within, IntPredicate skip) {
-            int[] found = near(place, offset, new int[NEIGHBOUR_CELLS]);
+        public int nearest(Vector3f place, double within, IntPredicate skip) {
+            int[] found = near(place, new int[NEIGHBOUR_CELLS]);
             int best = -1;
             double bestSquared = within * within;
             for (int index = 0; index < found.length && found[index] >= 0; index++) {
@@ -187,11 +186,7 @@ public final class ImplicitFit {
                 if (skip != null && skip.test(point)) {
                     continue;
                 }
-                double squared = 0.0;
-                for (int axis = 0; axis < 3; axis++) {
-                    double step = xyz[point * 3 + axis] - place[offset + axis];
-                    squared += step * step;
-                }
+                double squared = points.distanceSquared(point, place);
                 if (squared < bestSquared) {
                     bestSquared = squared;
                     best = point;
@@ -207,11 +202,11 @@ public final class ImplicitFit {
         /** Radius of the level's basis functions. */
         public final double support;
 
-        /** Cluster centres, packed xyz. */
-        public final double[] centreXyz;
+        /** Cluster centres. */
+        public final PackedPoints centreXyz;
 
-        /** Each centre's unit normal, packed xyz. */
-        public final double[] centreNormalXyz;
+        /** Each centre's unit normal. */
+        public final PackedPoints centreNormalXyz;
 
         /** Each centre's local approximation: value, gradient and Hessian at the centre, {@link #LOCAL_LENGTH} each. */
         public final double[] local;
@@ -225,49 +220,46 @@ public final class ImplicitFit {
         /**
          * Cluster points on a lattice: one centre per occupied cell, its points' mean and mean normal.
          *
-         * @param pointXyz  the points, packed xyz
-         * @param normalXyz their unit normals, packed xyz
+         * @param pointXyz  the points
+         * @param normalXyz their unit normals
          * @param cell      the lattice step
          * @param low       a corner below every point, on every axis
          * @param reach     how far past {@code low} the points reach on every axis
          */
-        public Level(double[] pointXyz, double[] normalXyz, double cell, double low, double reach) {
+        public Level(PackedPoints pointXyz, PackedPoints normalXyz, double cell, double low, double reach) {
             Map<Long, Integer> clusterByCell = new HashMap<>();
             List<double[]> sums = new ArrayList<>();
-            for (int point = 0; point * 3 < pointXyz.length; point++) {
-                if (!Double.isFinite(normalXyz[point * 3] + normalXyz[point * 3 + 1] + normalXyz[point * 3 + 2])) {
+            for (int point = 0; point < pointXyz.size(); point++) {
+                if (!Double.isFinite((double) normalXyz.get(point, 0) + normalXyz.get(point, 1) + normalXyz.get(point, 2))) {
                     continue;
                 }
                 long key = 0L;
                 for (int axis = 0; axis < 3; axis++) {
-                    key = key << LATTICE_BITS | (long) Math.floor((pointXyz[point * 3 + axis] - low) / cell) & LATTICE_MASK;
+                    key = key << LATTICE_BITS | (long) Math.floor((pointXyz.get(point, axis) - low) / cell) & LATTICE_MASK;
                 }
                 double[] sum = sums.get(clusterByCell.computeIfAbsent(key, unused -> {
                     sums.add(new double[3 + 3 + 1]);
                     return sums.size() - 1;
                 }));
                 for (int axis = 0; axis < 3; axis++) {
-                    sum[axis] += pointXyz[point * 3 + axis];
-                    sum[3 + axis] += normalXyz[point * 3 + axis];
+                    sum[axis] += pointXyz.get(point, axis);
+                    sum[3 + axis] += normalXyz.get(point, axis);
                 }
                 sum[3 + 3] += 1.0;
             }
-            double[] xyz = new double[sums.size() * 3];
-            double[] normals = new double[sums.size() * 3];
-            int count = 0;
+            centreXyz = new PackedPoints();
+            centreNormalXyz = new PackedPoints();
             for (double[] sum : sums) {
                 double length = Math.sqrt(sum[3] * sum[3] + sum[3 + 1] * sum[3 + 1] + sum[3 + 2] * sum[3 + 2]);
                 if (length < SMALLEST) {
                     continue;
                 }
-                for (int axis = 0; axis < 3; axis++) {
-                    xyz[count * 3 + axis] = sum[axis] / sum[3 + 3];
-                    normals[count * 3 + axis] = sum[3 + axis] / length;
-                }
-                count++;
+                double members = sum[3 + 3];
+                centreXyz.append((float) (sum[0] / members), (float) (sum[1] / members), (float) (sum[2] / members));
+                centreNormalXyz.append((float) (sum[3] / length), (float) (sum[3 + 1] / length),
+                        (float) (sum[3 + 2] / length));
             }
-            centreXyz = Arrays.copyOf(xyz, count * 3);
-            centreNormalXyz = Arrays.copyOf(normals, count * 3);
+            int count = centreXyz.size();
             local = new double[count * LOCAL_LENGTH];
             weight = new double[count];
             support = SUPPORT_IN_CELLS * cell;
@@ -290,19 +282,17 @@ public final class ImplicitFit {
     /**
      * Fit levels through oriented points, coarsest first.
      *
-     * @param pointXyz       the points, packed xyz
-     * @param normalXyz      their unit normals, packed xyz, outward
+     * @param pointXyz       the points
+     * @param normalXyz      their unit normals, outward
      * @param firstCell      the first level's lattice step; each level halves it
      * @param levelCount     how many levels
      * @param regularization OBS04's lambda, added to the basis system's diagonal
      */
-    public ImplicitFit(double[] pointXyz, double[] normalXyz, double firstCell, int levelCount, double regularization) {
-        double lowest = Double.POSITIVE_INFINITY;
-        double highest = Double.NEGATIVE_INFINITY;
-        for (double coordinate : pointXyz) {
-            lowest = Math.min(lowest, coordinate);
-            highest = Math.max(highest, coordinate);
-        }
+    public ImplicitFit(PackedPoints pointXyz, PackedPoints normalXyz, double firstCell, int levelCount,
+            double regularization) {
+        PackedPoints box = pointXyz.bounds();
+        double lowest = Math.min(box.get(0, 0), Math.min(box.get(0, 1), box.get(0, 2)));
+        double highest = Math.max(box.get(1, 0), Math.max(box.get(1, 1), box.get(1, 2)));
         for (int levelIndex = 0; levelIndex < levelCount; levelIndex++) {
             double cell = firstCell / (1 << levelIndex);
             double low = lowest - SUPPORT_IN_CELLS * cell;
@@ -312,7 +302,8 @@ public final class ImplicitFit {
             int count = level.weight.length;
             int fitted = levelIndex;
             IntStream.range(0, count).parallel().forEach(centre -> {
-                double[] normal = Arrays.copyOfRange(level.centreNormalXyz, centre * 3, centre * 3 + 3);
+                double[] normal = { level.centreNormalXyz.get(centre, 0), level.centreNormalXyz.get(centre, 1),
+                    level.centreNormalXyz.get(centre, 2) };
                 double[] first = Math.abs(normal[0]) < 0.5 ? new double[] { 0.0, -normal[2], normal[1] }
                         : new double[] { -normal[2], 0.0, normal[0] };
                 double firstLength = Math.sqrt(first[0] * first[0] + first[1] * first[1] + first[2] * first[2]);
@@ -324,14 +315,15 @@ public final class ImplicitFit {
                 float[][] matrix = new float[HEIGHT_UNKNOWNS][HEIGHT_UNKNOWNS];
                 float[] rightSide = new float[HEIGHT_UNKNOWNS];
                 int used = 0;
-                int[] near = points.near(level.centreXyz, centre * 3, new int[NEIGHBOUR_CELLS]);
+                Vector3f centreAt = level.centreXyz.at(centre);
+                int[] near = points.near(centreAt, new int[NEIGHBOUR_CELLS]);
                 for (int index = 0; index < near.length && near[index] >= 0; index++) {
                     int point = near[index];
                     double[] step = new double[3];
                     double facing = 0.0;
                     for (int axis = 0; axis < 3; axis++) {
-                        step[axis] = pointXyz[point * 3 + axis] - level.centreXyz[centre * 3 + axis];
-                        facing += normalXyz[point * 3 + axis] * normal[axis];
+                        step[axis] = (double) pointXyz.get(point, axis) - centreAt.get(axis);
+                        facing += normalXyz.get(point, axis) * normal[axis];
                     }
                     double r = Math.sqrt(step[0] * step[0] + step[1] * step[1] + step[2] * step[2]) / level.support;
                     double weight = Level.basis(r);
@@ -354,9 +346,10 @@ public final class ImplicitFit {
                         HEIGHT_UNKNOWNS) : new float[HEIGHT_UNKNOWNS];
                 double[] at = new double[LOCAL_LENGTH];
                 double curvatureScale = 1.0 / level.support;
-                for (int axis = 0; axis < 3; axis++) {
-                    level.centreXyz[centre * 3 + axis] += height[5] * level.support * normal[axis];
-                }
+                double lift = height[5] * level.support;
+                centreAt.set((float) (centreAt.x + lift * normal[0]), (float) (centreAt.y + lift * normal[1]),
+                        (float) (centreAt.z + lift * normal[2]));
+                level.centreXyz.set(centre, centreAt);
                 for (int a = 0; a < 3; a++) {
                     at[GRADIENT_START + a] = normal[a] - height[3] * first[a] - height[4] * second[a];
                     for (int b = 0; b < 3; b++) {
@@ -366,7 +359,7 @@ public final class ImplicitFit {
                     }
                 }
                 double[] jet = new double[JET_LENGTH];
-                evaluate(fitted, level.centreXyz, centre * 3, SECOND, jet);
+                evaluate(fitted, centreAt, SECOND, jet);
                 for (int entry = 0; entry < LOCAL_LENGTH; entry++) {
                     level.local[centre * LOCAL_LENGTH + entry] = at[entry] - jet[entry];
                 }
@@ -378,9 +371,10 @@ public final class ImplicitFit {
             double[][] valuesByRow = new double[count][];
             IntStream.range(0, count).parallel().forEach(row -> {
                 double[] jet = new double[JET_LENGTH];
-                evaluate(fitted + 1, level.centreXyz, row * 3, VALUE, jet);
+                Vector3f rowAt = level.centreXyz.at(row);
+                evaluate(fitted + 1, rowAt, VALUE, jet);
                 rightSide[row] = -jet[0];
-                int[] near = level.centres.near(level.centreXyz, row * 3, new int[NEIGHBOUR_CELLS]);
+                int[] near = level.centres.near(rowAt, new int[NEIGHBOUR_CELLS]);
                 List<Integer> columns = new ArrayList<>();
                 for (int index = 0; index < near.length && near[index] >= 0; index++) {
                     if (near[index] > row) {
@@ -392,11 +386,7 @@ public final class ImplicitFit {
                 valuesByRow[row] = new double[columns.size()];
                 int entries = 0;
                 for (int column : columns) {
-                    double squared = 0.0;
-                    for (int axis = 0; axis < 3; axis++) {
-                        double step = level.centreXyz[column * 3 + axis] - level.centreXyz[row * 3 + axis];
-                        squared += step * step;
-                    }
+                    double squared = level.centreXyz.distanceSquared(column, rowAt);
                     double value = Level.basis(Math.sqrt(squared) / level.support);
                     if (value > 0.0) {
                         keysByRow[row][entries] = (long) row << NormalMatrix.KEY_ROW_SHIFT | column;
@@ -434,19 +424,18 @@ public final class ImplicitFit {
      *              derivatives: {@link #CURVATURE_LENGTH} entries
      * @return false when the gradient vanishes and nothing was written
      */
-    public boolean curvature(double[] point, double[] out) {
+    public boolean curvature(Vector3f point, double[] out) {
         double[] jet = new double[JET_LENGTH];
         for (int step = 0; step < PROJECTION_STEPS; step++) {
-            evaluate(levels.size(), point, 0, FIRST, jet);
+            evaluate(levels.size(), point, FIRST, jet);
             double squared = jet[1] * jet[1] + jet[2] * jet[2] + jet[3] * jet[3];
             if (squared < SMALLEST || Math.abs(jet[0]) < PROJECTION_PRECISION * Math.sqrt(squared)) {
                 break;
             }
-            for (int axis = 0; axis < 3; axis++) {
-                point[axis] -= jet[0] * jet[1 + axis] / squared;
-            }
+            point.set((float) (point.x - jet[0] * jet[1] / squared), (float) (point.y - jet[0] * jet[2] / squared),
+                    (float) (point.z - jet[0] * jet[3] / squared));
         }
-        evaluate(levels.size(), point, 0, THIRD, jet);
+        evaluate(levels.size(), point, THIRD, jet);
         double gradientLength = Math.sqrt(jet[1] * jet[1] + jet[2] * jet[2] + jet[3] * jet[3]);
         if (gradientLength < SMALLEST) {
             return false;
@@ -512,12 +501,11 @@ public final class ImplicitFit {
      * blended N / W, and its weighted basis sum.
      *
      * @param fitted how many levels to sum
-     * @param xyz    holds the point
-     * @param offset where the point starts in {@code xyz}
+     * @param point  the point
      * @param order  the highest derivative wanted, {@link #VALUE} to {@link #THIRD}
      * @param jet    receives value, gradient, Hessian and third derivatives, row major
      */
-    public void evaluate(int fitted, double[] xyz, int offset, int order, double[] jet) {
+    public void evaluate(int fitted, Vector3f point, int order, double[] jet) {
         Arrays.fill(jet, 0.0);
         int entries = JET_ENTRIES_BY_ORDER[order];
         double[][] scratch = SCRATCH.get();
@@ -532,13 +520,13 @@ public final class ImplicitFit {
             Level level = levels.get(levelIndex);
             Arrays.fill(numerator, 0.0);
             Arrays.fill(weights, 0.0);
-            near = level.centres.near(xyz, offset, near);
+            near = level.centres.near(point, near);
             double support2 = level.support * level.support;
             for (int index = 0; index < near.length && near[index] >= 0; index++) {
                 int centre = near[index];
                 double squared = 0.0;
                 for (int axis = 0; axis < 3; axis++) {
-                    step[axis] = xyz[offset + axis] - level.centreXyz[centre * 3 + axis];
+                    step[axis] = (double) point.get(axis) - level.centreXyz.get(centre, axis);
                     squared += step[axis] * step[axis];
                 }
                 double r = Math.sqrt(squared) / level.support;

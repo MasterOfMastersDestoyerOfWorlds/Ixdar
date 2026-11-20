@@ -12,8 +12,8 @@ import java.util.regex.Pattern;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * One sculpt stroke under its stable id: its SVG settings, the grid cell whose camera it moves the
@@ -144,7 +144,7 @@ public final class AnchoredStroke {
      */
     public TracedSurfacePath curve(MeshTopology base) {
         int count = anchors.length / FaceAnchors.FIELDS;
-        double[] positions = new double[count * TracedSurfacePath.COORDINATES_PER_POINT];
+        PackedPoints positions = new PackedPoints(count);
         int[] faceIds = new int[count];
         int[] none = new int[count];
         Arrays.fill(none, -1);
@@ -153,10 +153,10 @@ public final class AnchoredStroke {
         Vector3f position = new Vector3f();
         for (int point = 0; point < count; point++) {
             FaceAnchors.position(base, anchors, point * FaceAnchors.FIELDS, position);
-            PackedPoints.store(positions, point * 3, position);
+            positions.set(point, position);
             faceIds[point] = (int) anchors[point * FaceAnchors.FIELDS];
         }
-        return new TracedSurfacePath(positions, positions, none, none.clone(), faceIds, fractions, count, polygon)
+        return new TracedSurfacePath(positions, positions, none, none.clone(), faceIds, fractions, polygon)
                 .measure();
     }
 }

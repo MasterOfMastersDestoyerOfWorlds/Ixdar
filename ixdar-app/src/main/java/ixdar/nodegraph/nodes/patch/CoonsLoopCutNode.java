@@ -108,8 +108,9 @@ public class CoonsLoopCutNode implements MeshNode {
             default -> new Vector3f(1, 0, 0);
         };
 
-        float[] hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
-        float[] hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
+        PackedPoints startHandles = CoonsHandleBuilder.readHandleSlot(
+                base, AssignBezierHandlesNode.SLOT_HANDLES_START, mesh);
+        PackedPoints endHandles = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, mesh);
 
         int maxEid = CoonsHandleBuilder.maxEdgeId(mesh);
         boolean[] edgeSplit = new boolean[maxEid + 1];
@@ -130,17 +131,13 @@ public class CoonsLoopCutNode implements MeshNode {
         }
 
         int origCount = mesh.vertexCount();
-        float[] origPos = new float[origCount * 3];
+        PackedPoints positions = mesh.packedPositions(null);
         Map<Integer, Integer> oldToNew = new HashMap<>();
         for (int i = 0; i < origCount; i++) {
-            int vid = mesh.vertexIdAt(i);
-            oldToNew.put(vid, i);
-            mesh.vertexPosition(vid, tmpA);
-            PackedPoints.store(origPos, i * 3, tmpA);
+            oldToNew.put(mesh.vertexIdAt(i), i);
         }
 
         Map<Integer, int[]> splitMids = new HashMap<>();
-        ArrayList<Float> extraPos = new ArrayList<>();
         Map<Long, Vector3f> dh = new HashMap<>();
 
         for (int ei = 0; ei < mesh.edgeCount(); ei++) {
@@ -149,12 +146,9 @@ public class CoonsLoopCutNode implements MeshNode {
             int he = mesh.edgeHalfEdge(eid);
             int ca = mesh.halfEdgeVertex(he), cb = mesh.halfEdgeEndVertex(he);
             int na = oldToNew.get(ca), nb = oldToNew.get(cb);
-            int o = eid * 3;
-            dh.put(CoonsHandleBuilder.dirPack(na, nb), PackedPoints.at(hStart, o));
-            dh.put(CoonsHandleBuilder.dirPack(nb, na), PackedPoints.at(hEnd, o));
+            dh.put(CoonsHandleBuilder.dirPack(na, nb), startHandles.at(eid));
+            dh.put(CoonsHandleBuilder.dirPack(nb, na), endHandles.at(eid));
         }
-
-        int nextVid = origCount;
 
         for (int ei = 0; ei < mesh.edgeCount(); ei++) {
             int eid = mesh.edgeIdAt(ei);
@@ -163,13 +157,12 @@ public class CoonsLoopCutNode implements MeshNode {
             int he = mesh.edgeHalfEdge(eid);
             int ca = mesh.halfEdgeVertex(he), cb = mesh.halfEdgeEndVertex(he);
             int nCa = oldToNew.get(ca), nCb = oldToNew.get(cb);
-            int o = eid * 3;
 
             mesh.vertexPosition(ca, tmpA);
             mesh.vertexPosition(cb, tmpB);
             Vector3f rP0 = new Vector3f(tmpA);
-            Vector3f rP1 = new Vector3f(tmpA).add(hStart[o], hStart[o + 1], hStart[o + 2]);
-            Vector3f rP2 = new Vector3f(tmpB).add(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
+            Vector3f rP1 = startHandles.at(eid).add(tmpA);
+            Vector3f rP2 = endHandles.at(eid).add(tmpB);
             Vector3f rP3 = new Vector3f(tmpB);
 
             int[] mids = new int[cuts];
@@ -180,11 +173,8 @@ public class CoonsLoopCutNode implements MeshNode {
 
                 CoonsHandleBuilder.SplitResult sr = CoonsHandleBuilder.split(rP0, rP1, rP2, rP3, t);
 
-                int sv = nextVid++;
+                int sv = positions.append(sr.splitPoint);
                 mids[k] = sv;
-                extraPos.add(sr.splitPoint.x);
-                extraPos.add(sr.splitPoint.y);
-                extraPos.add(sr.splitPoint.z);
 
                 dh.put(CoonsHandleBuilder.dirPack(prevVid, sv), new Vector3f(sr.leftCp1).sub(rP0));
                 dh.put(CoonsHandleBuilder.dirPack(sv, prevVid), new Vector3f(sr.leftCp2).sub(sr.splitPoint));
@@ -241,9 +231,9 @@ public class CoonsLoopCutNode implements MeshNode {
                     outFaces.add(new int[]{bl, br, tr, tl});
                 }
 
-                computeCrossHandles(mesh, hStart, hEnd, e3, v0, v3, e1, v1, v2,
+                computeCrossHandles(mesh, startHandles, endHandles, e3, v0, v3, e1, v1, v2,
                         e0, v0, v1, e2, v3, v2,
-                        botMids, topMids, cuts, origCount, origPos, extraPos, dh);
+                        botMids, topMids, cuts, positions, dh);
 
             } else if (!s0 && !s2 && s1 && s3) {
                 int[] rightMids = getMidsInDirection(mesh, e1, v1, splitMids);
@@ -257,20 +247,13 @@ public class CoonsLoopCutNode implements MeshNode {
                     outFaces.add(new int[]{bl, br, tr, tl});
                 }
 
-                computeCrossHandles(mesh, hStart, hEnd, e0, v0, v1, e2, v3, v2,
+                computeCrossHandles(mesh, startHandles, endHandles, e0, v0, v1, e2, v3, v2,
                         e3, v0, v3, e1, v1, v2,
-                        leftMids, rightMids, cuts, origCount, origPos, extraPos, dh);
+                        leftMids, rightMids, cuts, positions, dh);
 
             } else {
                 outFaces.add(new int[]{nv0, nv1, nv2, nv3});
             }
-        }
-
-        int totalVerts = origCount + extraPos.size() / 3;
-        float[] positions = new float[totalVerts * 3];
-        System.arraycopy(origPos, 0, positions, 0, origPos.length);
-        for (int i = 0; i < extraPos.size(); i++) {
-            positions[origPos.length + i] = extraPos.get(i);
         }
 
         int[] faceIdx = new int[outFaces.size() * 4];
@@ -284,7 +267,7 @@ public class CoonsLoopCutNode implements MeshNode {
 
         HalfEdgeMesh outMesh = HalfEdgeMesh.bulkAllocate(positions, faceIdx, 4);
 
-        float[][] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
+        PackedPoints[] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
 
         outMesh.computeNormals();
 
@@ -340,23 +323,20 @@ public class CoonsLoopCutNode implements MeshNode {
      * @param hStart     start-handle slot data on the input mesh
      * @param hEnd       end-handle slot data on the input mesh
      * @param cuts       number of cuts (length of {@code mids0} and {@code mids1})
-     * @param origCount  count of original vertices retained from the input mesh
-     * @param origPos    flat xyz array for the original vertices
-     * @param extraPos   flat xyz array for newly-inserted split vertices
-     * @param dh         directed-handle map; receives one entry per direction per cut
+     * @param positions  output vertex positions, the original vertices then the split vertices
+     * @param dh        directed-handle map; receives one entry per direction per cut
      */
     private static void computeCrossHandles(
-            MeshTopology mesh, float[] hStart, float[] hEnd,
+            MeshTopology mesh, PackedPoints hStart, PackedPoints hEnd,
             int perpEid0, int perpFrom0, int perpTo0,
             int perpEid1, int perpFrom1, int perpTo1,
             int splitEid0, int splitFrom0, int splitTo0,
             int splitEid1, int splitFrom1, int splitTo1,
             int[] mids0, int[] mids1,
-            int cuts, int origCount, float[] origPos, ArrayList<Float> extraPos,
-            Map<Long, Vector3f> dh) {
+            int cuts, PackedPoints positions, Map<Long, Vector3f> dh) {
 
-        Vector3f[] perpCp0 = getEdgeCp(mesh, hStart, hEnd, perpEid0, perpFrom0);
-        Vector3f[] perpCp1 = getEdgeCp(mesh, hStart, hEnd, perpEid1, perpFrom1);
+        Vector3f[] perpCp0 = CoonsHandleBuilder.getEdgeControlPoints(mesh, hStart, hEnd, perpEid0, perpFrom0);
+        Vector3f[] perpCp1 = CoonsHandleBuilder.getEdgeControlPoints(mesh, hStart, hEnd, perpEid1, perpFrom1);
 
         Vector3f splitStart0 = getPos(mesh, splitFrom0);
         Vector3f splitEnd0 = getPos(mesh, splitTo0);
@@ -366,8 +346,8 @@ public class CoonsLoopCutNode implements MeshNode {
         for (int k = 0; k < cuts; k++) {
             float t = (float) (k + 1) / (cuts + 1);
 
-            Vector3f m0 = getNewPos(mids0[k], origCount, origPos, extraPos);
-            Vector3f m1 = getNewPos(mids1[k], origCount, origPos, extraPos);
+            Vector3f m0 = positions.at(mids0[k]);
+            Vector3f m1 = positions.at(mids1[k]);
 
             Vector3f c0 = new Vector3f(m0).sub(new Vector3f(splitStart0).lerp(splitEnd0, t));
             Vector3f c1 = new Vector3f(m1).sub(new Vector3f(splitStart1).lerp(splitEnd1, t));
@@ -384,52 +364,9 @@ public class CoonsLoopCutNode implements MeshNode {
         }
     }
 
-    /**
-     * Returns the 4 control points of the bezier on edge {@code eid} going from
-     * {@code fromVid} to the other endpoint.
-     *
-     * @param mesh    source topology
-     * @param hStart  start-handle slot data
-     * @param hEnd    end-handle slot data
-     * @param eid     edge id
-     * @param fromVid endpoint of {@code eid} that should map to {@code P0}
-     * @return four-element {@code [P0, P1, P2, P3]} array
-     */
-    private static Vector3f[] getEdgeCp(MeshTopology mesh, float[] hStart, float[] hEnd,
-            int eid, int fromVid) {
-        int he = mesh.edgeHalfEdge(eid);
-        int ca = mesh.halfEdgeVertex(he), cb = mesh.halfEdgeEndVertex(he);
-        int o = eid * 3;
-        Vector3f posCa = getPos(mesh, ca), posCb = getPos(mesh, cb);
-        Vector3f offS = PackedPoints.at(hStart, o);
-        Vector3f offE = PackedPoints.at(hEnd, o);
-        if (fromVid == ca) {
-            return new Vector3f[]{
-                    new Vector3f(posCa),
-                    new Vector3f(posCa).add(offS),
-                    new Vector3f(posCb).add(offE),
-                    new Vector3f(posCb)};
-        } else {
-            return new Vector3f[]{
-                    new Vector3f(posCb),
-                    new Vector3f(posCb).add(offE),
-                    new Vector3f(posCa).add(offS),
-                    new Vector3f(posCa)};
-        }
-    }
-
     private static Vector3f getPos(MeshTopology mesh, int vid) {
         return mesh.vertexPosition(vid);
     }
 
-    private static Vector3f getNewPos(int newVid, int origCount, float[] origPos,
-            ArrayList<Float> extraPos) {
-        if (newVid < origCount) {
-            int o = newVid * 3;
-            return PackedPoints.at(origPos, o);
-        }
-        int o = (newVid - origCount) * 3;
-        return new Vector3f(extraPos.get(o), extraPos.get(o + 1), extraPos.get(o + 2));
-    }
 
 }

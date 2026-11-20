@@ -20,6 +20,7 @@ import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.primitives.IcosphereMeshNode;
 import ixdar.nodegraph.nodes.primitives.TorusMeshNode;
@@ -78,8 +79,8 @@ class FlipGeodesicsTest {
         MeshTopology sphere = icosphere();
         IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(SurfaceMetric.of(sphere));
         NearestVertex grid = NearestVertex.over(sphere);
-        int startVertexId = grid.find(0f, SPHERE_RADIUS, 0f);
-        int endVertexId = grid.find(0.83f, 0.21f, 0.51f);
+        int startVertexId = grid.find(new Vector3f(0f, SPHERE_RADIUS, 0f));
+        int endVertexId = grid.find(new Vector3f(0.83f, 0.21f, 0.51f));
         Vector3f startPosition = sphere.vertexPosition(startVertexId);
         Vector3f endPosition = sphere.vertexPosition(endVertexId);
         int[] seed = GeodesicSeedPath.throughVertices(intrinsic,
@@ -104,10 +105,10 @@ class FlipGeodesicsTest {
 
     @Test
     void repeatRunsProduceAnIdenticalPolyline() {
-        double[] first = tightenedTorusPolyline();
-        double[] second = tightenedTorusPolyline();
-        assertEquals(first.length, second.length, "the two runs traced a different point count");
-        assertArrayEquals(first, second, 0.0,
+        PackedPoints first = tightenedTorusPolyline();
+        PackedPoints second = tightenedTorusPolyline();
+        assertEquals(first.size(), second.size(), "the two runs traced a different point count");
+        assertArrayEquals(first.toArray(), second.toArray(), 0f,
                 "the two runs traced different polyline coordinates");
     }
 
@@ -161,7 +162,7 @@ class FlipGeodesicsTest {
                         + seedLength);
     }
 
-    private static double[] tightenedTorusPolyline() {
+    private static PackedPoints tightenedTorusPolyline() {
         MeshTopology torus = torus();
         SurfaceMetric metric = SurfaceMetric.of(torus);
         IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(metric);
@@ -188,7 +189,7 @@ class FlipGeodesicsTest {
             float x = (float) (distanceFromAxis * Math.cos(ringAngles[index]));
             float y = (float) (MINOR_RADIUS * Math.sin(tubeAngles[index]));
             float z = (float) (distanceFromAxis * Math.sin(ringAngles[index]));
-            waypoints.add(grid.find(x, y, z));
+            waypoints.add(grid.find(new Vector3f(x, y, z)));
         }
         int[] ids = new int[waypoints.size()];
         for (int index = 0; index < ids.length; index++) {

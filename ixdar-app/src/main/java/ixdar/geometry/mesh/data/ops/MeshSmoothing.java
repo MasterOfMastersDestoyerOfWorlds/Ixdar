@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.paths.query.RayBatch;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.graph.Dijkstra;
 
 /**
@@ -35,30 +36,20 @@ public final class MeshSmoothing {
      * @param mu      weight of the even passes, negative to undo the shrinking; 0 to repeat lambda
      * @param passes  lambda and mu passes, counted together
      * @param movable per active vertex whether it may move, or null for all
-     * @return packed xyz displacement per active vertex
+     * @return the displacement per active vertex
      */
-    public static float[] umbrella(MeshTopology mesh, float lambda, float mu, int passes, boolean[] movable) {
-        int vertexCount = mesh.vertexCount();
+    public static PackedPoints umbrella(MeshTopology mesh, float lambda, float mu, int passes, boolean[] movable) {
         int[] activeOf = new int[mesh.vertexIdBound()];
-        float[] start = mesh.packedPositions(activeOf);
-        float[] current = start.clone();
-        float[] next = start.clone();
-        float[] mean = new float[current.length];
+        PackedPoints start = mesh.packedPositions(activeOf);
+        PackedPoints current = start.copy();
+        PackedPoints next = start.copy();
         int[][] rings = mesh.oneRings();
         for (int pass = 0; pass < passes; pass++) {
-            float weight = pass % 2 == 1 && mu != 0f ? mu : lambda;
-            ringMean(rings, current, 3, false, mean);
-            for (int index = 0; index < current.length; index++) {
-                if (movable == null || movable[index / 3]) {
-                    next[index] = current[index] + weight * (mean[index] - current[index]);
-                }
-            }
+            next.lerpToward(current.ringMean(rings), pass % 2 == 1 && mu != 0f ? mu : lambda, movable);
             unfold(mesh, activeOf, current, next, null, 0);
-            System.arraycopy(next, 0, current, 0, current.length);
+            current.copyFrom(next);
         }
-        for (int index = 0; index < current.length; index++) {
-            current[index] -= start[index];
-        }
+        current.addScaled(start, -1f);
         return current;
     }
 
@@ -69,8 +60,9 @@ public final class MeshSmoothing {
      *
      * @param mesh     the surface's topology
      * @param activeOf active vertex index by vertex id
-     * @param from     packed positions before the move, read-only; may run past the mesh's vertices
-     * @param to       packed positions after the move, shortened in place
+     * @param from     positions before the move by dense index, read-only; may hold more points than
+     *                 the mesh's vertices
+     * @param to       positions after the move by dense index, shortened in place
      * @param surface  triangle tree over the mesh at {@code from}, refitted in place and left at
      *                 {@code to}; each step then starts at {@link #CLEARANCE_KEPT} of its clearance.
      *                 Null skips crossings
@@ -78,38 +70,35 @@ public final class MeshSmoothing {
      *                 it, before rounds that cancel them; 0 cancels at once
      * @return how many faces and edges the whole move would have folded or crossed
      */
-    public static int unfold(MeshTopology mesh, int[] activeOf, float[] from, float[] to, TriangleBvh surface,
-            int halvings) {
+    public static int unfold(MeshTopology mesh, int[] activeOf, PackedPoints from, PackedPoints to,
+            TriangleBvh surface, int halvings) {
         return unfold(mesh, activeOf, from, to, surface, halvings, new MeshFolds(mesh, activeOf, from));
     }
 
     /**
-     * {@link #unfold(MeshTopology, int[], float[], float[], TriangleBvh, int)} with the caller's fold
-     * test, so a caller that counts folds around the move builds it once. Its first round refreshes
-     * every vertex, so only the test's start state matters.
+     * {@link #unfold(MeshTopology, int[], PackedPoints, PackedPoints, TriangleBvh, int)} with the
+     * caller's fold test, so a caller that counts folds around the move builds it once. Its first
+     * round refreshes every vertex, so only the test's start state matters.
      *
      * @param mesh     the surface's topology
      * @param activeOf active vertex index by vertex id
-     * @param from     packed positions before the move, read-only
-     * @param to       packed positions after the move, shortened in place
+     * @param from     positions before the move by dense index, read-only
+     * @param to       positions after the move by dense index, shortened in place
      * @param surface  triangle tree over the mesh at {@code from}, or null to skip crossings
      * @param halvings rounds that halve the steps around a failure before rounds that cancel them
      * @param folds    fold test built at {@code from}, in any later state; left at the accepted move
      * @return how many faces and edges the whole move would have folded or crossed
      */
-    public static int unfold(MeshTopology mesh, int[] activeOf, float[] from, float[] to, TriangleBvh surface,
-            int halvings, MeshFolds folds) {
+    public static int unfold(MeshTopology mesh, int[] activeOf, PackedPoints from, PackedPoints to,
+            TriangleBvh surface, int halvings, MeshFolds folds) {
         int vertexCount = mesh.vertexCount();
-        float[] step = new float[vertexCount * 3];
-        for (int index = 0; index < step.length; index++) {
-            step[index] = to[index] - from[index];
-        }
+        PackedPoints step = new PackedPoints(vertexCount);
         float[] kept = new float[vertexCount];
         float[] stepLength = new float[vertexCount];
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            int at = activeVertex * 3;
-            stepLength[activeVertex] = (float) Math.sqrt(
-                    step[at] * step[at] + step[at + 1] * step[at + 1] + step[at + 2] * step[at + 2]);
+            Vector3f move = to.at(activeVertex).sub(from.at(activeVertex));
+            step.set(activeVertex, move);
+            stepLength[activeVertex] = move.length();
         }
         boolean[] listed = new boolean[vertexCount];
         int[] seeds = new int[vertexCount];
@@ -128,12 +117,11 @@ public final class MeshSmoothing {
         int prevented = 0;
         for (int round = -1;; round++) {
             for (int index = 0; index < changedLength; index++) {
-                int at = changed[index] * 3;
-                for (int axis = 0; axis < 3; axis++) {
-                    to[at + axis] = from[at + axis] + step[at + axis] * kept[changed[index]];
-                }
+                int vertex = changed[index];
+                Vector3f moved = from.at(vertex).add(step.at(vertex).mul(kept[vertex]));
+                to.set(vertex, moved);
                 if (surface != null && round >= 0) {
-                    System.arraycopy(to, at, surface.positions, mesh.vertexIdAt(changed[index]) * 3, 3);
+                    surface.positions.set(mesh.vertexIdAt(vertex), moved);
                 }
             }
             float cut = round < halvings ? 0.5f : 0f;
@@ -167,10 +155,10 @@ public final class MeshSmoothing {
                     int halfEdge = mesh.edgeHalfEdge(edgeId);
                     int startId = mesh.halfEdgeVertex(halfEdge);
                     int endId = mesh.halfEdgeEndVertex(halfEdge);
-                    int start = activeOf[startId] * 3;
-                    int end = activeOf[endId] * 3;
-                    scratch.origin.set(to[start], to[start + 1], to[start + 2]);
-                    scratch.direction.set(to[end], to[end + 1], to[end + 2]).sub(scratch.origin);
+                    int start = activeOf[startId];
+                    int end = activeOf[endId];
+                    scratch.origin.set(to.get(start, 0), to.get(start, 1), to.get(start, 2));
+                    scratch.direction.set(to.get(end, 0), to.get(end, 1), to.get(end, 2)).sub(scratch.origin);
                     scratch.markById[startId] = ++scratch.mark;
                     scratch.markById[endId] = scratch.mark;
                     hitByEdgeId[edgeId] = surface.nearestHitAvoiding(scratch.origin, scratch.direction, 1.0,
@@ -204,8 +192,8 @@ public final class MeshSmoothing {
             if (round < 0 && rays != null) {
                 rays.forEach(vertexCount, (scratch, activeVertex) -> {
                     int vertexId = mesh.vertexIdAt(activeVertex);
-                    scratch.origin.set(from[activeVertex * 3], from[activeVertex * 3 + 1], from[activeVertex * 3 + 2]);
-                    scratch.direction.set(step[activeVertex * 3], step[activeVertex * 3 + 1], step[activeVertex * 3 + 2]);
+                    scratch.origin.set(from.get(activeVertex, 0), from.get(activeVertex, 1), from.get(activeVertex, 2));
+                    scratch.direction.set(step.get(activeVertex, 0), step.get(activeVertex, 1), step.get(activeVertex, 2));
                     if (stepLength[activeVertex] == 0f) {
                         return;
                     }
@@ -267,7 +255,7 @@ public final class MeshSmoothing {
      *
      * @param mesh          the surface's topology
      * @param activeOf      active vertex index by vertex id
-     * @param from          packed positions before the move, read-only
+     * @param from          positions before the move by dense index, read-only
      * @param stepLength    each vertex's step length
      * @param kept          the fraction of its step each vertex keeps, lowered in place
      * @param changed       the cut vertices first; vertices the ramp lowers are appended
@@ -276,7 +264,7 @@ public final class MeshSmoothing {
      * @param walk          scratch search, reused across calls
      * @return how many entries of {@code changed} are now in use
      */
-    private static int ramp(MeshTopology mesh, int[] activeOf, float[] from, float[] stepLength, float[] kept,
+    private static int ramp(MeshTopology mesh, int[] activeOf, PackedPoints from, float[] stepLength, float[] kept,
             int[] changed, int changedLength, boolean[] listed, Dijkstra walk) {
         walk.start(kept.length);
         for (int index = 0; index < changedLength; index++) {
@@ -287,14 +275,13 @@ public final class MeshSmoothing {
         for (int activeVertex = walk.settle(); activeVertex >= 0; activeVertex = walk.settle()) {
             float value = kept[activeVertex];
             int vertexId = mesh.vertexIdAt(activeVertex);
+            Vector3f position = from.at(activeVertex);
             for (int slot = 0; slot < mesh.vertexEdgeCount(vertexId); slot++) {
                 int neighbour = activeOf[mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, slot), vertexId)];
                 if (stepLength[neighbour] == 0f) {
                     continue;
                 }
-                float edge = (float) Math.sqrt(Vector3f.distanceSquared(from[activeVertex * 3],
-                        from[activeVertex * 3 + 1], from[activeVertex * 3 + 2], from[neighbour * 3],
-                        from[neighbour * 3 + 1], from[neighbour * 3 + 2]));
+                float edge = (float) Math.sqrt(from.distanceSquared(neighbour, position));
                 float bound = value + RAMP_SLOPE * edge / stepLength[neighbour];
                 if (bound < kept[neighbour]) {
                     kept[neighbour] = bound;
@@ -322,39 +309,5 @@ public final class MeshSmoothing {
             listed[changed[index]] = false;
         }
         return length;
-    }
-
-    /**
-     * Each vertex's one-ring mean of a per-vertex field: its edge neighbours' values, and its own as
-     * well when {@code countSelf}; a vertex with no neighbours keeps its own.
-     *
-     * @param rings      each active vertex's neighbours, {@link MeshTopology#oneRings}
-     * @param values     the field, {@code components} floats per active vertex; read-only
-     * @param components floats per vertex
-     * @param countSelf  whether a vertex's own value joins its neighbours' in the mean
-     * @param dest       receives the means, laid out as {@code values}; not {@code values} itself
-     */
-    public static void ringMean(int[][] rings, float[] values, int components, boolean countSelf,
-            float[] dest) {
-        for (int activeVertex = 0; activeVertex < rings.length; activeVertex++) {
-            int degree = rings[activeVertex].length;
-            int at = activeVertex * components;
-            if (degree == 0) {
-                System.arraycopy(values, at, dest, at, components);
-                continue;
-            }
-            for (int component = 0; component < components; component++) {
-                dest[at + component] = countSelf ? values[at + component] : 0f;
-            }
-            for (int neighbour : rings[activeVertex]) {
-                for (int component = 0; component < components; component++) {
-                    dest[at + component] += values[neighbour * components + component];
-                }
-            }
-            int count = countSelf ? degree + 1 : degree;
-            for (int component = 0; component < components; component++) {
-                dest[at + component] /= count;
-            }
-        }
     }
 }

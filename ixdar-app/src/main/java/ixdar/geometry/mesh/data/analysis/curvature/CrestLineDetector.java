@@ -46,7 +46,7 @@ public final class CrestLineDetector {
      */
     public static CrestLines detect(MeshTopology mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
         int vertexIdBound = mesh.vertexIdBound();
-        float[] positions = ed.positions();
+        PackedPoints positions = ed.positions();
 
         int[][] ring = TriangleSoup.oneRings(ed.triangles(), vertexIdBound);
 
@@ -113,15 +113,15 @@ public final class CrestLineDetector {
      * (dirMax for ridges, dirMin for valleys); along-ridge curvature is near constant and
      * would admit every vertex on the trace.
      */
-    private static boolean isLocalExtremum(int v, int[] ring, float[] positions,
+    private static boolean isLocalExtremum(int v, int[] ring, PackedPoints positions,
                                            PrincipalDirectionField pdf, Vector3f dir,
                                            boolean forRidge) {
         float myVal = forRidge ? Math.abs(pdf.kappaMax(v)) : -pdf.kappaMin(v);
         int posBest = -1, negBest = -1;
         float posBestDot = 0, negBestDot = 0;
-        Vector3f origin = PackedPoints.at(positions, v * 3);
+        Vector3f origin = positions.at(v);
         for (int u : ring) {
-            Vector3f edge = PackedPoints.at(positions, u * 3).sub(origin);
+            Vector3f edge = positions.at(u).sub(origin);
             float elen = edge.length();
             if (elen < EPSILON) continue;
             float dot = edge.dot(dir) / elen;
@@ -142,7 +142,7 @@ public final class CrestLineDetector {
      */
     private static List<int[]> tracePolylines(MeshTopology mesh, boolean[] isPoint, int[][] ring,
                                               PrincipalDirectionField pdf,
-                                              float[] positions, boolean forRidge) {
+                                              PackedPoints positions, boolean forRidge) {
         boolean[] visited = new boolean[isPoint.length];
         List<int[]> out = new ArrayList<>();
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
@@ -166,7 +166,7 @@ public final class CrestLineDetector {
 
     private static List<Integer> traceOneDirection(int seed, int sign, boolean[] isPoint,
                                                    int[][] ring, PrincipalDirectionField pdf,
-                                                   float[] positions, boolean[] visited,
+                                                   PackedPoints positions, boolean[] visited,
                                                    boolean forRidge) {
         List<Integer> out = new ArrayList<>();
         int v = seed;
@@ -185,11 +185,11 @@ public final class CrestLineDetector {
             int bestU = -1;
             float bestDot = MIN_FORWARD_PROGRESS;  // require some forward progress
             Vector3f bestStep = null;
-            Vector3f origin = PackedPoints.at(positions, v * 3);
+            Vector3f origin = positions.at(v);
             for (int u : ring[v]) {
                 if (!isPoint[u]) continue;
                 if (visited[u]) continue;
-                Vector3f edge = PackedPoints.at(positions, u * 3).sub(origin);
+                Vector3f edge = positions.at(u).sub(origin);
                 float elen = edge.length();
                 if (elen < EPSILON) continue;
                 float dot = edge.dot(dir) / elen;

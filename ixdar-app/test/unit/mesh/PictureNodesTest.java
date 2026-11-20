@@ -64,7 +64,7 @@ class PictureNodesTest {
         assertEquals(0f, PictureCurves.value(outline, PictureCurves.VIEW, 0), "Front is cell 0");
         assertEquals(2 * HALF_HEIGHT * PIXELS_PER_UNIT + 1, PictureCurves.value(outline, PictureCurves.BOX_HEIGHT, 0),
                 2f, "the box spans the ellipse");
-        assertEquals(0f, outline.positions[2], "the outline lies in z = 0");
+        assertEquals(0f, outline.positions.get(0, 2), "the outline lies in z = 0");
     }
 
     @Test
@@ -135,9 +135,11 @@ class PictureNodesTest {
         CurveGeometry fitted = curves(placed);
         assertEquals(fitted.pointCount(), read.pointCount(), "every outline point read back");
         float worldPerPixel = HEIGHT / (FitReferencesNode.DEFAULT_FILL * CELL_SIZE);
-        for (int coordinate = 0; coordinate < fitted.positions.length; coordinate++) {
-            assertEquals(fitted.positions[coordinate], read.positions[coordinate], worldPerPixel,
-                    "the SVG's tenth-pixel rounding is all that separates them");
+        for (int point = 0; point < fitted.pointCount(); point++) {
+            for (int axis = 0; axis < CurveGeometry.XYZ; axis++) {
+                assertEquals(fitted.positions.get(point, axis), read.positions.get(point, axis), worldPerPixel,
+                        "the SVG's tenth-pixel rounding is all that separates them");
+            }
         }
         List<Float> written = numbers(svg);
         List<Float> drawn = numbers(redrawn.substring(redrawn.indexOf("fill=\"none\" stroke=\"blue\"")));
@@ -161,8 +163,8 @@ class PictureNodesTest {
         float low = Float.MAX_VALUE;
         float high = -Float.MAX_VALUE;
         for (int point = 0; point < placed.pointCount(); point++) {
-            low = Math.min(low, placed.positions[point * CurveGeometry.XYZ + 1]);
-            high = Math.max(high, placed.positions[point * CurveGeometry.XYZ + 1]);
+            low = Math.min(low, placed.positions.get(point, 1));
+            high = Math.max(high, placed.positions.get(point, 1));
         }
         assertEquals(HEIGHT, high - low, HEIGHT * SHARE, "the box's height is the world height");
         assertEquals(0f, (high + low) / 2f, HEIGHT * SHARE, "centred on the orbit centre");

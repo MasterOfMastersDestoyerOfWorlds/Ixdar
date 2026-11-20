@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 
@@ -297,8 +298,9 @@ class ChordInsertionTest {
      * @return a working copy of it
      */
     private EmbeddedMeshTopology triangle() {
-        float[] positions = { 0.0f, 0.0f, 0.0f, FIRST_EDGE_LENGTH, 0.0f, 0.0f,
-            0.0f, FIRST_EDGE_LENGTH, 0.0f };
+        PackedPoints positions = new PackedPoints(3);
+        positions.set(1, FIRST_EDGE_LENGTH, 0.0f, 0.0f);
+        positions.set(2, 0.0f, FIRST_EDGE_LENGTH, 0.0f);
         HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(positions,
             new int[] { 0, 1, 2 });
         return new EmbeddedMeshTopology(mesh);

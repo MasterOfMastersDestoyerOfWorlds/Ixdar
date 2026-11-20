@@ -216,8 +216,8 @@ public class QuadLayoutNode extends NodeGroup {
             return;
         }
         int[] activeVertexById = new int[surface.vertexIdBound()];
-        float[] positions = surface.packedPositions(activeVertexById);
-        boolean[] folded = new MeshFolds(surface, activeVertexById, positions).foldedAtStart;
+        boolean[] folded = new MeshFolds(surface, activeVertexById, surface.packedPositions(activeVertexById))
+                .foldedAtStart;
         List<Integer> foldedFaceIds = new ArrayList<>();
         for (int activeFace = 0; activeFace < surface.faceCount(); activeFace++) {
             if (folded[surface.faceIdAt(activeFace)]) {

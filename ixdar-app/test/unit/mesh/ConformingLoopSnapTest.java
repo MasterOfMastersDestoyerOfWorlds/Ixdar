@@ -12,6 +12,7 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * CRAW-89: a closed path whose snapped vertices go round a triangle and back to where they left
@@ -34,20 +35,17 @@ class ConformingLoopSnapTest {
         for (int segment = 0; segment < around; segment++) {
             vertexIds[detour.length + segment] = cylinder.vertexIdAt(junction + segment);
         }
-        double[] positions = new double[3 * vertexIds.length];
+        PackedPoints positions = new PackedPoints(vertexIds.length);
         Vector3f position = new Vector3f();
         for (int point = 0; point < vertexIds.length; point++) {
-            cylinder.vertexPosition(vertexIds[point], position);
-            positions[3 * point] = position.x;
-            positions[3 * point + 1] = position.y;
-            positions[3 * point + 2] = position.z;
+            positions.set(point, cylinder.vertexPosition(vertexIds[point], position));
         }
         int[] noEdge = new int[vertexIds.length];
         double[] noFraction = new double[vertexIds.length];
         Arrays.fill(noEdge, -1);
         Arrays.fill(noFraction, -1.0);
         TracedSurfacePath path = new TracedSurfacePath(positions, vertexIds, noEdge, noFraction,
-                vertexIds.length, true);
+                true);
 
         boolean[] marks = new ConformingLoopSnap().snap(cylinder, path);
 

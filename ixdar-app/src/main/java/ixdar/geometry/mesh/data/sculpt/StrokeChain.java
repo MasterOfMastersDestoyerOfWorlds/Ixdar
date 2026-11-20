@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * A stroke snapped onto a mesh: the vertices nearest its lifted points, joined into one chain of
@@ -41,14 +42,14 @@ public final class StrokeChain {
     }
 
     /**
-     * Snap packed lifted points to their nearest vertices and join them by shortest edge paths;
-     * the chain's vertices and edges replace {@link #vertexIds} and {@link #edgeIds}.
+     * Snap lifted points to their nearest vertices and join them by shortest edge paths; the
+     * chain's vertices and edges replace {@link #vertexIds} and {@link #edgeIds}.
      *
      * @param mesh       surface to snap to
-     * @param pointXyz   lifted points, packed xyz, in stroke order
-     * @param pointCount how many points {@code pointXyz} holds
+     * @param points     lifted points, in stroke order
+     * @param pointCount how many of {@code points} to snap
      */
-    public void snap(MeshTopology mesh, float[] pointXyz, int pointCount) {
+    public void snap(MeshTopology mesh, PackedPoints points, int pointCount) {
         int[] vertices = new int[Math.max(1, pointCount)];
         int[] edges = new int[Math.max(1, pointCount)];
         int vertexCount = 0;
@@ -57,8 +58,7 @@ public final class StrokeChain {
         NearestVertex index = nearestVertex(mesh);
         int[] source = new int[1];
         for (int point = 0; point < pointCount; point++) {
-            int nearestId = index.nearest(pointXyz[point * 3], pointXyz[point * 3 + 1], pointXyz[point * 3 + 2],
-                    Float.POSITIVE_INFINITY);
+            int nearestId = index.nearest(points.at(point), Float.POSITIVE_INFINITY);
             if (nearestId < 0 || vertexCount > 0 && vertices[vertexCount - 1] == nearestId) {
                 continue;
             }

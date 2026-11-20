@@ -1,11 +1,14 @@
 package ixdar.geometry.mesh.data.ops;
 
 import java.util.Arrays;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.numeric.graph.UnionFind;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -36,8 +39,8 @@ public final class MeshMergeByDistance {
      */
     public int[] sourceFace = new int[0];
 
-    /** Packed xyz of the welded vertices, filled by {@link #weldArrays}. */
-    public float[] weldedPositions = new float[0];
+    /** Positions of the welded vertices, exactly their count, filled by {@link #weldArrays}. */
+    public PackedPoints weldedPositions = new PackedPoints(0);
 
     /** Corner count of each surviving face, filled by {@link #weldArrays}. */
     public int[] weldedFaceSizes = new int[0];
@@ -64,10 +67,10 @@ public final class MeshMergeByDistance {
      */
     public HalfEdgeMesh weld(MeshTopology mesh, float distance) {
         weldArrays(mesh, distance);
-        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(weldedPositions, weldedFaceSizes,
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(weldedPositions,weldedFaceSizes,
                 weldedFaceCorners);
         out.computeNormals();
-        int[] sourceVertex = new int[weldedPositions.length / 3];
+        int[] sourceVertex = new int[weldedPositions.size()];
         Arrays.fill(sourceVertex, MeshTopology.NONE);
         for (int activeVertex = weldedVertex.length - 1; activeVertex >= 0; activeVertex--) {
             sourceVertex[weldedVertex[activeVertex]] = mesh.vertexIdAt(activeVertex);
@@ -104,29 +107,15 @@ public final class MeshMergeByDistance {
     public void weldArrays(MeshTopology mesh, float distance) {
         int n = mesh == null ? 0 : mesh.vertexCount();
         weldedVertex = new int[n];
-        sourceFace = new int[n == 0 ? 0 : mesh.faceCount()];
-        for (int face = 0; face < sourceFace.length; face++) {
-            sourceFace[face] = face;
-        }
+        sourceFace = IntStream.range(0, n == 0 ? 0 : mesh.faceCount()).toArray();
         if (n == 0) {
-            weldedPositions = new float[0];
+            weldedPositions = new PackedPoints(0);
             weldedFaceSizes = new int[0];
             weldedFaceCorners = new int[0];
             return;
         }
         int[] activeVertexOfId = new int[mesh.vertexIdBound()];
-        float[] vx = new float[n];
-        float[] vy = new float[n];
-        float[] vz = new float[n];
-        Vector3f tmp = new Vector3f();
-        for (int i = 0; i < n; i++) {
-            int vertexId = mesh.vertexIdAt(i);
-            activeVertexOfId[vertexId] = i;
-            mesh.vertexPosition(vertexId, tmp);
-            vx[i] = tmp.x;
-            vy[i] = tmp.y;
-            vz[i] = tmp.z;
-        }
+        PackedPoints points = mesh.packedPositions(activeVertexOfId);
         int nf = mesh.faceCount();
         int[] faceSizes = new int[nf];
         int totalCorners = 0;
@@ -136,13 +125,8 @@ public final class MeshMergeByDistance {
         }
         int[] faceIdx = new int[totalCorners];
         if (distance <= 0f) {
-            weldedPositions = new float[n * 3];
-            for (int index = 0; index < n; index++) {
-                weldedVertex[index] = index;
-                weldedPositions[index * 3] = vx[index];
-                weldedPositions[index * 3 + 1] = vy[index];
-                weldedPositions[index * 3 + 2] = vz[index];
-            }
+            weldedPositions = points;
+            weldedVertex = IntStream.range(0, n).toArray();
             int cursor = 0;
             for (int fi = 0; fi < nf; fi++) {
                 int faceId = mesh.faceIdAt(fi);
@@ -154,16 +138,14 @@ public final class MeshMergeByDistance {
             weldedFaceCorners = faceIdx;
             return;
         }
-
         float cell = Math.max(distance, MIN_CELL_SIZE);
-
         int[] cellGx = new int[n];
         int[] cellGy = new int[n];
         int[] cellGz = new int[n];
         for (int i = 0; i < n; i++) {
-            cellGx[i] = (int) Math.floor(vx[i] / cell);
-            cellGy[i] = (int) Math.floor(vy[i] / cell);
-            cellGz[i] = (int) Math.floor(vz[i] / cell);
+            cellGx[i] = (int) Math.floor(points.get(i, 0) / cell);
+            cellGy[i] = (int) Math.floor(points.get(i, 1) / cell);
+            cellGz[i] = (int) Math.floor(points.get(i, 2) / cell);
         }
 
         int gridCap = 1;
@@ -197,6 +179,7 @@ public final class MeshMergeByDistance {
             int gx = cellGx[i];
             int gy = cellGy[i];
             int gz = cellGz[i];
+            Vector3f position = points.at(i);
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     for (int dz = -1; dz <= 1; dz++) {
@@ -210,13 +193,8 @@ public final class MeshMergeByDistance {
                         }
                         int j = gridHead[slot];
                         while (j >= 0) {
-                            if (j > i) {
-                                float ex = vx[i] - vx[j];
-                                float ey = vy[i] - vy[j];
-                                float ez = vz[i] - vz[j];
-                                if (ex * ex + ey * ey + ez * ez < distSq) {
-                                    UnionFind.union(parent, i, j);
-                                }
+                            if (j > i && points.distanceSquared(j, position) < distSq) {
+                                UnionFind.union(parent, i, j);
                             }
                             j = nextInBucket[j];
                         }
@@ -225,38 +203,19 @@ public final class MeshMergeByDistance {
             }
         }
 
-        int[] rootOf = new int[n];
-        for (int i = 0; i < n; i++) {
-            rootOf[i] = UnionFind.find(parent, i);
-        }
+        int[] rootOf = IntStream.range(0, n).map(i -> UnionFind.find(parent, i)).toArray();
 
         int[] rootToOut = new int[n];
         Arrays.fill(rootToOut, -1);
-        float[] sumX = new float[n];
-        float[] sumY = new float[n];
-        float[] sumZ = new float[n];
-        int[] count = new int[n];
         int outV = 0;
         for (int i = 0; i < n; i++) {
             int r = rootOf[i];
             if (rootToOut[r] < 0) {
                 rootToOut[r] = outV++;
             }
-            int o = rootToOut[r];
-            sumX[o] += vx[i];
-            sumY[o] += vy[i];
-            sumZ[o] += vz[i];
-            count[o]++;
-            weldedVertex[i] = o;
+            weldedVertex[i] = rootToOut[r];
         }
-
-        float[] positions = new float[outV * 3];
-        for (int o = 0; o < outV; o++) {
-            float inv = 1f / count[o];
-            positions[o * 3] = sumX[o] * inv;
-            positions[o * 3 + 1] = sumY[o] * inv;
-            positions[o * 3 + 2] = sumZ[o] * inv;
-        }
+        PackedPoints means = points.groupMeans(weldedVertex, outV);
 
         int outF = 0;
         int outCorners = 0;
@@ -283,7 +242,7 @@ public final class MeshMergeByDistance {
             }
         }
         sourceFace = Arrays.copyOf(sourceFace, outF);
-        weldedPositions = positions;
+        weldedPositions = means;
         weldedFaceSizes = Arrays.copyOf(faceSizes, outF);
         weldedFaceCorners = Arrays.copyOf(faceIdx, outCorners);
     }

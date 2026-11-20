@@ -48,8 +48,8 @@ public final class SurfaceConnection {
     /** Surface length of each arc: face centroid to the crossed edge's midpoint to centroid. */
     public final double[] arcLength;
 
-    /** Centroid of each face, packed xyz. */
-    public final float[] centroidXyz;
+    /** Centroid of each face, by active face index. */
+    public final PackedPoints centroids;
 
     /** Edges no path and no cross-section may cross, by edge id; empty for none. */
     public boolean[] wallByEdgeId = new boolean[0];
@@ -69,8 +69,8 @@ public final class SurfaceConnection {
     /** Faces of the shortest path, start to end, by active face index. */
     public int[] pathActiveFace = new int[0];
 
-    /** The path through face centroids and crossed-edge midpoints, packed xyz. */
-    public float[] pathPolyline = new float[0];
+    /** The path through face centroids and crossed-edge midpoints. */
+    public PackedPoints pathPolyline = new PackedPoints(0);
 
     /** Surface length of the path. */
     public double pathLength;
@@ -107,7 +107,6 @@ public final class SurfaceConnection {
 
     private final GirdlingPlane girdle = new GirdlingPlane();
     private final ConformingLoopSnap snap = new ConformingLoopSnap();
-    private final Vector3f scratch = new Vector3f();
     private final int[] loopFaceStamp;
     private int loopStamp;
     private final Dijkstra faceSearch = new Dijkstra();
@@ -130,19 +129,12 @@ public final class SurfaceConnection {
         }
         activeFaceByFaceId = new int[faceBound];
         Arrays.fill(activeFaceByFaceId, -1);
-        centroidXyz = new float[COORDINATES_PER_POINT * faceCount];
+        centroids = mesh.faceCentroids();
         loopFaceStamp = new int[faceCount];
         arcStart = new int[faceCount + 1];
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             int faceId = mesh.faceIdAt(activeFace);
             activeFaceByFaceId[faceId] = activeFace;
-            int corners = mesh.faceVertexCount(faceId);
-            for (int corner = 0; corner < corners; corner++) {
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), scratch);
-                centroidXyz[COORDINATES_PER_POINT * activeFace] += scratch.x / corners;
-                centroidXyz[COORDINATES_PER_POINT * activeFace + 1] += scratch.y / corners;
-                centroidXyz[COORDINATES_PER_POINT * activeFace + 2] += scratch.z / corners;
-            }
             int interior = 0;
             for (int side = 0; side < mesh.faceEdgeCount(faceId); side++) {
                 interior += faceAcross(mesh.faceEdgeAt(faceId, side), faceId) >= 0 ? 1 : 0;
@@ -214,9 +206,8 @@ public final class SurfaceConnection {
             int index = samples == 1 ? 0 : Math.round(sample * (steps - 1f) / (samples - 1f));
             int ahead = pathActiveFace[Math.min(steps - 1, index + reach)];
             int behind = pathActiveFace[Math.max(0, index - reach)];
-            Vector3f centre = PackedPoints.at(centroidXyz, COORDINATES_PER_POINT * pathActiveFace[index]);
-            Vector3f axis = PackedPoints.at(centroidXyz, COORDINATES_PER_POINT * ahead)
-                    .sub(PackedPoints.at(centroidXyz, COORDINATES_PER_POINT * behind));
+            Vector3f centre = centroids.at(pathActiveFace[index]);
+            Vector3f axis = centroids.at(ahead).sub(centroids.at(behind));
             samplePoint[kept] = centre;
             sampleAlong[kept] = axis;
             if (!girdle.find(mesh, mesh.faceIdAt(pathActiveFace[index]), new Vector3f(centre),
@@ -244,8 +235,7 @@ public final class SurfaceConnection {
             int crossings = 0;
             double previousSide = 0.0;
             for (int point = 0; point < 2 * steps - 1; point++) {
-                double signed = PackedPoints.at(pathPolyline, COORDINATES_PER_POINT * point)
-                        .sub(samplePoint[kept]).dot(girdle.normal);
+                double signed = pathPolyline.at(point).sub(samplePoint[kept]).dot(girdle.normal);
                 if (point > 0 && signed >= 0.0 != previousSide >= 0.0
                         && loopFaceStamp[pathActiveFace[point / 2]] == loopStamp) {
                     crossings++;
@@ -311,7 +301,7 @@ public final class SurfaceConnection {
         connected = false;
         failure = "";
         pathActiveFace = new int[0];
-        pathPolyline = new float[0];
+        pathPolyline = new PackedPoints(0);
         pathLength = 0.0;
         pathFilledFaceCount = 0;
         if (startFace < 0 || endFace < 0 || startFace >= faceCount || endFace >= faceCount) {
@@ -349,20 +339,18 @@ public final class SurfaceConnection {
             steps++;
         }
         pathActiveFace = new int[steps];
-        pathPolyline = new float[COORDINATES_PER_POINT * (2 * steps - 1)];
+        PackedPoints polyline = new PackedPoints(2 * steps - 1);
+        pathPolyline = polyline;
         int face = endFace;
         Vector3f midpoint = new Vector3f();
         for (int index = steps - 1; index >= 0; index--) {
             pathActiveFace[index] = face;
-            System.arraycopy(centroidXyz, COORDINATES_PER_POINT * face, pathPolyline,
-                    2 * COORDINATES_PER_POINT * index, COORDINATES_PER_POINT);
+            polyline.set(2 * index, centroids.at(face));
             pathFilledFaceCount += face < filledByActiveFace.length && filledByActiveFace[face]
                     ? 1 : 0;
             if (index > 0) {
                 int arc = faceSearch.via(face);
-                mesh.edgeMidpoint(arcEdgeId[arc], midpoint);
-                int base = COORDINATES_PER_POINT * (2 * index - 1);
-                PackedPoints.store(pathPolyline, base, midpoint);
+                polyline.set(2 * index - 1, mesh.edgeMidpoint(arcEdgeId[arc], midpoint));
                 face = arcFace[arc];
             }
         }
@@ -382,9 +370,9 @@ public final class SurfaceConnection {
         int nearest = -1;
         double nearestSquared = Double.POSITIVE_INFINITY;
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            double dx = centroidXyz[COORDINATES_PER_POINT * activeFace] - x;
-            double dy = centroidXyz[COORDINATES_PER_POINT * activeFace + 1] - y;
-            double dz = centroidXyz[COORDINATES_PER_POINT * activeFace + 2] - z;
+            double dx = centroids.get(activeFace, 0) - x;
+            double dy = centroids.get(activeFace, 1) - y;
+            double dz = centroids.get(activeFace, 2) - z;
             double squared = dx * dx + dy * dy + dz * dz;
             if (squared < nearestSquared) {
                 nearestSquared = squared;
@@ -415,9 +403,8 @@ public final class SurfaceConnection {
      * @return the Euclidean distance
      */
     private double centroidDistance(int activeFace, Vector3f point) {
-        return point.distance(centroidXyz[COORDINATES_PER_POINT * activeFace],
-                centroidXyz[COORDINATES_PER_POINT * activeFace + 1],
-                centroidXyz[COORDINATES_PER_POINT * activeFace + 2]);
+        return point.distance(centroids.get(activeFace, 0), centroids.get(activeFace, 1),
+                centroids.get(activeFace, 2));
     }
 
     /**

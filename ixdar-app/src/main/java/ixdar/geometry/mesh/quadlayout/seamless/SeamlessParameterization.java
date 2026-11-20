@@ -5,7 +5,6 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
@@ -268,7 +267,9 @@ public final class SeamlessParameterization {
                 continue;
             }
             mesh.vertexPosition(vertexId, position);
-            PackedPoints.store(vertexPositionXyz, vertexId * VECTOR_COMPONENTS, position);
+            vertexPositionXyz[vertexId * VECTOR_COMPONENTS] = position.x;
+            vertexPositionXyz[vertexId * VECTOR_COMPONENTS + 1] = position.y;
+            vertexPositionXyz[vertexId * VECTOR_COMPONENTS + 2] = position.z;
         }
         for (int activeFace = 0; activeFace < uv.faceCount; activeFace++) {
             if (faceArea[activeFace] > 0.0) {

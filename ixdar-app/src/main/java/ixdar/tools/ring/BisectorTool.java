@@ -7,9 +7,9 @@ import java.util.Locale;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.paths.query.SurfacePathCrossings;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.GeodesicRefit;
@@ -311,18 +311,13 @@ public final class BisectorTool extends RingSubTool {
         int[] held = ringTool.draftAuthoredVertexId;
         int[] kept = null;
         SurfaceSpline shortest = null;
-        float[] heldXyz = ringTool.positionsOf(held);
-        float[] at = ringTool.positionsOf(new int[] { vertexId });
+        PackedPoints heldPoints = ringTool.positionsOf(held);
+        Vector3f at = ringTool.positionOf(vertexId);
         double[] detour = new double[held.length - 1];
         for (int span = 0; span < detour.length; span++) {
-            int from = RingTool.COORDINATES_PER_POINT * span;
-            int to = from + RingTool.COORDINATES_PER_POINT;
-            detour[span] = Vector3f.distance(heldXyz[from], heldXyz[from + 1], heldXyz[from + 2],
-                    at[0], at[1], at[2])
-                    + Vector3f.distance(at[0], at[1], at[2], heldXyz[to], heldXyz[to + 1],
-                            heldXyz[to + 2])
-                    - Vector3f.distance(heldXyz[from], heldXyz[from + 1], heldXyz[from + 2],
-                            heldXyz[to], heldXyz[to + 1], heldXyz[to + 2]);
+            Vector3f from = heldPoints.at(span);
+            Vector3f to = heldPoints.at(span + 1);
+            detour[span] = from.distance(at) + at.distance(to) - from.distance(to);
         }
         boolean[] tried = new boolean[detour.length];
         for (int attempt = 0; attempt < detour.length
@@ -418,8 +413,7 @@ public final class BisectorTool extends RingSubTool {
         draftStretch = null;
         long start = System.nanoTime();
         TracedSurfacePath curve = crease.path;
-        double[] curveXyz = Arrays.copyOf(curve.positions,
-                RingTool.COORDINATES_PER_POINT * curve.pointCount);
+        PackedPoints curveXyz = curve.positions.copy();
         int[] curveVertexId = Arrays.copyOf(curve.vertexId, curve.pointCount);
         if (stretchBefore != null) {
             MeshTopology surface = ringTool.geodesics.mesh;
@@ -450,12 +444,11 @@ public final class BisectorTool extends RingSubTool {
                 }
             }
             curveVertexId = new int[at < 0 ? 0 : edges + 1];
-            curveXyz = new double[RingTool.COORDINATES_PER_POINT * curveVertexId.length];
+            curveXyz = new PackedPoints(curveVertexId.length);
             boolean[] walked = new boolean[edges];
             for (int point = 0; point < curveVertexId.length; point++) {
                 curveVertexId[point] = at;
-                surface.vertexPosition(at, end);
-                PackedPoints.store(curveXyz, RingTool.COORDINATES_PER_POINT * point, end);
+                curveXyz.set(point, surface.vertexPosition(at, end));
                 for (int edge = 0; edge < edges; edge++) {
                     if (!walked[edge] && (tail[edge] == at || head[edge] == at)) {
                         walked[edge] = true;
@@ -605,9 +598,8 @@ public final class BisectorTool extends RingSubTool {
             marks[end] = ring < 0 || ringTool.confirmedRings.get(ring).deleted ? null
                     : ringTool.confirmedRings.get(ring).spline.marks.markedByEdgeId;
             if (frame != null && marks[end] != null) {
-                surface.vertexPosition(frame[1 + end], scratchPosition);
-                frame[1 + end] = RingAttachment.attach(surface, marks[end], scratchPosition.x,
-                        scratchPosition.y, scratchPosition.z);
+                frame[1 + end] = RingAttachment.attach(surface, marks[end],
+                        surface.vertexPosition(frame[1 + end], scratchPosition));
             }
             boolean onWall = frame != null;
             for (int spoke = 0; marks[end] != null && !onWall
@@ -616,9 +608,8 @@ public final class BisectorTool extends RingSubTool {
                 onWall |= edgeId < marks[end].length && marks[end][edgeId];
             }
             if (marks[end] != null && !onWall) {
-                surface.vertexPosition(anchors[anchor], scratchPosition);
-                anchors[anchor] = RingAttachment.attach(surface, marks[end], scratchPosition.x,
-                        scratchPosition.y, scratchPosition.z);
+                anchors[anchor] = RingAttachment.attach(surface, marks[end],
+                        surface.vertexPosition(anchors[anchor], scratchPosition));
             }
             if (marks[end] == null || anchors[anchor] < 0) {
                 ringTool.lastError = "refused: the wall the bisector's " + (end == 0 ? "first"
@@ -761,7 +752,7 @@ public final class BisectorTool extends RingSubTool {
         }
         Draft waiting = new Draft();
         waiting.points = ringTool.positionsOf(new int[] { startVertexId });
-        waiting.location.set(waiting.points);
+        waiting.location.set(waiting.points.at(0));
         waiting.pointLabels = new String[] { WAITING_END };
         waiting.size = 1;
         waiting.label = WAITING_LABEL;

@@ -81,22 +81,22 @@ public final class MidpointSplit {
         HalfEdgeMesh refined = new HalfEdgeMesh();
         Vector3f position = new Vector3f();
         refinedById = new int[mesh.vertexIdBound()];
+        PackedPoints flat = new PackedPoints(mesh.vertexCount() + mesh.edgeCount() + mesh.faceCount());
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
             refinedById[vertexId] = refined.addVertex(mesh.vertexPosition(vertexId, position));
+            flat.set(activeVertex, position);
         }
         midpointByEdgeId = new int[mesh.edgeIdBound()];
         Arrays.fill(midpointByEdgeId, -1);
         int[] edgeEnds = new int[2];
-        float[] flatXyz = Arrays.copyOf(mesh.packedPositions(null),
-                (mesh.vertexCount() + mesh.edgeCount() + mesh.faceCount()) * 3);
         for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
             int edgeId = mesh.edgeIdAt(activeEdge);
             if (splitByEdgeId[edgeId]) {
                 edgeEnds[0] = mesh.halfEdgeVertex(mesh.edgeHalfEdge(edgeId));
                 edgeEnds[1] = mesh.halfEdgeEndVertex(mesh.edgeHalfEdge(edgeId));
-                midpointByEdgeId[edgeId] = refined.addVertex(curvedCentroid(mesh, edgeEnds, 2, position, flatXyz,
-                        refined.vertexIdBound() * 3));
+                midpointByEdgeId[edgeId] = refined.addVertex(curvedCentroid(mesh, edgeEnds, 2, position, flat,
+                        refined.vertexIdBound()));
             }
         }
         for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
@@ -124,8 +124,8 @@ public final class MidpointSplit {
                 refined.addFace(midpoints[2], midpoints[1], cornerIds[2]);
                 refined.addFace(midpoints[0], midpoints[1], midpoints[2]);
             } else if (splitByFaceId[faceId]) {
-                int centerId = refined.addVertex(curvedCentroid(mesh, faceVertexIds, corners, position, flatXyz,
-                        refined.vertexIdBound() * 3));
+                int centerId = refined.addVertex(curvedCentroid(mesh, faceVertexIds, corners, position, flat,
+                        refined.vertexIdBound()));
                 for (int corner = 0; corner < corners; corner++) {
                     refined.addFace(cornerIds[corner], midpoints[corner], centerId,
                             midpoints[(corner + corners - 1) % corners]);
@@ -154,12 +154,12 @@ public final class MidpointSplit {
             }
         }
         int[] refinedActiveById = new int[refined.vertexIdBound()];
-        float[] curvedXyz = refined.packedPositions(refinedActiveById);
-        MeshSmoothing.unfold(refined, refinedActiveById, flatXyz, curvedXyz, null, StrokeSculpt.UNFOLD_HALVINGS);
+        PackedPoints curved = refined.packedPositions(refinedActiveById);
+        MeshSmoothing.unfold(refined, refinedActiveById, flat, curved, null,
+                StrokeSculpt.UNFOLD_HALVINGS);
         for (int activeVertex = 0; activeVertex < refined.vertexCount(); activeVertex++) {
-            int at = activeVertex * 3;
-            refined.setVertexPosition(refined.vertexIdAt(activeVertex), curvedXyz[at], curvedXyz[at + 1],
-                    curvedXyz[at + 2]);
+            Vector3f point = curved.at(activeVertex);
+            refined.setVertexPosition(refined.vertexIdAt(activeVertex), point.x, point.y, point.z);
         }
         refined.computeNormals();
         return refined;
@@ -204,13 +204,13 @@ public final class MidpointSplit {
      * @param vertexIds corners, sparse vertex ids
      * @param count     how many leading entries of {@code vertexIds} are corners
      * @param dest      receives the position
-     * @param flatXyz   receives the flat centroid at {@code flatAt}
-     * @param flatAt    where in {@code flatXyz} the flat centroid goes
+     * @param flat      receives the flat centroid as point {@code flatAt}
+     * @param flatAt    which point of {@code flat} the flat centroid goes to
      * @return {@code dest}: the centroid moved by half the mean of its projections onto the corners'
      *         tangent planes
      */
     private static Vector3f curvedCentroid(MeshTopology mesh, int[] vertexIds, int count, Vector3f dest,
-            float[] flatXyz, int flatAt) {
+            PackedPoints flat, int flatAt) {
         Vector3f corner = new Vector3f();
         Vector3f normal = new Vector3f();
         dest.zero();
@@ -234,7 +234,7 @@ public final class MidpointSplit {
             liftY -= height * normal.y;
             liftZ -= height * normal.z;
         }
-        PackedPoints.store(flatXyz, flatAt, dest);
+        flat.set(flatAt, dest);
         return dest.add(liftX * 0.5f / count, liftY * 0.5f / count, liftZ * 0.5f / count);
     }
 }

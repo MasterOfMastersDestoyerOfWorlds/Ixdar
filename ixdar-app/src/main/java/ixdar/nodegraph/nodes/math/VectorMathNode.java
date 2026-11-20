@@ -106,7 +106,7 @@ public class VectorMathNode implements MeshNode {
                 return;
             }
 
-            float[] out = new float[n * 3];
+            PackedPoints out = new PackedPoints(n);
             float[] lengths = new float[n];
             for (int i = 0; i < n; i++) {
                 FieldBroadcast.vec3At(av, i, (Vector3Value) A.defaultValue, a);
@@ -128,7 +128,7 @@ public class VectorMathNode implements MeshNode {
                     case CROSS_PRODUCT, CROSS -> outVec.set(a).cross(b);
                     default -> outVec.set(a).add(b);
                 }
-                PackedPoints.store(out, 3 * i, outVec);
+                out.set(i, outVec);
                 lengths[i] = outVec.length();
             }
             ctx.setOutput(VECTOR.name, new Vector3Field(out));

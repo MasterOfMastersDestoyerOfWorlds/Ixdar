@@ -23,6 +23,7 @@ import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
@@ -38,8 +39,6 @@ public final class RingRegionExtraction {
     public static final double DEGENERATE_AREA_RATIO = 1e-9;
 
     public static final double MIXED_COMPONENT_SHARE = 0.9;
-
-    public static final int XYZ = 3;
 
     public static final int TRIANGLE_CORNERS = 3;
 
@@ -62,10 +61,10 @@ public final class RingRegionExtraction {
     public MeshBooleanBackend solidCheck;
 
     /**
-     * Packed xyz of the cut surface: the source vertices in dense order, then the edge crossings,
+     * Positions of the cut surface: the source vertices in dense order, then the edge crossings,
      * then the points inside polygons.
      */
-    public float[] cutPositions = new float[0];
+    public PackedPoints cutPositions = new PackedPoints(0);
 
     /** Vertices of the cut surface. */
     public int cutVertexCount;
@@ -249,10 +248,10 @@ public final class RingRegionExtraction {
                 : Double.compare(fractions[first], fractions[second]));
 
         int[] crossingVertex = new int[crossingCount];
-        cutPositions = new float[XYZ * (sourceVertexCount + crossingCount + insidePointCount)];
+        PackedPoints cut = new PackedPoints(sourceVertexCount + crossingCount + insidePointCount);
+        cutPositions = cut;
         for (int activeVertex = 0; activeVertex < sourceVertexCount; activeVertex++) {
-            mesh.vertexPosition(mesh.vertexIdAt(activeVertex), tail);
-            PackedPoints.store(cutPositions, XYZ * activeVertex, tail);
+            cut.set(activeVertex, mesh.vertexPosition(mesh.vertexIdAt(activeVertex), tail));
         }
         cutVertexCount = sourceVertexCount;
         snappedCrossingCount = 0;
@@ -282,8 +281,7 @@ public final class RingRegionExtraction {
                 vertex = cutVertexCount++;
                 mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), tail);
                 mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), head);
-                tail.lerp(head, (float) fraction);
-                PackedPoints.store(cutPositions, XYZ * vertex, tail);
+                cut.set(vertex, tail.lerp(head, (float) fraction));
                 edgeIdOfInserted[vertex - sourceVertexCount] = edgeId;
                 insertedCountByEdgeId[edgeId]++;
                 snappedCrossingCount += clusterEnd - clusterStart - 1;
@@ -309,28 +307,21 @@ public final class RingRegionExtraction {
                 if (path.vertexId[point] >= 0 || faceId < 0 || !mesh.hasFace(faceId)) {
                     continue;
                 }
-                head.set((float) path.surfacePositions[XYZ * point],
-                        (float) path.surfacePositions[XYZ * point + 1],
-                        (float) path.surfacePositions[XYZ * point + 2]);
-                int vertex = MeshTopology.NONE;
-                double nearest = snapFraction * meanEdgeLength;
-                for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
-                    int cornerVertexId = mesh.faceVertexAt(faceId, corner);
-                    mesh.vertexPosition(cornerVertexId, tail);
-                    if (tail.distance(head) <= nearest) {
-                        nearest = tail.distance(head);
-                        vertex = activeVertexByVertexId[cornerVertexId];
-                    }
-                }
+                head.set(path.surfacePositions.at(point));
+                PackedPoints corners = mesh.facePoints(faceId);
+                int corner = corners.nearest(head, 0, corners.size());
+                int vertex = corner >= 0
+                        && Math.sqrt(corners.distanceSquared(corner, head)) <= snapFraction * meanEdgeLength
+                        ? activeVertexByVertexId[mesh.faceVertexAt(faceId, corner)] : MeshTopology.NONE;
                 if (vertex == MeshTopology.NONE) {
                     vertex = cutVertexCount++;
-                    PackedPoints.store(cutPositions, XYZ * vertex, head);
+                    cut.set(vertex, head);
                     faceIdOfInside[vertex - sourceVertexCount - insertedVertexCount] = faceId;
                 }
                 insideVertexOfPoint[ring][point] = vertex;
             }
         }
-        cutPositions = Arrays.copyOf(cutPositions, XYZ * cutVertexCount);
+        cutPositions.resize(cutVertexCount);
         insertedStartByEdgeId = new int[edgeIdCeiling + 1];
         for (int edgeId = 0; edgeId < edgeIdCeiling; edgeId++) {
             insertedStartByEdgeId[edgeId + 1] = insertedStartByEdgeId[edgeId]
@@ -568,11 +559,10 @@ public final class RingRegionExtraction {
                         int end = start + span;
                         cost[start][end] = Double.POSITIVE_INFINITY;
                         for (int middle = start + 1; middle < end; middle++) {
-                            double squaredEdges = distanceSquared(piece[start], piece[middle])
-                                    + distanceSquared(piece[middle], piece[end])
-                                    + distanceSquared(piece[end], piece[start]);
-                            double area = Math.sqrt(Math.max(0,
-                                    areaSquared(piece[start], piece[middle], piece[end])));
+                            double squaredEdges = cutPositions.distanceSquared(piece[start], piece[middle])
+                                    + cutPositions.distanceSquared(piece[middle], piece[end])
+                                    + cutPositions.distanceSquared(piece[end], piece[start]);
+                            double area = TriangleGeometry.area(cutPositions, piece[start], piece[middle], piece[end]);
                             double candidate = cost[start][middle] + cost[middle][end]
                                     + (area <= DEGENERATE_AREA_RATIO * squaredEdges
                                             ? Double.POSITIVE_INFINITY : squaredEdges / area);
@@ -626,12 +616,11 @@ public final class RingRegionExtraction {
 
         neighbourByCorner = new int[TRIANGLE_CORNERS * cutTriangleCount];
         Arrays.fill(neighbourByCorner, MeshTopology.NONE);
-        double[] triangleArea = new double[cutTriangleCount];
+        double[] triangleArea = TriangleGeometry.areas(cutPositions,
+                Arrays.copyOf(cutTriangles, TRIANGLE_CORNERS * cutTriangleCount));
         Map<Long, Integer> openCornerByEdge = new HashMap<>();
         for (int triangle = 0; triangle < cutTriangleCount; triangle++) {
             int base = TRIANGLE_CORNERS * triangle;
-            triangleArea[triangle] = Math.sqrt(Math.max(0, areaSquared(cutTriangles[base],
-                    cutTriangles[base + 1], cutTriangles[base + 2])));
             for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
                 long key = EdgeKey.undirected(cutTriangles[base + corner],
                         cutTriangles[base + (corner + 1) % TRIANGLE_CORNERS]);
@@ -708,7 +697,7 @@ public final class RingRegionExtraction {
         int[] keptIndexOfCutVertex = new int[cutVertexCount];
         Arrays.fill(keptIndexOfCutVertex, MeshTopology.NONE);
         boolean[] onBoundary = new boolean[cutVertexCount];
-        float[] keptPositions = new float[XYZ * cutVertexCount];
+        PackedPoints keptPositions = new PackedPoints(cutVertexCount);
         int[] keptTriangles = new int[TRIANGLE_CORNERS * cutTriangleCount];
         int keptVertices = 0;
         int keptCorners = 0;
@@ -722,8 +711,7 @@ public final class RingRegionExtraction {
                 int vertex = cutTriangles[base + corner];
                 if (keptIndexOfCutVertex[vertex] == MeshTopology.NONE) {
                     keptIndexOfCutVertex[vertex] = keptVertices;
-                    System.arraycopy(cutPositions, XYZ * vertex, keptPositions,
-                            XYZ * keptVertices, XYZ);
+                    keptPositions.set(keptVertices, cutPositions.at(vertex));
                     keptVertices++;
                 }
                 keptTriangles[keptCorners++] = keptIndexOfCutVertex[vertex];
@@ -743,9 +731,8 @@ public final class RingRegionExtraction {
             problems.add("no region is selected, so nothing was extracted");
             return this;
         }
-        openMesh = HalfEdgeMeshOps.buildFromIndexedMesh(
-                Arrays.copyOf(keptPositions, XYZ * keptVertices),
-                Arrays.copyOf(keptTriangles, keptCorners));
+        keptPositions.resize(keptVertices);
+        openMesh = HalfEdgeMeshOps.buildFromIndexedMesh(keptPositions, Arrays.copyOf(keptTriangles, keptCorners));
 
         boundaryToSplineDistance = 0;
         boundaryToCubicDistance = 0;
@@ -763,18 +750,15 @@ public final class RingRegionExtraction {
             }
             double toSpline = Double.POSITIVE_INFINITY;
             double toCubic = Double.POSITIVE_INFINITY;
-            float x = cutPositions[XYZ * vertex];
-            float y = cutPositions[XYZ * vertex + 1];
-            float z = cutPositions[XYZ * vertex + 2];
+            Vector3f position = cutPositions.at(vertex);
             for (int ring = 0; ring < ringCount; ring++) {
                 if (!onRingByCutVertex[ring][vertex]) {
                     continue;
                 }
                 TracedSurfacePath path = splineByRing[ring].path;
-                toSpline = Math.min(toSpline, SurfaceSpline.distanceToPolyline(
-                        path.surfacePositions, path.pointCount, x, y, z));
-                toCubic = Math.min(toCubic, SurfaceSpline.distanceToPolyline(path.positions,
-                        path.pointCount, x, y, z));
+                toSpline = Math.min(toSpline,
+                        SurfaceSpline.distanceToPolyline(path.surfacePositions, path.pointCount, position));
+                toCubic = Math.min(toCubic, SurfaceSpline.distanceToPolyline(path.positions, path.pointCount, position));
             }
             if (toSpline == Double.POSITIVE_INFINITY) {
                 continue;
@@ -802,8 +786,7 @@ public final class RingRegionExtraction {
                 }
                 mesh.vertexPosition(mesh.halfEdgeVertex(mesh.edgeHalfEdge(edgeId)), tail);
                 snappedLoopToSplineDistance = Math.max(snappedLoopToSplineDistance,
-                        SurfaceSpline.distanceToPolyline(path.surfacePositions, path.pointCount,
-                                tail.x, tail.y, tail.z));
+                        SurfaceSpline.distanceToPolyline(path.surfacePositions, path.pointCount, tail));
             }
         }
 
@@ -944,26 +927,6 @@ public final class RingRegionExtraction {
             }
         }
         return -1;
-    }
-
-    private double distanceSquared(int first, int second) {
-        double dx = cutPositions[XYZ * first] - cutPositions[XYZ * second];
-        double dy = cutPositions[XYZ * first + 1] - cutPositions[XYZ * second + 1];
-        double dz = cutPositions[XYZ * first + 2] - cutPositions[XYZ * second + 2];
-        return dx * dx + dy * dy + dz * dz;
-    }
-
-    private double areaSquared(int first, int second, int third) {
-        double ax = cutPositions[XYZ * second] - cutPositions[XYZ * first];
-        double ay = cutPositions[XYZ * second + 1] - cutPositions[XYZ * first + 1];
-        double az = cutPositions[XYZ * second + 2] - cutPositions[XYZ * first + 2];
-        double bx = cutPositions[XYZ * third] - cutPositions[XYZ * first];
-        double by = cutPositions[XYZ * third + 1] - cutPositions[XYZ * first + 1];
-        double bz = cutPositions[XYZ * third + 2] - cutPositions[XYZ * first + 2];
-        double cx = ay * bz - az * by;
-        double cy = az * bx - ax * bz;
-        double cz = ax * by - ay * bx;
-        return 0.5 * 0.5 * (cx * cx + cy * cy + cz * cz);
     }
 
     private void addTriangle(int first, int second, int third, int parent) {

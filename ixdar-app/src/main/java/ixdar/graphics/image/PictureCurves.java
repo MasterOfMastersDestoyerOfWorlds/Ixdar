@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 
 /**
@@ -107,7 +108,7 @@ public final class PictureCurves {
         for (float[] region : shading.regions) {
             points += Math.max(0, region.length / CurveGeometry.XY - 1);
         }
-        float[] positions = new float[points * CurveGeometry.XYZ];
+        PackedPoints positions = new PackedPoints(points);
         int[] offsets = new int[curves + 1];
         boolean[] closed = new boolean[curves];
         String[] names = { VIEW, REGION, LINE_WIDTH, CONTRAST, RIDGE, DARKNESS, AREA, BLOB, LIGHT_X, LIGHT_Y,
@@ -116,10 +117,13 @@ public final class PictureCurves {
         for (int curve = 0; curve < curves; curve++) {
             boolean region = curve >= lines;
             int index = region ? curve - lines : curve;
-            CurveGeometry one = region ? CurveGeometry.planarLoop(shading.regions.get(index))
-                    : CurveGeometry.planar(shading.lines.get(index), false);
-            System.arraycopy(one.positions, 0, positions, offsets[curve] * CurveGeometry.XYZ, one.positions.length);
-            offsets[curve + 1] = offsets[curve] + one.pointCount();
+            float[] xy = region ? shading.regions.get(index) : shading.lines.get(index);
+            int count = region ? Math.max(0, xy.length / CurveGeometry.XY - 1) : xy.length / CurveGeometry.XY;
+            for (int point = 0; point < count; point++) {
+                positions.set(offsets[curve] + point, xy[point * CurveGeometry.XY], xy[point * CurveGeometry.XY + 1],
+                        0f);
+            }
+            offsets[curve + 1] = offsets[curve] + count;
             closed[curve] = region;
             float[] row = { view, region ? 1f : 0f, region ? 0f : shading.widthByLine[index],
                 region ? 0f : shading.contrastByLine[index], !region && shading.ridgeByLine[index] ? 1f : 0f,

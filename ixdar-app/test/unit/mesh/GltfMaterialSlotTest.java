@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.MaterialData;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.Vector3Value;
 import ixdar.nodegraph.nodes.modifier.MirrorGeometryNode;
@@ -195,12 +196,11 @@ class GltfMaterialSlotTest {
      * @return bundle carrying both texture slots
      */
     private static GeometryBundle texturedSquare() {
-        float[] positions = {
-            0f, 0f, 0f,
-            1f, 0f, 0f,
-            1f, 1f, 0f,
-            0f, 1f, 0f,
-        };
+        PackedPoints positions = new PackedPoints();
+        positions.append(0f, 0f, 0f);
+        positions.append(1f, 0f, 0f);
+        positions.append(1f, 1f, 0f);
+        positions.append(0f, 1f, 0f);
         int[] indices = { 0, 1, 2, 0, 2, 3 };
         double[] cornerU = { 0, 1, 1, 0, 1, 0 };
         double[] cornerV = { 0, 0, 1, 0, 1, 1 };

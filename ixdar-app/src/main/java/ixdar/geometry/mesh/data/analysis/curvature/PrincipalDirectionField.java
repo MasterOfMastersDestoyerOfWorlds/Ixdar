@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.data.analysis.curvature;
 
 import java.util.stream.IntStream;
 
+import org.joml.Matrix3f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
@@ -24,13 +25,13 @@ public final class PrincipalDirectionField {
 
     private final float[] kappaMax;
     private final float[] kappaMin;
-    private final float[] dirMax;   // nv * 3, packed xyz
-    private final float[] dirMin;   // nv * 3, packed xyz
-    private final float[] vertexNormals;  // nv * 3, packed xyz
+    private final PackedPoints dirMax;
+    private final PackedPoints dirMin;
+    private final PackedPoints vertexNormals;
 
     private PrincipalDirectionField(float[] kappaMax, float[] kappaMin,
-                                    float[] dirMax, float[] dirMin,
-                                    float[] vertexNormals) {
+                                    PackedPoints dirMax, PackedPoints dirMin,
+                                    PackedPoints vertexNormals) {
         this.kappaMax = kappaMax;
         this.kappaMin = kappaMin;
         this.dirMax = dirMax;
@@ -60,7 +61,7 @@ public final class PrincipalDirectionField {
      * @return the unit tangent direction of maximum curvature, as a new vector
      */
     public Vector3f dirMax(int vertexId) {
-        return PackedPoints.at(dirMax, vertexId * 3);
+        return dirMax.at(vertexId);
     }
 
     /**
@@ -70,7 +71,7 @@ public final class PrincipalDirectionField {
      * @return the unit tangent direction of minimum curvature, as a new vector
      */
     public Vector3f dirMin(int vertexId) {
-        return PackedPoints.at(dirMin, vertexId * 3);
+        return dirMin.at(vertexId);
     }
 
     /**
@@ -80,7 +81,7 @@ public final class PrincipalDirectionField {
      * @return the area-weighted vertex normal, as a new vector
      */
     public Vector3f vertexNormal(int vertexId) {
-        return PackedPoints.at(vertexNormals, vertexId * 3);
+        return vertexNormals.at(vertexId);
     }
 
     /**
@@ -110,23 +111,22 @@ public final class PrincipalDirectionField {
      * neighbours the curvature sums follow; vertices are estimated in parallel.
      *
      * @param mesh      source surface, of any polygon sizes
-     * @param positions vertex positions by vertex id, three floats each
+     * @param points    vertex positions by vertex id
      * @param triangles fan triangle corners as vertex ids, three per triangle
-     * @param faceN     unit normal per fan triangle, three floats each
+     * @param faceN     unit normal per fan triangle
      * @param ring      neighbour vertex ids per vertex id
      * @return populated principal-direction field for every vertex of {@code mesh}
      */
-    public static PrincipalDirectionField compute(MeshTopology mesh, float[] positions,
-            int[] triangles, float[] faceN, int[][] ring) {
+    public static PrincipalDirectionField compute(MeshTopology mesh, PackedPoints points,
+            int[] triangles, PackedPoints faceN, int[][] ring) {
         int vertexIdBound = mesh.vertexIdBound();
 
-        float[] vertexNormals = SemanticPatchDecomposer.vertexNormals(triangles, faceN,
-                vertexIdBound);
+        PackedPoints vertexNormals = SemanticPatchDecomposer.vertexNormals(triangles, faceN, vertexIdBound);
 
         float[] kappaMax = new float[vertexIdBound];
         float[] kappaMin = new float[vertexIdBound];
-        float[] dirMax = new float[vertexIdBound * 3];
-        float[] dirMin = new float[vertexIdBound * 3];
+        PackedPoints dirMax = new PackedPoints(vertexIdBound);
+        PackedPoints dirMin = new PackedPoints(vertexIdBound);
 
         int vertexCount = mesh.vertexCount();
         IntStream.range(0, (vertexCount + VERTICES_PER_TASK - 1) / VERTICES_PER_TASK).parallel()
@@ -138,33 +138,24 @@ public final class PrincipalDirectionField {
                 int[] neighbours = ring[vertexId];
                 if (neighbours == null || neighbours.length < 2) continue;
 
-                Vector3f normal = PackedPoints.at(vertexNormals, vertexId * 3);
-                // First tangent: the normal's least dominant axis crossed with the normal.
-                float ax = Math.abs(normal.x);
-                float ay = Math.abs(normal.y);
-                float az = Math.abs(normal.z);
-                Vector3f t1 = (ax < ay && ax < az ? new Vector3f(1, 0, 0)
-                        : ay < az ? new Vector3f(0, 1, 0) : new Vector3f(0, 0, 1)).cross(normal);
-                float l1 = t1.length();
-                if (l1 < ZERO_VECTOR_EPSILON) {
-                    t1.set(1, 0, 0);
-                } else {
-                    t1.div(l1);
-                }
-                Vector3f t2 = normal.cross(t1, new Vector3f());
-                Vector3f position = PackedPoints.at(positions, vertexId * 3);
+                Vector3f normal = vertexNormals.at(vertexId);
+                if (normal.lengthSquared() == 0f) continue;
+                Matrix3f frame = MeshTopology.tangentFrame(normal);
+                Vector3f t1 = frame.getColumn(0, new Vector3f());
+                Vector3f t2 = frame.getColumn(1, new Vector3f());
+                Vector3f position = points.at(vertexId);
 
                 float m00 = 0, m01 = 0, m11 = 0;
                 float wTotal = 0;
                 for (int neighbourId : neighbours) {
-                    Vector3f edge = PackedPoints.at(positions, neighbourId * 3).sub(position);
+                    Vector3f edge = points.at(neighbourId).sub(position);
                     float elen = edge.length();
                     if (elen < MIN_WEIGHT_EPSILON) continue;
-                    Vector3f along = new Vector3f(normal).mul(-edge.dot(normal)).add(edge);
+                    Vector3f along = new Vector3f(edge).fma(-edge.dot(normal), normal);
                     if (along.length() < MIN_WEIGHT_EPSILON) continue;
                     along.normalize();
 
-                    Vector3f normalChange = PackedPoints.at(vertexNormals, neighbourId * 3).sub(normal);
+                    Vector3f normalChange = vertexNormals.at(neighbourId).sub(normal);
                     float kEdge = -normalChange.dot(along) / elen;
 
                     float a = along.dot(t1);
@@ -213,8 +204,8 @@ public final class PrincipalDirectionField {
                 kappaMax[vertexId] = kmax;
                 kappaMin[vertexId] = kmin;
 
-                PackedPoints.store(dirMax, vertexId * 3, new Vector3f(t1).mul(maxAx).fma(maxAy, t2));
-                PackedPoints.store(dirMin, vertexId * 3, new Vector3f(t1).mul(minAx).fma(minAy, t2));
+                dirMax.set(vertexId, new Vector3f(t1).mul(maxAx).fma(maxAy, t2));
+                dirMin.set(vertexId, new Vector3f(t1).mul(minAx).fma(minAy, t2));
             }
         });
 

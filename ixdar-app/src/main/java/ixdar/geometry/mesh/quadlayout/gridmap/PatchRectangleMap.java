@@ -10,6 +10,8 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.numeric.sparse.DirectSolver;
@@ -271,18 +273,18 @@ public final class PatchRectangleMap {
      */
     private Map<Long, Double> cotangentEdgeWeights() {
         Map<Long, Double> weightByEdge = new HashMap<>();
-        Vector3f toFirst = new Vector3f();
-        Vector3f toSecond = new Vector3f();
-        Vector3f perpendicular = new Vector3f();
+        PackedPoints points = new PackedPoints(positions.length);
+        for (int vertex = 0; vertex < positions.length; vertex++) {
+            points.set(vertex, positions[vertex]);
+        }
         for (int[] triangle : triangles) {
             for (int corner = 0; corner < triangle.length; corner++) {
                 int first = triangle[(corner + 1) % triangle.length];
                 int second = triangle[(corner + 2) % triangle.length];
                 Vector3f apex = positions[triangle[corner]];
-                toFirst.set(positions[first]).sub(apex);
-                toSecond.set(positions[second]).sub(apex);
-                double twiceArea = toFirst.cross(toSecond, perpendicular).length();
-                double cotangent = twiceArea == 0.0 ? 0.0 : toFirst.dot(toSecond) / twiceArea;
+                double twiceArea = 2.0 * TriangleGeometry.area(points, triangle[corner], first, second);
+                double cotangent = twiceArea == 0.0 ? 0.0
+                        : points.at(first).sub(apex).dot(points.at(second).sub(apex)) / twiceArea;
                 weightByEdge.merge(EdgeKey.undirected(first, second), cotangent, Double::sum);
             }
         }

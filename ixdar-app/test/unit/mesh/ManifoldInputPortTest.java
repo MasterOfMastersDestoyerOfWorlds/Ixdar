@@ -12,6 +12,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
@@ -30,14 +31,14 @@ class ManifoldInputPortTest {
 
     private static final String SURFACE_GEOMETRY = SURFACE + "." + SurfaceMetricNode.GEOMETRY.name;
 
-    private static final float[] TRIANGLE_POSITIONS = { 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f };
-
     private static final int[] TRIANGLE_CORNERS = { 0, 1, 2 };
 
     @Test
     void indexedMeshOnAManifoldPortIsRefusedNamingTheNode() {
-        ArrayMesh indexed = new ArrayMesh(TRIANGLE_POSITIONS, null, TRIANGLE_CORNERS,
-                HalfEdgeMesh.TRIANGLE_CORNERS);
+        PackedPoints positions = new PackedPoints(3);
+        positions.set(1, 1f, 0f, 0f);
+        positions.set(2, 0f, 1f, 0f);
+        ArrayMesh indexed = new ArrayMesh(positions, null, TRIANGLE_CORNERS, HalfEdgeMesh.TRIANGLE_CORNERS);
         InvalidMeshTopologyException refused = assertThrows(InvalidMeshTopologyException.class,
                 () -> NodeGraphRuntime.fromSource(GRAPH).executeGraphResult(SURFACE,
                         SurfaceMetricNode.METRIC.name,
@@ -47,7 +48,10 @@ class ManifoldInputPortTest {
 
     @Test
     void halfEdgeMeshOnAManifoldPortReachesTheNode() throws Exception {
-        HalfEdgeMesh surface = HalfEdgeMesh.buildFromIndexedMesh(TRIANGLE_POSITIONS, TRIANGLE_CORNERS);
+        PackedPoints positions = new PackedPoints(3);
+        positions.set(1, 1f, 0f, 0f);
+        positions.set(2, 0f, 1f, 0f);
+        HalfEdgeMesh surface = HalfEdgeMesh.buildFromIndexedMesh(positions, TRIANGLE_CORNERS);
         assertNotNull(NodeGraphRuntime.fromSource(GRAPH).executeGraphResult(SURFACE,
                 SurfaceMetricNode.METRIC.name, Map.of(SURFACE_GEOMETRY, GeometryBundle.ofMesh(surface))));
     }

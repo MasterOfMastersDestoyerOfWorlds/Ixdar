@@ -20,6 +20,7 @@ import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.nodes.data.TagGeometryNode;
 import ixdar.nodegraph.field.FieldBroadcast;
 
@@ -102,13 +103,8 @@ public class AttachToSurfaceNode implements MeshNode {
         int vertCount = mesh.vertexCount();
         int faceCount = mesh.faceCount();
 
-        Vector3f centroid = new Vector3f();
+        Vector3f centroid = mesh.packedPositions(null).centroid();
         Vector3f tmp = new Vector3f();
-        for (int i = 0; i < vertCount; i++) {
-            mesh.vertexPosition(mesh.vertexIdAt(i), tmp);
-            centroid.add(tmp);
-        }
-        centroid.div(vertCount);
 
         Vector3f dir = new Vector3f(
                 (float) (Math.sin(phi) * Math.cos(theta)),
@@ -118,54 +114,36 @@ public class AttachToSurfaceNode implements MeshNode {
         if (dir.lengthSquared() < DIRECTION_EPSILON_SQUARED) dir.set(0, 1, 0);
         dir.normalize();
 
-        float[][] fc = new float[faceCount][3];
-        for (int fi = 0; fi < faceCount; fi++) {
-            int fid = mesh.faceIdAt(fi);
-            int nv = mesh.faceVertexCount(fid);
-            float cx = 0, cy = 0, cz = 0;
-            for (int k = 0; k < nv; k++) {
-                mesh.vertexPosition(mesh.faceVertexAt(fid, k), tmp);
-                cx += tmp.x;
-                cy += tmp.y;
-                cz += tmp.z;
-            }
-            fc[fi][0] = cx / nv;
-            fc[fi][1] = cy / nv;
-            fc[fi][2] = cz / nv;
-        }
+        PackedPoints fc = mesh.faceCentroids();
 
         int hitFace = 0;
         float bestDot = Float.NEGATIVE_INFINITY;
         for (int fi = 0; fi < faceCount; fi++) {
-            float dx = fc[fi][0] - centroid.x;
-            float dy = fc[fi][1] - centroid.y;
-            float dz = fc[fi][2] - centroid.z;
-            float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            Vector3f offset = fc.at(fi).sub(centroid);
+            float len = offset.length();
             if (len < LENGTH_EPSILON) continue;
-            float dot = (dx * dir.x + dy * dir.y + dz * dir.z) / len;
+            float dot = offset.dot(dir) / len;
             if (dot > bestDot) {
                 bestDot = dot;
                 hitFace = fi;
             }
         }
 
-        Vector3f attachPos = new Vector3f(fc[hitFace][0], fc[hitFace][1], fc[hitFace][2]);
+        Vector3f attachPos = fc.at(hitFace);
 
         boolean[] selected = new boolean[faceCount];
         if (radius <= 0f) {
             selected[hitFace] = true;
         } else {
             for (int fi = 0; fi < faceCount; fi++) {
-                float dx = fc[fi][0] - attachPos.x;
-                float dy = fc[fi][1] - attachPos.y;
-                float dz = fc[fi][2] - attachPos.z;
-                if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= radius) {
-                    selected[fi] = true;
-                }
+                selected[fi] = fc.at(fi).distance(attachPos) <= radius;
             }
         }
 
-        Vector3f attachNormal = faceNormal(mesh, mesh.faceIdAt(hitFace));
+        Vector3f attachNormal = mesh.faceNormal(mesh.faceIdAt(hitFace));
+        if (attachNormal.lengthSquared() == 0f) {
+            attachNormal.set(0, 1, 0);
+        }
         Vector3f toCentroid = new Vector3f(attachPos).sub(centroid);
         if (attachNormal.dot(toCentroid) < 0) {
             attachNormal.negate();
@@ -193,14 +171,11 @@ public class AttachToSurfaceNode implements MeshNode {
                 }
                 out.addFace(vids);
             } else {
-                float fcx = fc[fi][0], fcy = fc[fi][1], fcz = fc[fi][2];
+                Vector3f faceCenter = fc.at(fi);
                 int[] inner = new int[nv];
                 for (int k = 0; k < nv; k++) {
                     mesh.vertexPosition(mesh.faceVertexAt(fid, k), tmp);
-                    float nx = tmp.x + (fcx - tmp.x) * inset;
-                    float ny = tmp.y + (fcy - tmp.y) * inset;
-                    float nz = tmp.z + (fcz - tmp.z) * inset;
-                    inner[k] = out.addVertex(nx, ny, nz);
+                    inner[k] = out.addVertex(tmp.lerp(faceCenter, inset));
                     boundaryVerts.add(inner[k]);
                 }
                 for (int k = 0; k < nv; k++) {
@@ -231,19 +206,6 @@ public class AttachToSurfaceNode implements MeshNode {
         ctx.setOutput(POSITION_OUT.name, new Vector3Value(attachPos.x, attachPos.y, attachPos.z));
         ctx.setOutput(NORMAL_OUT.name, new Vector3Value(attachNormal.x, attachNormal.y, attachNormal.z));
         ctx.setOutput(ROTATION_OUT.name, new Vector3Value(rotation.x, rotation.y, rotation.z));
-    }
-
-    private static Vector3f faceNormal(MeshTopology mesh, int fid) {
-        Vector3f p0 = new Vector3f(), p1 = new Vector3f(), p2 = new Vector3f();
-        mesh.vertexPosition(mesh.faceVertexAt(fid, 0), p0);
-        mesh.vertexPosition(mesh.faceVertexAt(fid, 1), p1);
-        mesh.vertexPosition(mesh.faceVertexAt(fid, 2), p2);
-        Vector3f e1 = new Vector3f(p1).sub(p0);
-        Vector3f e2 = new Vector3f(p2).sub(p0);
-        Vector3f n = new Vector3f();
-        e1.cross(e2, n);
-        float len = n.length();
-        return len > LENGTH_EPSILON ? n.div(len) : new Vector3f(0, 1, 0);
     }
 
     private static Vector3f alignRotation(Vector3f normal, float twist) {

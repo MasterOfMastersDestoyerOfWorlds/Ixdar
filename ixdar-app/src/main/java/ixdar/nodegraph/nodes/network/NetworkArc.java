@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
@@ -96,7 +98,7 @@ public final class NetworkArc implements MeshNode {
                 continue;
             }
             Vector3Value point = (Vector3Value) value;
-            waypoints.add(grid.find(point.x(), point.y(), point.z()));
+            waypoints.add(grid.find(new Vector3f(point.x(), point.y(), point.z())));
         }
         waypoints.add(net.nodes.get(to).copyVertex);
         List<Integer> path = new ArrayList<>();

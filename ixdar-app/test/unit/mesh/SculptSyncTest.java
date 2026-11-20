@@ -18,11 +18,13 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.sculpt.AnchoredStroke;
 import ixdar.geometry.mesh.data.sculpt.FaceAnchors;
 import ixdar.geometry.mesh.data.sculpt.StrokeAnchors;
@@ -278,12 +280,14 @@ class SculptSyncTest {
         List<String> changes = sync(svg);
         assertTrue(changes.contains(PIT_ID + ": redrawn, held on the base anew from cell 0")
                 && changes.contains(CHEEK_ID + ": redrawn, held on the base anew from cell 0"), changes.toString());
-        float[] camera = lifted.output(StrokeSculptNode.GEOMETRY_OUT, GeometryBundle.class).mesh().packedPositions(null);
-        float[] anchored = sculpt(base, svg.toString()).mesh().packedPositions(null);
-        assertEquals(camera.length, anchored.length, "the same refinement");
+        PackedPoints camera = lifted.output(StrokeSculptNode.GEOMETRY_OUT, GeometryBundle.class).mesh()
+                .packedPositions(null);
+        PackedPoints anchored = sculpt(base, svg.toString()).mesh().packedPositions(null);
+        assertEquals(camera.size(), anchored.size(), "the same refinement");
         float farthest = 0f;
-        for (int index = 0; index < camera.length; index++) {
-            farthest = Math.max(farthest, Math.abs(camera[index] - anchored[index]));
+        for (int point = 0; point < camera.size(); point++) {
+            Vector3f apart = camera.at(point).sub(anchored.at(point)).absolute();
+            farthest = Math.max(farthest, apart.get(apart.maxComponent()));
         }
         assertTrue(farthest < 1e-3f, "the pit held in the sidecar is the pit lifted through the camera, its walls "
                 + "where they were: farthest vertex apart " + farthest);

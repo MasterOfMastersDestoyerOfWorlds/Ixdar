@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
@@ -236,11 +237,11 @@ class RingCameraDragHoverTest {
     @Test
     void anAnchorDragIsTheToolsAndNeverPausesTheHover() {
         MeshTopology tube = scene.halfEdgeSurface();
-        float[] xyz = new float[XYZ * QUARTERS];
+        PackedPoints xyz = new PackedPoints(QUARTERS);
         for (int quarter = 0; quarter < QUARTERS; quarter++) {
             double angle = 2.0 * Math.PI * quarter / QUARTERS;
-            xyz[XYZ * quarter + 1] = (float) (RADIUS * Math.cos(angle));
-            xyz[XYZ * quarter + 2] = (float) (RADIUS * Math.sin(angle));
+            xyz.set(quarter, 0f, (float) (RADIUS * Math.cos(angle)),
+                    (float) (RADIUS * Math.sin(angle)));
         }
         int[] quarters = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, QUARTERS);
         AuthoredSplineRing ring = new AuthoredSplineRing(tool.geodesics);

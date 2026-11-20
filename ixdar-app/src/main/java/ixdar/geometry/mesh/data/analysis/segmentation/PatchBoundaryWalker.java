@@ -12,6 +12,8 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.PackedPoints;
+
 /**
  * Walks a patch's boundary into an ordered ring and slices it at corners into the four sides a Coons
  * fit expects. Of several disconnected rings only the largest is kept, and junctions resolve to the
@@ -19,7 +21,6 @@ import org.joml.Vector3f;
  */
 public final class PatchBoundaryWalker {
     public static final int CORNER_COUNT = 4;
-    public static final float EPSILON = 1e-20f;
 
     private static final float T_CORNER_RAD = 1.22f;
 
@@ -33,13 +34,13 @@ public final class PatchBoundaryWalker {
      * @param patchId patch label this call is extracting
      * @param faceIdx flat triangle index buffer ({@code 3 * faceCount} entries)
      * @param adj per-face neighbour table ({@code adj[f][e]} is the face across edge {@code e}, or {@code -1})
-     * @param positions packed XYZ vertex positions
+     * @param positions vertex positions
      * @return the sides (4) + corner vertices (4), or {@code null} if
      *         no simple boundary ring of length ≥ 4 could be found —
      *         caller should fall back to shape-proxy heuristics.
      */
     public static BoundarySides extract(List<Integer> faces, int[] facePatch, int patchId,
-                                        int[] faceIdx, int[][] adj, float[] positions) {
+                                        int[] faceIdx, int[][] adj, PackedPoints positions) {
         Map<Integer, List<Integer>> neighbours = new HashMap<>();
         for (int f : faces) {
             for (int e = 0; e < 3; e++) {
@@ -57,9 +58,51 @@ public final class PatchBoundaryWalker {
         int[] bestRing = null;
         for (Integer start : neighbours.keySet()) {
             if (globallyVisited.contains(start)) continue;
-            int[] ring = walkRing(start, neighbours, globallyVisited, positions);
-            if (ring == null) continue;
-            if (bestRing == null || ring.length > bestRing.length) bestRing = ring;
+            // Walk one closed ring from start, stepping to the unvisited neighbour that least changes
+            // direction so junctions follow the smoother local boundary, and closing at start once no
+            // unvisited neighbour is left. A walk that gets stuck or outgrows the boundary is dropped.
+            List<Integer> ring = new ArrayList<>();
+            Set<Integer> ringVisited = new HashSet<>();
+            int cur = start;
+            int prev = -1;
+            ring.add(cur);
+            ringVisited.add(cur);
+            boolean closed = false;
+            while (!closed && ring.size() <= neighbours.size() + 2) {
+                List<Integer> nbs = neighbours.get(cur);
+                if (nbs == null || nbs.isEmpty()) break;
+                Vector3f incoming = prev >= 0 ? positions.at(prev).sub(positions.at(cur)) : null;
+                int next = -1;
+                float bestScore = Float.NEGATIVE_INFINITY;
+                boolean startReachable = false;
+                for (int n : nbs) {
+                    if (n == prev) continue;
+                    if (n == start) {
+                        startReachable = true;
+                        continue;
+                    }
+                    if (ringVisited.contains(n)) continue;
+                    // The straightest step turns least: the widest angle between the step back and the step on.
+                    float score = incoming == null ? 0f : incoming.angle(positions.at(n).sub(positions.at(cur)));
+                    if (score > bestScore) {
+                        bestScore = score;
+                        next = n;
+                    }
+                }
+                if (next < 0) {
+                    closed = startReachable;
+                    break;
+                }
+                ring.add(next);
+                ringVisited.add(next);
+                prev = cur;
+                cur = next;
+            }
+            if (!closed) continue;
+            globallyVisited.addAll(ringVisited);
+            if (bestRing == null || ring.size() > bestRing.length) {
+                bestRing = ring.stream().mapToInt(Integer::intValue).toArray();
+            }
         }
         if (bestRing == null || bestRing.length < CORNER_COUNT) return null;
         int total = bestRing.length;
@@ -67,14 +110,10 @@ public final class PatchBoundaryWalker {
         float[] deviationStrength = new float[total];
         List<Integer> allCorners = new ArrayList<>();
         for (int i = 0; i < total; i++) {
-            int at = bestRing[i];
-            int before = bestRing[(i - 1 + total) % total];
-            int after = bestRing[(i + 1) % total];
-            Vector3f da = unitDir(positions, at, before);
-            Vector3f db = unitDir(positions, at, after);
-            float dot = da.dot(db);
-            dot = Math.max(-1f, Math.min(1f, dot));
-            float deviation = Math.abs((float) Math.acos(dot) - (float) Math.PI);
+            Vector3f at = positions.at(bestRing[i]);
+            Vector3f da = positions.at(bestRing[(i - 1 + total) % total]).sub(at);
+            Vector3f db = positions.at(bestRing[(i + 1) % total]).sub(at);
+            float deviation = Math.abs(da.angle(db) - (float) Math.PI);
             deviationStrength[i] = deviation;
             if (deviation > T_CORNER_RAD) allCorners.add(i);
         }
@@ -110,99 +149,9 @@ public final class PatchBoundaryWalker {
         return new BoundarySides(sides, cornerVerts);
     }
 
-    /**
-     * Walks one closed ring from {@code start}, stepping to the unvisited neighbour that least
-     * changes direction so junctions follow the smoother local boundary.
-     *
-     * @param start vertex id to begin the walk from
-     * @param neighbours boundary adjacency map (vertex to ordered neighbour list)
-     * @param globallyVisited vertices already consumed by previously walked rings; updated on success
-     * @param positions packed XYZ vertex positions for direction scoring
-     * @return ordered ring of vertex ids, or {@code null} if no closed simple ring could be walked
-     */
-    private static int[] walkRing(int start, Map<Integer, List<Integer>> neighbours,
-                                  Set<Integer> globallyVisited, float[] positions) {
-        List<Integer> ring = new ArrayList<>();
-        Set<Integer> ringVisited = new HashSet<>();
-        int cur = start;
-        int prev = -1;
-        ring.add(cur);
-        ringVisited.add(cur);
-        while (true) {
-            List<Integer> nbs = neighbours.get(cur);
-            if (nbs == null || nbs.isEmpty()) return null;
-            int next = pickNext(cur, prev, nbs, ringVisited, start, positions);
-            if (next < 0) return null;
-            if (next == start) {
-                globallyVisited.addAll(ringVisited);
-                int[] out = new int[ring.size()];
-                for (int i = 0; i < out.length; i++) out[i] = ring.get(i);
-                return out;
-            }
-            ring.add(next);
-            ringVisited.add(next);
-            prev = cur;
-            cur = next;
-            if (ring.size() > neighbours.size() + 2) return null;
-        }
-    }
-
-    /**
-     * Pick the next ring step from {@code cur}'s neighbour list. Prefer
-     * unvisited neighbours; among those, pick the one that continues
-     * most straight (smallest turn). If no unvisited option but
-     * {@code start} is a neighbour, close the ring there.
-     *
-     * @param cur current ring vertex
-     * @param prev previous ring vertex, or {@code -1} for the first step
-     * @param nbs boundary neighbours of {@code cur}
-     * @param ringVisited vertices already in the current ring (excluding {@code start})
-     * @param start ring start vertex; used to detect closure
-     * @param positions packed XYZ positions for the straight-continuation score
-     * @return next vertex id, {@code start} to close the ring, or {@code -1} if stuck
-     */
-    private static int pickNext(int cur, int prev, List<Integer> nbs,
-                                 Set<Integer> ringVisited, int start, float[] positions) {
-        Vector3f incoming = prev >= 0 ? unitDir(positions, cur, prev) : null;
-        int bestUnvisited = -1;
-        float bestUnvisitedDot = Float.NEGATIVE_INFINITY;
-        boolean startReachable = false;
-        for (int n : nbs) {
-            if (n == prev) continue;
-            if (n == start) {
-                startReachable = true;
-                continue;
-            }
-            if (ringVisited.contains(n)) continue;
-            float score;
-            if (incoming == null) {
-                score = 0f;
-            } else {
-                Vector3f outgoing = unitDir(positions, cur, n);
-                score = -incoming.dot(outgoing);
-            }
-            if (score > bestUnvisitedDot) {
-                bestUnvisitedDot = score;
-                bestUnvisited = n;
-            }
-        }
-        if (bestUnvisited >= 0) return bestUnvisited;
-        if (startReachable) return start;
-        return -1;
-    }
-
     private static void addNeighbour(Map<Integer, List<Integer>> m, int at, int other) {
         List<Integer> list = m.computeIfAbsent(at, k -> new ArrayList<>(2));
         if (!list.contains(other)) list.add(other);
-    }
-
-    private static Vector3f unitDir(float[] positions, int from, int to) {
-        float dx = positions[to * 3]     - positions[from * 3];
-        float dy = positions[to * 3 + 1] - positions[from * 3 + 1];
-        float dz = positions[to * 3 + 2] - positions[from * 3 + 2];
-        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (len < EPSILON) return new Vector3f();
-        return new Vector3f(dx / len, dy / len, dz / len);
     }
 
     public record BoundarySides(List<int[]> sides, int[] cornerVertices) {}

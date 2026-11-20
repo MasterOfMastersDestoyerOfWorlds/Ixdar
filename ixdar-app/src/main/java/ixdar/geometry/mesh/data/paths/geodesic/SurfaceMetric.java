@@ -1,12 +1,14 @@
 package ixdar.geometry.mesh.data.paths.geodesic;
 
 import java.util.Arrays;
+import java.util.stream.IntStream;
 
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
-import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * A surface's intrinsic metric and connection: its unflipped signpost intrinsic triangulation
@@ -187,7 +189,6 @@ public final class SurfaceMetric {
         faceHalfEdge = new int[faceCount];
         int nextSplitEdge = sourceEdgeCount;
         int nextFreeFace = 0;
-        Vector3f cornerPosition = new Vector3f();
         for (int index = 0; index < mesh.faceCount(); index++) {
             int faceId = mesh.faceIdAt(index);
             int[] boundary = new int[mesh.faceHalfEdgeCount(faceId)];
@@ -201,20 +202,18 @@ public final class SurfaceMetric {
             int remaining = boundary.length;
             int[] ring = boundary;
             if (remaining > TRIANGLE_SIDES) {
-                double[] xyz = new double[TRIANGLE_SIDES * remaining];
-                double[] normal = new double[TRIANGLE_SIDES];
-                int[] cornerSlot = new int[remaining];
+                PackedPoints xyz = new PackedPoints(remaining);
+                Vector3d normal = new Vector3d();
+                int[] cornerSlot = IntStream.range(0, remaining).toArray();
                 for (int corner = 0; corner < remaining; corner++) {
-                    mesh.vertexPosition(sourceVertexId[halfEdgeTail[ring[corner]]], cornerPosition);
-                    PackedPoints.store(xyz, TRIANGLE_SIDES * corner, cornerPosition);
-                    cornerSlot[corner] = corner;
+                    xyz.set(corner, mesh.vertexPosition(sourceVertexId[halfEdgeTail[ring[corner]]]));
                 }
                 for (int corner = 0; corner < remaining; corner++) {
-                    int here = TRIANGLE_SIDES * corner;
-                    int there = TRIANGLE_SIDES * ((corner + 1) % remaining);
-                    normal[0] += (xyz[here + 1] - xyz[there + 1]) * (xyz[here + 2] + xyz[there + 2]);
-                    normal[1] += (xyz[here + 2] - xyz[there + 2]) * (xyz[here] + xyz[there]);
-                    normal[2] += (xyz[here] - xyz[there]) * (xyz[here + 1] + xyz[there + 1]);
+                    Vector3f here = xyz.at(corner);
+                    Vector3f there = xyz.at((corner + 1) % remaining);
+                    normal.add(((double) here.y - there.y) * ((double) here.z + there.z),
+                            ((double) here.z - there.z) * ((double) here.x + there.x),
+                            ((double) here.x - there.x) * ((double) here.y + there.y));
                 }
                 while (remaining > TRIANGLE_SIDES) {
                     int bestEar = 0;
@@ -232,13 +231,7 @@ public final class SurfaceMetric {
                                     || turn(xyz, middle, following, slot, normal) < 0.0
                                     || turn(xyz, following, previous, slot, normal) < 0.0;
                         }
-                        double dx = xyz[TRIANGLE_SIDES * previous]
-                                - xyz[TRIANGLE_SIDES * following];
-                        double dy = xyz[TRIANGLE_SIDES * previous + 1]
-                                - xyz[TRIANGLE_SIDES * following + 1];
-                        double dz = xyz[TRIANGLE_SIDES * previous + 2]
-                                - xyz[TRIANGLE_SIDES * following + 2];
-                        double length = dx * dx + dy * dy + dz * dz;
+                        double length = xyz.distanceSquared(previous, following);
                         if (valid && !bestValid || valid == bestValid && length < bestLength) {
                             bestEar = ear;
                             bestValid = valid;
@@ -286,15 +279,10 @@ public final class SurfaceMetric {
      * Signed turn at {@code middle} from {@code from} to {@code to}, positive when it is
      * counter-clockwise about the polygon normal.
      */
-    private static double turn(double[] xyz, int from, int middle, int to, double[] normal) {
-        double inX = xyz[TRIANGLE_SIDES * middle] - xyz[TRIANGLE_SIDES * from];
-        double inY = xyz[TRIANGLE_SIDES * middle + 1] - xyz[TRIANGLE_SIDES * from + 1];
-        double inZ = xyz[TRIANGLE_SIDES * middle + 2] - xyz[TRIANGLE_SIDES * from + 2];
-        double outX = xyz[TRIANGLE_SIDES * to] - xyz[TRIANGLE_SIDES * middle];
-        double outY = xyz[TRIANGLE_SIDES * to + 1] - xyz[TRIANGLE_SIDES * middle + 1];
-        double outZ = xyz[TRIANGLE_SIDES * to + 2] - xyz[TRIANGLE_SIDES * middle + 2];
-        return (inY * outZ - inZ * outY) * normal[0] + (inZ * outX - inX * outZ) * normal[1]
-                + (inX * outY - inY * outX) * normal[2];
+    private static double turn(PackedPoints xyz, int from, int middle, int to, Vector3d normal) {
+        Vector3d incoming = new Vector3d(xyz.at(middle)).sub(xyz.at(from));
+        Vector3d outgoing = new Vector3d(xyz.at(to)).sub(xyz.at(middle));
+        return incoming.cross(outgoing).dot(normal);
     }
 
     private void linkTriangle(int first, int second, int third, int face, int faceId) {

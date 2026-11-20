@@ -218,7 +218,7 @@ public abstract class TradeRouteTool extends Tool {
         Vector2f at = scene.game.map.grid.dualPoints().get(pending.cell);
         Draft operation = new Draft();
         operation.label = displayName();
-        operation.points = new float[] { at.x, at.y, 0 };
+        operation.points.append(at.x, at.y, 0f);
         operation.pointLabels = new String[] { pending.name };
         operation.location.set(at, 0f);
         operation.size = 1;

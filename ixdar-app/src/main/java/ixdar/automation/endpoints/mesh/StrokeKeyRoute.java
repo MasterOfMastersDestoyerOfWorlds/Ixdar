@@ -25,6 +25,7 @@ import ixdar.geometry.mesh.data.analysis.curvature.SurfaceRidges;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.sculpt.AnchoredStroke;
 import ixdar.geometry.mesh.data.sculpt.FaceAnchors;
 import ixdar.geometry.mesh.data.sculpt.GoalProjection;
@@ -154,17 +155,16 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
                 FaceAnchors onBase = new FaceAnchors(baseMesh);
                 StrokeAnchors carried = new StrokeAnchors();
                 for (int line = 0; line < key.shapes.carriedLines.size(); line++) {
-                    float[] points = key.shapes.carriedLines.get(line);
+                    PackedPoints linePoints = key.shapes.carriedLines.get(line);
                     boolean valley = ridges.valleyByLine.get(key.shapes.carriedFrom.get(line));
                     AnchoredStroke stroke = new AnchoredStroke();
                     stroke.layer = valley ? KeyCandidates.VALLEY_LAYER : KeyCandidates.RIDGE_LAYER;
                     stroke.id = stroke.layer + StrokeAnchors.LAYER_ID_SEPARATOR + (line + 1);
                     stroke.attributes = String.format(Locale.ROOT, "data-kind=\"%s\" data-depth=\"0\" data-radius=\"%.5f\" "
                             + "fill=\"none\"", valley ? StrokeSketch.VALLEY : StrokeSketch.RIDGE, key.shapes.goalLineRadius);
-                    stroke.anchors = new float[points.length / 3 * FaceAnchors.FIELDS];
-                    for (int point = 0; point * 3 < points.length; point++) {
-                        onBase.anchor(points[point * 3], points[point * 3 + 1], points[point * 3 + 2], stroke.anchors,
-                                point * FaceAnchors.FIELDS);
+                    stroke.anchors = new float[linePoints.size() * FaceAnchors.FIELDS];
+                    for (int point = 0; point < linePoints.size(); point++) {
+                        onBase.anchor(linePoints.at(point), stroke.anchors, point * FaceAnchors.FIELDS);
                     }
                     carried.strokes.add(stroke);
                 }
@@ -348,7 +348,6 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
         FaceAnchors anchors = new FaceAnchors(base);
         StrokeAnchors map = new StrokeAnchors();
         Vector3f position = new Vector3f();
-        Vector3f normal = new Vector3f();
         for (int bin = 0; bin < binNames.length; bin++) {
             for (int activeVertex = 0; activeVertex < binByVertex.length; activeVertex++) {
                 if (binByVertex[activeVertex] != bin) {
@@ -356,17 +355,16 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
                 }
                 int vertexId = base.vertexIdAt(activeVertex);
                 base.vertexPosition(vertexId, position);
-                base.vertexNormal(vertexId, normal).normalize();
-                Vector3f step = new Vector3f(Math.abs(normal.x) < 0.5f ? 1f : 0f, Math.abs(normal.x) < 0.5f ? 0f : 1f, 0f)
-                        .cross(normal).normalize((float) meanEdge * DOT_EDGE_FRACTION).add(position);
+                Vector3f step = base.tangentFrame(vertexId).getColumn(0, new Vector3f())
+                        .mul((float) meanEdge * DOT_EDGE_FRACTION).add(position);
                 AnchoredStroke dot = new AnchoredStroke();
                 dot.id = binNames[bin] + StrokeAnchors.LAYER_ID_SEPARATOR + activeVertex;
                 dot.layer = binNames[bin];
                 dot.attributes = String.format(Locale.ROOT, "data-kind=\"ridge\" data-depth=\"0\" data-radius=\"%.5f\" "
                         + "fill=\"none\"", meanEdge * DOT_EDGE_FRACTION);
                 dot.anchors = new float[2 * FaceAnchors.FIELDS];
-                anchors.anchor(position.x, position.y, position.z, dot.anchors, 0);
-                anchors.anchor(step.x, step.y, step.z, dot.anchors, FaceAnchors.FIELDS);
+                anchors.anchor(position, dot.anchors, 0);
+                anchors.anchor(step, dot.anchors, FaceAnchors.FIELDS);
                 map.strokes.add(dot);
             }
         }

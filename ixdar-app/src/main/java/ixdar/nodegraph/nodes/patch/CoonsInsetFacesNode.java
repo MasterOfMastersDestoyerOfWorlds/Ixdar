@@ -46,7 +46,7 @@ public class CoonsInsetFacesNode implements MeshNode {
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
     public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
 
-    private float[][] outHandles;
+    private PackedPoints[] outHandles;
     private boolean[] outGenerated;
 
     @Override
@@ -94,25 +94,20 @@ public class CoonsInsetFacesNode implements MeshNode {
         float t = Math.max(0f, Math.min(0.5f, FieldBroadcast.floatScalarOrDefault(insObj, 0.2f)));
         Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
 
-        float[] hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, in);
-        float[] hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, in);
+        PackedPoints hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, in);
+        PackedPoints hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, in);
 
         HalfEdgeMesh outMesh = doInset(in, hStart, hEnd, t, selObj);
 
-        GeometryBundle outBundle = new GeometryBundle(outMesh, copySlotsWithHandles(base.slots(), outHandles));
-        ctx.setOutput(GEOMETRY.name, outBundle);
+        HashMap<String, Object> outSlots = new HashMap<>(base.slots());
+        outSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_START, outHandles[0]);
+        outSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_END, outHandles[1]);
+        ctx.setOutput(GEOMETRY.name, new GeometryBundle(outMesh, Map.copyOf(outSlots)));
         ctx.setOutput(GENERATED_OUT.name, new BoolField(outGenerated));
     }
 
-    private static Map<String, Object> copySlotsWithHandles(Map<String, Object> src, float[][] handles) {
-        HashMap<String, Object> out = new HashMap<>(src);
-        out.put(AssignBezierHandlesNode.SLOT_HANDLES_START, handles[0]);
-        out.put(AssignBezierHandlesNode.SLOT_HANDLES_END, handles[1]);
-        return Map.copyOf(out);
-    }
-
     private HalfEdgeMesh doInset(
-            MeshTopology in, float[] hStart, float[] hEnd, float t, Object selection) {
+            MeshTopology in, PackedPoints hStart, PackedPoints hEnd, float t, Object selection) {
         int origFaceCount = in.faceCount();
         int origVertCount = in.vertexCount();
 
@@ -127,24 +122,18 @@ public class CoonsInsetFacesNode implements MeshNode {
             }
         }
 
-        if (selectedCount == 0 || t <= 0f) {
-            HalfEdgeMesh passThrough = copyMesh(in);
-            outHandles = copyHandles(in, passThrough, hStart, hEnd);
-            outGenerated = new boolean[passThrough.faceCount()];
-            return passThrough;
-        }
-
-        float[] origPos = new float[origVertCount * 3];
-        Vector3f tmp = new Vector3f();
-        for (int i = 0; i < origVertCount; i++) {
-            int vid = in.vertexIdAt(i);
-            in.vertexPosition(vid, tmp);
-            PackedPoints.store(origPos, i * 3, tmp);
-        }
         Map<Integer, Integer> oldToDense = new HashMap<>();
         for (int i = 0; i < origVertCount; i++) {
             oldToDense.put(in.vertexIdAt(i), i);
         }
+        if (selectedCount == 0 || t <= 0f) {
+            HalfEdgeMesh passThrough = copyMesh(in);
+            outHandles = CoonsHandleBuilder.flushDirectedHandles(passThrough, seedDirectedHandles(in, hStart, hEnd, oldToDense));
+            outGenerated = new boolean[passThrough.faceCount()];
+            return passThrough;
+        }
+
+        PackedPoints positions = in.packedPositions(null);
 
         Set<Integer> sharedEdgeIds = new HashSet<>();
         for (int ei = 0; ei < in.edgeCount(); ei++) {
@@ -195,7 +184,6 @@ public class CoonsInsetFacesNode implements MeshNode {
             if (aOk && bOk) fullyMergeableEdges.add(eid);
         }
 
-        ArrayList<Float> extraPos = new ArrayList<>(selectedCount * 4 * 3);
         int[][] innerVids = new int[origFaceCount][];
         float[][] innerUV = new float[origFaceCount][];  // per face: [u0,v0, u1,v1, u2,v2, u3,v3]
         for (int fi = 0; fi < origFaceCount; fi++) {
@@ -211,8 +199,6 @@ public class CoonsInsetFacesNode implements MeshNode {
 
         Set<Long> mergedEndpoint = new HashSet<>();
 
-        int[] nextVidBox = {origVertCount};
-
         for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
             int denseVid = entry.getKey();
             List<int[]> atV = entry.getValue();
@@ -221,8 +207,8 @@ public class CoonsInsetFacesNode implements MeshNode {
 
             if (n == 3) {
                 allocate3PlusCorner(in, hStart, hEnd, denseVid, atV, sharedEdgeIds,
-                        oldToDense, t, extraPos, cyanAt3Plus, innerUV,
-                        centralFillPerVertex, mergedEndpoint, nextVidBox);
+                        oldToDense, t, positions, cyanAt3Plus, innerUV,
+                        centralFillPerVertex, mergedEndpoint);
                 continue;
             }
 
@@ -252,9 +238,7 @@ public class CoonsInsetFacesNode implements MeshNode {
 
                 if (sharedEid >= 0) {
                     float[] uvA = edgePointUV(kA, t, fwdFromA);
-                    Vector3f pos = evalFaceCoons(in, hStart, hEnd, fidA, uvA[0], uvA[1]);
-                    int newVid = nextVidBox[0]++;
-                    extraPos.add(pos.x); extraPos.add(pos.y); extraPos.add(pos.z);
+                    int newVid = positions.append(evalFaceCoons(in, hStart, hEnd, fidA, uvA[0], uvA[1]));
                     innerVids[fiA][kA] = newVid;
                     innerVids[fiB][kB] = newVid;
                     innerUV[fiA][2 * kA] = uvA[0];
@@ -274,30 +258,14 @@ public class CoonsInsetFacesNode implements MeshNode {
                     int k = pair[1];
                     int fid = in.faceIdAt(fi);
                     float[] uv = faceLocalUV(k, t);
-                    Vector3f pos = evalFaceCoons(in, hStart, hEnd, fid, uv[0], uv[1]);
-                    int newVid = nextVidBox[0]++;
-                    extraPos.add(pos.x); extraPos.add(pos.y); extraPos.add(pos.z);
-                    innerVids[fi][k] = newVid;
+                    innerVids[fi][k] = positions.append(evalFaceCoons(in, hStart, hEnd, fid, uv[0], uv[1]));
                     innerUV[fi][2 * k] = uv[0];
                     innerUV[fi][2 * k + 1] = uv[1];
                 }
             }
         }
 
-        Map<Long, Vector3f> dh = new HashMap<>();
-        for (int ei = 0; ei < in.edgeCount(); ei++) {
-            int eid = in.edgeIdAt(ei);
-            int he = in.edgeHalfEdge(eid);
-            int ca = in.halfEdgeVertex(he);
-            int cb = in.halfEdgeEndVertex(he);
-            int dca = oldToDense.get(ca);
-            int dcb = oldToDense.get(cb);
-            int o = eid * 3;
-            dh.put(CoonsHandleBuilder.dirPack(dca, dcb),
-                    PackedPoints.at(hStart, o));
-            dh.put(CoonsHandleBuilder.dirPack(dcb, dca),
-                    PackedPoints.at(hEnd, o));
-        }
+        Map<Long, Vector3f> dh = seedDirectedHandles(in, hStart, hEnd, oldToDense);
 
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (!selected[fi]) continue;
@@ -339,13 +307,6 @@ public class CoonsInsetFacesNode implements MeshNode {
                         uv[2 * k], uv[2 * k + 1],
                         dOrig[k], ni[k], dh);
             }
-        }
-
-        int totalVerts = origVertCount + extraPos.size() / 3;
-        float[] positions = new float[totalVerts * 3];
-        System.arraycopy(origPos, 0, positions, 0, origPos.length);
-        for (int i = 0; i < extraPos.size(); i++) {
-            positions[origVertCount * 3 + i] = extraPos.get(i);
         }
 
         Set<Integer> droppedSharedEdges = new HashSet<>();
@@ -508,12 +469,11 @@ public class CoonsInsetFacesNode implements MeshNode {
      * the corner face-local at every participating face when the fan is not a
      * complete pairwise-adjacent cycle.
      */
-    private static void allocate3PlusCorner(MeshTopology in, float[] hStart, float[] hEnd,
+    private static void allocate3PlusCorner(MeshTopology in, PackedPoints hStart, PackedPoints hEnd,
             int denseVid, List<int[]> atV, Set<Integer> sharedEdgeIds,
             Map<Integer, Integer> oldToDense, float t,
-            ArrayList<Float> extraPos, int[][][] cyanAt3Plus, float[][] innerUV,
-            Map<Integer, int[]> centralFillPerVertex, Set<Long> mergedEndpoint,
-            int[] nextVidBox) {
+            PackedPoints positions, int[][][] cyanAt3Plus, float[][] innerUV,
+            Map<Integer, int[]> centralFillPerVertex, Set<Long> mergedEndpoint) {
 
         int origVid = -1;
         for (Map.Entry<Integer, Integer> e : oldToDense.entrySet()) {
@@ -567,10 +527,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             int k = kOrder[i];
             int fid = in.faceIdAt(fi);
             float[] uv = edgePointUV(k, t, true);
-            Vector3f pos = evalFaceCoons(in, hStart, hEnd, fid, uv[0], uv[1]);
-            int newVid = nextVidBox[0]++;
-            extraPos.add(pos.x); extraPos.add(pos.y); extraPos.add(pos.z);
-            cyanVids[i] = newVid;
+            cyanVids[i] = positions.append(evalFaceCoons(in, hStart, hEnd, fid, uv[0], uv[1]));
         }
 
         for (int i = 0; i < n; i++) {
@@ -642,7 +599,7 @@ public class CoonsInsetFacesNode implements MeshNode {
     }
 
     /** Small wrapper around {@link CoonsHandleBuilder#evalCoonsSurface} keyed by face id. */
-    private static Vector3f evalFaceCoons(MeshTopology in, float[] hStart, float[] hEnd,
+    private static Vector3f evalFaceCoons(MeshTopology in, PackedPoints hStart, PackedPoints hEnd,
                                           int fid, float u, float v) {
         int v0 = in.faceVertexAt(fid, 0);
         int v1 = in.faceVertexAt(fid, 1);
@@ -662,7 +619,7 @@ public class CoonsInsetFacesNode implements MeshNode {
      * samples at the endpoints.
      */
     private static void addIsoCurveHandles(
-            MeshTopology mesh, float[] hStart, float[] hEnd,
+            MeshTopology mesh, PackedPoints hStart, PackedPoints hEnd,
             int v0, int v1, int v3, int e0, int e1, int e2, int e3,
             float uStart, float vStart, float uEnd, float vEnd,
             Vector3f pStart, Vector3f pEnd,
@@ -703,7 +660,7 @@ public class CoonsInsetFacesNode implements MeshNode {
      * Coons surface from finite-difference tangents of magnitude chord/3.
      */
     private static void addRadialHandles(
-            MeshTopology mesh, float[] hStart, float[] hEnd,
+            MeshTopology mesh, PackedPoints hStart, PackedPoints hEnd,
             int v0, int v1, int v3, int e0, int e1, int e2, int e3,
             float uStart, float vStart, float uEnd, float vEnd,
             int denseStart, int denseEnd,
@@ -747,13 +704,7 @@ public class CoonsInsetFacesNode implements MeshNode {
      * Straight mesh copy used for no-op / zero-inset path.
      */
     private static HalfEdgeMesh copyMesh(MeshTopology in) {
-        int vn = in.vertexCount();
-        float[] positions = new float[vn * 3];
-        Vector3f tmp = new Vector3f();
-        for (int i = 0; i < vn; i++) {
-            in.vertexPosition(in.vertexIdAt(i), tmp);
-            PackedPoints.store(positions, i * 3, tmp);
-        }
+        PackedPoints positions = in.packedPositions(null);
         int fn = in.faceCount();
         int vpf = fn == 0 ? 4 : in.faceVertexCount(in.faceIdAt(0));
         int[] faceIdx = new int[fn * vpf];
@@ -777,22 +728,26 @@ public class CoonsInsetFacesNode implements MeshNode {
         return 0;
     }
 
-    private static float[][] copyHandles(
-            MeshTopology in, MeshTopology out, float[] inHS, float[] inHE) {
+    /**
+     * Every input edge's two handles keyed by its dense endpoints, one entry per direction.
+     *
+     * @param in         input mesh
+     * @param startHandles start-handle offset per edge id
+     * @param endHandles   end-handle offset per edge id
+     * @param oldToDense dense index by input vertex id
+     * @return directed handle offsets keyed by {@link CoonsHandleBuilder#dirPack}
+     */
+    private static Map<Long, Vector3f> seedDirectedHandles(MeshTopology in, PackedPoints startHandles,
+            PackedPoints endHandles, Map<Integer, Integer> oldToDense) {
         Map<Long, Vector3f> dh = new HashMap<>();
-        Map<Integer, Integer> oldToDense = new HashMap<>();
-        for (int i = 0; i < in.vertexCount(); i++) oldToDense.put(in.vertexIdAt(i), i);
         for (int ei = 0; ei < in.edgeCount(); ei++) {
             int eid = in.edgeIdAt(ei);
             int he = in.edgeHalfEdge(eid);
             int dca = oldToDense.get(in.halfEdgeVertex(he));
             int dcb = oldToDense.get(in.halfEdgeEndVertex(he));
-            int o = eid * 3;
-            dh.put(CoonsHandleBuilder.dirPack(dca, dcb),
-                    PackedPoints.at(inHS, o));
-            dh.put(CoonsHandleBuilder.dirPack(dcb, dca),
-                    PackedPoints.at(inHE, o));
+            dh.put(CoonsHandleBuilder.dirPack(dca, dcb), startHandles.at(eid));
+            dh.put(CoonsHandleBuilder.dirPack(dcb, dca), endHandles.at(eid));
         }
-        return CoonsHandleBuilder.flushDirectedHandles(out, dh);
+        return dh;
     }
 }

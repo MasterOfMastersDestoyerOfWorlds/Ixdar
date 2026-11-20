@@ -1,13 +1,12 @@
 package ixdar.geometry.mesh.data.sculpt;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 import org.joml.Vector3f;
 
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.PackedPoints;
 
 /**
  * Another stroke set graded against a stroke key by location and kind: a stroke matches when its
@@ -65,6 +64,8 @@ public final class KeyStrokeMatch {
         other.lift(base);
         StrokeSketch keySketch = key.sketch(template, base);
         keySketch.lift(base);
+        PackedPoints[] otherLifted = other.liftedXyzByShape;
+        PackedPoints[] keyLifted = keySketch.liftedXyzByShape;
         int cells = Math.max(other.viewCameras.length, template.viewCameras.length);
         otherByCellKind = new int[cells][KINDS.length];
         matchedOtherByCellKind = new int[cells][KINDS.length];
@@ -86,8 +87,8 @@ public final class KeyStrokeMatch {
         StringBuilder matched = new StringBuilder();
         StringBuilder unmatched = new StringBuilder();
         for (int shape = 0; shape < otherKinds.length; shape++) {
-            float[] points = other.liftedXyzByShape[shape];
-            if (otherKinds[shape] < 0 || points.length == 0) {
+            PackedPoints points = otherLifted[shape];
+            if (otherKinds[shape] < 0 || points.size() == 0) {
                 silhouettes += StrokeSketch.SILHOUETTE.equals(other.kindByShape[shape]) ? 1 : 0;
                 unlifted += otherKinds[shape] >= 0 ? 1 : 0;
                 continue;
@@ -97,8 +98,8 @@ public final class KeyStrokeMatch {
             boolean sameKind = false;
             boolean anyKind = false;
             for (int keyShape = 0; keyShape < keyKinds.length; keyShape++) {
-                float[] keyPoints = keySketch.liftedXyzByShape[keyShape];
-                if (keyPoints.length == 0) {
+                PackedPoints keyPoints = keyLifted[keyShape];
+                if (keyPoints.size() == 0) {
                     continue;
                 }
                 boolean near = meanNearest(points, keyPoints) <= Math.max(other.radiusByShape[shape],
@@ -114,36 +115,27 @@ public final class KeyStrokeMatch {
         float[] pixel = new float[2];
         Vector3f position = new Vector3f();
         for (int keyShape = 0; keyShape < keyKinds.length; keyShape++) {
-            float[] keyPoints = keySketch.liftedXyzByShape[keyShape];
-            if (keyKinds[keyShape] < 0 || keyPoints.length == 0) {
+            PackedPoints keyPoints = keyLifted[keyShape];
+            if (keyKinds[keyShape] < 0 || keyPoints.size() == 0) {
                 continue;
             }
             int cell = keySketch.viewByShape[keyShape];
             keyByCellKind[cell][keyKinds[keyShape]]++;
-            List<float[]> covering = new ArrayList<>();
+            PackedPoints union = new PackedPoints();
             for (int shape = 0; shape < otherKinds.length; shape++) {
-                if (otherKinds[shape] == keyKinds[keyShape] && other.liftedXyzByShape[shape].length > 0) {
-                    covering.add(other.liftedXyzByShape[shape]);
+                PackedPoints covering = otherLifted[shape];
+                for (int point = 0; otherKinds[shape] == keyKinds[keyShape] && point < covering.size(); point++) {
+                    union.append(covering.get(point, 0), covering.get(point, 1), covering.get(point, 2));
                 }
             }
-            int total = 0;
-            for (float[] points : covering) {
-                total += points.length;
-            }
-            float[] union = new float[total];
-            int at = 0;
-            for (float[] points : covering) {
-                System.arraycopy(points, 0, union, at, points.length);
-                at += points.length;
-            }
-            boolean covered = union.length > 0 && meanNearest(keyPoints, union) <= keySketch.radiusByShape[keyShape];
+            boolean covered = union.size() > 0 && meanNearest(keyPoints, union) <= keySketch.radiusByShape[keyShape];
             matchedKeyByCellKind[cell][keyKinds[keyShape]] += covered ? 1 : 0;
             if (!covered && cell < other.viewCameras.length) {
                 Camera3D camera = other.cellCamera(cell);
-                float[] pixels = new float[keyPoints.length / 3 * 2];
-                for (int point = 0; point < keyPoints.length / 3; point++) {
-                    other.cellPixel(camera, position.set(keyPoints[point * 3], keyPoints[point * 3 + 1],
-                            keyPoints[point * 3 + 2]), pixel);
+                float[] pixels = new float[keyPoints.size() * 2];
+                for (int point = 0; point < keyPoints.size(); point++) {
+                    other.cellPixel(camera, position.set(keyPoints.get(point, 0), keyPoints.get(point, 1),
+                            keyPoints.get(point, 2)), pixel);
                     pixels[point * 2] = pixel[0];
                     pixels[point * 2 + 1] = pixel[1];
                 }
@@ -160,14 +152,18 @@ public final class KeyStrokeMatch {
     /**
      * The mean, over points, of the distance to the nearest of other points or of their mirror image.
      *
-     * @param points the points measured, packed xyz
-     * @param others the points measured to, packed xyz
+     * @param points the points measured
+     * @param others the points measured to
      * @return the mean distance
      */
-    private float meanNearest(float[] points, float[] others) {
-        float[] mirrored = others.clone();
-        for (int coordinate = symmetryAxis; symmetryAxis >= 0 && coordinate < mirrored.length; coordinate += 3) {
-            mirrored[coordinate] = -mirrored[coordinate];
+    private float meanNearest(PackedPoints points, PackedPoints others) {
+        PackedPoints mirrored = new PackedPoints(others.size());
+        for (int point = 0; point < others.size(); point++) {
+            Vector3f image = others.at(point);
+            if (symmetryAxis >= 0) {
+                image.setComponent(symmetryAxis, -image.get(symmetryAxis));
+            }
+            mirrored.set(point, image);
         }
         float[] direct = SculptStroke.nearestDistances(points, others);
         float[] reflected = SculptStroke.nearestDistances(points, mirrored);
