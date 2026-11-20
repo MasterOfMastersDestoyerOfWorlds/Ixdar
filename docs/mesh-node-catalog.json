@@ -612,6 +612,24 @@
       "description": "Computes the axis-aligned bounding box of a geometry, outputting its min and max corner vectors."
     },
     {
+      "id": "breakpoint",
+      "category": "Control Flow",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "label",
+          "portType": "STRING",
+          "description": "What the debugger shows when it stops here, e.g. \"before fit\".",
+          "defaultValue": ""
+        }
+      ],
+      "outputs": [],
+      "description": "Where the graph debugger stops; does nothing in any other run."
+    },
+    {
       "id": "bridge_edge_loops",
       "category": "Modifiers",
       "scopes": [

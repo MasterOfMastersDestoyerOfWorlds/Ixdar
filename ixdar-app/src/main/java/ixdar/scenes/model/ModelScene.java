@@ -40,6 +40,7 @@ import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
+import ixdar.tools.debug.GraphDebugTool;
 import ixdar.tools.graph.DslGraphView;
 import ixdar.tools.orbit.OrbitTool;
 
@@ -99,6 +100,12 @@ public abstract class ModelScene extends Scene {
 
     public HalfEdgeMesh halfEdgeMesh;
 
+    /**
+     * The mesh file's surface as {@link #loadModel} read it, which the graph debugger feeds its
+     * runs; {@link #halfEdgeMesh} is whatever the scene draws now.
+     */
+    public HalfEdgeMesh loadedMesh;
+
     public HalfEdgeMeshRuntime runtime;
 
     /** The tool the scene opens with and Esc returns to, which only moves the camera. */
@@ -106,6 +113,9 @@ public abstract class ModelScene extends Scene {
 
     /** Tool drawing the node tree of {@link #graph} in place of the 3D view. */
     public DslGraphView graphTool;
+
+    /** Tool running the scene's graph to its breakpoint and stepping it from there. */
+    public GraphDebugTool debugTool;
 
     /**
      * Model requested by the model menu or {@code model} command, applied on the render thread.
@@ -176,6 +186,40 @@ public abstract class ModelScene extends Scene {
         addToolSwitch(graphTool, new ControlHint("graph-tool", Keys.G, true,
                 "the DSL's node graph and run times",
                 () -> switchTool(activeTool == graphTool ? defaultTool : graphTool)));
+        debugTool = new GraphDebugTool(this);
+        addToolSwitch(debugTool, new ControlHint("debug-tool", Keys.D, true,
+                "run the graph to its breakpoint, then step it node by node",
+                () -> switchTool(activeTool == debugTool ? defaultTool : debugTool)));
+    }
+
+    /**
+     * Draws a value the graph debugger reached, replacing the surface shown: the base draws a
+     * half-edge mesh or a bundle holding one, lit by normals computed here since graph outputs
+     * carry none. Scenes with values of their own override this.
+     *
+     * @param value   a node's output, or the in-flight value of a node being stepped inside
+     * @param overlay what that node's last inner step changed, or {@code null}
+     * @return false when the scene cannot draw that kind of value
+     */
+    public boolean showGraphValue(Object value, Object overlay) {
+        MeshTopology mesh = value instanceof GeometryBundle bundle ? bundle.mesh()
+                : value instanceof MeshTopology topology ? topology : null;
+        if (!(mesh instanceof HalfEdgeMesh shown)) {
+            return false;
+        }
+        halfEdgeMesh = shown;
+        shown.computeNormals();
+        runtime.upload(shown);
+        return true;
+    }
+
+    /**
+     * Shows a failure the graph debugger hit; the base leaves it to the tool's status line, and
+     * scenes whose failures carry geometry draw it.
+     *
+     * @param failure what the failed move threw
+     */
+    public void showGraphFailure(Exception failure) {
     }
 
     @Override
@@ -402,6 +446,7 @@ public abstract class ModelScene extends Scene {
                     + NodeGraphRuntime.NEEDS_MANIFOLD_MESH);
         }
         halfEdgeMesh = loaded;
+        loadedMesh = loaded;
         halfEdgeMesh.computeNormals();
         runtime.upload(halfEdgeMesh);
         frameLoadedModel();

@@ -26,6 +26,7 @@ import ixdar.nodegraph.field.FieldContext;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.SteppableNode;
 import ixdar.nodegraph.field.Vector3Value;
 import ixdar.platform.Platforms;
 
@@ -161,6 +162,12 @@ public class NodeGraphRuntime {
      * {@link #pull} evaluates only the body nodes the outputs it reads depend on.
      */
     private boolean evaluateWholeGroups = true;
+
+    /** The statement a stepped run steps into, whose steppable node begins its steps. */
+    private GraphNodeContext beginStepsFor;
+
+    /** Whether {@link #beginStepsFor}'s node began its steps instead of evaluating. */
+    private boolean stepsBegun;
 
     /**
      * A runtime bound to a program, its node tree built.
@@ -710,7 +717,7 @@ public class NodeGraphRuntime {
      *
      * @throws IllegalArgumentException naming every deferred failure of the current run
      */
-    private void throwDeferredFailures() {
+    public void throwDeferredFailures() {
         if (!deferredFailures.isEmpty()) {
             throw new IllegalArgumentException(deferredFailures.size()
                     + " failure(s) in the graph:\n" + String.join(LINE_BREAK, deferredFailures));
@@ -819,6 +826,11 @@ public class NodeGraphRuntime {
                         throw new InvalidMeshTopologyException(record.type + NEEDS_MANIFOLD_MESH);
                     }
                 }
+                if (record == beginStepsFor && record.node instanceof SteppableNode steppable) {
+                    steppable.beginSteps(record);
+                    stepsBegun = true;
+                    return record;
+                }
                 record.node.evaluate(record);
                 AutoTagHook.applyIfApplicable(record.node, record, id);
             } finally {
@@ -857,16 +869,68 @@ public class NodeGraphRuntime {
         } finally {
             record.elapsedNanos += System.nanoTime() - started;
         }
+        readGroupOutputs(record);
+        return record;
+    }
+
+    /**
+     * Computes every output of a group call whose body has evaluated: its wired outputs, or its
+     * last body node's when it wires none, and the group's declared ones.
+     *
+     * @param record the group call
+     * @throws Exception if a body node an output depends on fails
+     */
+    private void readGroupOutputs(GraphNodeContext record) throws Exception {
         if (record.outputWires.isEmpty()) {
             readOutput(record, RESULT);
         }
         for (String output : record.outputWires.keySet()) {
             readOutput(record, output);
         }
-        for (OutputPort output : group.outputs()) {
+        for (OutputPort output : ((NodeGroup) record.node).outputs()) {
             readOutput(record, output.name);
         }
-        return record;
+    }
+
+    /**
+     * Evaluates one declared statement of a stepped run ({@link GraphStepper}). A group call either runs its whole body
+     * (stepping over it) or only binds its parameters, leaving its body to be stepped (stepping
+     * into it); a {@link SteppableNode} stepped into begins its steps instead of running.
+     *
+     * @param record   the statement, whose scope has been entered
+     * @param stepInto whether to enter a group call or begin a steppable node's steps
+     * @throws Exception if the statement fails
+     * @return true when the statement's node began its steps, false when it evaluated
+     */
+    public boolean evaluateStatement(GraphNodeContext record, boolean stepInto) throws Exception {
+        evaluateWholeGroups = !stepInto;
+        beginStepsFor = stepInto ? record : null;
+        stepsBegun = false;
+        beginEvaluation();
+        try {
+            evaluate(record);
+            return stepsBegun;
+        } finally {
+            evaluateWholeGroups = true;
+            beginStepsFor = null;
+            endEvaluation();
+        }
+    }
+
+    /**
+     * Finishes a group call whose body a stepped run evaluated statement by statement, computing
+     * its outputs as a whole-group evaluation would have.
+     *
+     * @param record the group call
+     * @throws Exception if an output fails to compute
+     */
+    public void finishGroupCall(GraphNodeContext record) throws Exception {
+        beginEvaluation();
+        try {
+            readGroupOutputs(record);
+        } finally {
+            endEvaluation();
+        }
     }
 
     /**

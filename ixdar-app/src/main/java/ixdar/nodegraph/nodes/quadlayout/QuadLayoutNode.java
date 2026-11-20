@@ -17,6 +17,7 @@ import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
+import ixdar.nodegraph.nodes.control.BreakpointNode;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
 import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
@@ -171,6 +172,7 @@ public class QuadLayoutNode extends NodeGroup {
                 .input(LayoutEmbeddingNode.SKELETON.name, quantize,
                         QuantizedMeshGridNode.SKELETON.name)
                 .input(LayoutEmbeddingNode.UV.name, seamless, SeamlessParameterizationNode.UV.name);
+        group.node("before_contract", BreakpointNode::new);
         GraphNodeContext contract = group.node("contract", NetworkContractionNode::new)
                 .input(NetworkContractionNode.TMESH.name, embed, LayoutEmbeddingNode.TMESH.name)
                 .input(NetworkContractionNode.CONFORM.name, Boolean.FALSE);

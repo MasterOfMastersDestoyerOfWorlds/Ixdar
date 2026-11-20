@@ -9,6 +9,7 @@ import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.nodes.quadlayout.NetworkContractionNode;
 import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnostic;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
@@ -28,8 +29,8 @@ import ixdar.tools.ControlHint;
 
 /**
  * Debug view of an embedded T-mesh: arcs as edge paths, positive orange and
- * zero red, nodes as spheres. {@code C} contracts to a fixed point, {@code N}
- * steps one operator, {@code D} steps one drag of a zero-arc collapse.
+ * zero red, nodes as spheres. {@code C} contracts to a fixed point; the graph
+ * debugger (ctrl+D) steps the contraction one operator or one drag at a time.
  *
  * <p>
  * See also: LCBK19 Figure 9
@@ -50,29 +51,11 @@ public class EmbeddedTMeshScene extends ModelScene {
     /** Whether the working copy's triangle outlines were toggled by keypress. */
     public volatile boolean pendingWireframe;
 
-    /** How many single contraction steps were requested by keypress but not yet applied. */
-    public volatile int pendingContractSteps;
-
-    /** How many single drag steps were requested by keypress but not yet applied. */
-    public volatile int pendingDragSteps;
-
     /** Whether hiding or showing the node marker spheres was requested by keypress. */
     public volatile boolean pendingNodeToggle;
 
     /** Whether rebuilding the uncontracted T-mesh from the source surface was requested. */
     public volatile boolean pendingReset;
-
-    /** Whether replaying the contraction to just before the recorded failure was requested. */
-    public volatile boolean pendingRewind;
-
-    /** Contraction operators applied since the model was loaded, the replay currency of B. */
-    public int contractOpsSinceLoad;
-
-    /**
-     * Operator count at the last displayed failure, so B can replay to just before
-     * it; {@link ArcNetwork#NONE} before any failure.
-     */
-    public int failedContractOps = ArcNetwork.NONE;
 
     private QuadLayoutOverlay quadRuntime;
     private ArcNetwork tmesh;
@@ -135,7 +118,6 @@ public class EmbeddedTMeshScene extends ModelScene {
     @Override
     public void loadModel(String path) throws IOException {
         super.loadModel(path);
-        contractOpsSinceLoad = 0;
         rebuildTMesh();
         Platforms.get().log(String.format(
                 "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d",
@@ -158,7 +140,6 @@ public class EmbeddedTMeshScene extends ModelScene {
         runtime.upload(halfEdgeMesh);
         frameLoadedModel();
         contraction = new NetworkContraction(tmesh);
-        contractOpsSinceLoad = 0;
         quadRuntime.setEmbeddedTMesh(tmesh);
         quadRuntime.clearDiagnostic();
         quadRuntime.setPatchClouds(List.of());
@@ -188,24 +169,18 @@ public class EmbeddedTMeshScene extends ModelScene {
                 () -> pendingContract = true));
         controls.add(new ControlHint("toggle-split-density", Keys.R, "toggle refinement-density heat map",
                 () -> pendingSplitDensity = true));
-        controls.add(new ControlHint("contract-step", Keys.N, "advance one contraction step",
-                () -> pendingContractSteps++));
-        controls.add(new ControlHint("drag-step", Keys.D, "advance one drag of a zero-arc collapse",
-                () -> pendingDragSteps++));
         controls.add(new ControlHint("toggle-wireframe", Keys.W, "toggle working-copy triangle outlines",
                 () -> pendingWireframe = true));
         controls.add(new ControlHint("toggle-node-markers", Keys.V, "toggle node markers",
                 () -> pendingNodeToggle = true));
         controls.add(new ControlHint("reset", Keys.Z, "reset by reloading the current model",
                 () -> pendingReset = true));
-        controls.add(new ControlHint("rewind-to-failure", Keys.B, "rewind to just before the recorded failure",
-                () -> pendingRewind = true));
         super.setControls(controls);
     }
 
     /**
-     * Apply a pending model switch, then any keypress-requested contraction, stepping or
-     * toggles, on the render thread where the GL context is current.
+     * Apply a pending model switch, then any keypress-requested contraction or toggles, on the
+     * render thread where the GL context is current.
      */
     @Override
     public void applyPendingModel() {
@@ -213,14 +188,6 @@ public class EmbeddedTMeshScene extends ModelScene {
         if (pendingContract) {
             pendingContract = false;
             applyContract();
-        }
-        while (pendingContractSteps > 0) {
-            pendingContractSteps--;
-            applyContractStep();
-        }
-        while (pendingDragSteps > 0) {
-            pendingDragSteps--;
-            applyDragStep();
         }
         if (pendingNodeToggle) {
             pendingNodeToggle = false;
@@ -230,10 +197,6 @@ public class EmbeddedTMeshScene extends ModelScene {
         if (pendingReset) {
             pendingReset = false;
             requestModelLoad(currentModel());
-        }
-        if (pendingRewind) {
-            pendingRewind = false;
-            applyRewind();
         }
         if (pendingWireframe) {
             pendingWireframe = false;
@@ -266,20 +229,18 @@ public class EmbeddedTMeshScene extends ModelScene {
 
     /**
      * Contracts to a fixed point by stepping {@code contractStep} — the same operator order as
-     * {@code contract()} — counting operators so a failure is replayable with B. The flank
-     * validation throws at the first tear, and that diagnostic is displayed rather than
-     * re-derived.
+     * {@code contract()}. The flank validation throws at the first tear, and that diagnostic is
+     * displayed rather than re-derived; the graph debugger (ctrl+D, then shift+enter) stops just before it.
      */
     private void applyContract() {
         if (contraction.collapseArc.collapsingArcId != ArcNetwork.NONE) {
-            Platforms.get().log("[contract] skipped: a collapse is mid-drag; finish it with D"
-                    + " or reset with Z");
+            Platforms.get().log("[contract] skipped: a collapse is mid-drag; reset with Z");
             return;
         }
         try {
             tmesh.labelPatchCovers();
             while (contraction.contractStep() != null) {
-                contractOpsSinceLoad++;
+                // Each step validates; the fixed point ends the loop.
             }
             contraction.conform();
             tmesh = contraction.recarve(halfEdgeMesh);
@@ -295,81 +256,47 @@ public class EmbeddedTMeshScene extends ModelScene {
     }
 
     /**
-     * Applies one contraction operator and shows the covers of the patches it touched.
+     * Draws an embedded T-mesh the graph debugger reached, with a stepped contraction's drag or
+     * touched patches over it; the scene's toggles and C then work on it.
+     *
+     * @param value   a node's output, or the in-flight value of a node being stepped inside
+     * @param overlay a {@link ArrangementDiagnostic} drag, the operator's
+     *                {@link NetworkContractionNode.UpdatedPatches}, or {@code null}
+     * @return whether the value was drawn
      */
-    private void applyContractStep() {
-        if (contraction.collapseArc.collapsingArcId != ArcNetwork.NONE) {
-            Platforms.get().log("[step] skipped: a collapse is mid-drag; finish it with D"
-                    + " or reset with Z");
-            return;
+    @Override
+    public boolean showGraphValue(Object value, Object overlay) {
+        if (!(value instanceof ArcNetwork network)) {
+            return super.showGraphValue(value, overlay);
         }
-        int arcCollapsesBefore = contraction.arcCollapseCount;
-        try {
-            String applied = contraction.contractStep();
-            if (applied != null) {
-                contractOpsSinceLoad++;
-            }
-            quadRuntime.setEmbeddedTMesh(tmesh);
-            List<Integer> updated = contraction.stepUpdatedPatches(arcCollapsesBefore);
-            quadRuntime.showPatchCovers(tmesh, updated);
-            Platforms.get().log("[step] " + (applied == null ? "fixed point reached" : applied)
-                    + " | updated patches " + updated
-                    + " coloured " + MeshOverlayRuntime.GROUP_PALETTE_ORDER);
-        } catch (ArrangementDiagnosticException failure) {
-            quadRuntime.setEmbeddedTMesh(tmesh);
-            displayDiagnostic(failure);
-        } catch (IllegalStateException failure) {
-            quadRuntime.setEmbeddedTMesh(tmesh);
-            Platforms.get().log("[step] failed: " + failure.getMessage());
+        if (tmesh != network) {
+            tmesh = network;
+            contraction = new NetworkContraction(network);
         }
+        halfEdgeMesh = network.topology.copy;
+        runtime.upload(halfEdgeMesh);
+        quadRuntime.setEmbeddedTMesh(network);
+        quadRuntime.clearDiagnostic();
+        quadRuntime.setPatchClouds(List.of());
+        if (overlay instanceof ArrangementDiagnostic drag) {
+            showStepDiagnostic(drag);
+        } else if (overlay instanceof NetworkContractionNode.UpdatedPatches updated) {
+            quadRuntime.showPatchCovers(network, updated.patchIds());
+            Platforms.get().log("[step] updated patches " + updated.patchIds() + " coloured "
+                    + MeshOverlayRuntime.GROUP_PALETTE_ORDER);
+        }
+        return true;
     }
 
     /**
-     * Steps a zero-arc collapse one drag per press: begin, one fan arc per drag, then the node
-     * merge, drawing the in-flight state through the shared diagnostic overlay. See also:
-     * LCBK19 Figure 9 e-f
+     * Draws a failure's geometry groups when it carries them, spotlighting the orbit on them.
+     *
+     * @param failure what the debugger's failed move threw
      */
-    private void applyDragStep() {
-        try {
-            if (contraction.collapseArc.collapsingArcId == ArcNetwork.NONE) {
-                if (!tmesh.topology.patchCoversLabeled) {
-                    tmesh.labelPatchCovers();
-                }
-                int arcId = contraction.collapseArc.shortestZeroArc();
-                if (arcId == ArcNetwork.NONE) {
-                    Platforms.get().log("[drag] no collapsible zero arc remains");
-                    return;
-                }
-                contraction.collapseArc.beginCollapse(arcId);
-                Platforms.get().log("[drag] began collapse of arc " + arcId + "; fan of "
-                        + contraction.collapseArc.fan.size() + " arcs waits on node "
-                        + contraction.collapseArc.movedNodeId);
-                showStepDiagnostic(contraction.collapseArc.stepDiagnostic());
-            } else if (contraction.collapseArc.dragNextArc()) {
-                quadRuntime.setEmbeddedTMesh(tmesh);
-                showStepDiagnostic(contraction.collapseArc.stepDiagnostic());
-                Platforms.get().log("[drag] dragged arc " + contraction.collapseArc.lastDraggedArcId
-                        + " onto vertex " + contraction.collapseArc.targetVertex);
-            } else {
-                int collapsedArcId = contraction.collapseArc.collapsingArcId;
-                contraction.collapseArc.finishCollapse();
-                contraction.arcCollapseCount++;
-                contractOpsSinceLoad++;
-                quadRuntime.setEmbeddedTMesh(tmesh);
-                quadRuntime.clearDiagnostic();
-                Platforms.get().log("[drag] collapse finished; " + contraction.arcCollapseCount
-                        + " arc collapses so far");
-                ArrangementDiagnosticException tear = tmesh.flankTearFailure(
-                        "arc collapse " + collapsedArcId);
-                if (tear != null) {
-                    contractOpsSinceLoad--;
-                    throw tear;
-                }
-            }
-        } catch (ArrangementDiagnosticException failure) {
-            pendingDragSteps = 0;
-            quadRuntime.setEmbeddedTMesh(tmesh);
-            displayDiagnostic(failure);
+    @Override
+    public void showGraphFailure(Exception failure) {
+        if (failure instanceof ArrangementDiagnosticException diagnostic) {
+            displayDiagnostic(diagnostic);
         }
     }
 
@@ -395,45 +322,10 @@ public class EmbeddedTMeshScene extends ModelScene {
      * @param failure failure whose payload is shown
      */
     private void displayDiagnostic(ArrangementDiagnosticException failure) {
-        failedContractOps = contractOpsSinceLoad;
         focusOrbitOn(showStepDiagnostic(failure.diagnostic));
         Platforms.get().log("[diagnostic] " + failure.getMessage());
         Platforms.get().log("[diagnostic] " + failure.diagnostic.describeGroups()
                 + "; palette " + MeshOverlayRuntime.GROUP_PALETTE_ORDER);
-        Platforms.get().log("[diagnostic] failed after " + failedContractOps + " operators; press"
-                + " B to rewind to just before this one, then D (arc collapse) or N to step it");
-    }
-
-    /**
-     * Reloads the current model and replays the contraction to just before the operator the
-     * last failure recorded, leaving D or N to step through the failure itself. Repeatable:
-     * the recorded count survives the rewind, and so does the camera pose.
-     */
-    private void applyRewind() {
-        if (failedContractOps == ArcNetwork.NONE) {
-            Platforms.get().log("[rewind] no recorded failure; press C first");
-            return;
-        }
-        boolean reloaded = preserveOrbit(() -> {
-            try {
-                loadModelOrGraph(currentModel());
-                return true;
-            } catch (IOException failure) {
-                Platforms.get().log("[rewind] reload failed: " + failure.getMessage());
-                return false;
-            }
-        });
-        if (!reloaded) {
-            return;
-        }
-        tmesh.labelPatchCovers();
-        for (int op = 0; op < failedContractOps; op++) {
-            contraction.contractStep();
-        }
-        contractOpsSinceLoad = failedContractOps;
-        quadRuntime.setEmbeddedTMesh(tmesh);
-        Platforms.get().log("[rewind] replayed " + failedContractOps + " operators; the next one"
-                + " fails — step it with D (arc collapse) or N");
     }
 
     /**

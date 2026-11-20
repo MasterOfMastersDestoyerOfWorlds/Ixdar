@@ -19,6 +19,8 @@ public class PythonParser {
     public static final String EXPECTED_PORT_NAME_AFTER = "Expected port name after '.'";
 
     public static final String RETURN = "return";
+    public static final String BREAKPOINT = "breakpoint";
+    public static final String BREAKPOINT_LABEL = "label";
     private final PythonLexer lexer;
     private Token current;
     private int inlineCounter = 0;
@@ -90,19 +92,34 @@ public class PythonParser {
         return functionDefs;
     }
 
+    // Statement -> Identifier "=" Identifier "(" Arguments ")" | Breakpoint
+    // Breakpoint -> "breakpoint" ( "(" (String | Arguments)? ")" )?
+    // A breakpoint is unassigned: it gets a synthetic id, and a lone string argument is its label.
     private ParsedNode parseStatement() {
         ParsedNode node = new ParsedNode();
         node.line = current.line;
         node.id = consume(TokenType.IDENTIFIER, "Expected variable assignment ID").value;
-        consume(TokenType.EQUALS, "Expected '=' after variable ID");
-        
-        node.type = consume(TokenType.IDENTIFIER, "Expected node type").value;
-        consume(TokenType.LPAREN, "Expected '(' after node type");
-        
+        if (BREAKPOINT.equals(node.id) && current.type != TokenType.EQUALS) {
+            node.id = "__breakpoint_" + (inlineCounter++);
+            node.type = BREAKPOINT;
+            if (current.type != TokenType.LPAREN) {
+                return node;
+            }
+            advance();
+            if (current.type == TokenType.STRING) {
+                node.arguments.put(BREAKPOINT_LABEL, current.value);
+                advance();
+            }
+        } else {
+            consume(TokenType.EQUALS, "Expected '=' after variable ID");
+            node.type = consume(TokenType.IDENTIFIER, "Expected node type").value;
+            consume(TokenType.LPAREN, "Expected '(' after node type");
+        }
+
         if (current.type != TokenType.RPAREN) {
             parseArguments(node.arguments);
         }
-        
+
         consume(TokenType.RPAREN, "Expected ')' to close node arguments");
         return node;
     }
