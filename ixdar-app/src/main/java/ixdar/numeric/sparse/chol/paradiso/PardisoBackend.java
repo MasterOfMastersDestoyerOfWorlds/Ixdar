@@ -1,5 +1,8 @@
 package ixdar.numeric.sparse.chol.paradiso;
 
+import java.net.URL;
+
+import org.bytedeco.javacpp.ClassProperties;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.mkl.global.mkl_rt;
 
@@ -17,6 +20,9 @@ import ixdar.platform.Platforms;
 public final class PardisoBackend implements NativeCholeskyBackend {
 
     private static final double NANOS_PER_SECOND = 1.0e9;
+    private static final String WINDOWS_X86_64 = "windows-x86_64";
+    private static final String INTEL_OPENMP_RUNTIME = "libiomp5md";
+    private static final String[] MSVC_OPENMP_RUNTIMES = {"libomp140.x86_64", "vcomp140"};
 
     private static Boolean loadable;
     private static boolean preloadStarted;
@@ -32,6 +38,15 @@ public final class PardisoBackend implements NativeCholeskyBackend {
         if (loadable == null) {
             long loadStart = System.nanoTime();
             try {
+                if (WINDOWS_X86_64.equals(Loader.getPlatform())) {
+                    ClassProperties properties =
+                            Loader.loadProperties(mkl_rt.class, Loader.loadProperties(), true);
+                    URL[] intelRuntime =
+                            Loader.findLibrary(mkl_rt.class, properties, INTEL_OPENMP_RUNTIME);
+                    for (String msvcRuntime : MSVC_OPENMP_RUNTIMES) {
+                        Loader.loadLibrary(mkl_rt.class, intelRuntime, msvcRuntime);
+                    }
+                }
                 Loader.load(mkl_rt.class);
                 loadable = Boolean.TRUE;
                 Platforms.log("[solver] PARDISO (MKL) native backend loaded in %.3fs%n",
