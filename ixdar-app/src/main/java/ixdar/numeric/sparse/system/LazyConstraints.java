@@ -1,5 +1,7 @@
 package ixdar.numeric.sparse.system;
 
+import java.util.Arrays;
+
 import ixdar.numeric.sparse.InteriorPointQp;
 import ixdar.numeric.sparse.matrix.NormalMatrix;
 import ixdar.platform.Platforms;
@@ -14,6 +16,8 @@ import ixdar.platform.Platforms;
  */
 public final class LazyConstraints {
 
+    public static final int CERTIFICATE_CONSTRAINTS_NAMED = 8;
+
     public final DofSystem dofs;
 
     /** The quadratic objective the QP minimizes. */
@@ -26,12 +30,6 @@ public final class LazyConstraints {
 
     /** Constraints still violated when the loop ended. */
     public int violated;
-
-    /**
-     * True when a round's QP returned a Farkas certificate: every later round only
-     * adds constraints to a set already proven unsatisfiable, so the loop stops.
-     */
-    public boolean provenInfeasible;
 
     /** The linear inequality set the loop enforces lazily. */
     public interface ConstraintSet {
@@ -81,6 +79,16 @@ public final class LazyConstraints {
          * @return the activation threshold
          */
         double activationThreshold();
+
+        /**
+         * What one constraint constrains, for the infeasibility report.
+         *
+         * @param constraint constraint index
+         * @return a short description; the index unless a set knows better
+         */
+        default String describe(int constraint) {
+            return "constraint " + constraint;
+        }
     }
 
     /**
@@ -101,14 +109,15 @@ public final class LazyConstraints {
 
     /**
      * Runs the loop, mutating {@code dofs.solution} in place; check
-     * {@link #violated} for the outcome. Stops after the first round whose QP
-     * proves its active set infeasible, setting {@link #provenInfeasible}.
+     * {@link #violated} for the outcome.
+     *
+     * @throws IllegalStateException when a round's QP proves its active set infeasible: a superset
+     *                               cannot be satisfied either, so the map would be invalid
      */
     public void run() {
         double[] values = new double[constraints.constraintCount()];
         boolean[] constraintActive = new boolean[constraints.constraintCount()];
         int activeCount = 0;
-        provenInfeasible = false;
         for (int round = 0; round <= maxRounds; round++) {
             constraints.evaluate(dofs.solution, values);
             violated = 0;
@@ -119,7 +128,7 @@ public final class LazyConstraints {
             }
             Platforms.log("[lazy-constraints] round %d violated=%d active=%d worst=%.4f%n",
                     round, violated, activeCount, worst);
-            if (violated == 0 || round == maxRounds || provenInfeasible) {
+            if (violated == 0 || round == maxRounds) {
                 break;
             }
             long roundStart = System.nanoTime();
@@ -151,11 +160,39 @@ public final class LazyConstraints {
                     round, (System.nanoTime() - roundStart) / 1.0e9, qp.iterationCount,
                     qp.factorizationCount, qp.converged);
             if (qp.infeasible) {
-                provenInfeasible = true;
-                Platforms.log("[lazy-constraints] round %d active set proven infeasible"
-                        + " (certificate value %.3e); a superset cannot be satisfied either%n",
-                        round, qp.certificateValue);
+                throw new IllegalStateException(String.format("lazy constraints: round %d's active set"
+                        + " is proven infeasible (certificate value %.3e), so no solution satisfies"
+                        + " them; the constraints carrying the certificate: %s", round,
+                        qp.certificateValue, certificateConstraints(qp, constraintActive)));
             }
         }
+    }
+
+    /**
+     * The active constraints whose multipliers carry an infeasibility certificate, the largest
+     * first: a Farkas certificate drives exactly those multipliers without bound.
+     *
+     * @param qp               the solve that proved infeasibility
+     * @param constraintActive which constraints were in its active set, in its order
+     * @return the described constraints, at most {@link #CERTIFICATE_CONSTRAINTS_NAMED}
+     */
+    private String certificateConstraints(InteriorPointQp qp, boolean[] constraintActive) {
+        int[] constraintOfActive = new int[qp.multiplier.length];
+        for (int constraint = 0, cursor = 0; constraint < constraintActive.length
+                && cursor < constraintOfActive.length; constraint++) {
+            if (constraintActive[constraint]) {
+                constraintOfActive[cursor++] = constraint;
+            }
+        }
+        Integer[] order = new Integer[constraintOfActive.length];
+        for (int active = 0; active < order.length; active++) {
+            order[active] = active;
+        }
+        Arrays.sort(order, (first, second) -> Double.compare(qp.multiplier[second], qp.multiplier[first]));
+        StringBuilder named = new StringBuilder();
+        for (int rank = 0; rank < Math.min(CERTIFICATE_CONSTRAINTS_NAMED, order.length); rank++) {
+            named.append(rank == 0 ? "" : ", ").append(constraints.describe(constraintOfActive[order[rank]]));
+        }
+        return named.toString();
     }
 }

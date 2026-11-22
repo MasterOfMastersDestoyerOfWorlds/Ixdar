@@ -129,8 +129,9 @@ public class QuadLayoutScene extends ModelScene {
         gridMapView = GRID_MAP_VIEW_OFF;
         runSceneGraph();
         QuadLayout built = (QuadLayout) sceneOutput(QuadLayoutNode.sceneOutput(QuadLayoutNode.LAYOUT));
-        quadRuntime.setSeamlessParametrization(built.seamless, halfEdgeMesh);
-        quadRuntime.setSingularities(built.crossField.singularityIndex4, halfEdgeMesh);
+        // The layout's own mesh: the feature-corner split may have refined the scene's.
+        quadRuntime.setSeamlessParametrization(built.seamless, built.crossField.mesh);
+        quadRuntime.setSingularities(built.crossField.singularityIndex4, built.crossField.mesh);
         quadRuntime.setMotorcycleGraph(built.skeleton);
         quadRuntime.setEmbeddedTMesh(built.tmesh);
         layout = built;
@@ -200,7 +201,7 @@ public class QuadLayoutScene extends ModelScene {
         }
         if (gridMapView == GRID_MAP_VIEW_OFF) {
             quadRuntime.showFullIsoGrid = false;
-            quadRuntime.setSeamlessParametrization(layout.seamless, halfEdgeMesh);
+            quadRuntime.setSeamlessParametrization(layout.seamless, layout.crossField.mesh);
             Platforms.get().log("[quad-layout] grid map paint off");
             return;
         }

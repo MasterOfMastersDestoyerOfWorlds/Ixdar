@@ -10,6 +10,7 @@ import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.FeatureCornerSplit;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
@@ -81,6 +82,9 @@ public final class NDirectionFieldNode implements MeshNode {
                 FieldBroadcast.getInputOrDefault(ctx, CURVATURE_BIAS.name,
                         CURVATURE_BIAS.defaultValue), 0f);
         HalfEdgeMesh surface = (HalfEdgeMesh) bundle.mesh();
+        if (bundle.slots().get(FeatureCornerSplit.ALIGNMENT_SLOT) instanceof boolean[] alignment) {
+            solve.alignmentByEdgeId = alignment;
+        }
         SurfaceMetric surfaceMetric = ctx.getInput(METRIC.name, SurfaceMetric.class);
         if (surfaceMetric == null) {
             surfaceMetric = SurfaceMetric.of(surface);

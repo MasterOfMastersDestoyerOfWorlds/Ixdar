@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
@@ -75,8 +77,11 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
         seamless = (SeamlessUv) sceneOutput(QuadLayoutNode.sceneOutput(QuadLayoutNode.SEAMLESS));
         IntField singularities = (IntField) sceneOutput(
                 QuadLayoutNode.sceneOutput(QuadLayoutNode.SINGULARITIES));
-        quadRuntime.setSeamlessParametrization(seamless, halfEdgeMesh);
-        quadRuntime.setSingularities(singularities, halfEdgeMesh);
+        // The layout's own mesh: the feature-corner split may have refined the scene's.
+        HalfEdgeMesh layoutMesh = ((CrossField) sceneOutput(
+                QuadLayoutNode.sceneOutput(QuadLayoutNode.FIELD))).mesh;
+        quadRuntime.setSeamlessParametrization(seamless, layoutMesh);
+        quadRuntime.setSingularities(singularities, layoutMesh);
         quadRuntime.setMotorcycleGraph(motorcycle);
         quadRuntime.showTraces = true;
         quadRuntime.showNodes = true;

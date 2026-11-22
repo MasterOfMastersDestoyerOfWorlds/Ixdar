@@ -374,7 +374,6 @@ public final class SeamlessDofSystem {
     private int[] computeAlignmentEdgeIsoAxes() {
         int[] axis = new int[seamless.uv.edgeCount];
         Arrays.fill(axis, NOT_ALIGNMENT);
-        double[] alongShare = new double[seamless.uv.edgeCount];
         Vector3f startPos = new Vector3f();
         Vector3f endPos = new Vector3f();
         Vector3f edgeDir = new Vector3f();
@@ -420,18 +419,10 @@ public final class SeamlessDofSystem {
             }
             axis[activeEdge] = alignmentIsoAxis(inFaceA, faceB < 0 ? null : inFaceB);
             disagreeing += axis[activeEdge] == NOT_ALIGNMENT ? 1 : 0;
-            alongShare[activeEdge] = Math.max(Math.abs(inFaceA[0]), Math.abs(inFaceA[1]))
-                    / Math.hypot(inFaceA[0], inFaceA[1]);
         }
         if (disagreeing > 0) {
             Platforms.log("[seamless] alignment guard: %d feature edge(s) dropped, the two"
                     + " incident faces' targets disagree on how the edge runs%n", disagreeing);
-        }
-        int collapsing = dropCollapsingAlignments(axis, alongShare);
-        if (collapsing > 0) {
-            Platforms.log("[seamless] alignment guard: %d feature edge(s) dropped, a face's two"
-                    + " feature edges pinned the same iso coordinate and collapsed it%n",
-                    collapsing);
         }
         return axis;
     }
@@ -459,72 +450,6 @@ public final class SeamlessDofSystem {
             return NOT_ALIGNMENT;
         }
         return axisInA;
-    }
-
-    /**
-     * Withdraw, face by face, alignment rows that would collapse the face: two of
-     * its edges pinning the same iso coordinate put all three corners on one iso
-     * line, which no BCE13 §3.1 sector constraint set can orient.
-     *
-     * <p>
-     * See also: BZK09 Section 5.2, BCE13 Section 3.1
-     *
-     * @param axis       per active edge, its iso axis; collapsing edges are reset
-     *                   to {@link #NOT_ALIGNMENT} in place
-     * @param alongShare per active edge, the share of its length along its free
-     *                   coordinate
-     * @return the number of edges withdrawn
-     */
-    private int dropCollapsingAlignments(int[] axis, double[] alongShare) {
-        int[] faceEdgeAxis = new int[CORNERS_PER_FACE];
-        double[] faceEdgeAlongShare = new double[CORNERS_PER_FACE];
-        int[] faceActiveEdge = new int[CORNERS_PER_FACE];
-        int dropped = 0;
-        for (int activeFace = 0; activeFace < seamless.uv.faceCount; activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                faceActiveEdge[corner] = crossField.edgeIdToActive[mesh.faceEdgeAt(faceId, corner)];
-                faceEdgeAxis[corner] = axis[faceActiveEdge[corner]];
-                faceEdgeAlongShare[corner] = alongShare[faceActiveEdge[corner]];
-            }
-            for (int collapsing = collapsingAlignmentEdge(faceEdgeAxis, faceEdgeAlongShare);
-                    collapsing >= 0;
-                    collapsing = collapsingAlignmentEdge(faceEdgeAxis, faceEdgeAlongShare)) {
-                faceEdgeAxis[collapsing] = NOT_ALIGNMENT;
-                axis[faceActiveEdge[collapsing]] = NOT_ALIGNMENT;
-                dropped++;
-            }
-        }
-        return dropped;
-    }
-
-    /**
-     * The edge of one face whose alignment row must go because another edge of the
-     * face pins the same iso coordinate: of the edges sharing that coordinate, the
-     * one running least along its free coordinate.
-     *
-     * @param edgeAxis       the face's three edges' iso axes, {@link #NOT_ALIGNMENT}
-     *                       for an edge with no row
-     * @param edgeAlongShare the share of each edge's length along its free
-     *                       coordinate, in {@code [√½, 1]}
-     * @return the index into the face's edges to withdraw, or -1 when no two edges
-     *         share an iso axis
-     */
-    public static int collapsingAlignmentEdge(int[] edgeAxis, double[] edgeAlongShare) {
-        int withdraw = -1;
-        for (int edge = 0; edge < edgeAxis.length; edge++) {
-            if (edgeAxis[edge] == NOT_ALIGNMENT) {
-                continue;
-            }
-            boolean shared = false;
-            for (int other = 0; other < edgeAxis.length; other++) {
-                shared |= other != edge && edgeAxis[other] == edgeAxis[edge];
-            }
-            if (shared && (withdraw < 0 || edgeAlongShare[edge] < edgeAlongShare[withdraw])) {
-                withdraw = edge;
-            }
-        }
-        return withdraw;
     }
 
     /**

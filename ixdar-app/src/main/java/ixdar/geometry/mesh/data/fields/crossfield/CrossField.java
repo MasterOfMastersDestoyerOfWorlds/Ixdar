@@ -22,6 +22,8 @@ import ixdar.numeric.sparse.system.DofSystem;
 public class CrossField {
     public static final float EPSILON = 1e-12f;
     public static final float HALF_PI = (float) (Math.PI / 2.0);
+    // About 78 degrees between the two face normals.
+    public static final float DEFAULT_FEATURE_DIHEDRAL_COS = 0.2f;
 
     /**
      * The mesh that the cross field is built from.
@@ -66,9 +68,9 @@ public class CrossField {
      * Sharp-feature threshold, stored as the cosine of the angle between the two
      * incident face normals: an interior edge with
      * {@code normalA.dot(normalB) < featureDihedralCos} becomes an alignment edge.
-     * The default 0.2 (≈ 78° between normals) only captures very sharp creases.
+     * The default ({@link #DEFAULT_FEATURE_DIHEDRAL_COS}) only captures very sharp creases.
      */
-    public float featureDihedralCos = 0.2f;
+    public float featureDihedralCos = DEFAULT_FEATURE_DIHEDRAL_COS;
 
     /**
      * Face id to active-face index, indexed by face id and -1 where no face of that id was

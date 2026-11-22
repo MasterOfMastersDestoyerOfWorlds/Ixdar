@@ -3989,6 +3989,12 @@
           "portType": "FLOAT",
           "description": "Cross-field curvature alignment bias.",
           "defaultValue": -1.0
+        },
+        {
+          "name": "feature_dihedral_cos",
+          "portType": "FLOAT",
+          "description": "Crease threshold for alignment edges, as the cosine between the two face normals. The default aligns boundaries only; 0.2 (about 78 degrees) aligns sharp creases too.",
+          "defaultValue": -2.0
         }
       ],
       "outputs": [
@@ -5166,6 +5172,37 @@
         }
       ],
       "description": "Rings a surface with a closed cubic spline through authored anchor points, in the order given: each anchor snaps to its nearest vertex, and supporting anchors are fitted until every span stays within tolerance of its reference, the geodesic to the next anchor, or for up to three anchors (or where geodesics would make the ring cross itself) the loop of a plane fitted through them, leaning toward the base normal. Segments are traced with b/Surf\u0027s recursive De Casteljau bisection over geodesic midpoints (Mancinelli et al. 2021), both tangent handles at an anchor on one line so the ring turns smoothly. Emits the polyline as curve geometry and the mesh edges nearest it as edge marks."
+    },
+    {
+      "id": "split_feature_corners",
+      "category": "Quad Layout",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Triangle mesh in; out, the same mesh when no triangle needed a split, else a split copy (same surface, more triangles, no other slots), with the chosen alignment edges in the _alignment_edges slot.",
+          "defaultValue": null
+        },
+        {
+          "name": "feature_dihedral_cos",
+          "portType": "FLOAT",
+          "description": "Crease threshold: an interior edge whose two face normals\u0027 cosine is below it aligns. The default, below -1, aligns boundaries only; set it (0.2 is about 78 degrees) for meshes with real sharp creases.",
+          "defaultValue": -2.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Triangle mesh in; out, the same mesh when no triangle needed a split, else a split copy (same surface, more triangles, no other slots), with the chosen alignment edges in the _alignment_edges slot."
+        }
+      ],
+      "description": "Chooses the alignment (feature or boundary) edges, leaving the mildest crease of a triangle with three unaligned, and splits the third edge of every triangle with two, which would collapse it on one iso-line (BCE13 3.2)."
     },
     {
       "id": "stroke_sculpt",

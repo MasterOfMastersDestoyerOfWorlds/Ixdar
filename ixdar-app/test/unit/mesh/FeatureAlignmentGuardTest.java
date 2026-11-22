@@ -100,34 +100,6 @@ class FeatureAlignmentGuardTest {
     }
 
     /**
-     * A face whose two feature edges both pin v puts its three corners on one v iso
-     * line; the edge running less along u loses its row.
-     */
-    @Test
-    void twoEdgesPinningOneIsoCoordinateDropTheLessAlignedOne() {
-        int[] edgeAxis = { SeamlessDofSystem.ALIGN_AXIS_V, SeamlessDofSystem.NOT_ALIGNMENT,
-            SeamlessDofSystem.ALIGN_AXIS_V };
-        double[] edgeAlongShare = { WELL_ALONG, 1.0, BARELY_ALONG };
-
-        assertEquals(2, SeamlessDofSystem.collapsingAlignmentEdge(edgeAxis, edgeAlongShare),
-            "the third edge runs less along u, so its row goes");
-    }
-
-    /**
-     * A face whose two feature edges pin different coordinates keeps a right-angle
-     * corner and both rows.
-     */
-    @Test
-    void edgesPinningDifferentIsoCoordinatesKeepBothRows() {
-        int[] edgeAxis = { SeamlessDofSystem.ALIGN_AXIS_V, SeamlessDofSystem.ALIGN_AXIS_U,
-            SeamlessDofSystem.NOT_ALIGNMENT };
-        double[] edgeAlongShare = { WELL_ALONG, BARELY_ALONG, 1.0 };
-
-        assertEquals(-1, SeamlessDofSystem.collapsingAlignmentEdge(edgeAxis, edgeAlongShare),
-            "u and v pinned on different edges leave the face its area");
-    }
-
-    /**
      * With the row kept, the shared edge's parametric offset is confined to the u
      * axis and the two faces' sector constraints demand opposite u extents, which
      * the solver reports as an infeasible active set with a Farkas certificate.

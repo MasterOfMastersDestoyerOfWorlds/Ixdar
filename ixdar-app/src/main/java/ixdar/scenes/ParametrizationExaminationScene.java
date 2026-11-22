@@ -94,8 +94,9 @@ public class ParametrizationExaminationScene extends ModelScene {
 
         quadRuntime.showIsoLines = true;
         quadRuntime.showSingularities = true;
-        quadRuntime.setSeamlessParametrization(seamless, halfEdgeMesh);
-        quadRuntime.setSingularities(crossField.singularityIndex4, halfEdgeMesh);
+        // The layout's own mesh: the feature-corner split may have refined the scene's.
+        quadRuntime.setSeamlessParametrization(seamless, crossField.mesh);
+        quadRuntime.setSingularities(crossField.singularityIndex4, crossField.mesh);
 
         Platforms.get().log("[param-exam] " + offPath
                 + (cfPath == null ? "" : " cf=" + cfPath)

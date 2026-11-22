@@ -215,6 +215,30 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
     }
 
     /**
+     * Names the mesh face a constraint orients, its corners, and the iso axis each of its
+     * alignment edges is pinned to, so an infeasible set can be traced to the feature edges.
+     *
+     * @param constraint constraint index
+     * @return {@code face <id> [#<a> #<b> #<c>] edges <id>:<axis> ...}, axis u, v or - for none
+     */
+    @Override
+    public String describe(int constraint) {
+        int faceId = seamless.mesh.faceIdAt(faceByConstraint[constraint]);
+        StringBuilder text = new StringBuilder("face ").append(faceId).append(" [");
+        for (int corner = 0; corner < CORNERS; corner++) {
+            text.append(corner == 0 ? "" : " ").append('#').append(seamless.mesh.faceVertexAt(faceId, corner));
+        }
+        text.append("] edges");
+        for (int corner = 0; corner < CORNERS; corner++) {
+            int edgeId = seamless.mesh.faceEdgeAt(faceId, corner);
+            int axis = seamless.dofSystem.alignmentEdgeIsoAxis[seamless.field.edgeIdToActive[edgeId]];
+            text.append(' ').append(edgeId).append(':').append(axis == SeamlessDofSystem.NOT_ALIGNMENT ? "-"
+                    : axis == SeamlessDofSystem.ALIGN_AXIS_U ? "u" : "v");
+        }
+        return text.toString();
+    }
+
+    /**
      * Emits a face's constraints, splitting the reference at its altitude foot
      * first when its largest angle exceeds the split threshold (BCE13 §3.1,
      * Figure 4 right).

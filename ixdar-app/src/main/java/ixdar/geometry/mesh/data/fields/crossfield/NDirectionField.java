@@ -56,6 +56,12 @@ public class NDirectionField {
 
     public HalfEdgeMesh mesh;
 
+    /**
+     * The alignment edges by edge id, chosen before the build (the quad layout's feature-corner
+     * split); null detects them from the mesh with {@link #isAlignmentEdge}.
+     */
+    public boolean[] alignmentByEdgeId;
+
     public int vertexCount;
 
     /** The degree of the direction field. */
@@ -346,17 +352,29 @@ public class NDirectionField {
 
     private void detectAlignmentEdges() {
         for (int activeEdge = 0; activeEdge < cf.edgeCount; activeEdge++) {
-            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdge);
-            if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
-                cf.alignmentEdges.data()[activeEdge] = true;
-                continue;
-            }
-            Vector3f faceANormal = mesh.faceNormal(edgeFaceIds.faceA);
-            Vector3f faceBNormal = mesh.faceNormal(edgeFaceIds.faceB);
-            if (faceANormal.dot(faceBNormal) < cf.featureDihedralCos) {
-                cf.alignmentEdges.data()[activeEdge] = true;
-            }
+            cf.alignmentEdges.data()[activeEdge] = alignmentByEdgeId != null
+                    ? alignmentByEdgeId[mesh.edgeIdAt(activeEdge)]
+                    : isAlignmentEdge(mesh, mesh.edgeFaceIds(activeEdge), cf.featureDihedralCos);
         }
+    }
+
+    /**
+     * Whether an edge is a BZK09 §5.2 alignment edge: a boundary, or a crease sharper than the
+     * dihedral threshold; shared with the feature-corner split.
+     *
+     * @param mesh               the surface, its normals computed
+     * @param edgeFaceIds        the edge and its incident faces
+     * @param featureDihedralCos cosine below which two face normals make a feature edge
+     * @return true for an alignment edge
+     */
+    public static boolean isAlignmentEdge(HalfEdgeMesh mesh, EdgeFaceIds edgeFaceIds,
+            float featureDihedralCos) {
+        if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
+            return true;
+        }
+        Vector3f faceANormal = mesh.faceNormal(edgeFaceIds.faceA);
+        Vector3f faceBNormal = mesh.faceNormal(edgeFaceIds.faceB);
+        return faceANormal.dot(faceBNormal) < featureDihedralCos;
     }
 
     /**

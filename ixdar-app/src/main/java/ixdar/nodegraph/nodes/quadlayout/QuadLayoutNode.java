@@ -49,6 +49,8 @@ public class QuadLayoutNode extends NodeGroup {
 
     public static final String QUANTIZE_NODE = "quantize";
 
+    public static final String CORNERS_NODE = "corners";
+
     public static final int FOLDED_FACE_IDS_NAMED = 8;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
@@ -58,6 +60,7 @@ public class QuadLayoutNode extends NodeGroup {
             PortType.FLOAT, DEFAULT_TARGET_EDGE_LENGTH);
     public static final InputPort CURVATURE_BIAS = new InputPort("curvature_bias", PortType.FLOAT,
             DEFAULT_CURVATURE_BIAS);
+    public static final InputPort FEATURE_DIHEDRAL_COS = SplitFeatureCornersNode.FEATURE_DIHEDRAL_COS;
 
     public static final OutputPort QUADS = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
     public static final OutputPort UV = new OutputPort("uv", PortType.UV_FIELD);
@@ -74,6 +77,9 @@ public class QuadLayoutNode extends NodeGroup {
 
     public static final String ALPHA_DEGREES_OVERRIDE = LAYOUT_CALL
             + NodeGraphRuntime.PORT_SEPARATOR + ALPHA_DEGREES.name;
+
+    public static final String FEATURE_DIHEDRAL_COS_OVERRIDE = LAYOUT_CALL
+            + NodeGraphRuntime.PORT_SEPARATOR + FEATURE_DIHEDRAL_COS.name;
 
     /**
      * The reference a scene pulls one output of the layout call in {@link #overSceneModel} by.
@@ -104,7 +110,7 @@ public class QuadLayoutNode extends NodeGroup {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, ALPHA_DEGREES, TARGET_EDGE_LENGTH, CURVATURE_BIAS);
+        return List.of(GEOMETRY, ALPHA_DEGREES, TARGET_EDGE_LENGTH, CURVATURE_BIAS, FEATURE_DIHEDRAL_COS);
     }
 
     @Override
@@ -129,6 +135,9 @@ public class QuadLayoutNode extends NodeGroup {
                         + " knob."),
                 Map.entry(TARGET_EDGE_LENGTH.name, "Parametric length one quad edge spans."),
                 Map.entry(CURVATURE_BIAS.name, "Cross-field curvature alignment bias."),
+                Map.entry(FEATURE_DIHEDRAL_COS.name, "Crease threshold for alignment edges, as the"
+                        + " cosine between the two face normals. The default aligns boundaries only;"
+                        + " 0.2 (about 78 degrees) aligns sharp creases too."),
                 Map.entry(UV.name, "The relaxed integer grid map the quads were extracted from."),
                 Map.entry(TMESH.name, "The contracted embedded T-mesh, one patch per quad grid."),
                 Map.entry(FIELD.name, "The cross field the layout follows."),
@@ -149,14 +158,18 @@ public class QuadLayoutNode extends NodeGroup {
     @Override
     public void build(GroupBuilder group) {
         GraphNodeContext parameters = group.scope;
+        GraphNodeContext corners = group.node(CORNERS_NODE, SplitFeatureCornersNode::new)
+                .input(SplitFeatureCornersNode.GEOMETRY.name, parameters, GEOMETRY.name)
+                .input(SplitFeatureCornersNode.FEATURE_DIHEDRAL_COS.name, parameters,
+                        FEATURE_DIHEDRAL_COS.name);
         GraphNodeContext field = group.node(FIELD.name, NDirectionFieldNode::new)
-                .input(NDirectionFieldNode.GEOMETRY.name, parameters, GEOMETRY.name)
+                .input(NDirectionFieldNode.GEOMETRY.name, corners, SplitFeatureCornersNode.GEOMETRY_OUT.name)
                 .input(NDirectionFieldNode.CURVATURE_BIAS.name, parameters, CURVATURE_BIAS.name);
         GraphNodeContext seamless = group.node(SEAMLESS.name, SeamlessParameterizationNode::new)
                 .input(SeamlessParameterizationNode.FIELD.name, field,
                         NDirectionFieldNode.FIELD.name);
         GraphNodeContext motorcycle = group.node(MOTORCYCLE.name, MotorcycleGraphNode::new)
-                .input(MotorcycleGraphNode.GEOMETRY.name, parameters, GEOMETRY.name)
+                .input(MotorcycleGraphNode.GEOMETRY.name, corners, SplitFeatureCornersNode.GEOMETRY_OUT.name)
                 .input(MotorcycleGraphNode.UV.name, seamless, SeamlessParameterizationNode.UV.name)
                 .input(MotorcycleGraphNode.CHARTS.name, seamless,
                         SeamlessParameterizationNode.CHARTS.name)
