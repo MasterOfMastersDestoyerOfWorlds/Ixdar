@@ -201,6 +201,22 @@ def resolve_vm_arguments(configuration: dict, root: str) -> list[str]:
     return resolved
 
 
+def _is_profiler_agent(argument: str) -> bool:
+    """Whether a JVM argument loads the async-profiler agent."""
+    return argument.startswith(AGENT_PREFIX) and PROFILER_LIBRARY_MARK in argument
+
+
+def _agent_library_exists(argument: str) -> bool:
+    """Whether the library an ``-agentpath:<library>=<options>`` argument names is on disk, as
+    written or with the platform's shared-library suffix.
+
+    :param argument: The ``-agentpath`` argument.
+    :return: True when the JVM would find the library.
+    """
+    library = argument[len(AGENT_PREFIX):].split("=", 1)[0]
+    return any(os.path.exists(library + suffix) for suffix in ("", ".so", ".dylib", ".dll"))
+
+
 def launch_command(configuration: dict, root: str, port: int, profiler_argument: str) -> list[str]:
     """Assemble the JVM command line for a launch entry.
 
@@ -215,7 +231,8 @@ def launch_command(configuration: dict, root: str, port: int, profiler_argument:
     :param root: Checkout root.
     :param port: Automation port for the scene to bind.
     :param profiler_argument: The ``-agentpath`` from :func:`profiler_agent_argument`, empty only
-        when async-profiler is not installed (the entry's own agent is then kept).
+        when async-profiler is not installed (the entry's own agent is then kept if its
+        library exists, and dropped if not).
     :return: The full argv.
     :raises ValueError: When the entry names no main class.
     """
@@ -226,9 +243,13 @@ def launch_command(configuration: dict, root: str, port: int, profiler_argument:
         classpath = handle.read().strip()
     arguments = resolve_vm_arguments(configuration, root)
     if profiler_argument:
-        arguments = [argument for argument in arguments
-                     if not (argument.startswith(AGENT_PREFIX) and PROFILER_LIBRARY_MARK in argument)]
+        arguments = [argument for argument in arguments if not _is_profiler_agent(argument)]
         arguments.insert(0, profiler_argument)
+    else:
+        # With no async-profiler here (there is no Windows build) the entry's own agent names a
+        # library that was never linked, and the JVM refuses to start over it; drop that one only.
+        arguments = [argument for argument in arguments
+                     if not (_is_profiler_agent(argument) and not _agent_library_exists(argument))]
     command = ["java", *arguments]
     command.append(f"-D{HEADLESS_PROPERTY}=true")
     command.append(f"-D{AUTOMATION_PORT_PROPERTY}={port}")

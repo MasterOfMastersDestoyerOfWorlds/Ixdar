@@ -27,6 +27,12 @@ public final class LazyConstraints {
     /** Constraints still violated when the loop ended. */
     public int violated;
 
+    /**
+     * True when a round's QP returned a Farkas certificate: every later round only
+     * adds constraints to a set already proven unsatisfiable, so the loop stops.
+     */
+    public boolean provenInfeasible;
+
     /** The linear inequality set the loop enforces lazily. */
     public interface ConstraintSet {
 
@@ -95,12 +101,14 @@ public final class LazyConstraints {
 
     /**
      * Runs the loop, mutating {@code dofs.solution} in place; check
-     * {@link #violated} for the outcome.
+     * {@link #violated} for the outcome. Stops after the first round whose QP
+     * proves its active set infeasible, setting {@link #provenInfeasible}.
      */
     public void run() {
         double[] values = new double[constraints.constraintCount()];
         boolean[] constraintActive = new boolean[constraints.constraintCount()];
         int activeCount = 0;
+        provenInfeasible = false;
         for (int round = 0; round <= maxRounds; round++) {
             constraints.evaluate(dofs.solution, values);
             violated = 0;
@@ -111,7 +119,7 @@ public final class LazyConstraints {
             }
             Platforms.log("[lazy-constraints] round %d violated=%d active=%d worst=%.4f%n",
                     round, violated, activeCount, worst);
-            if (violated == 0 || round == maxRounds) {
+            if (violated == 0 || round == maxRounds || provenInfeasible) {
                 break;
             }
             long roundStart = System.nanoTime();
@@ -142,6 +150,12 @@ public final class LazyConstraints {
                             + " converged=%b)%n",
                     round, (System.nanoTime() - roundStart) / 1.0e9, qp.iterationCount,
                     qp.factorizationCount, qp.converged);
+            if (qp.infeasible) {
+                provenInfeasible = true;
+                Platforms.log("[lazy-constraints] round %d active set proven infeasible"
+                        + " (certificate value %.3e); a superset cannot be satisfied either%n",
+                        round, qp.certificateValue);
+            }
         }
     }
 }

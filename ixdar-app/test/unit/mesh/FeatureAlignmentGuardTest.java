@@ -47,6 +47,12 @@ class FeatureAlignmentGuardTest {
     /** Components of the shared edge's parametric offset, u then v. */
     private static final int OFFSET_COMPONENTS = 2;
 
+    /** Share of a feature edge's length along its free coordinate: nearly all. */
+    private static final double WELL_ALONG = 0.99;
+
+    /** The same share for an edge close to the diagonal. */
+    private static final double BARELY_ALONG = 0.74;
+
     /** Slack allowed when a solved offset is checked against the margin. */
     private static final double MARGIN_TOLERANCE = 1.0e-9;
 
@@ -91,6 +97,34 @@ class FeatureAlignmentGuardTest {
         assertEquals(SeamlessDofSystem.NOT_ALIGNMENT,
             SeamlessDofSystem.alignmentIsoAxis(ALONG_U_IN_FIRST, ALONG_V_IN_SECOND),
             "the two faces disagree on which coordinate runs along the edge");
+    }
+
+    /**
+     * A face whose two feature edges both pin v puts its three corners on one v iso
+     * line; the edge running less along u loses its row.
+     */
+    @Test
+    void twoEdgesPinningOneIsoCoordinateDropTheLessAlignedOne() {
+        int[] edgeAxis = { SeamlessDofSystem.ALIGN_AXIS_V, SeamlessDofSystem.NOT_ALIGNMENT,
+            SeamlessDofSystem.ALIGN_AXIS_V };
+        double[] edgeAlongShare = { WELL_ALONG, 1.0, BARELY_ALONG };
+
+        assertEquals(2, SeamlessDofSystem.collapsingAlignmentEdge(edgeAxis, edgeAlongShare),
+            "the third edge runs less along u, so its row goes");
+    }
+
+    /**
+     * A face whose two feature edges pin different coordinates keeps a right-angle
+     * corner and both rows.
+     */
+    @Test
+    void edgesPinningDifferentIsoCoordinatesKeepBothRows() {
+        int[] edgeAxis = { SeamlessDofSystem.ALIGN_AXIS_V, SeamlessDofSystem.ALIGN_AXIS_U,
+            SeamlessDofSystem.NOT_ALIGNMENT };
+        double[] edgeAlongShare = { WELL_ALONG, BARELY_ALONG, 1.0 };
+
+        assertEquals(-1, SeamlessDofSystem.collapsingAlignmentEdge(edgeAxis, edgeAlongShare),
+            "u and v pinned on different edges leave the face its area");
     }
 
     /**
