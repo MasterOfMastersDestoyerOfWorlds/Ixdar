@@ -5,9 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.PriorityQueue;
 import java.util.Random;
 
 import org.junit.jupiter.api.Test;
@@ -15,9 +13,8 @@ import org.junit.jupiter.api.Test;
 import ixdar.numeric.graph.Dijkstra;
 
 /**
- * The shared Dijkstra core settles equal distances in exactly the order the private
- * {@link PriorityQueue} copies it replaced did, so the copies' outputs hold bit for bit; it
- * relaxes strictly, reopens a settled node a shorter distance reaches, and starts every run clean.
+ * The shared Dijkstra core settles equal distances lowest node first, relaxes strictly, reopens a
+ * settled node a shorter distance reaches, and starts every run clean.
  */
 class DijkstraTest {
 
@@ -30,30 +27,47 @@ class DijkstraTest {
     private static final int POP_ONE_IN = 3;
 
     @Test
-    void equalDistancesSettleInPriorityQueueOrder() {
+    void equalDistancesSettleLowestNodeFirst() {
         Random random = new Random(SEED);
         Dijkstra walk = new Dijkstra();
         walk.start(NODES);
-        PriorityQueue<double[]> reference = new PriorityQueue<>(
-                Comparator.comparingDouble(entry -> entry[0]));
+        double[] distanceOf = new double[NODES];
+        List<Integer> waiting = new ArrayList<>();
         List<Integer> walkOrder = new ArrayList<>();
         List<Integer> referenceOrder = new ArrayList<>();
         for (int node = 0; node < NODES; node++) {
-            double distance = random.nextInt(DISTINCT_DISTANCES);
-            walk.relax(node, distance, -1);
-            reference.add(new double[] { distance, node });
+            distanceOf[node] = random.nextInt(DISTINCT_DISTANCES);
+            walk.relax(node, distanceOf[node], -1);
+            waiting.add(node);
             if (random.nextInt(POP_ONE_IN) == 0) {
                 walkOrder.add(walk.settle());
-                referenceOrder.add((int) reference.poll()[1]);
+                referenceOrder.add(takeNearest(waiting, distanceOf));
             }
         }
         for (int node = walk.settle(); node >= 0; node = walk.settle()) {
             walkOrder.add(node);
         }
-        while (!reference.isEmpty()) {
-            referenceOrder.add((int) reference.poll()[1]);
+        while (!waiting.isEmpty()) {
+            referenceOrder.add(takeNearest(waiting, distanceOf));
         }
         assertEquals(referenceOrder, walkOrder);
+    }
+
+    /**
+     * Removes and returns the waiting node of least distance, the lowest id among equals.
+     *
+     * @param waiting    nodes not yet taken, in id order
+     * @param distanceOf distance per node
+     * @return the node taken
+     */
+    private static int takeNearest(List<Integer> waiting, double[] distanceOf) {
+        int best = 0;
+        for (int index = 1; index < waiting.size(); index++) {
+            if (distanceOf[waiting.get(index)] < distanceOf[waiting.get(best)]) {
+                best = index;
+            }
+        }
+        return waiting.remove(best);
     }
 
     @Test

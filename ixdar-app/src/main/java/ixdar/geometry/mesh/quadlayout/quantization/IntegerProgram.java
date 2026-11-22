@@ -78,9 +78,9 @@ public final class IntegerProgram {
     }
 
     /**
-     * Find a minimum-weight integer assignment by best-first branch and bound. Among tied optima
-     * the first found is kept: Lyon et al. 2021 §5 states no preference, and on the test suite
-     * it is the same answer the earlier most-zeros, lexicographic tie-break chose (CRAW-118).
+     * Find a minimum-weight integer assignment by best-first branch and bound over a root
+     * tightened by {@link GomoryCuts}. Among tied optima the first found is kept: Lyon et al.
+     * 2021 §5 states no preference, and on the suite it matches the earlier tie-break (CRAW-118).
      *
      * @throws IllegalStateException when the simplex fails to converge or the rounded optimum
      *                               violates a row, both numerical failures
@@ -327,14 +327,23 @@ public final class IntegerProgram {
         }
 
         int[][] matrixColumns = new int[rowTotal][];
-        int[][] matrixCoefficients = new int[rowTotal][];
+        double[][] matrixCoefficients = new double[rowTotal][];
         for (int row = 0; row < rowTotal; row++) {
             int source = tableauSourceRow[row];
-            matrixColumns[row] = new int[rowVariables[source].length];
-            for (int position = 0; position < rowVariables[source].length; position++) {
-                matrixColumns[row][position] = columnOfVariable[rowVariables[source][position]];
+            int length = rowVariables[source].length;
+            matrixColumns[row] = new int[length];
+            matrixCoefficients[row] = new double[length];
+            // Coefficient tightening (Savelsbergh 1994, §2): on a cover row of non-negative
+            // integers whose coefficients are all positive, any one variable at 1 satisfies the
+            // row, so every coefficient may drop to 1 without losing an integer point.
+            boolean positiveCover = source >= equalityTotal;
+            for (int coefficient : rowCoefficients[source]) {
+                positiveCover &= coefficient > 0;
             }
-            matrixCoefficients[row] = rowCoefficients[source];
+            for (int position = 0; position < length; position++) {
+                matrixColumns[row][position] = columnOfVariable[rowVariables[source][position]];
+                matrixCoefficients[row][position] = positiveCover ? 1.0 : rowCoefficients[source][position];
+            }
         }
         double[] columnWeights = new double[columns];
         for (int column = 0; column < columns; column++) {
@@ -370,11 +379,22 @@ public final class IntegerProgram {
         double relaxation = 0.0;
         long startedNanos = System.nanoTime();
         Platforms.log("%sroot rows=%d columns=%d: solving the LP relaxation%n", LOG_PREFIX, rowTotal, columns);
+        double uncutRelaxation = 0.0;
         if (root.solve()) {
+            uncutRelaxation = root.objective();
+            root = GomoryCuts.separate(root, variableSlots, PRUNE_TOLERANCE);
+        } else {
+            root = null;
+        }
+        if (root != null) {
             node = root;
             relaxation = root.objective();
+            rowTotal = root.matrix.rowTotal;
+            rootLower = root.lower.clone();
+            rootUpper = root.upper.clone();
         }
-        Platforms.log("%sroot relaxation=%.3f feasible=%b %.1fs%n", LOG_PREFIX, relaxation, node != null,
+        Platforms.log("%sroot relaxation=%.3f feasible=%b (%.3f before %d Gomory cuts) %.1fs%n", LOG_PREFIX,
+                relaxation, node != null, uncutRelaxation, rowTotal - matrix.rowTotal,
                 (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
         // The root's reduced costs, for fixing columns globally each time the incumbent improves.
         double rootRelaxation = relaxation;

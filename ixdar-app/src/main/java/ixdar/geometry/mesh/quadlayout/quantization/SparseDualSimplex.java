@@ -56,7 +56,7 @@ final class SparseDualSimplex {
          * @param structuralTotal  number of structural columns
          * @param structuralCost   objective weight per structural column, all non-negative
          */
-        Matrix(int[][] rowColumns, int[][] rowCoefficients, int structuralTotal, double[] structuralCost) {
+        Matrix(int[][] rowColumns, double[][] rowCoefficients, int structuralTotal, double[] structuralCost) {
             this.rowTotal = rowColumns.length;
             this.structuralTotal = structuralTotal;
             this.slotTotal = structuralTotal + rowTotal;
@@ -93,6 +93,25 @@ final class SparseDualSimplex {
             }
             cost = new double[slotTotal];
             System.arraycopy(structuralCost, 0, cost, 0, structuralTotal);
+        }
+
+        /**
+         * This matrix with rows appended below its own, each a new slack slot after the old ones.
+         *
+         * @param addedColumns      ascending structural columns of each added row
+         * @param addedCoefficients coefficient of each of those columns
+         * @return the extended matrix; slot indices of this one keep their meaning
+         */
+        Matrix withRows(int[][] addedColumns, double[][] addedCoefficients) {
+            int[][] columns = new int[rowTotal + addedColumns.length][];
+            double[][] coefficients = new double[columns.length][];
+            for (int row = 0; row < rowTotal; row++) {
+                columns[row] = Arrays.copyOfRange(rowColumn, rowStart[row], rowStart[row + 1]);
+                coefficients[row] = Arrays.copyOfRange(rowValue, rowStart[row], rowStart[row + 1]);
+            }
+            System.arraycopy(addedColumns, 0, columns, rowTotal, addedColumns.length);
+            System.arraycopy(addedCoefficients, 0, coefficients, rowTotal, addedColumns.length);
+            return new Matrix(columns, coefficients, structuralTotal, Arrays.copyOf(cost, structuralTotal));
         }
 
         /**
@@ -278,6 +297,66 @@ final class SparseDualSimplex {
         }
         restarted.refactor();
         return restarted;
+    }
+
+    /**
+     * This solver with rows appended to its matrix, warm-started at its basis plus the new rows'
+     * slacks: the basis stays dual feasible, so {@link #solve()} only restores primal feasibility.
+     *
+     * @param addedColumns      ascending structural columns of each added row
+     * @param addedCoefficients coefficient of each of those columns
+     * @param addedLower        lower bound of each added row's slack; its upper bound is {@code +∞}
+     * @return the extended solver, its primal values and reduced costs computed
+     */
+    SparseDualSimplex withRows(int[][] addedColumns, double[][] addedCoefficients, double[] addedLower) {
+        Matrix extended = matrix.withRows(addedColumns, addedCoefficients);
+        int oldSlots = matrix.slotTotal;
+        double[] extendedLower = Arrays.copyOf(lower, extended.slotTotal);
+        double[] extendedUpper = Arrays.copyOf(upper, extended.slotTotal);
+        for (int added = 0; added < addedColumns.length; added++) {
+            extendedLower[oldSlots + added] = addedLower[added];
+            extendedUpper[oldSlots + added] = Double.POSITIVE_INFINITY;
+        }
+        SparseDualSimplex solver = new SparseDualSimplex(extended, extendedLower, extendedUpper);
+        Arrays.fill(solver.positionOf, -1);
+        for (int position = 0; position < extended.rowTotal; position++) {
+            int slot = position < matrix.rowTotal ? basisSlot[position] : oldSlots + position - matrix.rowTotal;
+            solver.basisSlot[position] = slot;
+            solver.positionOf[slot] = position;
+            solver.weight[position] = position < matrix.rowTotal ? weight[position] : 1.0;
+        }
+        System.arraycopy(atUpper, 0, solver.atUpper, 0, oldSlots);
+        solver.refactor();
+        return solver;
+    }
+
+    /**
+     * One row of the simplex tableau: the basic slot at {@code position} as a combination of the
+     * nonbasic slots, {@code x_basic = Σ entry_j · x_j}.
+     *
+     * @param position basis position
+     * @return the entry per slot, zero on basic slots
+     */
+    double[] tableauRow(int position) {
+        int structurals = matrix.structuralTotal;
+        Arrays.fill(rowWork, 0.0);
+        rowWork[position] = 1.0;
+        btran(rowWork);
+        double[] entries = new double[matrix.slotTotal];
+        for (int row = 0; row < matrix.rowTotal; row++) {
+            double rho = rowWork[row];
+            if (rho == 0.0) {
+                continue;
+            }
+            for (int entry = matrix.rowStart[row]; entry < matrix.rowStart[row + 1]; entry++) {
+                entries[matrix.rowColumn[entry]] -= rho * matrix.rowValue[entry];
+            }
+            entries[structurals + row] += rho;
+        }
+        for (int basis = 0; basis < matrix.rowTotal; basis++) {
+            entries[basisSlot[basis]] = 0.0;
+        }
+        return entries;
     }
 
     /**
