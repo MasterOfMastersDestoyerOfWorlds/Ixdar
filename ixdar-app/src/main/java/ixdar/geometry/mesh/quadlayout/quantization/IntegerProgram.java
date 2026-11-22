@@ -5,8 +5,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import ixdar.numeric.graph.UnionFind;
-
 /**
  * Exact integer program for quantization: minimise a non-negative weighting of non-negative
  * integers under {@code Σ left = Σ right} equalities and {@code Σ ≥ 1} cover rows.
@@ -21,11 +19,7 @@ public final class IntegerProgram {
 
     private static final double PRUNE_TOLERANCE = 1e-7;
 
-    private static final double TIE_TOLERANCE = 1e-9;
-
     private static final int ITERATIONS_PER_DIMENSION = 50;
-
-    private static final int PROPAGATION_PASSES = 20;
 
     /** Objective weight per variable, all non-negative. */
     public final double[] weights;
@@ -40,8 +34,8 @@ public final class IntegerProgram {
     public final List<int[]> coverRows = new ArrayList<>();
 
     /**
-     * Optimal integer value per variable, filled by {@link #solve()} when feasible; among tied
-     * optima, the one with most zeros, then the lexicographically smallest.
+     * Optimal integer value per variable, filled by {@link #solve()} when feasible: the branch and
+     * bound's first optimum, with no preference among tied optima, as in Lyon 2021 §5.
      */
     public int[] values;
 
@@ -67,9 +61,9 @@ public final class IntegerProgram {
     }
 
     /**
-     * Find the minimum-weight integer assignment; among optima within a relative 1e-9, the one
-     * with most zero variables, then the lexicographically smallest. Lyon et al. 2021 §5 states
-     * no preference; most zeros is its coarsest layout.
+     * Find a minimum-weight integer assignment by best-first branch and bound. Among tied optima
+     * the first found is kept: Lyon et al. 2021 §5 states no preference, and on the test suite
+     * it is the same answer the earlier most-zeros, lexicographic tie-break chose (CRAW-118).
      *
      * @throws IllegalStateException when the simplex fails to converge or the rounded optimum
      *                               violates a row, both numerical failures
@@ -360,16 +354,8 @@ public final class IntegerProgram {
         });
         double[] basicValues = new double[rowTotal];
         double[] rowWeights = new double[rowTotal];
-        double[] initialTableau = tableau.clone();
-        double[] rootReducedCosts = null;
-        int[] rootBasis = null;
-        boolean[] rootAtUpper = null;
-        double rootRelaxation = 0.0;
         if (dualSimplex(tableau, basis, bounds, atUpper, rowTotal, columns, basicValues, rowWeights)) {
-            rootRelaxation = objectiveOf(tableau, basis, bounds, atUpper, rowTotal, columns);
-            rootReducedCosts = Arrays.copyOfRange(tableau, rowTotal * columns, (rowTotal + 1) * columns);
-            rootBasis = basis.clone();
-            rootAtUpper = atUpper.clone();
+            double rootRelaxation = objectiveOf(tableau, basis, bounds, atUpper, rowTotal, columns);
             openTableaus.add(tableau);
             openBases.add(basis);
             openBounds.add(bounds.clone());
@@ -378,8 +364,6 @@ public final class IntegerProgram {
             openRelaxations.add(rootRelaxation);
             frontier.add(0);
         }
-        double smallestPrunedRelaxation = Double.POSITIVE_INFINITY;
-        double incumbentSmallestReducedCost = Double.POSITIVE_INFINITY;
         while (!frontier.isEmpty()) {
             int node = frontier.poll();
             double relaxation = openRelaxations.get(node);
@@ -394,7 +378,6 @@ public final class IntegerProgram {
             openAtUpper.set(node, null);
             openValues.set(node, null);
             if (relaxation >= incumbentBound - PRUNE_TOLERANCE) {
-                smallestPrunedRelaxation = Math.min(smallestPrunedRelaxation, relaxation);
                 continue;
             }
             int branchRow = -1;
@@ -420,14 +403,6 @@ public final class IntegerProgram {
                         incumbent[nodeBasis[row]] = nodeValues[row];
                     }
                 }
-                incumbentSmallestReducedCost = Double.POSITIVE_INFINITY;
-                for (int column = 0; column < columns; column++) {
-                    int slot = nodeBasis[rowTotal + column];
-                    if (nodeBounds[slot] != nodeBounds[variableSlots + slot]) {
-                        incumbentSmallestReducedCost = Math.min(incumbentSmallestReducedCost,
-                                Math.abs(nodeTableau[rowTotal * columns + column]));
-                    }
-                }
                 continue;
             }
             int branchSlot = nodeBasis[branchRow];
@@ -449,7 +424,6 @@ public final class IntegerProgram {
                 double childRelaxation =
                         objectiveOf(childTableau, childBasis, childBounds, childAtUpper, rowTotal, columns);
                 if (childRelaxation >= incumbentBound - PRUNE_TOLERANCE) {
-                    smallestPrunedRelaxation = Math.min(smallestPrunedRelaxation, childRelaxation);
                     continue;
                 }
                 openTableaus.add(childTableau);
@@ -465,493 +439,6 @@ public final class IntegerProgram {
         feasible = incumbent != null;
         if (!feasible) {
             return this;
-        }
-        double tieTolerance = TIE_TOLERANCE * (1.0 + Math.abs(incumbentBound));
-        if (smallestPrunedRelaxation <= incumbentBound + tieTolerance
-                || incumbentSmallestReducedCost <= tieTolerance) {
-            double objectiveCeiling = incumbentBound + tieTolerance;
-            boolean[] inEquality = new boolean[variableTotal];
-            for (int equality = 0; equality < equalityTotal; equality++) {
-                for (int variable : equalityLeftSides.get(equality)) {
-                    inEquality[variable] = true;
-                }
-                for (int variable : equalityRightSides.get(equality)) {
-                    inEquality[variable] = true;
-                }
-            }
-            int[][] expansionColumns = new int[variableTotal][];
-            int[][] expansionCoefficients = new int[variableTotal][];
-            for (int column = 0; column < columns; column++) {
-                expansionColumns[variableOfColumn[column]] = new int[] {column};
-                expansionCoefficients[variableOfColumn[column]] = new int[] {1};
-            }
-            int substitutionTotal = substitutedVariables.size();
-            int[] substitutionOfVariable = new int[variableTotal];
-            int[] accumulated = new int[columns];
-            int[] touchedColumns = new int[columns];
-            for (int substitution = substitutionTotal - 1; substitution >= 0; substitution--) {
-                int substituted = substitutedVariables.get(substitution);
-                substitutionOfVariable[substituted] = substitution;
-                int[] expressionVariables = substitutionVariables.get(substitution);
-                int[] expressionCoefficients = substitutionCoefficients.get(substitution);
-                int touchedTotal = 0;
-                for (int position = 0; position < expressionVariables.length; position++) {
-                    int[] termColumns = expansionColumns[expressionVariables[position]];
-                    int[] termCoefficients = expansionCoefficients[expressionVariables[position]];
-                    for (int term = 0; term < termColumns.length; term++) {
-                        if (accumulated[termColumns[term]] == 0) {
-                            touchedColumns[touchedTotal++] = termColumns[term];
-                        }
-                        accumulated[termColumns[term]] += expressionCoefficients[position] * termCoefficients[term];
-                    }
-                }
-                Arrays.sort(touchedColumns, 0, touchedTotal);
-                expansionColumns[substituted] = Arrays.copyOf(touchedColumns, touchedTotal);
-                expansionCoefficients[substituted] = new int[touchedTotal];
-                for (int term = 0; term < touchedTotal; term++) {
-                    expansionCoefficients[substituted][term] = accumulated[touchedColumns[term]];
-                    accumulated[touchedColumns[term]] = 0;
-                }
-            }
-
-            double[] fixedValue = new double[variableTotal];
-            double[] valueBound = new double[variableTotal];
-            int[] indicatorOfVariable = new int[variableTotal];
-            int[] slotOfVariable = new int[variableTotal];
-            double[] firstValues = new double[variableTotal];
-            int indicatorTotal = 0;
-            for (int variable = 0; variable < variableTotal; variable++) {
-                for (int term = 0; term < expansionColumns[variable].length; term++) {
-                    firstValues[variable] += expansionCoefficients[variable][term]
-                            * Math.rint(incumbent[expansionColumns[variable][term]]);
-                }
-                double bound = !inEquality[variable] ? 1.0
-                        : weights[variable] > 0.0
-                                ? Math.floor(objectiveCeiling / weights[variable] + INTEGRALITY_TOLERANCE)
-                                : Double.NaN;
-                valueBound[variable] = bound;
-                fixedValue[variable] = Double.isNaN(bound) ? firstValues[variable]
-                        : bound == 0.0 ? 0.0 : Double.NaN;
-                indicatorOfVariable[variable] = bound > 1.0 ? indicatorTotal++ : -1;
-            }
-            int tieColumns = columns + indicatorTotal;
-            int substitutionRowStart = rowTotal;
-            int ceilingRow = rowTotal + substitutionTotal;
-            int indicatorRowStart = ceilingRow + 1;
-            int tieRows = indicatorRowStart + indicatorTotal;
-            int tieSlots = tieColumns + tieRows;
-            double[] tieTableau = new double[(tieRows + 1) * tieColumns];
-            double[] tieBounds = new double[2 * tieSlots];
-            for (int row = 0; row < rowTotal; row++) {
-                System.arraycopy(initialTableau, row * columns, tieTableau, row * tieColumns, columns);
-                boolean equality = tableauSourceRow[row] < equalityTotal;
-                tieBounds[tieColumns + row] = equality ? 0.0 : 1.0;
-                tieBounds[tieSlots + tieColumns + row] = equality ? 0.0 : Double.POSITIVE_INFINITY;
-            }
-            for (int column = 0; column < columns; column++) {
-                tieTableau[ceilingRow * tieColumns + column] = presolvedWeights[variableOfColumn[column]];
-                tieBounds[column] = columnLower[column];
-                tieBounds[tieSlots + column] = Double.POSITIVE_INFINITY;
-            }
-            tieBounds[tieSlots + tieColumns + ceilingRow] = objectiveCeiling;
-            for (int variable = 0; variable < variableTotal; variable++) {
-                int substitution = eliminated[variable] ? substitutionOfVariable[variable] : -1;
-                slotOfVariable[variable] = substitution < 0 ? columnOfVariable[variable]
-                        : tieColumns + substitutionRowStart + substitution;
-                int indicator = indicatorOfVariable[variable];
-                int[] termColumns = expansionColumns[variable];
-                int[] termCoefficients = expansionCoefficients[variable];
-                for (int term = 0; term < termColumns.length; term++) {
-                    if (substitution >= 0) {
-                        tieTableau[(substitutionRowStart + substitution) * tieColumns + termColumns[term]] =
-                                termCoefficients[term];
-                    }
-                    if (indicator >= 0) {
-                        tieTableau[(indicatorRowStart + indicator) * tieColumns + termColumns[term]] =
-                                termCoefficients[term];
-                    } else if (Double.isNaN(fixedValue[variable])) {
-                        tieTableau[tieRows * tieColumns + termColumns[term]] += termCoefficients[term];
-                    }
-                }
-                int slot = slotOfVariable[variable];
-                if (substitution >= 0) {
-                    tieBounds[tieSlots + slot] = Double.POSITIVE_INFINITY;
-                }
-                if (!Double.isNaN(fixedValue[variable])) {
-                    tieBounds[slot] = fixedValue[variable];
-                    tieBounds[tieSlots + slot] = fixedValue[variable];
-                } else {
-                    tieBounds[tieSlots + slot] = valueBound[variable];
-                }
-                if (indicator >= 0) {
-                    int indicatorRow = indicatorRowStart + indicator;
-                    tieTableau[indicatorRow * tieColumns + columns + indicator] = -valueBound[variable];
-                    tieTableau[tieRows * tieColumns + columns + indicator] = 1.0;
-                    tieBounds[tieSlots + columns + indicator] = 1.0;
-                    tieBounds[tieColumns + indicatorRow] = -valueBound[variable];
-                }
-            }
-            double rootGap = objectiveCeiling - rootRelaxation;
-            for (int column = 0; column < columns; column++) {
-                int slot = rootBasis[rowTotal + column];
-                if (Math.abs(rootReducedCosts[column]) > rootGap) {
-                    double value = bounds[(rootAtUpper[slot] ? variableSlots : 0) + slot];
-                    int tieSlot = slot < columns ? slot : tieColumns + slot - columns;
-                    tieBounds[tieSlot] = value;
-                    tieBounds[tieSlots + tieSlot] = value;
-                }
-            }
-            double[] rootTieBounds = tieBounds;
-
-            int[] componentOfColumn = UnionFind.singletons(tieColumns);
-            boolean[] ceilingCoupled = new boolean[tieColumns];
-            for (int column = 0; column < columns; column++) {
-                int slot = rootBasis[rowTotal + column];
-                double reducedCost = Math.abs(rootReducedCosts[column]);
-                int tieSlot = slot < columns ? slot : tieColumns + slot - columns;
-                if (reducedCost == 0.0 || reducedCost > rootGap
-                        || rootTieBounds[tieSlot] == rootTieBounds[tieSlots + tieSlot]) {
-                    continue;
-                }
-                for (int member = 0; member < columns; member++) {
-                    ceilingCoupled[member] |= slot < columns ? member == slot
-                            : tieTableau[(slot - columns) * tieColumns + member] != 0.0;
-                }
-            }
-            for (int row = 0; row <= tieRows; row++) {
-                if (row == ceilingRow) {
-                    continue;
-                }
-                int anchor = -1;
-                for (int column = 0; column < tieColumns; column++) {
-                    boolean joins = row < tieRows ? tieTableau[row * tieColumns + column] != 0.0
-                            : ceilingCoupled[column];
-                    if (!joins || rootTieBounds[column] == rootTieBounds[tieSlots + column]) {
-                        continue;
-                    }
-                    if (anchor < 0) {
-                        anchor = column;
-                    }
-                    UnionFind.union(componentOfColumn, anchor, column);
-                }
-            }
-            for (int column = 0; column < tieColumns; column++) {
-                componentOfColumn[column] = UnionFind.find(componentOfColumn, column);
-            }
-            for (int column = 0; column < tieColumns; column++) {
-                if (rootTieBounds[column] == rootTieBounds[tieSlots + column]) {
-                    componentOfColumn[column] = -1;
-                }
-            }
-            int[] componentOfVariable = new int[variableTotal];
-            int[] componentSize = new int[tieColumns + 1];
-            for (int variable = 0; variable < variableTotal; variable++) {
-                int component = -1;
-                for (int column : expansionColumns[variable]) {
-                    if (Double.isNaN(fixedValue[variable]) && component < 0) {
-                        component = componentOfColumn[column];
-                    }
-                }
-                componentOfVariable[variable] = component;
-                componentSize[component + 1]++;
-            }
-            int[] componentStart = new int[tieColumns + 1];
-            for (int component = 1; component <= tieColumns; component++) {
-                componentStart[component] = componentStart[component - 1] + componentSize[component];
-            }
-            int[] variablesByComponent = new int[variableTotal];
-            int[] componentFill = componentStart.clone();
-            for (int variable = 0; variable < variableTotal; variable++) {
-                if (componentOfVariable[variable] >= 0) {
-                    variablesByComponent[componentFill[componentOfVariable[variable]]++] = variable;
-                }
-            }
-
-            double[] witness = firstValues;
-            List<double[]> searchBounds = new ArrayList<>();
-            List<Double> searchRelaxations = new ArrayList<>();
-            PriorityQueue<Integer> searchFrontier = new PriorityQueue<>((first, second) -> {
-                int byBound = Double.compare(searchRelaxations.get(first), searchRelaxations.get(second));
-                return byBound != 0 ? byBound : Integer.compare(second, first);
-            });
-            int coupledComponent = -1;
-            for (int column = 0; column < tieColumns; column++) {
-                if (ceilingCoupled[column] && componentOfColumn[column] >= 0) {
-                    coupledComponent = componentOfColumn[column];
-                }
-            }
-            int[] componentOfRow = new int[tieRows];
-            for (int row = 0; row < tieRows; row++) {
-                componentOfRow[row] = row == ceilingRow ? coupledComponent : -1;
-                for (int column = 0; column < tieColumns && row != ceilingRow; column++) {
-                    if (tieTableau[row * tieColumns + column] != 0.0 && componentOfColumn[column] >= 0) {
-                        componentOfRow[row] = componentOfColumn[column];
-                        break;
-                    }
-                }
-            }
-            int[] localColumnOf = new int[tieColumns];
-            int[] localRowOf = new int[tieRows];
-            for (int component = 0; component < tieColumns; component++) {
-                int start = componentStart[component];
-                int end = componentStart[component + 1];
-                if (start == end) {
-                    continue;
-                }
-                int localColumns = 0;
-                for (int column = 0; column < tieColumns; column++) {
-                    localColumnOf[column] = componentOfColumn[column] == component ? localColumns++ : -1;
-                }
-                int localRows = 0;
-                for (int row = 0; row < tieRows; row++) {
-                    localRowOf[row] = componentOfRow[row] == component ? localRows++ : -1;
-                }
-                int localSlots = localColumns + localRows;
-                double[] localTableau = new double[(localRows + 1) * localColumns];
-                double[] lexBounds = new double[2 * localSlots];
-                for (int column = 0; column < tieColumns; column++) {
-                    int local = localColumnOf[column];
-                    if (local >= 0) {
-                        lexBounds[local] = rootTieBounds[column];
-                        lexBounds[localSlots + local] = rootTieBounds[tieSlots + column];
-                        localTableau[localRows * localColumns + local] = tieTableau[tieRows * tieColumns + column];
-                    }
-                }
-                for (int row = 0; row < tieRows; row++) {
-                    int local = localRowOf[row];
-                    if (local < 0) {
-                        continue;
-                    }
-                    double constant = 0.0;
-                    for (int column = 0; column < tieColumns; column++) {
-                        double coefficient = tieTableau[row * tieColumns + column];
-                        if (coefficient != 0.0 && localColumnOf[column] >= 0) {
-                            localTableau[local * localColumns + localColumnOf[column]] = coefficient;
-                        } else if (coefficient != 0.0) {
-                            constant += coefficient * (componentOfColumn[column] < 0 ? rootTieBounds[column]
-                                    : Math.rint(incumbent[column]));
-                        }
-                    }
-                    lexBounds[localColumns + local] = rootTieBounds[tieColumns + row] - constant;
-                    lexBounds[localSlots + localColumns + local] = rootTieBounds[tieSlots + tieColumns + row] - constant;
-                }
-                boolean tightened = true;
-                for (int pass = 0; pass < PROPAGATION_PASSES && tightened; pass++) {
-                    tightened = false;
-                    for (int row = 0; row < localRows; row++) {
-                        double lowest = 0.0;
-                        double highest = 0.0;
-                        for (int column = 0; column < localColumns; column++) {
-                            double coefficient = localTableau[row * localColumns + column];
-                            if (coefficient != 0.0) {
-                                lowest += coefficient * lexBounds[(coefficient > 0.0 ? 0 : localSlots) + column];
-                                highest += coefficient * lexBounds[(coefficient > 0.0 ? localSlots : 0) + column];
-                            }
-                        }
-                        double rowLow = lexBounds[localColumns + row];
-                        double rowHigh = lexBounds[localSlots + localColumns + row];
-                        for (int column = 0; column < localColumns; column++) {
-                            double coefficient = localTableau[row * localColumns + column];
-                            if (coefficient == 0.0) {
-                                continue;
-                            }
-                            double ownLowest = coefficient * lexBounds[(coefficient > 0.0 ? 0 : localSlots) + column];
-                            double ownHighest = coefficient * lexBounds[(coefficient > 0.0 ? localSlots : 0) + column];
-                            double upper = coefficient > 0.0 ? (rowHigh - (lowest - ownLowest)) / coefficient
-                                    : (rowLow - (highest - ownHighest)) / coefficient;
-                            double lower = coefficient > 0.0 ? (rowLow - (highest - ownHighest)) / coefficient
-                                    : (rowHigh - (lowest - ownLowest)) / coefficient;
-                            upper = Math.floor(upper + INTEGRALITY_TOLERANCE);
-                            lower = Math.ceil(lower - INTEGRALITY_TOLERANCE);
-                            if (upper < lexBounds[localSlots + column] && upper >= lexBounds[column]) {
-                                lexBounds[localSlots + column] = upper;
-                                tightened = true;
-                            }
-                            if (lower > lexBounds[column] && lower <= lexBounds[localSlots + column]) {
-                                lexBounds[column] = lower;
-                                tightened = true;
-                            }
-                        }
-                    }
-                }
-                for (int member = 0; member < end - start; member++) {
-                    int variable = variablesByComponent[start + member];
-                    int indicatorColumn = indicatorOfVariable[variable] < 0 ? -1
-                            : localColumnOf[columns + indicatorOfVariable[variable]];
-                    if (indicatorColumn < 0) {
-                        continue;
-                    }
-                    int row = localRowOf[indicatorRowStart + indicatorOfVariable[variable]];
-                    double valueMaximum = -lexBounds[localSlots + localColumns + row];
-                    for (int column = 0; column < localColumns; column++) {
-                        double coefficient = localTableau[row * localColumns + column];
-                        if (column != indicatorColumn && coefficient != 0.0) {
-                            valueMaximum += coefficient * lexBounds[(coefficient > 0.0 ? localSlots : 0) + column];
-                        }
-                    }
-                    double tightBound = Math.max(1.0, Math.floor(valueMaximum + INTEGRALITY_TOLERANCE));
-                    double looseBound = -localTableau[row * localColumns + indicatorColumn];
-                    if (tightBound < looseBound) {
-                        localTableau[row * localColumns + indicatorColumn] = -tightBound;
-                        lexBounds[localColumns + row] += looseBound - tightBound;
-                    }
-                }
-                int[] localBasis = new int[localRows + localColumns];
-                for (int row = 0; row < localRows; row++) {
-                    localBasis[row] = localColumns + row;
-                }
-                for (int column = 0; column < localColumns; column++) {
-                    localBasis[localRows + column] = column;
-                }
-                boolean[] localAtUpper = new boolean[localSlots];
-                double[] localValues = new double[localRows];
-                double[] localRowWeights = new double[localRows];
-                int[] localRowOfSlot = new int[localSlots];
-                double[] localBounds = new double[2 * localSlots];
-                int[] memberSlot = new int[end - start];
-                int[] memberIndicatorSlot = new int[end - start];
-                for (int member = 0; member < end - start; member++) {
-                    int variable = variablesByComponent[start + member];
-                    int slot = slotOfVariable[variable];
-                    memberSlot[member] = slot < tieColumns ? localColumnOf[slot]
-                            : localColumns + localRowOf[slot - tieColumns];
-                    memberIndicatorSlot[member] = indicatorOfVariable[variable] < 0 ? -1
-                            : localColumnOf[columns + indicatorOfVariable[variable]];
-                }
-                int fewest = 0;
-                for (int position = start; position < end; position++) {
-                    fewest += witness[variablesByComponent[position]] > 0.0 ? 1 : 0;
-                }
-                int position = start - 1;
-                while (position < end) {
-                    int lexVariable = position < start ? -1 : variablesByComponent[position];
-                    double[] searchStart = lexBounds.clone();
-                    int cap = fewest - 1;
-                    if (lexVariable >= 0) {
-                        int slot = memberSlot[position - start];
-                        int indicatorSlot = memberIndicatorSlot[position - start];
-                        double value = witness[lexVariable];
-                        if (value <= lexBounds[slot]) {
-                            lexBounds[localSlots + slot] = value;
-                            if (indicatorSlot >= 0 && value == 0.0) {
-                                lexBounds[localSlots + indicatorSlot] = 0.0;
-                            } else if (indicatorSlot >= 0) {
-                                lexBounds[indicatorSlot] = 1.0;
-                            }
-                            position++;
-                            continue;
-                        }
-                        searchStart[localSlots + slot] = value - 1.0;
-                        if (indicatorSlot >= 0 && value == 1.0) {
-                            searchStart[localSlots + indicatorSlot] = 0.0;
-                        }
-                        cap = fewest;
-                    }
-                    boolean found = false;
-                    searchBounds.clear();
-                    searchRelaxations.clear();
-                    searchFrontier.clear();
-                    searchBounds.add(searchStart);
-                    searchRelaxations.add(Double.NEGATIVE_INFINITY);
-                    searchFrontier.add(0);
-                    while (!searchFrontier.isEmpty() && !(found && lexVariable >= 0)) {
-                        int node = searchFrontier.poll();
-                        double[] nodeTieBounds = searchBounds.get(node);
-                        searchBounds.set(node, null);
-                        if (searchRelaxations.get(node) > cap + INTEGRALITY_TOLERANCE) {
-                            continue;
-                        }
-                        System.arraycopy(nodeTieBounds, 0, localBounds, 0, localBounds.length);
-                        for (int column = 0; column < localColumns; column++) {
-                            int slot = localBasis[localRows + column];
-                            double reducedCost = localTableau[localRows * localColumns + column];
-                            localAtUpper[slot] = localBounds[localSlots + slot] < Double.POSITIVE_INFINITY
-                                    && (reducedCost < 0.0 || reducedCost == 0.0 && localAtUpper[slot]);
-                        }
-                        if (!dualSimplex(localTableau, localBasis, localBounds, localAtUpper, localRows,
-                                localColumns, localValues, localRowWeights)) {
-                            continue;
-                        }
-                        Arrays.fill(localRowOfSlot, -1);
-                        for (int row = 0; row < localRows; row++) {
-                            localRowOfSlot[localBasis[row]] = row;
-                        }
-                        double nodeCount = 0.0;
-                        int nonZeros = 0;
-                        int branchMember = -1;
-                        double branchFractionality = 0.0;
-                        double branchDown = 0.0;
-                        double branchUp = 0.0;
-                        for (int member = 0; member < end - start; member++) {
-                            int slot = memberSlot[member];
-                            double value = localRowOfSlot[slot] >= 0 ? localValues[localRowOfSlot[slot]]
-                                    : localBounds[(localAtUpper[slot] ? localSlots : 0) + slot];
-                            int indicatorSlot = memberIndicatorSlot[member];
-                            double indicatorValue = indicatorSlot < 0 ? value
-                                    : localRowOfSlot[indicatorSlot] >= 0 ? localValues[localRowOfSlot[indicatorSlot]]
-                                            : localBounds[(localAtUpper[indicatorSlot] ? localSlots : 0)
-                                                    + indicatorSlot];
-                            nodeCount += indicatorValue;
-                            double fractionality = Math.abs(value - Math.rint(value));
-                            if (fractionality > INTEGRALITY_TOLERANCE && fractionality > branchFractionality) {
-                                branchFractionality = fractionality;
-                                branchMember = member;
-                                branchDown = Math.floor(value);
-                                branchUp = Math.ceil(value);
-                            } else if (fractionality <= INTEGRALITY_TOLERANCE && Math.rint(value) >= 1.0) {
-                                nonZeros++;
-                                if (indicatorValue < 1.0 - INTEGRALITY_TOLERANCE && branchMember < 0) {
-                                    branchMember = member;
-                                    branchDown = 0.0;
-                                    branchUp = 1.0;
-                                }
-                            }
-                        }
-                        if (nodeCount > cap + INTEGRALITY_TOLERANCE) {
-                            continue;
-                        }
-                        if (branchMember < 0) {
-                            found = true;
-                            fewest = nonZeros;
-                            cap = lexVariable < 0 ? nonZeros - 1 : cap;
-                            for (int member = 0; member < end - start; member++) {
-                                int slot = memberSlot[member];
-                                witness[variablesByComponent[start + member]] = Math.rint(localRowOfSlot[slot] >= 0
-                                        ? localValues[localRowOfSlot[slot]]
-                                        : localBounds[(localAtUpper[slot] ? localSlots : 0) + slot]);
-                            }
-                            continue;
-                        }
-                        int slot = memberSlot[branchMember];
-                        int indicatorSlot = memberIndicatorSlot[branchMember];
-                        double[] down = localBounds.clone();
-                        down[localSlots + slot] = branchDown;
-                        if (branchDown == 0.0 && indicatorSlot >= 0) {
-                            down[localSlots + indicatorSlot] = 0.0;
-                        }
-                        double[] up = localBounds.clone();
-                        up[slot] = branchUp;
-                        if (indicatorSlot >= 0) {
-                            up[indicatorSlot] = 1.0;
-                        }
-                        for (double[] child : new double[][] {down, up}) {
-                            if (child[slot] <= child[localSlots + slot]) {
-                                searchBounds.add(child);
-                                searchRelaxations.add(nodeCount);
-                                searchFrontier.add(searchBounds.size() - 1);
-                            }
-                        }
-                    }
-                    if (lexVariable < 0) {
-                        position++;
-                    } else if (!found) {
-                        lexBounds[memberSlot[position - start]] = witness[lexVariable];
-                    }
-                }
-            }
-            for (int column = 0; column < columns; column++) {
-                incumbent[column] = witness[variableOfColumn[column]];
-            }
         }
         values = new int[variableTotal];
         for (int column = 0; column < columns; column++) {
