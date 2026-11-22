@@ -162,6 +162,31 @@ class ZeroArcCollapseOrderTest {
     }
 
     /**
+     * A zero arc between two critical nodes is passed over, and is offered once one
+     * of its nodes may move again although its path never changed.
+     */
+    @Test
+    void aZeroArcThatBecomesCollapsibleIsOfferedAgain() {
+        EmbeddedMeshTopology topology = new EmbeddedMeshTopology(
+                GridMeshNode.triangulated(COLUMNS, ROWS));
+        ArcNetwork tmesh = new ArcNetwork(topology);
+        int start = tmesh.addNode(ArcNetwork.NONE, vertex(topology, CRITICAL_COLUMN, MIDDLE_ROW),
+                true, false);
+        int end = tmesh.addNode(ArcNetwork.NONE, vertex(topology, NEAR_COLUMN, MIDDLE_ROW), true,
+                false);
+        int fixedArc = tmesh.addArc(ArcNetwork.NONE, start, end, 0, false,
+                row(topology, CRITICAL_COLUMN, NEAR_COLUMN));
+        ZeroArcCollapseOperator collapse = new NetworkContraction(tmesh).collapseArc;
+        assertEquals(ArcNetwork.NONE, collapse.shortestZeroArc(),
+                "a zero arc between two critical nodes is not collapsible");
+
+        tmesh.nodes.get(end).critical = false;
+
+        assertEquals(fixedArc, collapse.shortestZeroArc(),
+                "the arc is offered once its end node may move");
+    }
+
+    /**
      * The fewest working-copy edges on any live zero arc.
      *
      * @param tmesh network to scan

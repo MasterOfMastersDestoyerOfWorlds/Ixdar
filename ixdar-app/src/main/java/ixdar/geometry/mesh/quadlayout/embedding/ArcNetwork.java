@@ -100,6 +100,12 @@ public class ArcNetwork {
     public final IntIdList stepPatchLog = new IntIdList(0);
 
     /**
+     * Every arc whose edge path was replaced, in order, with duplicates; the zero-arc
+     * frontier re-keys from it, so an arc absent here still has the path it was queued with.
+     */
+    public final IntIdList arcPathLog = new IntIdList(0);
+
+    /**
      * The corridor of the re-route attempt that just failed, held for the failure
      * diagnostic. Refinement splits an edge only when both endpoints are corridor
      * members.
@@ -316,12 +322,11 @@ public class ArcNetwork {
                         edges.add(requireEdge(arcId, vertexPath.get(index - 1),
                                 vertexPath.get(index)));
                     }
-                    arc.path = new ArcEdgePath(arcId, vertexPath, edges);
                     arc.feature = embedding.featureByArc[arcId];
                     arc.alive = true;
                     arcEndsByNode.get(arc.startNodeId).add(arcId);
                     arcEndsByNode.get(arc.endNodeId).add(arcId);
-                    topology.claimPath(arcId, arc.path);
+                    setArcPath(arcId, new ArcEdgePath(arcId, vertexPath, edges));
                 }
             }
         }
@@ -443,7 +448,7 @@ public class ArcNetwork {
                 feature, path));
         arcEndsByNode.get(startNodeId).add(arcId);
         arcEndsByNode.get(endNodeId).add(arcId);
-        topology.claimPath(arcId, path);
+        setArcPath(arcId, path);
         return arcId;
     }
 
@@ -810,8 +815,21 @@ public class ArcNetwork {
         for (int index = 1; index < vertices.size(); index++) {
             edges.add(requireEdge(arcId, vertices.get(index - 1), vertices.get(index)));
         }
-        arc.path = new ArcEdgePath(arcId, vertices, edges);
-        topology.claimPath(arcId, arc.path);
+        setArcPath(arcId, new ArcEdgePath(arcId, vertices, edges));
+    }
+
+    /**
+     * Gives an arc a new edge path, claims its edges and interior vertices, and logs it in
+     * {@link #arcPathLog}. Every path an arc takes is set here:
+     * {@link ZeroArcCollapseOperator#shortestZeroArc} re-keys only logged arcs.
+     *
+     * @param arcId arc whose path is replaced
+     * @param path  its new path
+     */
+    public void setArcPath(int arcId, ArcEdgePath path) {
+        arcs.get(arcId).path = path;
+        topology.claimPath(arcId, path);
+        arcPathLog.add(arcId);
     }
 
     /**
@@ -1324,9 +1342,11 @@ public class ArcNetwork {
                 List<Integer> path = arc.path.copyVertexPath;
                 if (path.size() == 2) {
                     int minted = topology.splitEdgeAtMidpoint(arc.path.copyEdgePath.get(0));
-                    path.add(1, minted);
-                    arc.path.copyEdgePath.set(0, topology.copy.edgeBetween(path.get(0), minted));
-                    arc.path.copyEdgePath.add(1, topology.copy.edgeBetween(minted, path.get(2)));
+                    List<Integer> vertices = new ArrayList<>(List.of(path.get(0), minted, path.get(1)));
+                    List<Integer> edges = new ArrayList<>(List.of(
+                            topology.copy.edgeBetween(path.get(0), minted),
+                            topology.copy.edgeBetween(minted, path.get(1))));
+                    setArcPath(arcId, new ArcEdgePath(arcId, vertices, edges));
                 }
                 int pathVertexIndex = interiorPathVertexAtFraction(arc,
                         (double) arcOffset / arc.quantizedLength);

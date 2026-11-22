@@ -2,16 +2,15 @@ package ixdar.numeric.graph;
 
 import java.util.Arrays;
 
+import ixdar.geometry.mesh.data.representation.IntIdMinHeap;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * The one shared Dijkstra core over a graph its caller walks: {@link #start}, {@link #relax} the
  * sources, then relax each {@link #settle}d node's neighbours. Relaxation is strict, and ties pop
- * in {@link java.util.PriorityQueue} order.
+ * the lower node id first.
  */
 public final class Dijkstra {
-
-    private static final int GROWTH = 2;
 
     private static final int STAMPS_PER_RUN = 2;
 
@@ -24,11 +23,7 @@ public final class Dijkstra {
 
     private int stamp = -1;
 
-    private double[] frontierPriority = new double[1];
-
-    private int[] frontierNode = new int[1];
-
-    private int frontierSize;
+    private final IntIdMinHeap frontier = new IntIdMinHeap(0);
 
     /**
      * Runs multi-source Dijkstra over a mesh's edges.
@@ -114,7 +109,7 @@ public final class Dijkstra {
             stamp = -1;
         }
         stamp += STAMPS_PER_RUN;
-        frontierSize = 0;
+        frontier.clear();
     }
 
     /**
@@ -147,22 +142,7 @@ public final class Dijkstra {
         visit[node] = stamp;
         distance[node] = candidate;
         this.via[node] = via;
-        if (frontierSize == frontierNode.length) {
-            frontierPriority = Arrays.copyOf(frontierPriority, frontierSize * GROWTH);
-            frontierNode = Arrays.copyOf(frontierNode, frontierSize * GROWTH);
-        }
-        int slot = frontierSize++;
-        while (slot > 0) {
-            int parent = (slot - 1) >>> 1;
-            if (Double.compare(priority, frontierPriority[parent]) >= 0) {
-                break;
-            }
-            frontierPriority[slot] = frontierPriority[parent];
-            frontierNode[slot] = frontierNode[parent];
-            slot = parent;
-        }
-        frontierPriority[slot] = priority;
-        frontierNode[slot] = node;
+        frontier.insertOrUpdate(node, priority);
         return true;
     }
 
@@ -173,35 +153,12 @@ public final class Dijkstra {
      * @return the settled node, or -1 when the frontier is empty
      */
     public int settle() {
-        while (frontierSize > 0) {
-            int node = frontierNode[0];
-            frontierSize--;
-            double key = frontierPriority[frontierSize];
-            int moved = frontierNode[frontierSize];
-            int slot = 0;
-            int half = frontierSize >>> 1;
-            while (slot < half) {
-                int child = (slot << 1) + 1;
-                int right = child + 1;
-                if (right < frontierSize
-                        && Double.compare(frontierPriority[child], frontierPriority[right]) > 0) {
-                    child = right;
-                }
-                if (Double.compare(key, frontierPriority[child]) <= 0) {
-                    break;
-                }
-                frontierPriority[slot] = frontierPriority[child];
-                frontierNode[slot] = frontierNode[child];
-                slot = child;
-            }
-            frontierPriority[slot] = key;
-            frontierNode[slot] = moved;
-            if (visit[node] == stamp) {
-                visit[node] = stamp + 1;
-                return node;
-            }
+        if (frontier.isEmpty()) {
+            return -1;
         }
-        return -1;
+        int node = frontier.pollId();
+        visit[node] = stamp + 1;
+        return node;
     }
 
     /**

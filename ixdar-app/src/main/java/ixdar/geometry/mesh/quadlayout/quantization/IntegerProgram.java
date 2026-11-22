@@ -1,10 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.quantization;
 
+import ixdar.geometry.mesh.data.representation.IntIdMinHeap;
 import ixdar.platform.Platforms;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.PriorityQueue;
 
 /**
  * Exact integer program for quantization: minimise a non-negative weighting of non-negative
@@ -361,10 +361,7 @@ public final class IntegerProgram {
         // An open node keeps its bound changes, a chain shared with its ancestors, and its own
         // solved basis, from which it is refactored and re-solved when it is taken up.
         List<OpenNode> open = new ArrayList<>();
-        PriorityQueue<Integer> frontier = new PriorityQueue<>((first, second) -> {
-            int byBound = Double.compare(open.get(first).relaxation, open.get(second).relaxation);
-            return byBound != 0 ? byBound : Integer.compare(second, first);
-        });
+        IntIdMinHeap frontier = new IntIdMinHeap(0, true);
         // The node in hand, solved: the root first, then after each branch its better child, so the
         // search plunges to an incumbent before it widens.
         SparseDualSimplex root = new SparseDualSimplex(matrix, rootLower.clone(), rootUpper.clone());
@@ -403,7 +400,7 @@ public final class IntegerProgram {
             if (System.nanoTime() >= nextProgressNanos) {
                 nextProgressNanos = System.nanoTime() + PROGRESS_INTERVAL_NANOS;
                 double bestBound = frontier.isEmpty() ? Double.POSITIVE_INFINITY
-                        : open.get(frontier.peek()).relaxation;
+                        : frontier.peekPriority();
                 if (node != null) {
                     bestBound = Math.min(bestBound, relaxation);
                 }
@@ -412,7 +409,7 @@ public final class IntegerProgram {
                         (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
             }
             if (node == null) {
-                int index = frontier.poll();
+                int index = frontier.pollId();
                 OpenNode stored = open.get(index);
                 open.set(index, null);
                 if (stored.relaxation >= pruneAt) {
@@ -623,7 +620,7 @@ public final class IntegerProgram {
                 int other = 1 - plunge;
                 if (other == 0 ? downOpen : upOpen) {
                     open.add(new OpenNode(branchRelaxations[other], branchChanges[other], branchChildren[other]));
-                    frontier.add(open.size() - 1);
+                    frontier.insertOrUpdate(open.size() - 1, branchRelaxations[other]);
                 }
                 node = branchChildren[plunge];
                 nodeChanges = branchChanges[plunge];

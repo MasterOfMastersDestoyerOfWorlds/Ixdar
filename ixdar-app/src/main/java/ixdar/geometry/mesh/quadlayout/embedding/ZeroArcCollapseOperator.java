@@ -9,6 +9,7 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
+import ixdar.geometry.mesh.data.representation.IntIdMinHeap;
 import ixdar.geometry.mesh.quadlayout.embedding.model.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
@@ -23,8 +24,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
  * See also: LCBK19 Section 6.1, "Operator Implementation", and Def 6.2
  */
 public final class ZeroArcCollapseOperator {
-
-    private static final int CANDIDATE_INITIAL_CAPACITY = 256;
 
     private static final String GROUP_CHANNEL = "collapsing arc";
 
@@ -119,16 +118,28 @@ public final class ZeroArcCollapseOperator {
     /** The last dragged arc's path before its drag, for the step view. */
     public final List<Integer> lastDraggedPreviousPath = new ArrayList<>();
 
-    /** Live zero arcs still worth testing, compacted as arcs die. */
-    public int[] zeroArcCandidates = new int[0];
+    /**
+     * Zero arcs by working-copy edge count, ties by lower arc id. A live zero arc that is not
+     * parked is held at its current count; dead arcs are dropped as they surface.
+     */
+    public final IntIdMinHeap zeroArcFrontier = new IntIdMinHeap(0);
 
-    /** Live entry count of {@link #zeroArcCandidates}. */
-    public int zeroArcCandidateCount;
+    /**
+     * Zero arcs the frontier surfaced while neither node could move. A merge can make one
+     * collapsible again without touching its path, so they are re-tested on every query.
+     */
+    public final IntIdList parkedZeroArcs = new IntIdList(0);
+
+    /** Whether each arc id is in {@link #parkedZeroArcs}. */
+    public boolean[] zeroArcParked = new boolean[0];
 
     /**
      * Arc-list size already swept for new zero arcs; the split operator adds more.
      */
     public int scannedArcBound;
+
+    /** Entries of {@link ArcNetwork#arcPathLog} already offered to the frontier. */
+    public int arcPathLogBound;
 
     /**
      * Stores the T-mesh to operate on and builds the re-router over its working
@@ -143,42 +154,106 @@ public final class ZeroArcCollapseOperator {
 
     /**
      * The collapsible zero arc with the fewest working-copy edges, since every fan
-     * arc threads beside its whole length. Lengths are re-read each call, as drags
-     * re-route zero arcs; ties keep the lowest arc id.
+     * arc threads beside its whole length; ties keep the lowest arc id. Only arcs
+     * whose path changed since the last call are re-keyed, read off
+     * {@link ArcNetwork#arcPathLog}.
      *
+     * @throws IllegalStateException when
+     *                               {@link NetworkContraction#VALIDATE_EVERY_COLLAPSE}
+     *                               is set and a full scan disagrees, meaning some
+     *                               path was assigned without {@link ArcNetwork#setArcPath}
      * @return the chosen zero arc id, or {@link ArcNetwork#NONE} when none remains
      */
     public int shortestZeroArc() {
         for (int arcId = scannedArcBound; arcId < tmesh.arcs.size(); arcId++) {
-            if (tmesh.arcs.get(arcId).quantizedLength != 0) {
-                continue;
-            }
-            if (zeroArcCandidateCount == zeroArcCandidates.length) {
-                zeroArcCandidates = Arrays.copyOf(zeroArcCandidates,
-                        Math.max(CANDIDATE_INITIAL_CAPACITY, zeroArcCandidateCount * 2));
-            }
-            zeroArcCandidates[zeroArcCandidateCount++] = arcId;
+            offerZeroArc(arcId);
         }
         scannedArcBound = tmesh.arcs.size();
-
+        for (; arcPathLogBound < tmesh.arcPathLog.size(); arcPathLogBound++) {
+            offerZeroArc(tmesh.arcPathLog.get(arcPathLogBound));
+        }
         int found = ArcNetwork.NONE;
-        int fewestEdges = Integer.MAX_VALUE;
-        int keep = 0;
-        for (int index = 0; index < zeroArcCandidateCount; index++) {
-            int arcId = zeroArcCandidates[index];
+        while (!zeroArcFrontier.isEmpty()) {
+            int arcId = zeroArcFrontier.peekId();
             EmbeddedArc arc = tmesh.arcs.get(arcId);
             if (!arc.alive) {
+                zeroArcFrontier.pollId();
                 continue;
             }
-            zeroArcCandidates[keep++] = arcId;
-            int edges = arc.path.copyEdgePath.size();
-            if (edges < fewestEdges && movingEndpoint(arc) != ArcNetwork.NONE) {
+            if (movingEndpoint(arc) == ArcNetwork.NONE) {
+                zeroArcFrontier.pollId();
+                if (arcId >= zeroArcParked.length) {
+                    zeroArcParked = Arrays.copyOf(zeroArcParked,
+                            Math.max(arcId + 1, zeroArcParked.length * 2));
+                }
+                if (!zeroArcParked[arcId]) {
+                    zeroArcParked[arcId] = true;
+                    parkedZeroArcs.add(arcId);
+                }
+                continue;
+            }
+            found = arcId;
+            break;
+        }
+        int keep = 0;
+        for (int index = 0; index < parkedZeroArcs.size(); index++) {
+            int arcId = parkedZeroArcs.get(index);
+            EmbeddedArc arc = tmesh.arcs.get(arcId);
+            if (!arc.alive) {
+                zeroArcParked[arcId] = false;
+                continue;
+            }
+            parkedZeroArcs.values[keep++] = arcId;
+            if (takesBefore(arc, found) && movingEndpoint(arc) != ArcNetwork.NONE) {
                 found = arcId;
-                fewestEdges = edges;
             }
         }
-        zeroArcCandidateCount = keep;
+        parkedZeroArcs.size = keep;
+        if (NetworkContraction.VALIDATE_EVERY_COLLAPSE) {
+            int scanned = ArcNetwork.NONE;
+            for (EmbeddedArc arc : tmesh.arcs) {
+                if (arc.alive && arc.quantizedLength == 0 && takesBefore(arc, scanned)
+                        && movingEndpoint(arc) != ArcNetwork.NONE) {
+                    scanned = arc.arcId;
+                }
+            }
+            if (scanned != found) {
+                throw new IllegalStateException("the zero-arc frontier answers operator (1) with "
+                        + found + " but a full scan finds " + scanned
+                        + "; an arc path was assigned without ArcNetwork.setArcPath");
+            }
+        }
         return found;
+    }
+
+    /**
+     * Queues a live zero arc on the frontier at its working-copy edge count, or moves it
+     * there; any other arc is ignored.
+     *
+     * @param arcId arc that is new or whose path changed
+     */
+    private void offerZeroArc(int arcId) {
+        EmbeddedArc arc = tmesh.arcs.get(arcId);
+        if (arc.alive && arc.quantizedLength == 0) {
+            zeroArcFrontier.insertOrUpdate(arcId, arc.path.copyEdgePath.size());
+        }
+    }
+
+    /**
+     * Whether {@link #shortestZeroArc} takes an arc before another: fewer working-copy edges
+     * first, then the lower arc id.
+     *
+     * @param arc     zero arc to compare
+     * @param otherId the arc it is compared with, or {@link ArcNetwork#NONE} for none yet
+     * @return true when the arc comes first
+     */
+    private boolean takesBefore(EmbeddedArc arc, int otherId) {
+        if (otherId == ArcNetwork.NONE) {
+            return true;
+        }
+        int edges = arc.path.copyEdgePath.size();
+        int otherEdges = tmesh.arcs.get(otherId).path.copyEdgePath.size();
+        return edges != otherEdges ? edges < otherEdges : arc.arcId < otherId;
     }
 
     /**
@@ -453,8 +528,7 @@ public final class ZeroArcCollapseOperator {
             Collections.reverse(routedVertices);
             Collections.reverse(routedEdges);
         }
-        arc.path = new ArcEdgePath(arcId, routedVertices, routedEdges);
-        tmesh.topology.claimPath(arcId, arc.path);
+        tmesh.setArcPath(arcId, new ArcEdgePath(arcId, routedVertices, routedEdges));
         rememberTouchedPatch(arc.leftPatchId);
         rememberTouchedPatch(arc.rightPatchId);
     }

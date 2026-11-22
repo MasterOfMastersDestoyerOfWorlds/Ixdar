@@ -6,9 +6,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.representation.IntIdMinHeap;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
@@ -178,22 +178,48 @@ public final class DiscreteGradient {
         pair[v] = deltaCellId;
         pair[deltaCellId] = v;
 
-        PriorityQueue<Integer> pqZero = new PriorityQueue<>(
-                (x, y) -> compareSimplexValue(x, y, scalar, edgeEndpoints, triangleVerts, nv));
-        PriorityQueue<Integer> pqOne = new PriorityQueue<>(
-                (x, y) -> compareSimplexValue(x, y, scalar, edgeEndpoints, triangleVerts, nv));
+        int lowerEdgeCount = lowerEdges.size();
+        int[] candidateCell = new int[lowerEdgeCount + lowerTris.size()];
+        for (int index = 0; index < lowerEdgeCount; index++) {
+            candidateCell[index] = nv + lowerEdges.get(index);
+        }
+        for (int index = 0; index < lowerTris.size(); index++) {
+            candidateCell[lowerEdgeCount + index] = nv + ne + lowerTris.get(index);
+        }
+        int[] order = new int[candidateCell.length];
+        for (int position = 0; position < candidateCell.length; position++) {
+            int at = position;
+            while (at > 0) {
+                int earlier = candidateCell[order[at - 1]];
+                int byValue = compareSimplexValue(earlier, candidateCell[position], scalar,
+                        edgeEndpoints, triangleVerts, nv);
+                if (byValue < 0 || byValue == 0 && earlier < candidateCell[position]) {
+                    break;
+                }
+                order[at] = order[at - 1];
+                at--;
+            }
+            order[at] = position;
+        }
+        double[] rank = new double[candidateCell.length];
+        for (int place = 0; place < order.length; place++) {
+            rank[order[place]] = place;
+        }
+        IntIdMinHeap pqZero = new IntIdMinHeap(candidateCell.length);
+        IntIdMinHeap pqOne = new IntIdMinHeap(candidateCell.length);
 
-        for (int tid : lowerTris) {
+        for (int index = 0; index < lowerTris.size(); index++) {
+            int tid = lowerTris.get(index);
             if (containsEdge(triangleEdges[tid], deltaEid)) {
                 int unpaired = countUnpairedFacesInLowerStar(tid, v, scalar, triangleEdges,
                         edgeEndpoints, pair, nv);
-                if (unpaired == 1) pqZero.add(nv + ne + tid);
+                if (unpaired == 1) pqZero.insertOrUpdate(lowerEdgeCount + index, rank[lowerEdgeCount + index]);
             }
         }
 
-        for (int eid : lowerEdges) {
-            if (eid == deltaEid) continue;
-            pqOne.add(nv + eid);
+        for (int index = 0; index < lowerEdgeCount; index++) {
+            if (lowerEdges.get(index).equals(deltaEid)) continue;
+            pqOne.insertOrUpdate(index, rank[index]);
         }
 
         Set<Integer> processedTris = new HashSet<>();
@@ -202,7 +228,7 @@ public final class DiscreteGradient {
 
         while (!pqZero.isEmpty() || !pqOne.isEmpty()) {
             while (!pqZero.isEmpty()) {
-                int alpha = pqZero.poll();
+                int alpha = candidateCell[pqZero.pollId()];
                 if (pair[alpha] >= 0) continue;
                 int alphaDim = alpha < nv ? 0 : (alpha < nv + ne ? 1 : 2);
                 if (alphaDim == 1) continue; // shouldn't happen for edges in PQzero usually
@@ -217,27 +243,29 @@ public final class DiscreteGradient {
                 pair[freeEdgeCell] = alpha;
                 processedTris.add(tid);
                 processedEdges.add(freeEdgeId);
-                for (int otherTid : lowerTris) {
+                for (int index = 0; index < lowerTris.size(); index++) {
+                    int otherTid = lowerTris.get(index);
                     if (otherTid == tid || processedTris.contains(otherTid)) continue;
                     if (!containsEdge(triangleEdges[otherTid], freeEdgeId)) continue;
                     int unpaired = countUnpairedFacesInLowerStar(otherTid, v, scalar,
                             triangleEdges, edgeEndpoints, pair, nv);
-                    if (unpaired == 1) pqZero.add(nv + ne + otherTid);
+                    if (unpaired == 1) pqZero.insertOrUpdate(lowerEdgeCount + index, rank[lowerEdgeCount + index]);
                 }
             }
             if (!pqOne.isEmpty()) {
-                int gamma = pqOne.poll();
+                int gamma = candidateCell[pqOne.pollId()];
                 if (pair[gamma] >= 0) continue;
                 int gammaDim = gamma < nv ? 0 : (gamma < nv + ne ? 1 : 2);
                 if (gammaDim == 1) {
                     int eid = gamma - nv;
                     processedEdges.add(eid);
-                    for (int tid : lowerTris) {
+                    for (int index = 0; index < lowerTris.size(); index++) {
+                        int tid = lowerTris.get(index);
                         if (processedTris.contains(tid)) continue;
                         if (!containsEdge(triangleEdges[tid], eid)) continue;
                         int unpaired = countUnpairedFacesInLowerStar(tid, v, scalar,
                                 triangleEdges, edgeEndpoints, pair, nv);
-                        if (unpaired == 1) pqZero.add(nv + ne + tid);
+                        if (unpaired == 1) pqZero.insertOrUpdate(lowerEdgeCount + index, rank[lowerEdgeCount + index]);
                     }
                 }
             }

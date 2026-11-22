@@ -8,7 +8,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +26,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
+import ixdar.geometry.mesh.data.representation.IntIdMinHeap;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.nodegraph.field.UvField;
@@ -755,7 +755,7 @@ public final class MeshRepair {
         boolean[] componentFlip = new boolean[components];
         boolean[] componentVisited = new boolean[components];
         int[] treeOfComponent = new int[components];
-        PriorityQueue<Long> frontier = new PriorityQueue<>(Comparator.reverseOrder());
+        IntIdMinHeap frontier = new IntIdMinHeap(pairCount, true);
         for (int index = seedOrder.length - 1; index >= 0; index--) {
             int root = patchOfMet[componentOf[(int) (seedOrder[index] & KEY_MASK)]];
             if (componentVisited[root]) {
@@ -767,12 +767,12 @@ public final class MeshRepair {
             while (reached >= 0) {
                 for (int link = linkStart[reached]; link < linkStart[reached + 1]; link++) {
                     if (vote[links[link]] != 0) {
-                        frontier.add(((long) Math.abs(vote[links[link]]) << KEY_SHIFT) | links[link]);
+                        frontier.insertOrUpdate(links[link], -Math.abs(vote[links[link]]));
                     }
                 }
                 reached = -1;
                 while (reached < 0 && !frontier.isEmpty()) {
-                    int pair = (int) (frontier.poll() & KEY_MASK);
+                    int pair = frontier.pollId();
                     int low = EdgeKey.minVertex(pairs[pair]);
                     int high = EdgeKey.maxVertex(pairs[pair]);
                     if (componentVisited[low] != componentVisited[high]) {

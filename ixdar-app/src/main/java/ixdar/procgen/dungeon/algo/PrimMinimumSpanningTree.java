@@ -2,12 +2,12 @@ package ixdar.procgen.dungeon.algo;
 
 import java.util.Arrays;
 import java.util.LinkedHashSet;
-import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.IntIdMinHeap;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -71,16 +71,13 @@ public final class PrimMinimumSpanningTree {
 
         boolean[] inTree = new boolean[n];
         Set<Integer> mstEdgeIndices = new LinkedHashSet<>();
-        PriorityQueue<Integer> pq = new PriorityQueue<>((left, right) -> {
-            int c = Double.compare(weights[left], weights[right]);
-            return c != 0 ? c : Integer.compare(left, right);
-        });
+        IntIdMinHeap pq = new IntIdMinHeap(e);
         inTree[0] = true;
         for (int j = adjOffsets[0]; j < adjOffsets[1]; j++) {
-            pq.add(adjEdge[j]);
+            pq.insertOrUpdate(adjEdge[j], weights[adjEdge[j]]);
         }
         while (!pq.isEmpty()) {
-            int edge = pq.poll();
+            int edge = pq.pollId();
             int a = pairs[edge * 2];
             int to = inTree[a] ? pairs[edge * 2 + 1] : a;
             if (inTree[to]) continue;
@@ -88,7 +85,7 @@ public final class PrimMinimumSpanningTree {
             mstEdgeIndices.add(edge);
             for (int j = adjOffsets[to]; j < adjOffsets[to + 1]; j++) {
                 if (!inTree[adjNeighbor[j]]) {
-                    pq.add(adjEdge[j]);
+                    pq.insertOrUpdate(adjEdge[j], weights[adjEdge[j]]);
                 }
             }
         }
