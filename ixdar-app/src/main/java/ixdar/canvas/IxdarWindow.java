@@ -107,6 +107,7 @@ public class IxdarWindow {
             canvasId = args[0];
         }
         startTime = Clock.time();
+        LaunchProfiler.startUnlessAttached();
         try {
             if (Boolean.getBoolean(HEADLESS_PROPERTY)) {
                 new IxdarWindow().runHeadless();

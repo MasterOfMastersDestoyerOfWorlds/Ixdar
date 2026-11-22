@@ -647,6 +647,14 @@
       <version>3.14.0</version>
     </dependency>
 
+    <!-- async-profiler's Java API, Apache-2.0, with the Linux and macOS libraries bundled; the
+         desktop launch profiles itself through it (LaunchProfiler), and skips where none loads. -->
+    <dependency>
+      <groupId>tools.profiler</groupId>
+      <artifactId>async-profiler</artifactId>
+      <version>4.6</version>
+    </dependency>
+
     <dependency>
       <groupId>com.github.madhephaestus</groupId>
       <artifactId>manifold3d</artifactId>

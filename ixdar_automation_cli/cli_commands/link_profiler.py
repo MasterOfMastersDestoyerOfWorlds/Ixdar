@@ -1,17 +1,18 @@
 """Find async-profiler's agent library, link it where the launch entries load it from, and build
 the agent argument every scene launch carries.
 
-Every scene is profiled, whichever path starts it: ``run-scene``, ``mesh-viewer`` and ``launch``
-all take their ``-agentpath`` from :func:`profiler_agent_argument`, and the F5 entries take the
-same one from ``java.profiler.args`` in ``.vscode/settings.json``. Each run writes its own capture,
-``tmp/profiles/<label>-<time>-<pid>.html``, so two scenes never overwrite each other's and the
-capture of a scene is found from its pid alone (:func:`profile_capture`).
+Every scene is profiled where async-profiler exists, whichever path starts it: ``run-scene``,
+``mesh-viewer`` and ``launch`` take their ``-agentpath`` from :func:`profiler_agent_argument`, and
+an F5 launch, which carries no agent, profiles itself through async-profiler's Java API
+(``ixdar.canvas.LaunchProfiler``, writing ``f5-<time>-<pid>.html``). Each run writes its own
+capture, ``tmp/profiles/<label>-<time>-<pid>.html``, so two scenes never overwrite each other's and
+the capture of a scene is found from its pid alone (:func:`profile_capture`).
 
-The launch entries load the agent from one fixed, extension-free path,
-``.profiler/libasyncProfiler`` under the checkout, so a single setting works on every platform.
-``-agentpath`` is fatal when that file is missing, so a fresh checkout runs ``link-profiler`` once;
-``ixd wt new`` does it for every worktree. async-profiler does not create the capture directory,
-so ``link-profiler`` and every CLI launch create it.
+The agent is loaded from one fixed, extension-free path, ``.profiler/libasyncProfiler`` under the
+checkout; ``ixd wt new`` links it for every worktree. Where it is missing, as on Windows, which has
+no async-profiler build, the CLI launches run unprofiled and ``LaunchProfiler`` falls back to the
+library bundled in the async-profiler jar, or runs unprofiled. async-profiler does not create the
+capture directory, so ``link-profiler`` and every CLI launch create it.
 """
 
 import glob
