@@ -35,14 +35,23 @@ public final class ModelLoadLedger {
 
     /**
      * Record the outcome of the switch numbered {@code serial}, writing the serial last so a waiter
-     * that sees it also sees the failure and the time.
+     * that sees it also sees the failure and the time. A failure is recorded with its innermost
+     * cause, since a graph load wraps the node's own refusal in a generic "graph failed".
      *
      * @param serial serial the switch was requested under
      * @param failure what the load threw, or {@code null} when it loaded
      * @param startedNanos {@link System#nanoTime()} sampled as the load began
      */
     public void finish(int serial, Exception failure, long startedNanos) {
-        finishedFailure = failure == null ? null : failure.toString();
+        if (failure == null) {
+            finishedFailure = null;
+        } else {
+            Throwable root = failure;
+            while (root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+            }
+            finishedFailure = root == failure ? failure.toString() : failure + "; caused by " + root;
+        }
         finishedSeconds = (System.nanoTime() - startedNanos) / NANOS_PER_SECOND;
         finishedSerial = serial;
     }

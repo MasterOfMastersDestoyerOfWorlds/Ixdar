@@ -122,8 +122,10 @@ def shutdown(
             entry["terminated"] = True
             entry["exited"], _ = await_exit(int(pid), TERM_WAIT_SECONDS)
         if not entry["exited"]:
-            signal_remote_scene(record, signal.SIGKILL)
-            os.kill(int(pid), signal.SIGKILL)
+            # Windows has no SIGKILL; its SIGTERM already calls TerminateProcess.
+            hard_kill = getattr(signal, "SIGKILL", signal.SIGTERM)
+            signal_remote_scene(record, hard_kill)
+            os.kill(int(pid), hard_kill)
             entry["killed"] = True
             entry["exited"], _ = await_exit(int(pid), KILL_WAIT_SECONDS)
         if entry["exited"]:

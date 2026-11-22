@@ -3,9 +3,11 @@ package ixdar.nodegraph.runtime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import ixdar.nodegraph.field.FieldContext;
 import ixdar.nodegraph.api.MeshNode;
@@ -92,6 +94,7 @@ public class GraphNodeContext implements NodeContext {
 
     private final Map<String, Object> inputs = new LinkedHashMap<>();
     private final Map<String, Object> outputs = new HashMap<>();
+    private final Set<String> releasedOutputs = new HashSet<>();
     private FieldContext fieldContext;
     private String nodeAssignmentId;
 
@@ -245,6 +248,40 @@ public class GraphNodeContext implements NodeContext {
     @Override
     public void setOutput(String portName, Object value) {
         outputs.put(portName, value);
+    }
+
+    /**
+     * Drops an output every reader has read, so the run stops holding it; the port then reads as
+     * released rather than as never written.
+     *
+     * @param portName output port name
+     */
+    public void releaseOutput(String portName) {
+        outputs.remove(portName);
+        releasedOutputs.add(portName);
+    }
+
+    /**
+     * Whether the run dropped an output after its last reader ran.
+     *
+     * @param portName output port name
+     * @return true once {@link #releaseOutput} dropped it
+     */
+    public boolean isReleased(String portName) {
+        return releasedOutputs.contains(portName);
+    }
+
+    /**
+     * Drops an input this record has finished reading, while it still holds the value the
+     * upstream output released.
+     *
+     * @param portName input port name
+     * @param value    the released value
+     */
+    public void forgetInput(String portName, Object value) {
+        if (inputs.get(portName) == value) {
+            inputs.remove(portName);
+        }
     }
 
     /**

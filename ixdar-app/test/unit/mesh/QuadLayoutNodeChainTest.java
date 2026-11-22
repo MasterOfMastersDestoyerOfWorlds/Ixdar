@@ -130,7 +130,7 @@ class QuadLayoutNodeChainTest {
         relaxCtx.setInput(NewtonSolverNode.DOFS.name,
                 gridCtx.getOutput(GridMapAssemblyNode.DOFS.name, Object.class));
         newton.evaluate(relaxCtx);
-        assertTrue(gridMap.gridOptimizer.energyAfter <= gridMap.gridOptimizer.energyBefore,
+        assertTrue(gridMap.relaxEnergyAfter <= gridMap.relaxEnergyBefore,
                 "the relaxation does not raise the energy");
         assertEquals(0, gridMap.isoSurfaceRelaxed.flippedFaceCount,
                 "the relaxed map flips no face");

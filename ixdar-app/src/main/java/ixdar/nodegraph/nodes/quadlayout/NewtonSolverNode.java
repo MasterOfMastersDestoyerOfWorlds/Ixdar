@@ -11,6 +11,7 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.numeric.sparse.system.DofSystem;
+import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.nodegraph.field.UvField;
 
 /**
@@ -59,5 +60,19 @@ public class NewtonSolverNode implements MeshNode {
         dofs.relax();
         ctx.setOutput(UV_OUT.name, uv);
         ctx.setOutput(DOFS.name, dofs);
+    }
+
+    /**
+     * Drops a grid map's optimizer and the energy hook it installed: their sparsity and scatter
+     * arrays serve only the relaxation just finished.
+     *
+     * @param ctx the context the node evaluated through
+     */
+    @Override
+    public void freeIntermediates(NodeContext ctx) {
+        if (ctx.getOutput(UV_OUT.name, UvField.class) instanceof GlobalGridMap grid) {
+            grid.gridOptimizer = null;
+            ctx.getOutput(DOFS.name, DofSystem.class).energy = null;
+        }
     }
 }

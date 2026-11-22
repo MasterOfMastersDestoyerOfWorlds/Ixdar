@@ -100,4 +100,15 @@ public final class NDirectionFieldNode implements MeshNode {
         ctx.setOutput(FEATURE_EDGES.name, field.alignmentEdges);
         ctx.setOutput(DOFS.name, field.system);
     }
+
+    /**
+     * Unhooks the solve's DOF system from the field, which everything downstream keeps; the
+     * {@link #DOFS} output still holds it until the run releases it.
+     *
+     * @param ctx the context the node evaluated through
+     */
+    @Override
+    public void freeIntermediates(NodeContext ctx) {
+        ctx.getOutput(FIELD.name, CrossField.class).system = null;
+    }
 }

@@ -106,6 +106,28 @@ public final class EmbeddedArc {
     }
 
     /**
+     * Copies an arc field for field. The path is shared, not copied: an arrangement-phase arc
+     * has none yet.
+     *
+     * @param other arc to copy
+     */
+    public EmbeddedArc(EmbeddedArc other) {
+        this.arcId = other.arcId;
+        this.sourceArcId = other.sourceArcId;
+        this.alive = other.alive;
+        this.startNodeId = other.startNodeId;
+        this.endNodeId = other.endNodeId;
+        this.quantizedLength = other.quantizedLength;
+        this.quadCount = other.quadCount;
+        this.feature = other.feature;
+        this.path = other.path;
+        this.leftPatchId = other.leftPatchId;
+        this.rightPatchId = other.rightPatchId;
+        this.traceId = other.traceId;
+        this.parametricLength = other.parametricLength;
+    }
+
+    /**
      * Whether the arc's two ends are the same node, which a zero arc becomes once the
      * rest of its patch has collapsed around it.
      *

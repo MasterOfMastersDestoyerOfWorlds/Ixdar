@@ -105,4 +105,26 @@ public final class EmbeddedNode {
         this.copyVertex = -1;
         this.alive = true;
     }
+
+    /**
+     * Copies a node field for field, so a stage can change the copy and leave the original's
+     * network as it was.
+     *
+     * @param other node to copy
+     */
+    public EmbeddedNode(EmbeddedNode other) {
+        this.nodeId = other.nodeId;
+        this.sourceNodeId = other.sourceNodeId;
+        this.alive = other.alive;
+        this.critical = other.critical;
+        this.border = other.border;
+        this.truncated = other.truncated;
+        this.copyVertex = other.copyVertex;
+        this.vertexId = other.vertexId;
+        this.activeFace = other.activeFace;
+        this.singularityIndex4 = other.singularityIndex4;
+        this.u = other.u;
+        this.v = other.v;
+        this.position = other.position == null ? null : new Vector3f(other.position);
+    }
 }

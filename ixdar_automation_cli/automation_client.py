@@ -77,6 +77,8 @@ def process_alive(pid: int) -> bool:
     :param pid: Process id read from a scene record.
     :return: True while the process exists.
     """
+    if sys.platform == "win32":
+        return _windows_process_alive(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -84,6 +86,38 @@ def process_alive(pid: int) -> bool:
     except PermissionError:
         return True
     return True
+
+
+WINDOWS_QUERY_LIMITED_INFORMATION = 0x1000
+
+WINDOWS_STILL_ACTIVE = 259
+
+WINDOWS_ACCESS_DENIED = 5
+
+
+def _windows_process_alive(pid: int) -> bool:
+    """Report whether a Windows process id names a live process, without touching it.
+
+    ``os.kill(pid, 0)`` is no probe on Windows: any signal other than the console ones calls
+    ``TerminateProcess``, so the check would kill the scene it asks about.
+
+    :param pid: Process id read from a scene record.
+    :return: True while the process exists and has not exited.
+    """
+    import ctypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(WINDOWS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        # Access denied still means the process exists; anything else means it is gone.
+        return ctypes.get_last_error() == WINDOWS_ACCESS_DENIED
+    try:
+        exit_code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return True
+        return exit_code.value == WINDOWS_STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def register_launch(pid: int, scene: str, headless: bool, root: str = "",

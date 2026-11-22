@@ -93,6 +93,9 @@ public final class LayoutPatchMaps {
      */
     public LayoutPatchMaps build() {
         subdividedChordCount = new ThreeConnectivityRefinement(tmesh).refine();
+        long packStartNanos = System.nanoTime();
+        tmesh.topology.copy.packAdjacency();
+        long packNanos = System.nanoTime() - packStartNanos;
         resolution = new LayoutResolution(tmesh, seamless, targetEdgeLength).build();
         regions = new PatchRegions(tmesh).build();
         reportRegionBalance();
@@ -152,7 +155,7 @@ public final class LayoutPatchMaps {
         }
         Platforms.log("[patch-maps] patches=" + mappedPatchCount + " subdividedChords="
                 + subdividedChordCount + " uniformFallbacks=" + uniformFallbackPatchCount
-                + " stillFolded=" + foldedPatchCount);
+                + " stillFolded=" + foldedPatchCount + String.format(" pack=%.3fs", packNanos / 1.0e9));
         return this;
     }
 

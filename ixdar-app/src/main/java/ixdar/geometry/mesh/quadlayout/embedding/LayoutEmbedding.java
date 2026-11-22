@@ -63,15 +63,15 @@ public final class LayoutEmbedding {
 
     /**
      * Copy the mesh, place nodes, carve every trace, check the result really is a
-     * subcomplex, and assemble the T-mesh in place; logs the {@code [embed]}
-     * summary.
+     * subcomplex, and assemble the T-mesh on a copy of the arrangement; logs the
+     * {@code [embed]} summary.
      *
-     * @param builtNetwork quantized arrangement to embed
+     * @param builtNetwork quantized arrangement to embed, left unchanged
      * @param seamlessUv   parametrization the carve reads chart coordinates from
-     * @return the network, embedded and assembled
+     * @return a new network, embedded and assembled
      */
     public ArcNetwork build(ArcNetwork builtNetwork, UvField seamlessUv) {
-        this.network = builtNetwork;
+        this.network = builtNetwork.copyArrangement();
         this.uv = seamlessUv;
         long startNanos = System.nanoTime();
         markCriticality();

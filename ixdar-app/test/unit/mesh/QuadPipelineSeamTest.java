@@ -66,8 +66,7 @@ class QuadPipelineSeamTest {
         }
         assertEquals(0, zeroArcs, "contraction left no live zero arc");
 
-        assertTrue(layout.globalGrid.gridOptimizer.energyAfter
-                        <= layout.globalGrid.gridOptimizer.energyBefore,
+        assertTrue(layout.globalGrid.relaxEnergyAfter <= layout.globalGrid.relaxEnergyBefore,
                 "the Newton relaxation does not raise the energy");
         assertEquals(0, layout.globalGrid.isoSurfaceRelaxed.flippedFaceCount,
                 "the relaxed grid map flips no face");

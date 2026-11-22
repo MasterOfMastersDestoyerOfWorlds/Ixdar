@@ -277,18 +277,22 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Create the runtime and load the initial model, reporting a load failure instead of
-     * propagating it: an unreadable initial model leaves an empty view the model menu can load
-     * another model into. Scenes with async or multi-runtime loading override this.
+     * Create the runtime and load the initial model, recording a failure in {@link #modelLoads}
+     * instead of propagating it, so the scene comes up empty and a route can say why.
      */
     public void initModel() {
         runtime = createRuntime();
         ModelChoice initial = resolveInitialModel();
+        int serial = modelLoads.request();
+        long started = System.nanoTime();
+        Exception failure = null;
         try {
             loadModelOrGraph(initial);
         } catch (Exception ex) {
+            failure = ex;
             reportFailedLoad(initial.path, ex);
         }
+        modelLoads.finish(serial, failure, started);
     }
 
     /**
@@ -427,7 +431,12 @@ public abstract class ModelScene extends Scene {
         String common = System.getProperty(COMMON_MODEL_PROPERTY);
         String token = common != null && !common.isBlank() ? common : DEFAULT_OFF;
         ModelChoice match = ModelCatalog.resolve(availableModels(), token);
-        return match != null ? match : new ModelChoice(token, token);
+        if (match != null) {
+            return match;
+        }
+        // A graph path opens as a graph, as the model route opens one, never as a mesh file.
+        return token.endsWith(ModelCatalog.DSL_EXTENSION) ? ModelCatalog.launchChoice(token, null)
+                : new ModelChoice(token, token);
     }
 
     /**
@@ -483,6 +492,7 @@ public abstract class ModelScene extends Scene {
         try {
             run = NodeGraphRuntime.fromResource(choice.path);
             graph = run;
+            run.releaseAfterLastReader(null);
             run.executeGraphResult(run.lastId(), NodeGraphRuntime.RESULT,
                     modelCollection.overridesFor(choice));
         } catch (Exception failure) {
@@ -515,7 +525,21 @@ public abstract class ModelScene extends Scene {
         run.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(halfEdgeMesh));
         graph = run;
         run.setOverrides(modelCollection.overrides);
+        List<String> pulls = declaredPulls();
+        if (pulls != null) {
+            run.releaseAfterLastReader(pulls);
+        }
         return run;
+    }
+
+    /**
+     * The scene graph outputs this scene reads through {@link #sceneOutput}, so the run can release
+     * every other value once its last reader has run; {@code null}, the default, keeps them all.
+     *
+     * @return {@code path.port} references, or {@code null}
+     */
+    public List<String> declaredPulls() {
+        return null;
     }
 
     /**

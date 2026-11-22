@@ -50,6 +50,31 @@ public final class IntIdTable {
     }
 
     /**
+     * Packs every row, edited or not, back into one shared array, dropping the per-row lists a
+     * run of edits left behind; the rows read the same afterwards and a later edit unpacks only
+     * the row it touches.
+     *
+     * @param rowCount rows to keep, the owner's id bound; rows at or past it are dropped
+     */
+    public void repack(int rowCount) {
+        int[] start = new int[rowCount + 1];
+        for (int row = 0; row < rowCount; row++) {
+            start[row + 1] = start[row] + size(row);
+        }
+        int[] values = new int[start[rowCount]];
+        for (int row = 0; row < rowCount; row++) {
+            IntIdList edited = row < editedRows.length ? editedRows[row] : null;
+            if (edited != null) {
+                System.arraycopy(edited.values, 0, values, start[row], edited.size);
+            } else if (row < packedStart.length - 1) {
+                System.arraycopy(packedValues, packedStart[row], values, start[row],
+                        start[row + 1] - start[row]);
+            }
+        }
+        pack(start, values);
+    }
+
+    /**
      * The number of ids in a row; a row never written holds none.
      *
      * @param row row to measure

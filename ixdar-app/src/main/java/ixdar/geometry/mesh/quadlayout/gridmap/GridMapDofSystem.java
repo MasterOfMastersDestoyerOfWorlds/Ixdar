@@ -436,6 +436,8 @@ public final class GridMapDofSystem {
     public void relax() {
         gridMap.gridOptimizer = new GridMapOptimizer(this, gridMap.seamless);
         gridMap.gridOptimizer.build();
+        gridMap.relaxEnergyBefore = gridMap.gridOptimizer.energyBefore;
+        gridMap.relaxEnergyAfter = gridMap.gridOptimizer.energyAfter;
         gridMap.isoSurfaceRelaxed =
                 new GridMapIsoSurface(gridMap.patchMaps, gridMap.uvByPatchId).build();
         Platforms.log("[global-grid] relax %.2e→%.2e it=%d%n", gridMap.gridOptimizer.energyBefore,

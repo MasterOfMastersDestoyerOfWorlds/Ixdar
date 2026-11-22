@@ -65,6 +65,24 @@ public final class EmbeddedPatch {
     }
 
     /**
+     * Copies a patch with its own side lists, so editing the copy's sides leaves the original's.
+     *
+     * @param other patch to copy
+     */
+    public EmbeddedPatch(EmbeddedPatch other) {
+        this.patchId = other.patchId;
+        this.sourcePatchId = other.sourcePatchId;
+        this.sideArcIds = new ArrayList<>(SIDES);
+        this.sideNodeIds = new ArrayList<>(SIDES);
+        for (int side = 0; side < SIDES; side++) {
+            sideArcIds.add(new ArrayList<>(other.sideArcIds.get(side)));
+            sideNodeIds.add(new ArrayList<>(other.sideNodeIds.get(side)));
+        }
+        this.alive = other.alive;
+        this.validRectangle = other.validRectangle;
+    }
+
+    /**
      * The node at the start of a side, which is one of the patch's four corners. A node
      * appearing at the start of two sides is a double corner.
      *

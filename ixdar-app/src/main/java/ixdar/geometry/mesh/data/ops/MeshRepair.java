@@ -98,6 +98,9 @@ public final class MeshRepair {
     /** Whether the last stage prunes the faces that show their back to the outside. */
     public boolean pruneExposed = true;
 
+    /** Whether the repaired surface's folded slivers are unfolded ({@link MeshUnfold}) at the end. */
+    public boolean unfold = true;
+
     /** What the repair found and did, filled by {@link #build()}. */
     public final MeshRepairReport report = new MeshRepairReport();
 
@@ -343,6 +346,12 @@ public final class MeshRepair {
             pruneExposedFaces(pruneTree, pruneCreases.join(), cellsChangedBeforeFill.join());
         }
         assemble();
+        if (unfold && output.mesh() instanceof HalfEdgeMesh surface) {
+            MeshUnfold unfolded = MeshUnfold.run(surface);
+            report.foldedFaceCount = unfolded.foldedFaceCount;
+            report.unfoldMovedVertexCount = unfolded.movedVertexCount;
+            report.stillFoldedFaceCount = unfolded.stillFoldedFaceCount;
+        }
     }
 
 

@@ -50,12 +50,15 @@ public class RepairMeshNode implements MeshNode {
     public static final InputPort PRUNE_EXPOSED =
             new InputPort("prune_exposed", PortType.BOOLEAN, true);
 
+    public static final InputPort UNFOLD = new InputPort("unfold", PortType.BOOLEAN, true);
+
     public static final OutputPort GEOMETRY_OUT =
             new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, WELD_EPSILON, MAX_HOLE_EDGES, MIN_SHELL_FACES, STRICT, PRUNE_EXPOSED);
+        return List.of(GEOMETRY, WELD_EPSILON, MAX_HOLE_EDGES, MIN_SHELL_FACES, STRICT, PRUNE_EXPOSED,
+                UNFOLD);
     }
 
     @Override
@@ -68,7 +71,7 @@ public class RepairMeshNode implements MeshNode {
         return "Repairs mesh topology in place of a rebuild: welds near-coincident vertices, makes"
                 + " the winding consistent, splits non-manifold edges apart, resolves degenerate"
                 + " faces, drops only debris and enclosed shells, fills small boundary loops, and"
-                + " prunes faces that show their back to the outside.";
+                + " prunes faces that show their back to the outside, then unfolds folded slivers.";
     }
 
     @Override
@@ -112,7 +115,11 @@ public class RepairMeshNode implements MeshNode {
                         + " through the skin or two fills overlapping with opposite windings, are"
                         + " deleted with a widening ring round them and the holes refilled until"
                         + " none is left. False keeps every face, for meshes built to touch or"
-                        + " overlap on purpose."
+                        + " overlap on purpose.",
+                UNFOLD.name, "When true (the default), faces folded back against the faces around"
+                        + " their corners, the slivers quad_layout refuses, are unfolded by moving"
+                        + " their corners to their neighbours' centroid until none folds; topology"
+                        + " is unchanged. The report counts the folds before and after."
         );
     }
 
@@ -135,6 +142,8 @@ public class RepairMeshNode implements MeshNode {
                 DEFAULT_MIN_SHELL_FACES);
         repair.pruneExposed = FieldBroadcast.boolAt(FieldBroadcast.getInputOrDefault(ctx,
                 PRUNE_EXPOSED.name, PRUNE_EXPOSED.defaultValue), 0, true);
+        repair.unfold = FieldBroadcast.boolAt(FieldBroadcast.getInputOrDefault(ctx,
+                UNFOLD.name, UNFOLD.defaultValue), 0, true);
         repair.build();
         Platforms.log(LOG_PREFIX + repair.report.summaryLine());
 

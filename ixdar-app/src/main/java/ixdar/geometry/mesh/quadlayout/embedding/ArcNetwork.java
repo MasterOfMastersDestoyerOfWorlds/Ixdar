@@ -219,7 +219,37 @@ public class ArcNetwork {
                 + sourceMesh.faceCount();
     }
 
-
+    /**
+     * A copy of this arrangement for the embedding to assemble, so the motorcycle graph and the
+     * quantized skeleton keep their own nodes, arcs and patches and never hold the working copy.
+     * The trace data is shared: every later stage only reads it.
+     *
+     * @throws IllegalStateException when this network is already embedded
+     * @return a new arrangement-phase network over the same source mesh
+     */
+    public ArcNetwork copyArrangement() {
+        if (topology != null) {
+            throw new IllegalStateException("copyArrangement copies an arrangement before it is"
+                    + " embedded; this network already has a working copy");
+        }
+        ArcNetwork copy = new ArcNetwork(sourceMesh);
+        copy.traces = traces;
+        copy.featureSpanByEdgeId = featureSpanByEdgeId;
+        copy.traceRecordsByFace = traceRecordsByFace;
+        for (EmbeddedNode node : nodes) {
+            copy.nodes.add(new EmbeddedNode(node));
+        }
+        for (EmbeddedArc arc : arcs) {
+            copy.arcs.add(new EmbeddedArc(arc));
+        }
+        for (EmbeddedPatch patch : patches) {
+            copy.patches.add(new EmbeddedPatch(patch));
+        }
+        for (List<Integer> ends : arcEndsByNode) {
+            copy.arcEndsByNode.add(new ArrayList<>(ends));
+        }
+        return copy;
+    }
 
     /**
      * Assembles the T-mesh in place from a finished carve: every record keeps its

@@ -139,6 +139,12 @@ public class NodeGraphRuntime {
      */
     public int revision;
 
+    /**
+     * Whether a debugging run keeps every intermediate: nodes keep their solver scratch and
+     * nothing is released after its last reader.
+     */
+    public boolean keepIntermediates;
+
     /** Overrides by node path, then by port (or {@code port.x}). */
     private final Map<String, Map<String, Object>> overridesByPath = new HashMap<>();
 
@@ -168,6 +174,9 @@ public class NodeGraphRuntime {
 
     /** Whether {@link #beginStepsFor}'s node began its steps instead of evaluating. */
     private boolean stepsBegun;
+
+    /** Releases values after their last reader; {@code null} keeps every value, the default. */
+    private ValueRelease release;
 
     /**
      * A runtime bound to a program, its node tree built.
@@ -235,6 +244,27 @@ public class NodeGraphRuntime {
             return null;
         }
         return ctx.getOutput(outputPortName);
+    }
+
+    /**
+     * Releases every value once its last reader has run, keeping what the host reads afterwards:
+     * the references it names, or with none every top-level statement's outputs. A group output
+     * is then computed only when something reads it. Off while {@link #keepIntermediates} is set.
+     *
+     * @param keptReferences {@code path.port} references the host reads after the run, or
+     *                       {@code null} for every top-level statement's outputs
+     */
+    public void releaseAfterLastReader(List<String> keptReferences) {
+        release = new ValueRelease(keptReferences);
+    }
+
+    /**
+     * Whether the run's releasing is planned and not suspended by {@link #keepIntermediates}.
+     *
+     * @return true when values are released after their last reader
+     */
+    private boolean releasing() {
+        return release != null && !keepIntermediates;
     }
 
     /**
@@ -732,6 +762,9 @@ public class NodeGraphRuntime {
         if (activeEvaluations++ == 0) {
             heapSampler.start();
             evaluationStartedNanos = System.nanoTime();
+            if (releasing()) {
+                release.planFor(this);
+            }
         }
     }
 
@@ -833,6 +866,12 @@ public class NodeGraphRuntime {
                 }
                 record.node.evaluate(record);
                 AutoTagHook.applyIfApplicable(record.node, record, id);
+                if (!keepIntermediates) {
+                    record.node.freeIntermediates(record);
+                }
+                if (releasing()) {
+                    release.readsFinished(record);
+                }
             } finally {
                 record.elapsedNanos = System.nanoTime() - started;
                 record.peakHeapBytes = heapSampler.peakBytes();
@@ -885,10 +924,14 @@ public class NodeGraphRuntime {
             readOutput(record, RESULT);
         }
         for (String output : record.outputWires.keySet()) {
-            readOutput(record, output);
+            if (!releasing() || release.isNeeded(record, output)) {
+                readOutput(record, output);
+            }
         }
         for (OutputPort output : ((NodeGroup) record.node).outputs()) {
-            readOutput(record, output.name);
+            if (!releasing() || release.isNeeded(record, output.name)) {
+                readOutput(record, output.name);
+            }
         }
     }
 
@@ -944,6 +987,11 @@ public class NodeGraphRuntime {
      * @return the port's value, or {@code null} when the record has no such port
      */
     private Object readOutput(GraphNodeContext record, String port) throws Exception {
+        if (record.isReleased(port)) {
+            throw new IllegalStateException(record.path + PORT_SEPARATOR + port + " was released"
+                    + " after its last reader ran; name the output the host reads in"
+                    + " releaseAfterLastReader, or set keepIntermediates on the runtime");
+        }
         if (!(record.node instanceof NodeGroup group) || record.hasOutput(port)) {
             return record.getOutput(port);
         }
@@ -957,18 +1005,13 @@ public class NodeGraphRuntime {
                     record.outputSourcePorts.put(output.getKey(), output.getKey());
                 }
             } else if (record.outputWires.containsKey(port)) {
-                Object wire = record.outputWires.get(port);
-                String wirePort = record.outputWirePorts.get(port);
-                record.setOutput(port, readSource(record, wire, wirePort));
-                record.outputSources.put(port, wire);
-                record.outputSourcePorts.put(port, wirePort);
+                readWiredOutput(record, port);
             } else {
-                for (Map.Entry<String, Object> wired : record.outputWires.entrySet()) {
-                    if (!record.hasOutput(wired.getKey())) {
-                        String wirePort = record.outputWirePorts.get(wired.getKey());
-                        record.setOutput(wired.getKey(), readSource(record, wired.getValue(), wirePort));
-                        record.outputSources.put(wired.getKey(), wired.getValue());
-                        record.outputSourcePorts.put(wired.getKey(), wirePort);
+                List<OutputPort> reads = group.evaluateReads();
+                for (String wired : List.copyOf(record.outputWires.keySet())) {
+                    boolean read = reads == null || reads.stream().anyMatch(output -> output.name.equals(wired));
+                    if (read && !record.hasOutput(wired)) {
+                        readWiredOutput(record, wired);
                     }
                 }
                 group.evaluate(record);
@@ -991,6 +1034,25 @@ public class NodeGraphRuntime {
             record.elapsedNanos += System.nanoTime() - started;
         }
         return record.getOutput(port);
+    }
+
+    /**
+     * Computes one wired output of a group call from its source, counting the read for the
+     * release.
+     *
+     * @param record the group call
+     * @param port   the wired output
+     * @throws Exception if the source node fails
+     */
+    private void readWiredOutput(GraphNodeContext record, String port) throws Exception {
+        Object wire = record.outputWires.get(port);
+        String wirePort = record.outputWirePorts.get(port);
+        record.setOutput(port, readSource(record, wire, wirePort));
+        record.outputSources.put(port, wire);
+        record.outputSourcePorts.put(port, wirePort);
+        if (releasing()) {
+            release.groupOutputRead(record, port, wire, wirePort);
+        }
     }
 
     /**

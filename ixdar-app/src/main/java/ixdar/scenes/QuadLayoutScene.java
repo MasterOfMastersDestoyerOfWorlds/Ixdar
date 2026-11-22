@@ -13,6 +13,8 @@ import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutOverlay;
+import ixdar.models.ModelChoice;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
@@ -90,6 +92,11 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     @Override
+    public List<String> declaredPulls() {
+        return List.of(QuadLayoutNode.sceneOutput(QuadLayoutNode.LAYOUT));
+    }
+
+    @Override
     public void loadModel(String path) throws IOException {
         super.loadModel(path);
         rebuildLayout();
@@ -123,12 +130,56 @@ public class QuadLayoutScene extends ModelScene {
      * first, so a throw part-way leaves nothing indexed by the old mesh.
      */
     private void rebuildLayout() {
+        forgetLayout();
+        runSceneGraph();
+        showLayout((QuadLayout) sceneOutput(QuadLayoutNode.sceneOutput(QuadLayoutNode.LAYOUT)));
+    }
+
+    /**
+     * Shows the layout of a graph model, such as a DSL that repairs a scan before laying it out:
+     * the last top-level statement whose {@code layout} output holds one, over the mesh that
+     * layout was built on.
+     *
+     * @param choice the graph to execute
+     * @return the executed runtime
+     */
+    @Override
+    public NodeGraphRuntime loadGraph(ModelChoice choice) {
+        forgetLayout();
+        NodeGraphRuntime run = super.loadGraph(choice);
+        QuadLayout built = null;
+        for (int statement = run.root.declared.size() - 1; statement >= 0 && built == null; statement--) {
+            if (run.root.declared.get(statement).getOutput(QuadLayoutNode.LAYOUT.name) instanceof QuadLayout found) {
+                built = found;
+            }
+        }
+        if (built == null) {
+            return run;
+        }
+        halfEdgeMesh = built.crossField.mesh;
+        runtime.upload(halfEdgeMesh);
+        frameLoadedModel();
+        showLayout(built);
+        return run;
+    }
+
+    /**
+     * Drops the previous build's fields, so a throw part-way leaves nothing indexed by the old
+     * mesh.
+     */
+    private void forgetLayout() {
         layout = null;
         patchSurfacesInitial = null;
         patchCoonsInitial = null;
         gridMapView = GRID_MAP_VIEW_OFF;
-        runSceneGraph();
-        QuadLayout built = (QuadLayout) sceneOutput(QuadLayoutNode.sceneOutput(QuadLayoutNode.LAYOUT));
+    }
+
+    /**
+     * Uploads a built layout: the quad mesh over the patch fill, layout arcs on top.
+     *
+     * @param built the layout to show
+     */
+    private void showLayout(QuadLayout built) {
         // The layout's own mesh: the feature-corner split may have refined the scene's.
         quadRuntime.setSeamlessParametrization(built.seamless, built.crossField.mesh);
         quadRuntime.setSingularities(built.crossField.singularityIndex4, built.crossField.mesh);

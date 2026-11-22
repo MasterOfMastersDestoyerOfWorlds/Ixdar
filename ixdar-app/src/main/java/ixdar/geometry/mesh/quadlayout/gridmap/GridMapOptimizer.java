@@ -157,14 +157,23 @@ public final class GridMapOptimizer {
     private int[] entrySourceByEntry;
 
     /**
-     * Destination of each scattered entry: an upper-values index, or a diagonal
-     * index encoded as {@code -(index + 1)}.
+     * Destination of each scattered entry in its worker's compact buffers: a
+     * position in that worker's {@link #touchedUpperByWorker}, or a position in its
+     * {@link #touchedVariableByWorker} encoded as {@code -(position + 1)} for a
+     * diagonal entry.
      */
     private int[] entryDestinationByEntry;
 
     /**
-     * Upper-values indices each worker's triangle range writes; every other index
-     * of its buffer stays zero, so only these are cleared and reduced.
+     * Position of each triangle corner variable, in {@code x0..x2, y0..y2} order, in
+     * its worker's {@link #touchedVariableByWorker}.
+     */
+    private int[] localVariableByTriangleVariable;
+
+    /**
+     * Upper-values indices each worker's triangle range writes, ascending; its
+     * buffers hold only these, so a worker costs its share of the pattern rather
+     * than a whole copy of it.
      */
     private int[][] touchedUpperByWorker;
 
@@ -225,14 +234,16 @@ public final class GridMapOptimizer {
                 Math.min(Math.min(workerThreads, MAX_WORKER_THREADS), triangleCount));
         buildSparsityPattern();
         double[] start = dofs.system.solution.clone();
-        int size = dofs.slotCount * SLOT_COORDINATES;
         assemblyPool = Platforms.get().newWorkerPool(assemblyWorkerCount, "grid-optimize-assembly");
         elementByWorker = new SymmetricDirichletEnergy[assemblyWorkerCount];
-        rightHandSideByWorker = new double[assemblyWorkerCount][size];
-        diagonalByWorker = new double[assemblyWorkerCount][size];
-        upperValuesByWorker = new double[assemblyWorkerCount][upperKeys.length];
+        rightHandSideByWorker = new double[assemblyWorkerCount][];
+        diagonalByWorker = new double[assemblyWorkerCount][];
+        upperValuesByWorker = new double[assemblyWorkerCount][];
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             elementByWorker[worker] = new SymmetricDirichletEnergy();
+            rightHandSideByWorker[worker] = new double[touchedVariableByWorker[worker].length];
+            diagonalByWorker[worker] = new double[touchedVariableByWorker[worker].length];
+            upperValuesByWorker[worker] = new double[touchedUpperByWorker[worker].length];
         }
         energyBefore = totalEnergy(dofs.system.solution);
         if (Double.isInfinite(energyBefore)) {
@@ -690,6 +701,27 @@ public final class GridMapOptimizer {
                 variableSeen[index] = false;
             }
         }
+        localVariableByTriangleVariable = new int[triangleCount * SymmetricDirichletEnergy.VARIABLES];
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            int firstTriangle = Math.min(triangleCount, worker * chunk);
+            int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
+            int[] upperTouched = touchedUpperByWorker[worker];
+            int[] variableTouched = touchedVariableByWorker[worker];
+            for (int entry = entryStartByTriangle[firstTriangle];
+                    entry < entryStartByTriangle[endTriangle]; entry++) {
+                int destination = entryDestinationByEntry[entry];
+                entryDestinationByEntry[entry] = destination >= 0
+                        ? Arrays.binarySearch(upperTouched, destination)
+                        : -(Arrays.binarySearch(variableTouched, -destination - 1) + 1);
+            }
+            for (int triangle = firstTriangle; triangle < endTriangle; triangle++) {
+                triangleVariables(triangle, variable);
+                for (int row = 0; row < SymmetricDirichletEnergy.VARIABLES; row++) {
+                    localVariableByTriangleVariable[triangle * SymmetricDirichletEnergy.VARIABLES + row] =
+                            Arrays.binarySearch(variableTouched, variable[row]);
+                }
+            }
+        }
     }
 
     /**
@@ -732,12 +764,14 @@ public final class GridMapOptimizer {
             double[] workerRightHandSide = rightHandSideByWorker[worker];
             double[] workerDiagonal = diagonalByWorker[worker];
             double[] workerUpperValues = upperValuesByWorker[worker];
-            for (int index : touchedVariableByWorker[worker]) {
-                rightHandSide[index] += workerRightHandSide[index];
-                diagonal[index] += workerDiagonal[index];
+            int[] variableTouched = touchedVariableByWorker[worker];
+            for (int position = 0; position < variableTouched.length; position++) {
+                rightHandSide[variableTouched[position]] += workerRightHandSide[position];
+                diagonal[variableTouched[position]] += workerDiagonal[position];
             }
-            for (int index : touchedUpperByWorker[worker]) {
-                upperValuesOut[index] += workerUpperValues[index];
+            int[] upperTouched = touchedUpperByWorker[worker];
+            for (int position = 0; position < upperTouched.length; position++) {
+                upperValuesOut[upperTouched[position]] += workerUpperValues[position];
             }
         }
     }
@@ -757,18 +791,13 @@ public final class GridMapOptimizer {
         double[] rightHandSide = rightHandSideByWorker[worker];
         double[] diagonal = diagonalByWorker[worker];
         double[] upperValuesLocal = upperValuesByWorker[worker];
-        for (int index : touchedVariableByWorker[worker]) {
-            rightHandSide[index] = 0.0;
-            diagonal[index] = 0.0;
-        }
-        for (int index : touchedUpperByWorker[worker]) {
-            upperValuesLocal[index] = 0.0;
-        }
+        Arrays.fill(rightHandSide, 0.0);
+        Arrays.fill(diagonal, 0.0);
+        Arrays.fill(upperValuesLocal, 0.0);
         double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] operator = new double[OPERATOR_SIZE];
         double[] position = new double[SLOT_COORDINATES];
-        int[] variable = new int[SymmetricDirichletEnergy.VARIABLES];
         for (int triangle = firstTriangle; triangle < endTriangle; triangle++) {
             System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
                     OPERATOR_SIZE);
@@ -779,9 +808,9 @@ public final class GridMapOptimizer {
             }
             element.evaluate(operator, areaByTriangle[triangle], targetX, targetY);
             rotateElementToSlots(triangle, element);
-            triangleVariables(triangle, variable);
+            int localOffset = triangle * SymmetricDirichletEnergy.VARIABLES;
             for (int row = 0; row < SymmetricDirichletEnergy.VARIABLES; row++) {
-                rightHandSide[variable[row]] -= element.gradient[row];
+                rightHandSide[localVariableByTriangleVariable[localOffset + row]] -= element.gradient[row];
             }
             for (int entry = entryStartByTriangle[triangle];
                     entry < entryStartByTriangle[triangle + 1]; entry++) {

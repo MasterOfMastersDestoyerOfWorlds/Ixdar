@@ -109,6 +109,11 @@ public class EmbeddedTMeshScene extends ModelScene {
         return QuadLayoutNode.overSceneModel();
     }
 
+    @Override
+    public List<String> declaredPulls() {
+        return List.of(QuadLayoutNode.sceneOutput(QuadLayoutNode.EMBEDDED));
+    }
+
     /**
      * Load {@code path}, then build the uncontracted T-mesh from the loaded surface.
      *

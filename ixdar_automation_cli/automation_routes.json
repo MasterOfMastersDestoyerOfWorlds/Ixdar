@@ -701,6 +701,44 @@
       "responseHint": "{ok, vertex_count, patches:[{id, branch_id, color, flat_color, centroid, ...}]}"
     },
     {
+      "commandName": "mesh-quad-layout-export",
+      "path": "/mesh/quad-layout/export",
+      "method": "POST",
+      "description": "Write the quad-layout scene\u0027s layout, the extracted quad mesh or every patch\u0027s quad grid, to a glTF binary and report its quad, patch and cone counts.",
+      "sourceClass": "ixdar.automation.endpoints.mesh.QuadLayoutExport",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/QuadLayoutExport.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "File to write, relative to the checkout like every CLI path; missing parent directories are created.",
+          "example": "tmp/quad_layout.glb"
+        },
+        {
+          "name": "geometry",
+          "cliName": "geometry",
+          "type": "string",
+          "required": false,
+          "default": "quads",
+          "help": "quads for the extracted quad mesh, patches for the patch grids on the surface.",
+          "example": "patches"
+        },
+        {
+          "name": "node",
+          "cliName": "node",
+          "type": "string",
+          "required": false,
+          "default": "layout",
+          "help": "The quad_layout call to read when the scene ran a DSL graph, by its name in the graph.",
+          "example": "layout"
+        }
+      ],
+      "responseHint": "{ok, path, geometry, bytes, vertex_count, triangle_count, quad_count, patch_count, singularity_count}"
+    },
+    {
       "commandName": "mesh-seamless-diagnosis",
       "path": "/mesh/seamless/diagnosis",
       "method": "POST",

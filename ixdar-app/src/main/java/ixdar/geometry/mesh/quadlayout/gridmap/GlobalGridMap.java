@@ -63,6 +63,12 @@ public final class GlobalGridMap implements UvField {
 
     public GridMapOptimizer gridOptimizer;
 
+    /** The Newton relaxation's energy before it ran, kept when the optimizer is dropped. */
+    public double relaxEnergyBefore;
+
+    /** The Newton relaxation's energy after it ran. */
+    public double relaxEnergyAfter;
+
     public GridMapIsoSurface isoSurfaceInitial;
 
     public GridMapIsoSurface isoSurfaceRelaxed;

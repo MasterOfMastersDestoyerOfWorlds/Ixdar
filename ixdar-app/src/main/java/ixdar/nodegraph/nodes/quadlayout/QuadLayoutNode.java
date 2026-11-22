@@ -123,6 +123,17 @@ public class QuadLayoutNode extends NodeGroup {
                 EMBEDDED, SURFACES, COONS, LAYOUT);
     }
 
+    /**
+     * The stage outputs {@link #evaluate} bundles into {@link #LAYOUT}; {@link #EMBEDDED} and
+     * {@link #SINGULARITIES} are computed only when read.
+     *
+     * @return the outputs {@link #evaluate} reads
+     */
+    @Override
+    public List<OutputPort> evaluateReads() {
+        return List.of(FIELD, SEAMLESS, MOTORCYCLE, SKELETON, TMESH, UV, QUADS, SURFACES, COONS);
+    }
+
     @Override
     public String description() {
         return "Runs the quad-layout pipeline over a triangle mesh as a group of its stage nodes:"

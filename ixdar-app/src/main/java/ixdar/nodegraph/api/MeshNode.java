@@ -27,6 +27,15 @@ public interface MeshNode {
     void evaluate(NodeContext ctx);
 
     /**
+     * Drops solver scratch the node's outputs carry but no reader uses, once it has evaluated;
+     * the runtime skips it when it keeps intermediates for debugging. The default drops nothing.
+     *
+     * @param ctx the context the node just evaluated through, its outputs set
+     */
+    default void freeIntermediates(NodeContext ctx) {
+    }
+
+    /**
      * Static metadata snapshot of this node's port shape and lifecycle flags.
      *
      * @return schema derived from {@link #inputs()}, {@link #outputs()},

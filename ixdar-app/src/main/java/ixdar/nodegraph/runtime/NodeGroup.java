@@ -36,9 +36,9 @@ public abstract class NodeGroup implements MeshNode {
     }
 
     /**
-     * Computes the outputs {@link #build} does not wire, once every wired output has been read;
-     * {@code ctx.getOutput} reads the wired ones. It never evaluates a node. The default computes
-     * nothing.
+     * Computes the outputs {@link #build} does not wire, once the wired outputs
+     * {@link #evaluateReads} names have been read; {@code ctx.getOutput} reads those. It never
+     * evaluates a node. The default computes nothing.
      *
      * @param ctx the group call's record, its wired outputs set
      */
@@ -53,6 +53,16 @@ public abstract class NodeGroup implements MeshNode {
      * @param ctx the group call's record, its parameters bound
      */
     public void requireParameters(NodeContext ctx) {
+    }
+
+    /**
+     * The wired outputs {@link #evaluate} reads, the only ones computed for it, so a wired output
+     * nothing reads is never computed and its source can be released.
+     *
+     * @return the outputs {@link #evaluate} reads, or {@code null} for every wired output
+     */
+    public List<OutputPort> evaluateReads() {
+        return null;
     }
 
     /**

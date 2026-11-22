@@ -20,6 +20,7 @@ import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.nodegraph.nodes.quadlayout.NDirectionFieldNode;
+import ixdar.numeric.sparse.system.DofSystem;
 
 /**
  * Same-field check for cross-field solver changes: records per-vertex field angles (from each
@@ -48,7 +49,7 @@ public final class CrossFieldEquivalenceBenchmark {
         NodeGraphRuntime runtime = NodeGraphRuntime.executeResource(dsl, Map.of());
         CrossField field = (CrossField) runtime.lastOutput(NDirectionFieldNode.FIELD.name);
 
-        double[] solution = field.system.solution;
+        double[] solution = ((DofSystem) runtime.lastOutput(NDirectionFieldNode.DOFS.name)).solution;
         SurfaceMetric metric = SurfaceMetric.of(field.mesh);
         List<String> rows = new ArrayList<>(field.mesh.vertexCount());
         Vector3f position = new Vector3f();

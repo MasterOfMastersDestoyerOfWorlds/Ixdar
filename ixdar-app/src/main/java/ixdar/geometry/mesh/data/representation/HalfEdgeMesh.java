@@ -542,6 +542,19 @@ public class HalfEdgeMesh implements MeshTopology {
         return HalfEdgeMeshOps.bulkAllocate(positions, faceIndices, vertsPerFace);
     }
 
+    /**
+     * Packs the per-vertex and per-face adjacency back into shared arrays once a run of edits
+     * is done, so the mesh stops holding one small list per edited row.
+     */
+    public void packAdjacency() {
+        vertexOutgoingHalfEdges.repack(nextVertexId);
+        vertexEdges.repack(nextVertexId);
+        vertexFaces.repack(nextVertexId);
+        faceHalfEdges.repack(nextFaceId);
+        faceVertices.repack(nextFaceId);
+        faceEdges.repack(nextFaceId);
+    }
+
     /** {@inheritDoc}. */
     @Override
     public int vertexCount() {

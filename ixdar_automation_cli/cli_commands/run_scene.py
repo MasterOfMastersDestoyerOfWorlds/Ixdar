@@ -310,8 +310,14 @@ def start_scene(command: list[str], cwd: str, log_handle, scene: str, port: int,
     :raises SceneHostError: When the scene host cannot take the build or a path.
     """
     if host is None:
-        process = subprocess.Popen(command, cwd=cwd, stdout=log_handle, stderr=subprocess.STDOUT,
-                                   start_new_session=True)
+        env = None
+        if sys.platform == "win32":
+            # On Windows another native library has already brought in LLVM's libomp140 by the time
+            # MKL loads libiomp5md for PARDISO, and Intel's runtime aborts the JVM on the second
+            # OpenMP copy unless told to allow it.
+            env = {**os.environ, "KMP_DUPLICATE_LIB_OK": "TRUE"}
+        process = subprocess.Popen(command, cwd=cwd, env=env, stdout=log_handle,
+                                   stderr=subprocess.STDOUT, start_new_session=True)
         register_launch(process.pid, scene, headless=True, root=root)
         return process
     process, fields = host.start(command, cwd, port, log_handle)

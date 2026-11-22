@@ -108,6 +108,15 @@ public final class MeshRepairReport {
      */
     public int unorientedEdgeCount;
 
+    /** Faces of the repaired mesh that folded back against their corners before the unfold. */
+    public int foldedFaceCount;
+
+    /** Vertices the unfold moved. */
+    public int unfoldMovedVertexCount;
+
+    /** Faces still folded after the unfold, which quad_layout will refuse. */
+    public int stillFoldedFaceCount;
+
     /** Face count of each shell, largest first. */
     public int[] shellFaceCounts = new int[0];
 
@@ -163,7 +172,8 @@ public final class MeshRepairReport {
                 + " oversized=" + oversizedHoleCount
                 + " unfillable=" + unfillableHoleCount
                 + " exposed=" + exposedFaceCount + " pruned=" + prunedFaceCount
-                + " boundaryEdges=" + outputBoundaryEdgeCount;
+                + " boundaryEdges=" + outputBoundaryEdgeCount
+                + " folded=" + foldedFaceCount + " stillFolded=" + stillFoldedFaceCount;
     }
 
     /**
@@ -206,6 +216,9 @@ public final class MeshRepairReport {
         appendCount(text, "outputFaceCount", outputFaceCount);
         appendCount(text, "outputBoundaryEdgeCount", outputBoundaryEdgeCount);
         appendCount(text, "unorientedEdgeCount", unorientedEdgeCount);
+        appendCount(text, "foldedFaceCount", foldedFaceCount);
+        appendCount(text, "unfoldMovedVertexCount", unfoldMovedVertexCount);
+        appendCount(text, "stillFoldedFaceCount", stillFoldedFaceCount);
         for (int shell = 0; shell < shellFaceCounts.length; shell++) {
             text.append("  shell ").append(shell)
                     .append(" faces=").append(shellFaceCounts[shell])

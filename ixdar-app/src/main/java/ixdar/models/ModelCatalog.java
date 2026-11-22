@@ -286,7 +286,9 @@ public final class ModelCatalog {
             return match;
         }
         Path file = Path.of(token);
-        if (!Files.exists(file) && Files.exists(Path.of(MeshLoader.MODULE_DIRECTORY, token))) {
+        // An absolute path cannot sit below the module directory; on Windows joining one throws.
+        if (!Files.exists(file) && !file.isAbsolute()
+                && Files.exists(Path.of(MeshLoader.MODULE_DIRECTORY, token))) {
             file = Path.of(MeshLoader.MODULE_DIRECTORY, token);
         }
         ModelChoice.Kind kind = token.endsWith(DSL_EXTENSION) ? ModelChoice.Kind.DSL
