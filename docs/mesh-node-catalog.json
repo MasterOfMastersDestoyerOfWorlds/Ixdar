@@ -207,6 +207,12 @@
           "portType": "FLOAT",
           "description": "Maximum separatrix deviation in degrees, bounding the ILP.",
           "defaultValue": 15.0
+        },
+        {
+          "name": "relative_gap",
+          "portType": "FLOAT",
+          "description": "Stop the branch and bound once the best layout is within this fraction of the lower bound; 0 proves it optimal.",
+          "defaultValue": 0.0
         }
       ],
       "outputs": [
@@ -3995,6 +4001,12 @@
           "portType": "FLOAT",
           "description": "Crease threshold for alignment edges, as the cosine between the two face normals. The default aligns boundaries only; 0.2 (about 78 degrees) aligns sharp creases too.",
           "defaultValue": -2.0
+        },
+        {
+          "name": "relative_gap",
+          "portType": "FLOAT",
+          "description": "Quantization stops once its layout is within this fraction of the lower bound; 0 proves the layout optimal.",
+          "defaultValue": 0.0
         }
       ],
       "outputs": [
@@ -4266,6 +4278,31 @@
         }
       ],
       "description": "Turns reference pictures\u0027 shading into the strokes a sculpt starts from: every shading edge of enough contrast becomes a ridge or valley chain (radius from its width, depth from its contrast, under the terrace limit) and every hollow a bowl fill about as deep as its mouth is wide when round and dark. Each is cast along its picture\u0027s view, through the fit, onto the base where the base faces it within 60 degrees, axis pictures first and strongest lines first, a point dropped where an earlier mark lies, and drawn through the template\u0027s camera in a \u003cg id\u003d\"edges_\u003cview\u003e\"\u003e group per picture."
+    },
+    {
+      "id": "refine_n_smooth",
+      "category": "Quad Layout",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Triangle mesh in, with its _alignment_edges slot when it has one; out, the same bundle when every triangle complies, else a split copy (same surface, more triangles) carrying only the alignment slot.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Triangle mesh in, with its _alignment_edges slot when it has one; out, the same bundle when every triangle complies, else a split copy (same surface, more triangles) carrying only the alignment slot."
+        }
+      ],
+      "description": "Splits, for every triangle whose curvature breaks KCP13\u0027s n-smooth condition |4 κ_t| \u003c π, the edge opposite its worst corner until none does, so the cross field\u0027s triangle indices obey Poincaré-Hopf (KCP13 Appendix B)."
     },
     {
       "id": "repair_mesh",

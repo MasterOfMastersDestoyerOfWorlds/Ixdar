@@ -71,6 +71,9 @@ public class QuantizedMeshGrid {
     public double objectiveValue;
     public boolean optimal;
 
+    /** Relative optimality gap the branch and bound may stop at; {@code 0} proves the optimum. */
+    public double relativeGap;
+
     /** Per-trace constraint logging, on only for the first separation round. */
     private boolean constraintLoggingEnabled = true;
 
@@ -139,6 +142,7 @@ public class QuantizedMeshGrid {
             prefixFallbackCount = 0;
             constraintLoggingEnabled = round == 0;
             IntegerProgram model = new IntegerProgram(classWeight);
+            model.relativeGap = relativeGap;
             addConsistencyConstraints(model);
             addValidityConstraints(model);
             addLayoutConstraints(model);
@@ -159,7 +163,7 @@ public class QuantizedMeshGrid {
                 throw new IllegalStateException("quantization ILP INFEASIBLE"
                         + " — a consistent T-mesh always admits the all-ones quantization");
             }
-            optimal = true;
+            optimal = relativeGap == 0.0;
             objectiveValue = model.objectiveValue;
 
             quantizedLengthByArc = new int[arcCount];
@@ -172,8 +176,8 @@ public class QuantizedMeshGrid {
             }
             int violations = verifySolution();
             Platforms.log(
-                    "[quantize] state=OPTIMAL objective=%.3f zeroArcs=%d/%d violations=%d round=%d%n",
-                    objectiveValue, zeroArcs, arcCount, violations, round);
+                    "[quantize] state=%s objective=%.3f zeroArcs=%d/%d violations=%d round=%d%n",
+                    optimal ? "OPTIMAL" : "GAP", objectiveValue, zeroArcs, arcCount, violations, round);
 
             collapse = new ZeroArcCollapse(network, quantizedLengthByArc).build();
             if (collapse.mergedSingularityVertexIdsByCluster.isEmpty()) {

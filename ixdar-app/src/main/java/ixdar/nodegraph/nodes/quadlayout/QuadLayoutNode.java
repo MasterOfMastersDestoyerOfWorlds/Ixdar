@@ -51,6 +51,8 @@ public class QuadLayoutNode extends NodeGroup {
 
     public static final String CORNERS_NODE = "corners";
 
+    public static final String SMOOTH_NODE = "smooth";
+
     public static final int FOLDED_FACE_IDS_NAMED = 8;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
@@ -61,6 +63,7 @@ public class QuadLayoutNode extends NodeGroup {
     public static final InputPort CURVATURE_BIAS = new InputPort("curvature_bias", PortType.FLOAT,
             DEFAULT_CURVATURE_BIAS);
     public static final InputPort FEATURE_DIHEDRAL_COS = SplitFeatureCornersNode.FEATURE_DIHEDRAL_COS;
+    public static final InputPort RELATIVE_GAP = QuantizedMeshGridNode.RELATIVE_GAP;
 
     public static final OutputPort QUADS = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
     public static final OutputPort UV = new OutputPort("uv", PortType.UV_FIELD);
@@ -110,7 +113,8 @@ public class QuadLayoutNode extends NodeGroup {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, ALPHA_DEGREES, TARGET_EDGE_LENGTH, CURVATURE_BIAS, FEATURE_DIHEDRAL_COS);
+        return List.of(GEOMETRY, ALPHA_DEGREES, TARGET_EDGE_LENGTH, CURVATURE_BIAS, FEATURE_DIHEDRAL_COS,
+                RELATIVE_GAP);
     }
 
     @Override
@@ -138,6 +142,8 @@ public class QuadLayoutNode extends NodeGroup {
                 Map.entry(FEATURE_DIHEDRAL_COS.name, "Crease threshold for alignment edges, as the"
                         + " cosine between the two face normals. The default aligns boundaries only;"
                         + " 0.2 (about 78 degrees) aligns sharp creases too."),
+                Map.entry(RELATIVE_GAP.name, "Quantization stops once its layout is within this"
+                        + " fraction of the lower bound; 0 proves the layout optimal."),
                 Map.entry(UV.name, "The relaxed integer grid map the quads were extracted from."),
                 Map.entry(TMESH.name, "The contracted embedded T-mesh, one patch per quad grid."),
                 Map.entry(FIELD.name, "The cross field the layout follows."),
@@ -162,14 +168,16 @@ public class QuadLayoutNode extends NodeGroup {
                 .input(SplitFeatureCornersNode.GEOMETRY.name, parameters, GEOMETRY.name)
                 .input(SplitFeatureCornersNode.FEATURE_DIHEDRAL_COS.name, parameters,
                         FEATURE_DIHEDRAL_COS.name);
+        GraphNodeContext smooth = group.node(SMOOTH_NODE, RefineNSmoothNode::new)
+                .input(RefineNSmoothNode.GEOMETRY.name, corners, SplitFeatureCornersNode.GEOMETRY_OUT.name);
         GraphNodeContext field = group.node(FIELD.name, NDirectionFieldNode::new)
-                .input(NDirectionFieldNode.GEOMETRY.name, corners, SplitFeatureCornersNode.GEOMETRY_OUT.name)
+                .input(NDirectionFieldNode.GEOMETRY.name, smooth, RefineNSmoothNode.GEOMETRY_OUT.name)
                 .input(NDirectionFieldNode.CURVATURE_BIAS.name, parameters, CURVATURE_BIAS.name);
         GraphNodeContext seamless = group.node(SEAMLESS.name, SeamlessParameterizationNode::new)
                 .input(SeamlessParameterizationNode.FIELD.name, field,
                         NDirectionFieldNode.FIELD.name);
         GraphNodeContext motorcycle = group.node(MOTORCYCLE.name, MotorcycleGraphNode::new)
-                .input(MotorcycleGraphNode.GEOMETRY.name, corners, SplitFeatureCornersNode.GEOMETRY_OUT.name)
+                .input(MotorcycleGraphNode.GEOMETRY.name, smooth, RefineNSmoothNode.GEOMETRY_OUT.name)
                 .input(MotorcycleGraphNode.UV.name, seamless, SeamlessParameterizationNode.UV.name)
                 .input(MotorcycleGraphNode.CHARTS.name, seamless,
                         SeamlessParameterizationNode.CHARTS.name)
@@ -180,7 +188,8 @@ public class QuadLayoutNode extends NodeGroup {
                 .input(MotorcycleGraphNode.ALPHA_DEGREES.name, parameters, ALPHA_DEGREES.name);
         GraphNodeContext quantize = group.node(QUANTIZE_NODE, QuantizedMeshGridNode::new)
                 .input(QuantizedMeshGridNode.GRAPH.name, motorcycle, MotorcycleGraphNode.GRAPH.name)
-                .input(QuantizedMeshGridNode.ALPHA_DEGREES.name, parameters, ALPHA_DEGREES.name);
+                .input(QuantizedMeshGridNode.ALPHA_DEGREES.name, parameters, ALPHA_DEGREES.name)
+                .input(QuantizedMeshGridNode.RELATIVE_GAP.name, parameters, RELATIVE_GAP.name);
         GraphNodeContext embed = group.node("embed", LayoutEmbeddingNode::new)
                 .input(LayoutEmbeddingNode.SKELETON.name, quantize,
                         QuantizedMeshGridNode.SKELETON.name)

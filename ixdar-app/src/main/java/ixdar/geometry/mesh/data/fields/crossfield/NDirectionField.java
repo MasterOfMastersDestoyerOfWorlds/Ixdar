@@ -168,11 +168,17 @@ public class NDirectionField {
      * alignment edges, the connection Laplacian solve, and the field conversion with singularity
      * extraction. Durable products land on the returned {@link CrossField}.
      *
+     * <p>
+     * Refuses a mesh that is not n-smooth, where KCP13 Appendix B's index theorem fails.
+     *
      * @param buildMesh     half-edge mesh providing geometry, topology, and active-id mapping
      * @param surfaceMetric metric measured on {@code buildMesh}, read and never written
+     * @throws IllegalStateException when a triangle breaks {@code |n κ_t| < π}, or the indices
+     *                               break Poincaré-Hopf on a closed mesh
      * @return the built cross field
      */
     public CrossField build(HalfEdgeMesh buildMesh, SurfaceMetric surfaceMetric) {
+        TriangleCurvature.requireNSmooth(buildMesh, n);
         this.mesh = buildMesh;
         this.metric = surfaceMetric;
         this.cf = new CrossField(buildMesh);
@@ -1172,6 +1178,7 @@ public class NDirectionField {
         }
         Platforms.log("[n-field] raw triangle indices: nonzero=%d sum=%d%n",
                 triangleNonzero, triangleSum);
+        requirePoincareHopf(indexSum4, triangleSum, eulerCharacteristic);
         if (triangleNonzero != singularityCount) {
             Platforms.log("[n-field] WARNING conversion mismatch: raw field has %d singular"
                     + " triangles but extraction found %d vertex singularities%n",
@@ -1194,6 +1201,30 @@ public class NDirectionField {
                             mesh.vertexIdAt(v), iQuarter);
                 }
             }
+        }
+    }
+
+    /**
+     * Refuses indices that break the discrete Poincaré-Hopf theorem on a closed mesh: KCP13's
+     * triangle indices and the vertex cones must each sum to {@code nχ}. KCP13 states it for
+     * closed meshes only, so a mesh with boundary is not checked. See also: KCP13 Appendix B
+     *
+     * @param coneIndexSum        sum of the vertex cones' index times {@code n}
+     * @param triangleIndexSum    sum of KCP13's per-triangle indices
+     * @param eulerCharacteristic the mesh's {@code χ}
+     * @throws IllegalStateException when either sum differs from {@code nχ}
+     */
+    private void requirePoincareHopf(int coneIndexSum, int triangleIndexSum, int eulerCharacteristic) {
+        for (int activeEdge = 0; activeEdge < cf.edgeCount; activeEdge++) {
+            if (mesh.isBoundaryEdge(mesh.edgeIdAt(activeEdge))) {
+                return;
+            }
+        }
+        int expected = n * eulerCharacteristic;
+        if (coneIndexSum != expected || triangleIndexSum != expected) {
+            throw new IllegalStateException("cross field breaks KCP13 Appendix B's discrete"
+                    + " Poincare-Hopf theorem: triangle indices sum to " + triangleIndexSum
+                    + " and vertex cones to " + coneIndexSum + ", but n*chi = " + expected);
         }
     }
 

@@ -174,12 +174,12 @@ public final class FeatureCornerSplit {
 
     /**
      * A fresh half-edge copy of a triangle mesh, its normals computed, so splits never touch the
-     * graph's input.
+     * graph's input. Copy vertex {@code vertexIdAt(a)} is the source's active vertex {@code a}.
      *
      * @param source the mesh to copy
      * @return the copy
      */
-    private static HalfEdgeMesh copyOf(HalfEdgeMesh source) {
+    public static HalfEdgeMesh copyOf(HalfEdgeMesh source) {
         int[] activeOf = new int[source.vertexIdBound()];
         PackedPoints positions = source.packedPositions(activeOf);
         int[] faceIndices = new int[source.faceCount() * TRIANGLE_CORNERS];

@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.quantization;
 
+import ixdar.platform.Platforms;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -11,15 +12,25 @@ import java.util.PriorityQueue;
  */
 public final class IntegerProgram {
 
-    private static final double FEASIBILITY_TOLERANCE = 1e-9;
-
-    private static final double PIVOT_TOLERANCE = 1e-9;
-
     private static final double INTEGRALITY_TOLERANCE = 1e-6;
 
     private static final double PRUNE_TOLERANCE = 1e-7;
 
-    private static final int ITERATIONS_PER_DIMENSION = 50;
+    private static final double REDUCED_COST_TOLERANCE = 1e-9;
+
+    private static final int RELIABILITY = 4;
+
+    private static final int STRONG_CANDIDATES = 8;
+
+    private static final double SCORE_EPSILON = 1e-6;
+
+    private static final double CUTOFF_GAIN = 1e9;
+
+    private static final long PROGRESS_INTERVAL_NANOS = 5_000_000_000L;
+
+    private static final double NANOS_PER_SECOND = 1e9;
+
+    private static final String LOG_PREFIX = "[branch-bound] ";
 
     /** Objective weight per variable, all non-negative. */
     public final double[] weights;
@@ -44,6 +55,12 @@ public final class IntegerProgram {
 
     /** Whether any assignment satisfies every row. */
     public boolean feasible;
+
+    /**
+     * Relative gap the search may stop at: a node is pruned once its relaxation is within this
+     * fraction of the incumbent. {@code 0}, the default, proves the optimum.
+     */
+    public double relativeGap;
 
     /**
      * Start a program over one variable per weight.
@@ -309,132 +326,312 @@ public final class IntegerProgram {
             tableauSourceRow[rowTotal++] = row;
         }
 
-        int variableSlots = columns + rowTotal;
-        double[] tableau = new double[(rowTotal + 1) * columns];
+        int[][] matrixColumns = new int[rowTotal][];
+        int[][] matrixCoefficients = new int[rowTotal][];
         for (int row = 0; row < rowTotal; row++) {
             int source = tableauSourceRow[row];
+            matrixColumns[row] = new int[rowVariables[source].length];
             for (int position = 0; position < rowVariables[source].length; position++) {
-                tableau[row * columns + columnOfVariable[rowVariables[source][position]]] =
-                        rowCoefficients[source][position];
+                matrixColumns[row][position] = columnOfVariable[rowVariables[source][position]];
             }
+            matrixCoefficients[row] = rowCoefficients[source];
         }
+        double[] columnWeights = new double[columns];
         for (int column = 0; column < columns; column++) {
-            tableau[rowTotal * columns + column] = presolvedWeights[variableOfColumn[column]];
+            columnWeights[column] = presolvedWeights[variableOfColumn[column]];
         }
-        int[] basis = new int[rowTotal + columns];
-        for (int row = 0; row < rowTotal; row++) {
-            basis[row] = columns + row;
-        }
+        SparseDualSimplex.Matrix matrix =
+                new SparseDualSimplex.Matrix(matrixColumns, matrixCoefficients, columns, columnWeights);
+        int variableSlots = columns + rowTotal;
+        double[] rootLower = new double[variableSlots];
+        double[] rootUpper = new double[variableSlots];
         for (int column = 0; column < columns; column++) {
-            basis[rowTotal + column] = column;
-        }
-        double[] bounds = new double[2 * variableSlots];
-        for (int column = 0; column < columns; column++) {
-            bounds[column] = columnLower[column];
-            bounds[variableSlots + column] = Double.POSITIVE_INFINITY;
+            rootLower[column] = columnLower[column];
+            rootUpper[column] = Double.POSITIVE_INFINITY;
         }
         for (int row = 0; row < rowTotal; row++) {
             boolean equality = tableauSourceRow[row] < equalityTotal;
-            bounds[columns + row] = equality ? 0.0 : 1.0;
-            bounds[variableSlots + columns + row] = equality ? 0.0 : Double.POSITIVE_INFINITY;
+            rootLower[columns + row] = equality ? 0.0 : 1.0;
+            rootUpper[columns + row] = equality ? 0.0 : Double.POSITIVE_INFINITY;
         }
-        boolean[] atUpper = new boolean[variableSlots];
 
         double[] incumbent = null;
         double incumbentBound = Double.POSITIVE_INFINITY;
-        List<double[]> openTableaus = new ArrayList<>();
-        List<int[]> openBases = new ArrayList<>();
-        List<double[]> openBounds = new ArrayList<>();
-        List<boolean[]> openAtUpper = new ArrayList<>();
-        List<double[]> openValues = new ArrayList<>();
-        List<Double> openRelaxations = new ArrayList<>();
+        double pruneAt = Double.POSITIVE_INFINITY;
+        // An open node keeps its bound changes, a chain shared with its ancestors, and its own
+        // solved basis, from which it is refactored and re-solved when it is taken up.
+        List<OpenNode> open = new ArrayList<>();
         PriorityQueue<Integer> frontier = new PriorityQueue<>((first, second) -> {
-            int byBound = Double.compare(openRelaxations.get(first), openRelaxations.get(second));
+            int byBound = Double.compare(open.get(first).relaxation, open.get(second).relaxation);
             return byBound != 0 ? byBound : Integer.compare(second, first);
         });
-        double[] basicValues = new double[rowTotal];
-        double[] rowWeights = new double[rowTotal];
-        if (dualSimplex(tableau, basis, bounds, atUpper, rowTotal, columns, basicValues, rowWeights)) {
-            double rootRelaxation = objectiveOf(tableau, basis, bounds, atUpper, rowTotal, columns);
-            openTableaus.add(tableau);
-            openBases.add(basis);
-            openBounds.add(bounds.clone());
-            openAtUpper.add(atUpper);
-            openValues.add(basicValues.clone());
-            openRelaxations.add(rootRelaxation);
-            frontier.add(0);
+        // The node in hand, solved: the root first, then after each branch its better child, so the
+        // search plunges to an incumbent before it widens.
+        SparseDualSimplex root = new SparseDualSimplex(matrix, rootLower.clone(), rootUpper.clone());
+        SparseDualSimplex node = null;
+        BoundChange nodeChanges = null;
+        double relaxation = 0.0;
+        long startedNanos = System.nanoTime();
+        Platforms.log("%sroot rows=%d columns=%d: solving the LP relaxation%n", LOG_PREFIX, rowTotal, columns);
+        if (root.solve()) {
+            node = root;
+            relaxation = root.objective();
         }
-        while (!frontier.isEmpty()) {
-            int node = frontier.poll();
-            double relaxation = openRelaxations.get(node);
-            double[] nodeTableau = openTableaus.get(node);
-            int[] nodeBasis = openBases.get(node);
-            double[] nodeBounds = openBounds.get(node);
-            boolean[] nodeAtUpper = openAtUpper.get(node);
-            double[] nodeValues = openValues.get(node);
-            openTableaus.set(node, null);
-            openBases.set(node, null);
-            openBounds.set(node, null);
-            openAtUpper.set(node, null);
-            openValues.set(node, null);
-            if (relaxation >= incumbentBound - PRUNE_TOLERANCE) {
-                continue;
-            }
-            int branchRow = -1;
-            double heaviest = -1.0;
-            for (int row = 0; row < rowTotal; row++) {
-                int slot = nodeBasis[row];
-                double value = nodeValues[row];
-                double fractionality = Math.abs(value - Math.rint(value));
-                if (slot < columns && fractionality > INTEGRALITY_TOLERANCE
-                        && presolvedWeights[variableOfColumn[slot]] * fractionality > heaviest) {
-                    heaviest = presolvedWeights[variableOfColumn[slot]] * fractionality;
-                    branchRow = row;
+        Platforms.log("%sroot relaxation=%.3f feasible=%b %.1fs%n", LOG_PREFIX, relaxation, node != null,
+                (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
+        // The root's reduced costs, for fixing columns globally each time the incumbent improves.
+        double rootRelaxation = relaxation;
+        double[] rootReduced = new double[columns];
+        for (int column = 0; column < columns && node != null; column++) {
+            rootReduced[column] = root.reducedCost(column);
+        }
+        // Pseudocosts: objective gain per unit of fractionality removed, summed per column and side.
+        double[] downGainSum = new double[columns];
+        double[] upGainSum = new double[columns];
+        int[] downGainCount = new int[columns];
+        int[] upGainCount = new int[columns];
+        double[] gainTotals = new double[2];
+        int[] gainCounts = new int[2];
+        int[] candidateSlot = new int[rowTotal];
+        double[] candidateValue = new double[rowTotal];
+        boolean[] strongTried = new boolean[rowTotal];
+        long fixedTotal = 0;
+        long strongTotal = 0;
+        long nodesSolved = 0;
+        long nextProgressNanos = System.nanoTime() + PROGRESS_INTERVAL_NANOS;
+        while (node != null || !frontier.isEmpty()) {
+            if (System.nanoTime() >= nextProgressNanos) {
+                nextProgressNanos = System.nanoTime() + PROGRESS_INTERVAL_NANOS;
+                double bestBound = frontier.isEmpty() ? Double.POSITIVE_INFINITY
+                        : open.get(frontier.peek()).relaxation;
+                if (node != null) {
+                    bestBound = Math.min(bestBound, relaxation);
                 }
+                Platforms.log("%snodes=%d open=%d incumbent=%.3f bound=%.3f %.0fs%n", LOG_PREFIX,
+                        nodesSolved, frontier.size(), incumbentBound, bestBound,
+                        (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
             }
-            if (branchRow < 0) {
-                incumbentBound = relaxation;
-                incumbent = new double[columns];
-                for (int column = 0; column < columns; column++) {
-                    incumbent[column] = nodeBounds[(nodeAtUpper[column] ? variableSlots : 0) + column];
+            if (node == null) {
+                int index = frontier.poll();
+                OpenNode stored = open.get(index);
+                open.set(index, null);
+                if (stored.relaxation >= pruneAt) {
+                    continue;
                 }
-                for (int row = 0; row < rowTotal; row++) {
-                    if (nodeBasis[row] < columns) {
-                        incumbent[nodeBasis[row]] = nodeValues[row];
+                double[] lower = rootLower.clone();
+                double[] upper = rootUpper.clone();
+                for (BoundChange change = stored.changes; change != null; change = change.previous) {
+                    if (change.upper) {
+                        upper[change.slot] = Math.min(upper[change.slot], change.value);
+                    } else {
+                        lower[change.slot] = Math.max(lower[change.slot], change.value);
                     }
                 }
+                SparseDualSimplex restarted = root.restart(lower, upper, stored.basisSlot, stored.atUpper);
+                if (!restarted.solve()) {
+                    continue;
+                }
+                node = restarted;
+                nodeChanges = stored.changes;
+                relaxation = restarted.objective();
+            }
+            SparseDualSimplex current = node;
+            BoundChange currentChanges = nodeChanges;
+            node = null;
+            nodesSolved++;
+            if (relaxation >= pruneAt) {
                 continue;
             }
-            int branchSlot = nodeBasis[branchRow];
-            double branchValue = nodeValues[branchRow];
-            for (int side = 0; side < 2; side++) {
-                double[] childTableau = side == 0 ? nodeTableau.clone() : nodeTableau;
-                int[] childBasis = side == 0 ? nodeBasis.clone() : nodeBasis;
-                double[] childBounds = side == 0 ? nodeBounds.clone() : nodeBounds;
-                boolean[] childAtUpper = side == 0 ? nodeAtUpper.clone() : nodeAtUpper;
-                if (side == 0) {
-                    childBounds[variableSlots + branchSlot] = Math.floor(branchValue);
-                } else {
-                    childBounds[branchSlot] = Math.ceil(branchValue);
+            // Reduced-cost fixing (Achterberg 2007, §7.7): moving a nonbasic column k units off its
+            // bound raises this node's bound by at least k times its reduced cost, so within this
+            // subtree it cannot move further than the cutoff allows.
+            if (incumbent != null) {
+                double allowance = pruneAt - relaxation;
+                for (int column = 0; column < columns; column++) {
+                    double cost = Math.abs(current.reducedCost(column));
+                    if (cost <= REDUCED_COST_TOLERANCE || current.isBasic(column)) {
+                        continue;
+                    }
+                    double reach = Math.floor(allowance / cost + INTEGRALITY_TOLERANCE);
+                    if (!current.atUpper[column] && current.lower[column] + reach < current.upper[column]) {
+                        current.upper[column] = current.lower[column] + reach;
+                        currentChanges = new BoundChange(column, true, current.upper[column], currentChanges);
+                        fixedTotal++;
+                    } else if (current.atUpper[column] && current.upper[column] - reach > current.lower[column]) {
+                        current.lower[column] = current.upper[column] - reach;
+                        currentChanges = new BoundChange(column, false, current.lower[column], currentChanges);
+                        fixedTotal++;
+                    }
                 }
-                if (!dualSimplex(childTableau, childBasis, childBounds, childAtUpper, rowTotal,
-                        columns, basicValues, rowWeights)) {
+            }
+            int candidateTotal = 0;
+            for (int position = 0; position < rowTotal; position++) {
+                int slot = current.basisSlot[position];
+                double value = current.basic[position];
+                if (slot < columns && Math.abs(value - Math.rint(value)) > INTEGRALITY_TOLERANCE) {
+                    candidateSlot[candidateTotal] = slot;
+                    candidateValue[candidateTotal] = value;
+                    strongTried[candidateTotal++] = false;
+                }
+            }
+            if (candidateTotal == 0) {
+                incumbentBound = relaxation;
+                pruneAt = incumbentBound - Math.max(PRUNE_TOLERANCE, relativeGap * Math.abs(incumbentBound));
+                incumbent = new double[columns];
+                for (int column = 0; column < columns; column++) {
+                    incumbent[column] = current.valueOf(column);
+                }
+                // Root reduced-cost fixing: tighten the bounds every restarted node starts from.
+                for (int column = 0; column < columns; column++) {
+                    if (rootReduced[column] > REDUCED_COST_TOLERANCE) {
+                        double reach = Math.floor((pruneAt - rootRelaxation) / rootReduced[column]
+                                + INTEGRALITY_TOLERANCE);
+                        rootUpper[column] = Math.min(rootUpper[column], rootLower[column] + reach);
+                    }
+                }
+                Platforms.log("%snew incumbent=%.3f at node %d, open=%d %.0fs%n", LOG_PREFIX, incumbentBound,
+                        nodesSolved, frontier.size(), (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
+                continue;
+            }
+
+            // Reliability branching (Achterberg, Koch and Martin 2005): score each candidate by
+            // the product of its down and up gains, estimated from pseudocosts once both sides have
+            // RELIABILITY observations, and measured by strong branching on up to STRONG_CANDIDATES
+            // unreliable ones, heaviest fractional weight first.
+            double meanDown = gainCounts[0] > 0 ? gainTotals[0] / gainCounts[0] : 1.0;
+            double meanUp = gainCounts[1] > 0 ? gainTotals[1] / gainCounts[1] : 1.0;
+            int branchSlot = -1;
+            double branchValue = 0.0;
+            double bestScore = -1.0;
+            SparseDualSimplex[] branchChildren = null;
+            double[] branchRelaxations = null;
+            for (int strong = 0; strong < STRONG_CANDIDATES; strong++) {
+                int pick = -1;
+                double heaviest = -1.0;
+                for (int candidate = 0; candidate < candidateTotal; candidate++) {
+                    int slot = candidateSlot[candidate];
+                    if (strongTried[candidate] || downGainCount[slot] >= RELIABILITY && upGainCount[slot] >= RELIABILITY) {
+                        continue;
+                    }
+                    double fractionality = Math.abs(candidateValue[candidate] - Math.rint(candidateValue[candidate]));
+                    double weight = presolvedWeights[variableOfColumn[slot]] * fractionality;
+                    if (weight > heaviest) {
+                        heaviest = weight;
+                        pick = candidate;
+                    }
+                }
+                if (pick < 0) {
+                    break;
+                }
+                strongTried[pick] = true;
+                strongTotal++;
+                int slot = candidateSlot[pick];
+                double value = candidateValue[pick];
+                SparseDualSimplex[] trial = new SparseDualSimplex[2];
+                double[] trialRelaxation = {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY};
+                double[] gain = new double[2];
+                for (int side = 0; side < 2; side++) {
+                    SparseDualSimplex child = current.copy();
+                    if (side == 0) {
+                        child.upper[slot] = Math.floor(value);
+                    } else {
+                        child.lower[slot] = Math.ceil(value);
+                    }
+                    double unit = side == 0 ? value - Math.floor(value) : Math.ceil(value) - value;
+                    if (child.solve()) {
+                        trial[side] = child;
+                        trialRelaxation[side] = child.objective();
+                        double observed = Math.max(trialRelaxation[side] - relaxation, 0.0) / unit;
+                        if (side == 0) {
+                            downGainSum[slot] += observed;
+                            downGainCount[slot]++;
+                        } else {
+                            upGainSum[slot] += observed;
+                            upGainCount[slot]++;
+                        }
+                        gainTotals[side] += observed;
+                        gainCounts[side]++;
+                    }
+                    gain[side] = trialRelaxation[side] >= pruneAt ? CUTOFF_GAIN : trialRelaxation[side] - relaxation;
+                }
+                double score = Math.max(gain[0], SCORE_EPSILON) * Math.max(gain[1], SCORE_EPSILON);
+                if (score > bestScore) {
+                    bestScore = score;
+                    branchSlot = slot;
+                    branchValue = value;
+                    branchChildren = trial;
+                    branchRelaxations = trialRelaxation;
+                }
+            }
+            for (int candidate = 0; candidate < candidateTotal; candidate++) {
+                int slot = candidateSlot[candidate];
+                if (strongTried[candidate]) {
                     continue;
                 }
-                double childRelaxation =
-                        objectiveOf(childTableau, childBasis, childBounds, childAtUpper, rowTotal, columns);
-                if (childRelaxation >= incumbentBound - PRUNE_TOLERANCE) {
-                    continue;
+                double value = candidateValue[candidate];
+                double downUnits = value - Math.floor(value);
+                double downCost = downGainCount[slot] > 0 ? downGainSum[slot] / downGainCount[slot] : meanDown;
+                double upCost = upGainCount[slot] > 0 ? upGainSum[slot] / upGainCount[slot] : meanUp;
+                double score = Math.max(downUnits * downCost, SCORE_EPSILON)
+                        * Math.max((1.0 - downUnits) * upCost, SCORE_EPSILON);
+                if (score > bestScore) {
+                    bestScore = score;
+                    branchSlot = slot;
+                    branchValue = value;
+                    branchChildren = null;
+                    branchRelaxations = null;
                 }
-                openTableaus.add(childTableau);
-                openBases.add(childBasis);
-                openBounds.add(childBounds);
-                openAtUpper.add(childAtUpper);
-                openValues.add(basicValues.clone());
-                openRelaxations.add(childRelaxation);
-                frontier.add(openRelaxations.size() - 1);
+            }
+
+            if (branchChildren == null) {
+                branchChildren = new SparseDualSimplex[2];
+                branchRelaxations = new double[] {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY};
+                for (int side = 0; side < 2; side++) {
+                    SparseDualSimplex child = side == 0 ? current.copy() : current;
+                    if (side == 0) {
+                        child.upper[branchSlot] = Math.floor(branchValue);
+                    } else {
+                        child.lower[branchSlot] = Math.ceil(branchValue);
+                    }
+                    if (child.solve()) {
+                        branchChildren[side] = child;
+                        branchRelaxations[side] = child.objective();
+                        double unit = side == 0 ? branchValue - Math.floor(branchValue)
+                                : Math.ceil(branchValue) - branchValue;
+                        double observed = Math.max(branchRelaxations[side] - relaxation, 0.0) / unit;
+                        if (side == 0) {
+                            downGainSum[branchSlot] += observed;
+                            downGainCount[branchSlot]++;
+                        } else {
+                            upGainSum[branchSlot] += observed;
+                            upGainCount[branchSlot]++;
+                        }
+                        gainTotals[side] += observed;
+                        gainCounts[side]++;
+                    }
+                }
+            }
+            BoundChange[] branchChanges = {
+                new BoundChange(branchSlot, true, Math.floor(branchValue), currentChanges),
+                new BoundChange(branchSlot, false, Math.ceil(branchValue), currentChanges),
+            };
+            boolean downOpen = branchChildren[0] != null && branchRelaxations[0] < pruneAt;
+            boolean upOpen = branchChildren[1] != null && branchRelaxations[1] < pruneAt;
+            // Plunge into the lower bound (the up child on a tie), and leave the other on the frontier.
+            int plunge = downOpen && (!upOpen || branchRelaxations[0] < branchRelaxations[1]) ? 0 : upOpen ? 1 : -1;
+            if (plunge >= 0) {
+                int other = 1 - plunge;
+                if (other == 0 ? downOpen : upOpen) {
+                    open.add(new OpenNode(branchRelaxations[other], branchChanges[other], branchChildren[other]));
+                    frontier.add(open.size() - 1);
+                }
+                node = branchChildren[plunge];
+                nodeChanges = branchChanges[plunge];
+                relaxation = branchRelaxations[plunge];
             }
         }
+        Platforms.log("%sdone nodes=%d incumbent=%.3f fixed=%d strong=%d %.1fs%n", LOG_PREFIX, nodesSolved,
+                incumbentBound, fixedTotal, strongTotal, (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
 
         feasible = incumbent != null;
         if (!feasible) {
@@ -484,179 +681,41 @@ public final class IntegerProgram {
         return this;
     }
 
-    /**
-     * Bounded dual simplex from a dual-feasible basis, pivoting out the basic slot with the
-     * largest bound violation per unit tableau-row norm until every basic value is in bounds.
-     *
-     * @param tableau     row-major {@code (rowTotal + 1) × columns} tableau over the nonbasic
-     *                    columns, the reduced costs last, pivoted in place
-     * @param basis       basic slot per row, then nonbasic slot per column, updated in place
-     * @param bounds      lower bound per slot, then upper bound per slot
-     * @param atUpper     whether each nonbasic slot sits at its upper bound, updated in place
-     * @param rowTotal    number of rows
-     * @param columns     number of nonbasic columns
-     * @param basicValues receives the basic value per row
-     * @param rowWeights  scratch for one plus each row's squared norm
-     * @throws IllegalStateException when the iteration limit is reached
-     * @return false when the bounds admit no solution
-     */
-    private static boolean dualSimplex(double[] tableau, int[] basis, double[] bounds,
-            boolean[] atUpper, int rowTotal, int columns, double[] basicValues, double[] rowWeights) {
-        int variableSlots = rowTotal + columns;
-        Arrays.fill(basicValues, 0.0);
-        for (int column = 0; column < columns; column++) {
-            int slot = basis[rowTotal + column];
-            double value = bounds[(atUpper[slot] ? variableSlots : 0) + slot];
-            if (value == 0.0) {
-                continue;
-            }
-            for (int row = 0; row < rowTotal; row++) {
-                basicValues[row] += tableau[row * columns + column] * value;
-            }
+    /** One tightened bound of a branch and bound node, linked to the ones of its ancestors. */
+    private static final class BoundChange {
+
+        final int slot;
+
+        final boolean upper;
+
+        final double value;
+
+        final BoundChange previous;
+
+        BoundChange(int slot, boolean upper, double value, BoundChange previous) {
+            this.slot = slot;
+            this.upper = upper;
+            this.value = value;
+            this.previous = previous;
         }
-        for (int row = 0; row < rowTotal; row++) {
-            double norm = 1.0;
-            for (int offset = row * columns, end = offset + columns; offset < end; offset++) {
-                norm += tableau[offset] * tableau[offset];
-            }
-            rowWeights[row] = norm;
-        }
-        int[] pivotNonzeros = new int[columns];
-        int costOffset = rowTotal * columns;
-        int iterationLimit = ITERATIONS_PER_DIMENSION * variableSlots;
-        for (int iteration = 0; iteration < iterationLimit; iteration++) {
-            int leavingRow = -1;
-            double bestScore = 0.0;
-            double leavingTarget = 0.0;
-            for (int row = 0; row < rowTotal; row++) {
-                int slot = basis[row];
-                double value = basicValues[row];
-                double tolerance = FEASIBILITY_TOLERANCE * (1.0 + Math.abs(value));
-                double violation = bounds[slot] - value;
-                double target = bounds[slot];
-                if (violation <= tolerance) {
-                    violation = value - bounds[variableSlots + slot];
-                    target = bounds[variableSlots + slot];
-                    if (violation <= tolerance) {
-                        continue;
-                    }
-                }
-                double score = violation * violation / rowWeights[row];
-                if (score > bestScore) {
-                    bestScore = score;
-                    leavingRow = row;
-                    leavingTarget = target;
-                }
-            }
-            if (leavingRow < 0) {
-                return true;
-            }
-            boolean leavesBelow = leavingTarget > basicValues[leavingRow];
-            int pivotOffset = leavingRow * columns;
-            int enteringColumn = -1;
-            double bestRatio = Double.POSITIVE_INFINITY;
-            double bestMagnitude = 0.0;
-            for (int column = 0; column < columns; column++) {
-                double alpha = tableau[pivotOffset + column];
-                if (Math.abs(alpha) <= PIVOT_TOLERANCE) {
-                    continue;
-                }
-                int slot = basis[rowTotal + column];
-                if (bounds[slot] == bounds[variableSlots + slot]) {
-                    continue;
-                }
-                boolean increases = !atUpper[slot];
-                if (leavesBelow != (increases == alpha > 0)) {
-                    continue;
-                }
-                double ratio = Math.abs(tableau[costOffset + column]) / Math.abs(alpha);
-                if (ratio < bestRatio - PIVOT_TOLERANCE
-                        || ratio <= bestRatio + PIVOT_TOLERANCE && Math.abs(alpha) > bestMagnitude) {
-                    bestRatio = Math.min(ratio, bestRatio);
-                    bestMagnitude = Math.abs(alpha);
-                    enteringColumn = column;
-                }
-            }
-            if (enteringColumn < 0) {
-                return false;
-            }
-            int enteringSlot = basis[rowTotal + enteringColumn];
-            double pivot = tableau[pivotOffset + enteringColumn];
-            double step = (leavingTarget - basicValues[leavingRow]) / pivot;
-            double enteringValue = bounds[(atUpper[enteringSlot] ? variableSlots : 0) + enteringSlot] + step;
-            double inversePivot = 1.0 / pivot;
-            int nonzeroTotal = 0;
-            double pivotRowNorm = 1.0;
-            for (int column = 0; column < columns; column++) {
-                double entry = tableau[pivotOffset + column];
-                if (entry != 0.0) {
-                    double scaled = column == enteringColumn ? inversePivot : -entry * inversePivot;
-                    tableau[pivotOffset + column] = scaled;
-                    pivotRowNorm += scaled * scaled;
-                    pivotNonzeros[nonzeroTotal++] = column;
-                }
-            }
-            for (int row = 0; row <= rowTotal; row++) {
-                if (row == leavingRow) {
-                    continue;
-                }
-                int rowOffset = row * columns;
-                double factor = tableau[rowOffset + enteringColumn];
-                if (factor == 0.0) {
-                    continue;
-                }
-                tableau[rowOffset + enteringColumn] = 0.0;
-                if (row == rowTotal) {
-                    for (int position = 0; position < nonzeroTotal; position++) {
-                        int column = pivotNonzeros[position];
-                        tableau[rowOffset + column] += factor * tableau[pivotOffset + column];
-                    }
-                    continue;
-                }
-                basicValues[row] += factor * step;
-                double normChange = -factor * factor;
-                for (int position = 0; position < nonzeroTotal; position++) {
-                    int column = pivotNonzeros[position];
-                    double old = tableau[rowOffset + column];
-                    double updated = old + factor * tableau[pivotOffset + column];
-                    tableau[rowOffset + column] = updated;
-                    normChange += updated * updated - old * old;
-                }
-                rowWeights[row] += normChange;
-            }
-            rowWeights[leavingRow] = pivotRowNorm;
-            basicValues[leavingRow] = enteringValue;
-            int leavingSlot = basis[leavingRow];
-            basis[leavingRow] = enteringSlot;
-            basis[rowTotal + enteringColumn] = leavingSlot;
-            atUpper[leavingSlot] = !leavesBelow;
-        }
-        throw new IllegalStateException("integer program: dual simplex did not converge");
     }
 
-    /**
-     * Objective of the basic solution: the reduced costs against the nonbasic values, exact
-     * because every row is homogeneous.
-     *
-     * @param tableau  row-major tableau whose last row holds the reduced costs
-     * @param basis    basic slot per row, then nonbasic slot per column
-     * @param bounds   lower bound per slot, then upper bound per slot
-     * @param atUpper  whether each nonbasic slot sits at its upper bound
-     * @param rowTotal number of rows
-     * @param columns  number of nonbasic columns
-     * @return the relaxation's objective value
-     */
-    private static double objectiveOf(double[] tableau, int[] basis, double[] bounds,
-            boolean[] atUpper, int rowTotal, int columns) {
-        int variableSlots = rowTotal + columns;
-        double objective = 0.0;
-        for (int column = 0; column < columns; column++) {
-            int slot = basis[rowTotal + column];
-            double value = bounds[(atUpper[slot] ? variableSlots : 0) + slot];
-            if (value != 0.0) {
-                objective += tableau[rowTotal * columns + column] * value;
-            }
+    /** A solved node waiting on the frontier: its relaxation, its bounds and its optimal basis. */
+    private static final class OpenNode {
+
+        final double relaxation;
+
+        final BoundChange changes;
+
+        final int[] basisSlot;
+
+        final boolean[] atUpper;
+
+        OpenNode(double relaxation, BoundChange changes, SparseDualSimplex solved) {
+            this.relaxation = relaxation;
+            this.changes = changes;
+            this.basisSlot = solved.basisSlot.clone();
+            this.atUpper = solved.atUpper.clone();
         }
-        return objective;
     }
 }

@@ -26,6 +26,7 @@ public final class QuantizedMeshGridNode implements MeshNode {
     public static final InputPort GRAPH = new InputPort("graph", PortType.ARC_NETWORK, null);
     public static final InputPort ALPHA_DEGREES = new InputPort("alpha_degrees", PortType.FLOAT,
             MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
+    public static final InputPort RELATIVE_GAP = new InputPort("relative_gap", PortType.FLOAT, 0f);
     public static final OutputPort SKELETON = new OutputPort("skeleton", PortType.ARC_NETWORK);
     public static final OutputPort SEPARATION_CUTS = new OutputPort("separation_cuts", PortType.INT);
     public static final OutputPort SEPARATION_VIOLATED = new OutputPort("separation_violated",
@@ -34,7 +35,7 @@ public final class QuantizedMeshGridNode implements MeshNode {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GRAPH, ALPHA_DEGREES);
+        return List.of(GRAPH, ALPHA_DEGREES, RELATIVE_GAP);
     }
 
     @Override
@@ -53,6 +54,8 @@ public final class QuantizedMeshGridNode implements MeshNode {
         return Map.of(
                 GRAPH.name, "Arc network to quantize, from a motorcycle_graph node.",
                 ALPHA_DEGREES.name, "Maximum separatrix deviation in degrees, bounding the ILP.",
+                RELATIVE_GAP.name, "Stop the branch and bound once the best layout is within this"
+                        + " fraction of the lower bound; 0 proves it optimal.",
                 SKELETON.name, "The quantized skeleton: collapse clusters plus positive arcs.",
                 SEPARATION_CUTS.name, "Separation cuts added beyond Lemma 1 (0 expected).",
                 SEPARATION_VIOLATED.name, "Whether the solve merged two distinct singularities.",
@@ -66,8 +69,11 @@ public final class QuantizedMeshGridNode implements MeshNode {
         float alphaDegrees = FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, ALPHA_DEGREES.name, ALPHA_DEGREES.defaultValue),
                 MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
-        QuantizedMeshGrid quantization =
-                new QuantizedMeshGrid(graph, (float) Math.toRadians(alphaDegrees)).build();
+        float relativeGap = FieldBroadcast.floatScalarOrDefault(
+                FieldBroadcast.getInputOrDefault(ctx, RELATIVE_GAP.name, RELATIVE_GAP.defaultValue), 0f);
+        QuantizedMeshGrid quantization = new QuantizedMeshGrid(graph, (float) Math.toRadians(alphaDegrees));
+        quantization.relativeGap = relativeGap;
+        quantization.build();
         quantization.layout = new LayoutExtraction(quantization).build();
         ctx.setOutput(SKELETON.name, graph);
         ctx.setOutput(SEPARATION_CUTS.name, quantization.separationCutCount);
