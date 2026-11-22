@@ -920,8 +920,8 @@ public class NDirectionField {
         }
         double[] u = system.solution;
         for (int v = 0; v < vertexCount; v++) {
-            uReal[v] = u[v];
-            uImaginary[v] = u[vertexCount + v];
+            uReal[v] = u[2 * v];
+            uImaginary[v] = u[2 * v + 1];
         }
         fieldAngle = new double[vertexCount];
         for (int v = 0; v < vertexCount; v++) {
