@@ -205,20 +205,21 @@ public final class AssemblyPlanBuilder {
     }
 
     /**
-     * Seal the plan: trim the flat arrays, build the sorted unique key array,
-     * resolve every upper entry's slot by binary search, and scale the upper
-     * coefficients.
+     * Seal the plan and pin each freely translating cut-open chart at its first
+     * primary chart vertex whose coordinates are DOFs of their own, not eliminated
+     * into a transition.
      *
      * @param upperScale           factor applied to every upper coefficient (the
      *                             caller's double-count halve correction)
-     * @param cutGraph             cut graph queried for the first primary chart
-     *                             vertex, which receives the gauge-pin anchor
+     * @param cutGraph             cut graph mapping corners to chart vertices
+     * @param chartOfFace          per active face, its cut-open chart
      * @param chartVertexFinalDofs per chart vertex / component final-DOF
      *                             expansions; the anchor's leading DOFs get the
      *                             static diagonal weight
      * @param dofCount             final-DOF count sizing the static diagonal
      */
-    public void finish(double upperScale, CutGraph cutGraph, int[][][] chartVertexFinalDofs, int dofCount) {
+    public void finish(double upperScale, CutGraph cutGraph, int[] chartOfFace,
+            int[][][] chartVertexFinalDofs, int dofCount) {
         perFaceUpperStart[faceCount] = upperCursor;
         perFaceDiagonalStart[faceCount] = diagonalCursor;
         perFaceRhsStart[faceCount] = rhsCursor;
@@ -246,11 +247,25 @@ public final class AssemblyPlanBuilder {
         }
         planStaticDiagonal = new double[dofCount];
         planStaticUpperValues = new double[planUpperKeys.length];
-        for (int cv = 0; cv < cutGraph.chartVertexCount; cv++) {
-            if (cutGraph.chartVertexIsPrimary[cv]) {
-                planStaticDiagonal[chartVertexFinalDofs[cv][0][0]] += NULLSPACE_ANCHOR_WEIGHT;
-                planStaticDiagonal[chartVertexFinalDofs[cv][1][0]] += NULLSPACE_ANCHOR_WEIGHT;
-                break;
+        int chartCount = 0;
+        for (int chart : chartOfFace) {
+            chartCount = Math.max(chartCount, chart + 1);
+        }
+        int[] anchorOfChart = new int[chartCount];
+        Arrays.fill(anchorOfChart, Integer.MAX_VALUE);
+        for (int corner = 0; corner < faceCount * CORNERS_PER_FACE; corner++) {
+            int chartVertex = cutGraph.cornerToChartVertex[corner];
+            int chart = chartOfFace[corner / CORNERS_PER_FACE];
+            if (chartVertex >= 0 && cutGraph.chartVertexIsPrimary[chartVertex]
+                    && chartVertexFinalDofs[chartVertex][0].length == 1
+                    && chartVertexFinalDofs[chartVertex][1].length == 1) {
+                anchorOfChart[chart] = Math.min(anchorOfChart[chart], chartVertex);
+            }
+        }
+        for (int anchor : anchorOfChart) {
+            if (anchor != Integer.MAX_VALUE) {
+                planStaticDiagonal[chartVertexFinalDofs[anchor][0][0]] += NULLSPACE_ANCHOR_WEIGHT;
+                planStaticDiagonal[chartVertexFinalDofs[anchor][1][0]] += NULLSPACE_ANCHOR_WEIGHT;
             }
         }
     }
@@ -314,10 +329,13 @@ public final class AssemblyPlanBuilder {
      * @param chartVertexFinalCoefs coefficients matching
      *                              {@code chartVertexFinalDofs}
      * @param cutGraph              cut graph providing corner → chart-vertex
-     *                              mapping and the gauge-pin anchor vertex
+     *                              mapping
+     * @param chartOfFace           per active face, its cut-open chart, each of which
+     *                              gets one gauge-pin anchor
      * @param dofCount              final-DOF count sizing the static diagonal
      */
-    public void build(SeamlessParameterization seamless, int[][][] chartVertexFinalDofs, double[][][] chartVertexFinalCoefs, CutGraph cutGraph, int dofCount) {
+    public void build(SeamlessParameterization seamless, int[][][] chartVertexFinalDofs,
+            double[][][] chartVertexFinalCoefs, CutGraph cutGraph, int[] chartOfFace, int dofCount) {
         double edgeLengthSquared = (double) seamless.uv.targetQuadEdgeLength * seamless.uv.targetQuadEdgeLength;
 
         double[] shapeGradX = new double[CORNERS_PER_FACE];
@@ -379,6 +397,6 @@ public final class AssemblyPlanBuilder {
             }
             endFace(f);
         }
-        finish(UPPER_HALVE_FACTOR, cutGraph, chartVertexFinalDofs, dofCount);
+        finish(UPPER_HALVE_FACTOR, cutGraph, chartOfFace, chartVertexFinalDofs, dofCount);
     }
 }

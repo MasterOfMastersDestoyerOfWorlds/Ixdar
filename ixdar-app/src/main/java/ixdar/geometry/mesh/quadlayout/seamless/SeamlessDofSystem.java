@@ -206,7 +206,8 @@ public final class SeamlessDofSystem {
 
     /**
      * Label the connected components of the surface cut open along the seam: faces joined by
-     * non-cut interior edges share one chart, whose translation the constraint rows must tie down.
+     * non-cut interior edges share one chart, whose translation the energy leaves free, so the
+     * assembly anchors each chart once (one per closed shell of a multi-shell scan).
      *
      * @return per active face, its cut-open chart index
      */
@@ -263,7 +264,8 @@ public final class SeamlessDofSystem {
     public NormalMatrix assembleWeighted(double[] faceWeight) {
         if (assemblyPlan == null) {
             this.assemblyPlan = new AssemblyPlanBuilder(seamless.uv.faceCount);
-            this.assemblyPlan.build(seamless, chartVertexFinalDofs, chartVertexFinalCoefs, cutGraph, dofCount);
+            this.assemblyPlan.build(seamless, chartVertexFinalDofs, chartVertexFinalCoefs, cutGraph,
+                    cutOpenChartOfFace(), dofCount);
         }
         double[] diag = assemblyPlan.planStaticDiagonal.clone();
         double[] upper = assemblyPlan.planStaticUpperValues.clone();

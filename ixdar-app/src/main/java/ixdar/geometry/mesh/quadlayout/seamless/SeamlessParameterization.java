@@ -353,6 +353,9 @@ public final class SeamlessParameterization {
      * propagates: every later stage needs the constraints, so nothing can stand in.
      *
      * <p>See also: BCE13 Section 3.4
+     *
+     * @throws IllegalStateException when the round cap is reached with a constraint still
+     *                               violated, so a budget hit fails instead of passing on
      */
     private void runInjectivityConstraintLoop() {
         if (baseFactorHandle != null) {
@@ -367,8 +370,15 @@ public final class SeamlessParameterization {
                 maxConstraintRounds);
         loop.run();
         uv.injective = loop.violated == 0;
+        int flippedTriangles = countFlippedTrianglesFromSolution();
         Platforms.log("[injectivity] done violated=%d flippedTriangles=%d%n", loop.violated,
-                countFlippedTrianglesFromSolution());
+                flippedTriangles);
+        if (loop.violated > 0) {
+            throw new IllegalStateException(String.format("seamless: the BCE13 injectivity loop hit"
+                    + " its %d-round cap with %d constraints still violated and %d triangles"
+                    + " flipped; a map that is not locally injective cannot be laid out",
+                    maxConstraintRounds, loop.violated, flippedTriangles));
+        }
     }
 
     /**
