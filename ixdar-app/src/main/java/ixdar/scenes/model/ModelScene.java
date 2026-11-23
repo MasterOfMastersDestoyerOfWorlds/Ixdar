@@ -222,6 +222,19 @@ public abstract class ModelScene extends Scene {
     public void showGraphFailure(Exception failure) {
     }
 
+    /**
+     * The graph the debugger steps for a graph model: the model's own statements. A scene that
+     * runs more over a graph's output than the file holds adds those statements here, so they can
+     * be stepped too.
+     *
+     * @param choice the open graph model
+     * @throws IllegalArgumentException when the graph cannot be read
+     * @return the parsed graph, not executed
+     */
+    public NodeGraphRuntime debugGraph(ModelChoice choice) {
+        return NodeGraphRuntime.fromResource(choice.path);
+    }
+
     @Override
     public void initGL() {
         super.initGL();
@@ -249,6 +262,14 @@ public abstract class ModelScene extends Scene {
         looks.add(new SurfaceLook(TEXTURED_LOOK, "the model's own base-colour texture", Colour.TEXTURE, Light.VIEW, null));
         looks.add(new SurfaceLook("clay", "light grey clay, so shallow relief reads", Colour.CLAY, Light.CLAY, Palettes.PAPER));
         looks.add(new SurfaceLook("curvature", "concave dark, convex light", Colour.CURVATURE, Light.SOFT_CLAY, Palettes.PAPER));
+    }
+
+    /**
+     * Read the shown look's field again at the next draw: for a look whose field changed while it
+     * stayed picked.
+     */
+    public void rereadField() {
+        fieldShown = null;
     }
 
     /**

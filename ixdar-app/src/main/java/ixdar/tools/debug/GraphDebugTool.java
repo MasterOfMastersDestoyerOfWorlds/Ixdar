@@ -120,7 +120,7 @@ public final class GraphDebugTool extends Tool {
                     NodeGraphRuntime run;
                     Map<String, Object> overrides;
                     if (choice != null && choice.kind == ModelChoice.Kind.DSL) {
-                        run = NodeGraphRuntime.fromResource(choice.path);
+                        run = scene.debugGraph(choice);
                         overrides = scene.modelCollection.overridesFor(choice);
                     } else if (scene.sceneGraph() != null && scene.loadedMesh != null) {
                         // The file's surface, not the drawn one: stepping swaps that for stage outputs.

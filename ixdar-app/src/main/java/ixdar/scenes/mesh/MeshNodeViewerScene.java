@@ -630,6 +630,44 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
+     * Draws a bundle the graph debugger reached as the viewer's surface, with the edge marks it
+     * carries, the camera kept where it is; a bundle already shown is left as it is.
+     *
+     * @param value   a node's output, or the in-flight value of a node being stepped inside
+     * @param overlay what that node's last inner step changed, which the viewer does not draw
+     * @return false for anything but a bundle holding a mesh
+     */
+    @Override
+    public boolean showGraphValue(Object value, Object overlay) {
+        if (!(value instanceof GeometryBundle bundle) || bundle.mesh() == null) {
+            return false;
+        }
+        if (bundle != meshBundle) {
+            disposeMeshRuntime();
+            uploadGraphOutput(bundle, false);
+            showEdgeMarks(bundleEdgeMarks(bundle));
+        }
+        return true;
+    }
+
+    /**
+     * Frames the viewer's own surface, keeping the orbit's angles, zoom and pan, so the graph
+     * debugger opening on the shown model leaves the view where it is.
+     */
+    @Override
+    public void frameLoadedModel() {
+        Vector3f panned = new Vector3f(camera.orbitTarget).sub(camera.homeTarget);
+        preserveOrbit(() -> {
+            if (meshRuntime != null) {
+                meshRuntime.frameCamera(camera);
+            }
+            frameMesh(mesh);
+            return true;
+        });
+        camera.moveTarget(panned.add(camera.homeTarget));
+    }
+
+    /**
      * Draws every boolean edge-marks label the graph left on its output bundle, so a seed loop
      * and the geodesic it tightens to are told apart on screen.
      *
@@ -646,10 +684,19 @@ public class MeshNodeViewerScene extends ModelScene {
      * @return label-to-mask map, empty when the graph marked no edges
      */
     public Map<String, boolean[]> graphEdgeMarks(NodeGraphRuntime runtime) {
+        return bundleEdgeMarks(runtime != null
+                && runtime.lastOutput(DEFAULT_DSL_FINAL_PORT) instanceof GeometryBundle bundle ? bundle : null);
+    }
+
+    /**
+     * The boolean edge-mark masks a bundle carries, by label.
+     *
+     * @param bundle bundle to read, or {@code null} for none
+     * @return label-to-mask map, empty when the bundle marks no edges
+     */
+    public Map<String, boolean[]> bundleEdgeMarks(GeometryBundle bundle) {
         Map<String, boolean[]> marksByLabel = new LinkedHashMap<>();
-        if (runtime == null
-                || !(runtime.lastOutput(DEFAULT_DSL_FINAL_PORT) instanceof GeometryBundle bundle)
-                || !(bundle.slots().get(EdgeMarks.SLOT) instanceof Map<?, ?> marks)) {
+        if (bundle == null || !(bundle.slots().get(EdgeMarks.SLOT) instanceof Map<?, ?> marks)) {
             return marksByLabel;
         }
         for (Map.Entry<?, ?> entry : marks.entrySet()) {

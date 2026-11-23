@@ -200,11 +200,7 @@ public final class RingRegionExtraction {
         for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
             activeFaceByFaceId[mesh.faceIdAt(activeFace)] = activeFace;
         }
-        double edgeLengthSum = 0;
-        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
-            edgeLengthSum += mesh.edgeLength(mesh.edgeIdAt(activeEdge));
-        }
-        meanEdgeLength = mesh.edgeCount() == 0 ? 0 : edgeLengthSum / mesh.edgeCount();
+        meanEdgeLength = mesh.meanEdgeLength();
         Vector3f tail = new Vector3f();
         Vector3f head = new Vector3f();
 

@@ -94,11 +94,7 @@ public final class SurfaceMetric {
         metric.buildConnectivity(mesh);
         metric.measureEdges(mesh);
         metric.layOutSignposts();
-        double totalEdgeLength = 0.0;
-        for (int edge = 0; edge < mesh.edgeCount(); edge++) {
-            totalEdgeLength += metric.edgeLength[edge];
-        }
-        metric.meanEdgeLength = mesh.edgeCount() == 0 ? 0.0 : totalEdgeLength / mesh.edgeCount();
+        metric.meanEdgeLength = mesh.meanEdgeLength();
         metric.vertexIdBound = mesh.vertexCount() == 0 ? 0 : metric.vertexIndexByVertexId.length;
         metric.nearestVertex = NearestVertex.over(mesh);
         return metric;

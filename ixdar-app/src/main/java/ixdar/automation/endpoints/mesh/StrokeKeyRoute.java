@@ -341,10 +341,7 @@ public class StrokeKeyRoute extends AutomationEndpoint implements AutomationRout
      * @return the SVG text
      */
     private static String dots(MeshTopology base, StrokeSketch template, int[] binByVertex, String[] binNames) {
-        double meanEdge = 0.0;
-        for (int activeEdge = 0; activeEdge < base.edgeCount(); activeEdge++) {
-            meanEdge += base.edgeLength(base.edgeIdAt(activeEdge)) / base.edgeCount();
-        }
+        double meanEdge = base.meanEdgeLength();
         FaceAnchors anchors = new FaceAnchors(base);
         StrokeAnchors map = new StrokeAnchors();
         Vector3f position = new Vector3f();

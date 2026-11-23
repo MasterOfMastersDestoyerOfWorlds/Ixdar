@@ -81,10 +81,7 @@ public final class SurfaceRidges {
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             normalXyz.set(activeVertex, mesh.vertexNormal(mesh.vertexIdAt(activeVertex), normal).normalize());
         }
-        double meanEdge = 0.0;
-        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
-            meanEdge += mesh.edgeLength(mesh.edgeIdAt(activeEdge)) * scale / mesh.edgeCount();
-        }
+        double meanEdge = mesh.meanEdgeLength() * scale;
         double firstCell = FIRST_CELL_OF_DIAGONAL * SCALED_DIAGONAL;
         levelsFitted = levels;
         while (levelsFitted > 1 && firstCell / (1 << levelsFitted - 1) < FINEST_CELL_IN_EDGES * meanEdge) {

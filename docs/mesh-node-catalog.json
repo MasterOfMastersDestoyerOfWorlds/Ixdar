@@ -4350,6 +4350,43 @@
       "description": "Resamples curve polylines to uniform segment lengths, controlled by the length parameter."
     },
     {
+      "id": "ring_fit",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the surface with the rings as drawn, from the last spline_ring or spline_cut. Output: the same surface with every movable ring at its fitted loop, under the same labels, its anchors moved onto the loop.",
+          "defaultValue": null
+        },
+        {
+          "name": "metric",
+          "portType": "SURFACE_METRIC",
+          "description": "The surface\u0027s metric, from surface_metric, which the fitted rings are traced again on.",
+          "defaultValue": null
+        },
+        {
+          "name": "creases",
+          "portType": "SURFACE_CREASES",
+          "description": "The surface\u0027s grooves, from surface_creases; measured here when unwired.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the surface with the rings as drawn, from the last spline_ring or spline_cut. Output: the same surface with every movable ring at its fitted loop, under the same labels, its anchors moved onto the loop."
+        }
+      ],
+      "description": "Fits the rings and bisectors drawn on a surface into its grooves: air let out over the surface dies at the rings, the grooves are walls it cannot cross, and each pass moves every ring toward the side whose air pushes on it less, until a pass moves nothing."
+    },
+    {
       "id": "ring_regions",
       "category": "Selection",
       "scopes": [

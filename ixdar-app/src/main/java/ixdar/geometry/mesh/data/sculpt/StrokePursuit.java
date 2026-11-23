@@ -129,11 +129,8 @@ public final class StrokePursuit {
         residual = projection.offset.clone();
         weight = projection.area;
         normalXyz = projection.normalXyz;
-        double meanEdge = 0.0;
-        for (int activeEdge = 0; activeEdge < base.edgeCount(); activeEdge++) {
-            meanEdge += base.edgeLength(base.edgeIdAt(activeEdge)) / (double) base.edgeCount();
-        }
-        float finestEdge = Math.max(FINEST_EDGE_FLOOR, (float) meanEdge / (1 << StrokeRefinement.MAXIMUM_ROUNDS));
+        float finestEdge = Math.max(FINEST_EDGE_FLOOR,
+                (float) base.meanEdgeLength() / (1 << StrokeRefinement.MAXIMUM_ROUNDS));
         depthPerSquaredRadius = 1f / (StrokeSculptNode.STEEPNESS_LIMIT * finestEdge);
         TriangleBvh tree = TriangleBvh.over(surface, new int[surface.triangleCount()]);
         sums = ThreadLocal.withInitial(() -> new DisplacementSum(surface, true, 0f, 1, tree));

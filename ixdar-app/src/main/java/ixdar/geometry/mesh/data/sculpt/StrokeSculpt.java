@@ -128,12 +128,8 @@ public final class StrokeSculpt {
         }
         List<SculptStroke> copies = copies(strokeTexts, symmetryAxis);
         SculptStroke.refineTargets(copies, refinement.minimumEdgeLength, refinement.edgesPerWidth);
-        double meanEdge = 0.0;
-        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
-            meanEdge += mesh.edgeLength(mesh.edgeIdAt(activeEdge)) / (double) mesh.edgeCount();
-        }
         finestEdgeLength = Math.max(refinement.minimumEdgeLength,
-                (float) meanEdge / (1 << StrokeRefinement.MAXIMUM_ROUNDS));
+                (float) mesh.meanEdgeLength() / (1 << StrokeRefinement.MAXIMUM_ROUNDS));
         refinement.symmetryAxis = symmetryAxis;
         refined = refinement.refine(mesh, copies, displace, EdgeMarks.floats(base, CREASE_LABEL));
         refinedVertices = refined.vertexCount();

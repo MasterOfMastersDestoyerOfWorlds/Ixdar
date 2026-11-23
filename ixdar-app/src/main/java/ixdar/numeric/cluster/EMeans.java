@@ -6,15 +6,17 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * E-means: mini-batch k-means whose centroids are moving averages of their batch means, stepped
- * with a cosine-annealed step and batch size from fitted scaling laws.
+ * E-means: mini-batch k-means whose centroids are moving averages of their
+ * batch means, stepped with a cosine-annealed step and batch size from fitted
+ * scaling laws.
  *
- * @see <a href="https://github.com/facebookresearch/faiss/tree/main/contrib/e_means">Ported from
- *      faiss contrib/e_means (e_means.py, base.py), MIT license, Copyright (c) Meta Platforms, Inc.
- *      and affiliates; only the update rule, in doubles, without GPU backends, quantizers or
- *      sharding</a>
- * @see <a href="https://arxiv.org/abs/2611.09501">Bessa et al., E-Means: Scaling Laws for
- *      Mini-Batch K-Means, Algorithm 1</a>
+ * @see <a href=
+ *      "https://github.com/facebookresearch/faiss/tree/main/contrib/e_means">Ported
+ *      from faiss contrib/e_means (e_means.py, base.py), MIT license, Copyright
+ *      (c) Meta Platforms, Inc. and affiliates; only the update rule, in
+ *      doubles, without GPU backends, quantizers or sharding</a>
+ * @see <a href="https://arxiv.org/abs/2611.09501">Bessa et al., E-Means:
+ *      Scaling Laws for Mini-Batch K-Means, Algorithm 1</a>
  */
 public final class EMeans {
     public static final double ALPHA_MIN_FACTOR = 0.1;
@@ -61,15 +63,21 @@ public final class EMeans {
     public double requestedAlpha0 = Double.NaN;
 
     /**
-     * Revive a cluster whose usage falls below this share of the mean; NaN picks 0 (never) at
-     * dimension 2 or less and 0.1 above, as faiss does.
+     * Revive a cluster whose usage falls below this share of the mean; NaN picks 0
+     * (never) at dimension 2 or less and 0.1 above, as faiss does.
      */
     public double unusedThreshold = Double.NaN;
 
     /** The assignment step. */
     public NearestCentroid nearest = NearestCentroid.EUCLIDEAN;
 
-    /** Centroid coordinates, {@link #dimension} per centroid; the closing means once finished. */
+    /** Each point's weight in the batch means and counts, or null to weigh every point 1. */
+    public double[] weights;
+
+    /**
+     * Centroid coordinates, {@link #dimension} per centroid; the closing means once
+     * finished.
+     */
     public double[] centroids = new double[0];
 
     /** Each centroid's moving mass N_j. */
@@ -81,7 +89,10 @@ public final class EMeans {
     /** Starting step this run uses. */
     public double alpha0;
 
-    /** Rows each pass reads: whole passes, a rounded fractional pass, then the closing pass. */
+    /**
+     * Rows each pass reads: whole passes, a rounded fractional pass, then the
+     * closing pass.
+     */
     public int[] epochRows = new int[0];
 
     /** Batches in the whole run. */
@@ -128,8 +139,8 @@ public final class EMeans {
     }
 
     /**
-     * Start a run from given centroids, resolving the batch size and starting step from the laws
-     * unless given; nothing moves until {@link #step}.
+     * Start a run from given centroids, resolving the batch size and starting step
+     * from the laws unless given; nothing moves until {@link #step}.
      *
      * @param points           packed coordinates, {@link #dimension} per point
      * @param pointCount       number of points
@@ -190,8 +201,24 @@ public final class EMeans {
     }
 
     /**
-     * Apply one batch: assign its rows, move each touched centroid toward its batch mean by the
-     * scheduled step, and after the last batch set each centroid to its last-pass mean.
+     * The cosine schedule of the paper's Equation 5: {@code alpha0} at the first
+     * step, annealing to {@link #ALPHA_MIN_FACTOR} of it at the last.
+     *
+     * @param alpha0     the starting step
+     * @param step       steps taken so far
+     * @param totalSteps steps in the whole run
+     * @return the step to take now
+     */
+    public static double scheduledStep(double alpha0, int step, int totalSteps) {
+        double fraction = ((double) Math.min(step, totalSteps)) / ((double) Math.max(1, totalSteps));
+        double cosine = 0.5 * (1.0 + Math.cos(Math.PI * fraction));
+        return alpha0 * (ALPHA_MIN_FACTOR + (1.0 - ALPHA_MIN_FACTOR) * cosine);
+    }
+
+    /**
+     * Apply one batch: assign its rows, move each touched centroid toward its batch
+     * mean by the scheduled step, and after the last batch set each centroid to its
+     * last-pass mean.
      *
      * @return whether a batch was applied; false once the run has finished
      */
@@ -205,20 +232,19 @@ public final class EMeans {
         for (int row = epochRowsDone; row < epochRowsDone + rows; row++) {
             int point = order[row];
             int cluster = nearest.nearest(points, point, centroids, clusterCount, dimension);
-            batchCounts[cluster]++;
+            double pointWeight = weights == null ? 1 : weights[point];
+            batchCounts[cluster] += pointWeight;
             for (int axis = 0; axis < dimension; axis++) {
                 double coordinate = points[point * dimension + axis];
                 double offset = coordinate - centroids[cluster * dimension + axis];
-                batchSums[cluster * dimension + axis] += coordinate;
-                passObjective += offset * offset;
+                batchSums[cluster * dimension + axis] += pointWeight * coordinate;
+                passObjective += pointWeight * offset * offset;
             }
             if (passSums != null) {
                 labels[point] = cluster;
             }
         }
-        double fraction = Math.min(step, totalSteps) / (double) Math.max(1, totalSteps);
-        double cosine = 0.5 * (1.0 + Math.cos(Math.PI * fraction));
-        double alpha = alpha0 * (ALPHA_MIN_FACTOR + (1.0 - ALPHA_MIN_FACTOR) * cosine);
+        double alpha = scheduledStep(alpha0, step, totalSteps);
         boolean replaceUsage = alpha == 1;
         for (int cluster = 0; cluster < clusterCount; cluster++) {
             passCounts[cluster] += batchCounts[cluster];
@@ -297,27 +323,8 @@ public final class EMeans {
     }
 
     /**
-     * Passes read so far, fractional within a pass.
-     *
-     * @return rows read over the point count
-     */
-    public double passesDone() {
-        long rows = epochRowsDone;
-        for (int done = 0; done < Math.min(epoch, epochRows.length); done++) {
-            rows += epochRows[done];
-        }
-        if (finished) {
-            rows = 0;
-            for (int pass : epochRows) {
-                rows += pass;
-            }
-        }
-        return rows / (double) Math.max(1, pointCount);
-    }
-
-    /**
-     * Distinct starting centroids: the first {@code clusterCount} points of a seeded shuffle, or
-     * every point when there are exactly that many.
+     * Distinct starting centroids: the first {@code clusterCount} points of a
+     * seeded shuffle, or every point when there are exactly that many.
      *
      * @param points       packed coordinates
      * @param pointCount   number of points
@@ -397,6 +404,25 @@ public final class EMeans {
         }
         int low = Integer.highestOneBit((int) Math.floor(value));
         int high = 2 * low;
-        return value / low < high / value ? low : high;
+        return ((value / low) < (high / value)) ? low : high;
+    }
+
+    /**
+     * Passes read so far, fractional within a pass.
+     *
+     * @return rows read over the point count
+     */
+    public double passesDone() {
+        long rows = epochRowsDone;
+        for (int done = 0; done < Math.min(epoch, epochRows.length); done++) {
+            rows += epochRows[done];
+        }
+        if (finished) {
+            rows = 0;
+            for (int pass : epochRows) {
+                rows += pass;
+            }
+        }
+        return rows / ((double) Math.max(1, pointCount));
     }
 }

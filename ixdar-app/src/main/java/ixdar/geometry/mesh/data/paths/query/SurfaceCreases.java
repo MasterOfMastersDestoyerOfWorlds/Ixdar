@@ -21,19 +21,22 @@ public final class SurfaceCreases {
 
     public static final double SMOOTHING_EDGES = 3.0;
 
-    public static final double SATURATION_QUANTILE = 0.95;
-
     public static final double GROOVE_COST_OF_LENGTH = 0.05;
 
     public static final double HALF = 0.5;
 
     public static final float CREASE_STRENGTH = 0.5f;
 
+    public static final int XYZ = 3;
+
     /** Mesh the creases were measured on. */
     public final MeshTopology sourceMesh;
 
     /** Valley strength in [0, 1] per mesh vertex id: one deep in a groove, zero off any. */
     public final float[] valleyStrength;
+
+    /** Valley signal per mesh vertex id as it was measured, before any diffusion; negative off a valley. */
+    public final float[] valleySignal;
 
     /** Diffused valley signal per mesh vertex id, never negative: the curvature strength ranks. */
     public final float[] valleyCurvature;
@@ -45,7 +48,7 @@ public final class SurfaceCreases {
      */
     public final float[] alongCurvature;
 
-    /** Signal at which {@link #valleyStrength} saturates to one. */
+    /** Signal at which {@link #valleyStrength} reads one: the surface's largest diffused valley signal. */
     public final double saturation;
 
     /** Path cost per mesh edge id: its length, scaled down toward the groove fraction. */
@@ -55,21 +58,25 @@ public final class SurfaceCreases {
     public double buildMillis;
 
     /**
-     * Ranks a raw valley signal into strengths and edge costs: the signal is diffused over
-     * {@link #SMOOTHING_EDGES} mean edges, then divided by its {@link #SATURATION_QUANTILE}, or by
-     * the floor when that is larger, so a surface without grooves saturates nowhere.
-     *
-     * @param mesh            surface the signal lives on
-     * @param valleySignal    per mesh vertex id, larger in a groove; negative values count as none
-     * @param alongSignal     per mesh vertex id, the other principal curvature in the valley
-     *                        signal's sign, diffused the same way with its sign kept; or
-     *                        {@code null} for none
-     * @param saturationFloor smallest signal a saturated groove may have
+     * The direction across a groove at each vertex, three coordinates per mesh vertex id: the
+     * direction the valley signal's curvature bends in. Null where the signal came without one.
      */
-    public SurfaceCreases(MeshTopology mesh, float[] valleySignal, float[] alongSignal,
-            double saturationFloor) {
+    public float[] acrossDirection;
+
+    /**
+     * Ranks a raw valley signal into strengths and edge costs: the signal is diffused over
+     * {@link #SMOOTHING_EDGES} mean edges, then divided by its largest value on the surface, so
+     * the surface's deepest groove reads one and every other reads against it.
+     *
+     * @param mesh         surface the signal lives on
+     * @param valleySignal per mesh vertex id, larger in a groove; negative values count as none
+     * @param alongSignal  per mesh vertex id, the other principal curvature in the valley signal's
+     *                     sign, diffused the same way with its sign kept; or {@code null} for none
+     */
+    public SurfaceCreases(MeshTopology mesh, float[] valleySignal, float[] alongSignal) {
         long start = System.nanoTime();
         this.sourceMesh = mesh;
+        this.valleySignal = valleySignal;
         int vertexIdBound = valleySignal.length;
         int vertexCount = mesh.vertexCount();
         int[] vertexIds = new int[vertexCount];
@@ -97,17 +104,11 @@ public final class SurfaceCreases {
                 alongCurvature[vertexId] = (float) along[vertexId];
             }
         }
-        double[] positive = new double[vertexCount];
-        int positiveCount = 0;
+        double deepest = 0.0;
         for (int vertexId : vertexIds) {
-            double value = smoothed[vertexId];
-            if (value > 0.0) {
-                positive[positiveCount++] = value;
-            }
+            deepest = Math.max(deepest, smoothed[vertexId]);
         }
-        saturation = Math.max(saturationFloor, positiveCount == 0 ? 0.0
-                : smallest(positive, positiveCount, (int) Math.min(positiveCount - 1,
-                        Math.floor(SATURATION_QUANTILE * positiveCount))));
+        saturation = deepest;
         valleyStrength = new float[vertexIdBound];
         valleyCurvature = new float[vertexIdBound];
         double[] signal = smoothed;
@@ -175,8 +176,7 @@ public final class SurfaceCreases {
 
     /**
      * Measures a surface's grooves from its most concave principal curvature, the curvature
-     * across a valley, so concave grooves attract and convex ridges do not. Saturation is floored
-     * at the median curvature magnitude.
+     * across a valley, so concave grooves attract and convex ridges do not.
      *
      * @param mesh surface to measure, of any polygon sizes, wound either way
      * @return the creases, with {@link #buildMillis} covering the curvature estimate
@@ -191,60 +191,22 @@ public final class SurfaceCreases {
         boolean outward = mesh.signedVolume() >= 0.0;
         float[] signal = new float[mesh.vertexIdBound()];
         float[] along = new float[mesh.vertexIdBound()];
-        double[] magnitude = new double[mesh.vertexCount()];
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
             signal[vertexId] = outward ? curvature.kappaMax(vertexId)
                     : -curvature.kappaMin(vertexId);
             along[vertexId] = outward ? curvature.kappaMin(vertexId)
                     : -curvature.kappaMax(vertexId);
-            magnitude[activeVertex] = Math.max(Math.abs(curvature.kappaMax(vertexId)),
-                    Math.abs(curvature.kappaMin(vertexId)));
         }
-        SurfaceCreases creases = new SurfaceCreases(mesh, signal, along, magnitude.length == 0 ? 0.0
-                : smallest(magnitude, magnitude.length, magnitude.length / 2));
+        SurfaceCreases creases = new SurfaceCreases(mesh, signal, along);
+        creases.acrossDirection = new float[XYZ * mesh.vertexIdBound()];
+        PackedPoints across = PackedPoints.view(creases.acrossDirection, 0, XYZ);
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            across.set(vertexId, outward ? curvature.dirMax(vertexId) : curvature.dirMin(vertexId));
+        }
         creases.buildMillis = (System.nanoTime() - start) / 1e6;
         return creases;
-    }
-
-    /**
-     * The value a sort of the first {@code count} values would put at {@code rank}, found by
-     * quickselect in linear time; those values are reordered.
-     *
-     * @param values values to select among, partly reordered on return
-     * @param count  how many leading values take part
-     * @param rank   index into their ascending order, in {@code [0, count)}
-     * @return the value of that rank, in {@link Double#compare} order as a sort orders them
-     */
-    private static double smallest(double[] values, int count, int rank) {
-        int low = 0;
-        int high = count - 1;
-        while (low < high) {
-            double pivot = values[(low + high) >>> 1];
-            int left = low;
-            int right = high;
-            while (left <= right) {
-                while (Double.compare(values[left], pivot) < 0) {
-                    left++;
-                }
-                while (Double.compare(values[right], pivot) > 0) {
-                    right--;
-                }
-                if (left <= right) {
-                    double swap = values[left];
-                    values[left++] = values[right];
-                    values[right--] = swap;
-                }
-            }
-            if (rank <= right) {
-                high = right;
-            } else if (rank >= left) {
-                low = left;
-            } else {
-                return values[rank];
-            }
-        }
-        return values[rank];
     }
 
     /**

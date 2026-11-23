@@ -31,9 +31,10 @@ import ixdar.scenes.Scene;
 import ixdar.tools.ControlHint;
 
 /**
- * A 2D playground after https://e-means.github.io/playground.html: e-means (left) and Lloyd's
- * k-means (right) cluster the same three-arm spirals from the same starting centroids, drawn with
- * their Voronoi cells and animated pass by pass, over a chart of train and held-out test MSE.
+ * A 2D playground after https://e-means.github.io/playground.html: e-means
+ * (left) and Lloyd's k-means (right) cluster the same three-arm spirals from
+ * the same starting centroids, drawn with their Voronoi cells and animated pass
+ * by pass, over a chart of train and held-out test MSE.
  */
 @SceneAnnotation(id = "e-means-playground")
 public class EMeansPlaygroundScene extends Scene {
@@ -111,16 +112,24 @@ public class EMeansPlaygroundScene extends Scene {
     /** The Lloyd run on the right. */
     public LloydKMeans lloyd = new LloydKMeans(2, DEFAULT_CLUSTERS);
 
-    /** Each curve's (pass, MSE) pairs: e-means train, e-means test, Lloyd train, Lloyd test. */
+    /**
+     * Each curve's (pass, MSE) pairs: e-means train, e-means test, Lloyd train,
+     * Lloyd test.
+     */
     public final List<List<double[]>> curves = new ArrayList<>();
 
-    /** Draws the panels and the chart; its point set is the canvas's bounding box. */
+    /**
+     * Draws the panels and the chart; its point set is the canvas's bounding box.
+     */
     public Camera2D canvas;
 
     /** Pans and zooms {@link #canvas}. */
     public CanvasScroll scroll;
 
-    /** Each side's Voronoi edges, packed {@code x0, y0, x1, y1} in the side's own panel frame. */
+    /**
+     * Each side's Voronoi edges, packed {@code x0, y0, x1, y1} in the side's own
+     * panel frame.
+     */
     public double[][] cellEdges = { new double[0], new double[0] };
 
     private double[] trainPoints = new double[0];
@@ -148,7 +157,10 @@ public class EMeansPlaygroundScene extends Scene {
         scroll.setContent(left, bottom, right, top);
     }
 
-    /** Hand the pointer to the canvas's pan and zoom, frame the canvas and draw the starting state. */
+    /**
+     * Hand the pointer to the canvas's pan and zoom, frame the canvas and draw the
+     * starting state.
+     */
     @Override
     public void initGL() {
         super.initGL();
@@ -172,8 +184,9 @@ public class EMeansPlaygroundScene extends Scene {
     }
 
     /**
-     * T trains; N, K, S, E, L and P raise the point count, cluster count, seed, e-means passes,
-     * Lloyd iterations and play speed, and with shift lower them. Each change restarts both runs.
+     * T trains; N, K, S, E, L and P raise the point count, cluster count, seed,
+     * e-means passes, Lloyd iterations and play speed, and with shift lower them.
+     * Each change restarts both runs.
      */
     @Override
     public void setControls(List<ControlHint> controls) {
@@ -210,8 +223,9 @@ public class EMeansPlaygroundScene extends Scene {
     }
 
     /**
-     * Advance training by one frame of the animation clock, timing each side's own work, then draw
-     * the panels, the chart and the readouts on the canvas, and the scene's chrome over them.
+     * Advance training by one frame of the animation clock, timing each side's own
+     * work, then draw the panels, the chart and the readouts on the canvas, and the
+     * scene's chrome over them.
      */
     @Override
     public void drawScene() {
@@ -247,9 +261,9 @@ public class EMeansPlaygroundScene extends Scene {
         Palette shown = palette;
         float pixelsPerUnit = canvas.screenSize(1f);
         float[][] boxes = {
-            { -PANEL_CENTRE - PANEL_HALF, -PANEL_HALF, 2 * PANEL_HALF, 2 * PANEL_HALF },
-            { PANEL_CENTRE - PANEL_HALF, -PANEL_HALF, 2 * PANEL_HALF, 2 * PANEL_HALF },
-            { CHART_LEFT, CHART_BOTTOM, CHART_RIGHT - CHART_LEFT, CHART_TOP - CHART_BOTTOM } };
+                { -PANEL_CENTRE - PANEL_HALF, -PANEL_HALF, 2 * PANEL_HALF, 2 * PANEL_HALF },
+                { PANEL_CENTRE - PANEL_HALF, -PANEL_HALF, 2 * PANEL_HALF, 2 * PANEL_HALF },
+                { CHART_LEFT, CHART_BOTTOM, CHART_RIGHT - CHART_LEFT, CHART_TOP - CHART_BOTTOM } };
         for (float[] box : boxes) {
             backdrop.draw(canvas.pointTransformX(box[0]), canvas.pointTransformY(box[1]), box[2] * pixelsPerUnit,
                     box[3] * pixelsPerUnit, 0f, MIN_LINE_PIXELS, shown.panel, shown.panelBorder, canvas);
@@ -314,29 +328,30 @@ public class EMeansPlaygroundScene extends Scene {
         double trainGain = 1 - last(0) / Math.max(Double.MIN_NORMAL, last(2));
         boolean bothDone = emeans.finished && lloyd.iterations == lloydEpochs;
         String[] texts = {
-            String.format(Locale.ROOT, "e-means: train MSE " + MSE_FORMAT + ", test MSE " + MSE_FORMAT
-                    + " after %.2f epochs, CPU %.2f s", last(0), last(1), emeans.passesDone(), emeansSeconds),
-            String.format(Locale.ROOT, "Lloyd k-means: train MSE " + MSE_FORMAT + ", test MSE " + MSE_FORMAT
-                    + " after %d epochs, CPU %.2f s", last(2), last(3), lloyd.iterations, lloydSeconds),
-            String.format(Locale.ROOT, "n %d, k %d, seed %d, e-means %d epochs (batch %d, alpha0 %.3g), "
-                    + "Lloyd %d epochs, speed %.2fx%s", pointCount, clusterCount, seed, emeansEpochs,
-                    emeans.batchSize, emeans.alpha0, lloydEpochs, playSpeed,
-                    training ? ", training" : ", T trains"),
-            !bothDone ? " " : String.format(Locale.ROOT, "e-means: %.1f%% %s test loss and %.1f%% %s train "
-                    + "loss than Lloyd, in %d epochs instead of %d, and %.2f s of CPU time instead of %.2f s",
-                    PERCENT * Math.abs(testGain), testGain >= 0 ? LOWER : HIGHER,
-                    PERCENT * Math.abs(trainGain), trainGain >= 0 ? LOWER : HIGHER, emeansEpochs,
-                    lloydEpochs, emeansSeconds, lloydSeconds),
-            "e-means train", "e-means test", "Lloyd train", "Lloyd test" };
+                String.format(Locale.ROOT, "e-means: train MSE " + MSE_FORMAT + ", test MSE " + MSE_FORMAT
+                        + " after %.2f epochs, CPU %.2f s", last(0), last(1), emeans.passesDone(), emeansSeconds),
+                String.format(Locale.ROOT, "Lloyd k-means: train MSE " + MSE_FORMAT + ", test MSE " + MSE_FORMAT
+                        + " after %d epochs, CPU %.2f s", last(2), last(3), lloyd.iterations, lloydSeconds),
+                String.format(Locale.ROOT, "n %d, k %d, seed %d, e-means %d epochs (batch %d, alpha0 %.3g), "
+                        + "Lloyd %d epochs, speed %.2fx%s", pointCount, clusterCount, seed, emeansEpochs,
+                        emeans.batchSize, emeans.alpha0, lloydEpochs, playSpeed,
+                        training ? ", training" : ", T trains"),
+                !bothDone ? " "
+                        : String.format(Locale.ROOT, "e-means: %.1f%% %s test loss and %.1f%% %s train "
+                                + "loss than Lloyd, in %d epochs instead of %d, and %.2f s of CPU time instead of %.2f s",
+                                PERCENT * Math.abs(testGain), testGain >= 0 ? LOWER : HIGHER,
+                                PERCENT * Math.abs(trainGain), trainGain >= 0 ? LOWER : HIGHER, emeansEpochs,
+                                lloydEpochs, emeansSeconds, lloydSeconds),
+                "e-means train", "e-means test", "Lloyd train", "Lloyd test" };
         float[][] anchors = {
-            { -PANEL_CENTRE, PANEL_HALF + TITLE_LIFT }, { PANEL_CENTRE, PANEL_HALF + TITLE_LIFT },
-            { 0f, CHART_BOTTOM - TITLE_LIFT }, { 0f, CHART_BOTTOM - 2 * TITLE_LIFT },
-            { CHART_RIGHT - 2 * LEGEND_INSET, CHART_TOP - LEGEND_INSET },
-            { CHART_RIGHT - 2 * LEGEND_INSET, CHART_TOP - 2 * LEGEND_INSET },
-            { CHART_RIGHT - 2 * LEGEND_INSET, CHART_TOP - 3 * LEGEND_INSET },
-            { CHART_RIGHT - 2 * LEGEND_INSET, CHART_TOP - 4 * LEGEND_INSET } };
+                { -PANEL_CENTRE, PANEL_HALF + TITLE_LIFT }, { PANEL_CENTRE, PANEL_HALF + TITLE_LIFT },
+                { 0f, CHART_BOTTOM - TITLE_LIFT }, { 0f, CHART_BOTTOM - 2 * TITLE_LIFT },
+                { CHART_RIGHT - 2 * LEGEND_INSET, CHART_TOP - LEGEND_INSET },
+                { CHART_RIGHT - 2 * LEGEND_INSET, CHART_TOP - 2 * LEGEND_INSET },
+                { CHART_RIGHT - 2 * LEGEND_INSET, CHART_TOP - 3 * LEGEND_INSET },
+                { CHART_RIGHT - 2 * LEGEND_INSET, CHART_TOP - 4 * LEGEND_INSET } };
         Color[] colours = { curveColour(0), curveColour(2), shown.text, shown.headingText,
-            curveColour(0), curveColour(1), curveColour(2), curveColour(3) };
+                curveColour(0), curveColour(1), curveColour(2), curveColour(3) };
         for (int text = 0; text < texts.length; text++) {
             HyperString label = new HyperString();
             label.addWord(texts[text], colours[text]);
@@ -351,8 +366,8 @@ public class EMeansPlaygroundScene extends Scene {
     }
 
     /**
-     * Draw new spirals and test points for the settings, start both runs from the same sampled
-     * centroids and reset the chart; training waits for T.
+     * Draw new spirals and test points for the settings, start both runs from the
+     * same sampled centroids and reset the chart; training waits for T.
      */
     public void restart() {
         training = false;
@@ -367,6 +382,7 @@ public class EMeansPlaygroundScene extends Scene {
         emeans.seed = seed;
         emeans.epochs = emeansEpochs;
         emeans.begin(trainPoints, pointCount, initial);
+
         lloyd = new LloydKMeans(2, clusterCount);
         lloyd.begin(trainPoints, pointCount, initial);
         curves.clear();
@@ -385,8 +401,8 @@ public class EMeansPlaygroundScene extends Scene {
     }
 
     /**
-     * Record the train and test MSE of one side's centroids at a pass count, into the side's two
-     * curves (0 for e-means, 2 for Lloyd).
+     * Record the train and test MSE of one side's centroids at a pass count, into
+     * the side's two curves (0 for e-means, 2 for Lloyd).
      */
     private void record(int firstCurve, double passes, double[] centroids) {
         curves.get(firstCurve).add(new double[] { passes, EMeans.meanSquaredError(trainPoints, pointCount,
@@ -400,8 +416,8 @@ public class EMeansPlaygroundScene extends Scene {
             return new double[][] { new double[0], new double[0] };
         }
         return new double[][] {
-            VoronoiCells.edges(emeans.centroids, clusterCount, -PANEL_HALF, -PANEL_HALF, PANEL_HALF, PANEL_HALF),
-            VoronoiCells.edges(lloyd.centroids, clusterCount, -PANEL_HALF, -PANEL_HALF, PANEL_HALF, PANEL_HALF) };
+                VoronoiCells.edges(emeans.centroids, clusterCount, -PANEL_HALF, -PANEL_HALF, PANEL_HALF, PANEL_HALF),
+                VoronoiCells.edges(lloyd.centroids, clusterCount, -PANEL_HALF, -PANEL_HALF, PANEL_HALF, PANEL_HALF) };
     }
 
     private double last(int curve) {

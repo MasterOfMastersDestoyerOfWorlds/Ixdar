@@ -4,11 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.ToDoubleFunction;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 /**
@@ -65,17 +68,52 @@ public final class RingFitBench {
         public Score score(GeometryBundle fitted) {
             SurfaceSpline spline = SurfaceSpline.inBundle(fitted, ring);
             if (spline == null) {
-                throw new IllegalStateException("the fitted geometry carries no " + ring);
+                throw new IllegalStateException(NO_RING_IN_FITTED_GEOMETRY + ring);
             }
+            return scoreAt(fitted, IntStream.range(0, spline.anchorCount)
+                    .filter(anchor -> spline.anchorAuthored[anchor]).map(anchor -> spline.anchorVertexId[anchor])
+                    .toArray());
+        }
+
+        /**
+         * How far any vertex of this ring's fitted loop lies from its places: the whole ring, where
+         * {@link #score} reads only the anchors a ring was drawn through.
+         *
+         * @param fitted the fitted geometry
+         * @return the ring's score over every vertex its edge marks touch
+         * @throws IllegalStateException when the geometry marks no edges under this label
+         */
+        public Score wholeRingScore(GeometryBundle fitted) {
+            if (!(fitted.slots().get(EdgeMarks.SLOT) instanceof Map<?, ?> marks)
+                    || !(marks.get(ring) instanceof boolean[] marked)) {
+                throw new IllegalStateException(NO_RING_IN_FITTED_GEOMETRY + ring);
+            }
+            MeshTopology mesh = fitted.mesh();
+            boolean[] onRing = new boolean[mesh.vertexIdBound()];
+            for (int edge = 0; edge < marked.length; edge++) {
+                if (marked[edge]) {
+                    int halfEdge = mesh.edgeHalfEdge(edge);
+                    onRing[mesh.halfEdgeVertex(halfEdge)] = true;
+                    onRing[mesh.halfEdgeEndVertex(halfEdge)] = true;
+                }
+            }
+            return scoreAt(fitted, IntStream.range(0, onRing.length).filter(vertex -> onRing[vertex]).toArray());
+        }
+
+        /**
+         * How far some of the fitted surface's vertices lie from this ring's places.
+         *
+         * @param fitted    the fitted geometry
+         * @param vertexIds the vertices to measure
+         * @return the worst of them, and the must-visit places none of them reached
+         */
+        private Score scoreAt(GeometryBundle fitted, int[] vertexIds) {
             Vector3f at = new Vector3f();
             double worst = 0;
             double worstWithin = places.get(0).within();
             boolean[] visited = new boolean[mustVisit.size()];
-            for (int anchor = 0; anchor < spline.anchorCount; anchor++) {
-                if (!spline.anchorAuthored[anchor]) {
-                    continue;
-                }
-                fitted.mesh().vertexPosition(spline.anchorVertexId[anchor], at);
+            for (int vertexId : vertexIds) {
+                fitted.mesh().vertexPosition(vertexId, at);
                 double nearestOff = Double.POSITIVE_INFINITY;
                 double nearestWithin = worstWithin;
                 for (Place place : places) {
@@ -155,6 +193,8 @@ public final class RingFitBench {
 
     public static final String FIXTURE_RESOURCE_DIRECTORY ="dsl/fixtures/ring_bench/";
 
+    private static final String NO_RING_IN_FITTED_GEOMETRY = "the fitted geometry carries no ";
+
     private static final double TOLERANCE_SLACK = 1e-3;
 
     private static final String FIRST_RING = "ring_00";
@@ -208,6 +248,9 @@ public final class RingFitBench {
                     ring(FIRST_RING, roundTorus(QUARTER_GROOVE, SECTION)),
                     ring(SECOND_RING, roundTorus(HALF_TURN, SECTION))),
             single("bisector_smooth_rings", ring(BISECTOR, roundTube(0.0, SIDE))),
+            single("bisector_rings_off_grooves", ring(BISECTOR, roundTube(0.0, SIDE)),
+                    ring(FIRST_RING, roundTorus(QUARTER_GROOVE, SECTION)),
+                    ring(SECOND_RING, roundTorus(HALF_TURN, SECTION))),
             new Case("two_grooves_one_ring_nearest_both", List.of(
                     List.of(ring(FIRST_RING, roundTorus(SIXTH_GROOVE, SECTION)),
                             ring(SECOND_RING, roundTorus(FIRST_GROOVE, SECTION))),
@@ -220,7 +263,11 @@ public final class RingFitBench {
                     List.of(roundTorus(SLANTED_GROOVE, SECTION), roundTorus(-SLANTED_GROOVE, SECTION)))),
             single("tree_partly_in_groove", ring(FIRST_RING, nearerBranch())),
             single("horn_ring_on_horn", ring(FIRST_RING, hornFoot())),
-            single("horn_ring_wide", ring(FIRST_RING, hornFoot())));
+            single("horn_ring_wide", ring(FIRST_RING, hornFoot())),
+            single("ring_between_half_grooves", new RingExpectation(FIRST_RING,
+                    List.of(roundTorus(SLANTED_GROOVE, SECTION), roundTorus(-SLANTED_GROOVE, SECTION), trench()),
+                    List.of(roundTorus(SLANTED_GROOVE, SECTION), roundTorus(-SLANTED_GROOVE, SECTION)))),
+            single("one_groove_pock_marks", ring(FIRST_RING, roundTorus(FIRST_GROOVE, SECTION))));
 
     private RingFitBench() {
     }
@@ -250,14 +297,26 @@ public final class RingFitBench {
     public static Result score(Case benchCase, RingFit fit) {
         NodeGraphRuntime drawn = NodeGraphRuntime.executeResource(
                 FIXTURE_RESOURCE_DIRECTORY + benchCase.fixture() + ".dsl", Map.of());
-        GeometryBundle fitted = fit.fit(drawn);
+        return scoreFitted(benchCase, fit.fit(drawn), false);
+    }
+
+    /**
+     * Score one case's fitted geometry, keeping the alternative that passes or, failing that, the
+     * one whose worst ring is nearest its tolerance.
+     *
+     * @param benchCase the case
+     * @param fitted    the geometry a fit left
+     * @param wholeRing whether every vertex of each ring is measured, or only its drawn anchors
+     * @return its result
+     */
+    public static Result scoreFitted(Case benchCase, GeometryBundle fitted, boolean wholeRing) {
         Result best = null;
         double bestRatio = Double.POSITIVE_INFINITY;
         for (List<RingExpectation> alternative : benchCase.alternatives()) {
             List<Score> scores = new ArrayList<>();
             double ratio = 0;
             for (RingExpectation expectation : alternative) {
-                Score ringScore = expectation.score(fitted);
+                Score ringScore = wholeRing ? expectation.wholeRingScore(fitted) : expectation.score(fitted);
                 scores.add(ringScore);
                 ratio = Math.max(ratio, ringScore.worst() / ringScore.within() + ringScore.missing().size());
             }

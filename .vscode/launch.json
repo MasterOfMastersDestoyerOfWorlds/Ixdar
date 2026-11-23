@@ -393,6 +393,46 @@
       "args": "e-means-playground",
       "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "CRAW-112: ring-tool",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "projectName": "ixdar-app",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.model=fixtures/ring_bench/one_groove_two_rings.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "CRAW-112: step the ring fit (slanted ring)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "projectName": "ixdar-app",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.model=fixtures/ring_bench/slanted_ring.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "CRAW-112: step the ring fit (wide horn)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "projectName": "ixdar-app",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.model=fixtures/ring_bench/horn_ring_wide.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "CRAW-112: step the ring fit (pock marks)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "projectName": "ixdar-app",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.model=fixtures/ring_bench/one_groove_pock_marks.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
     }
 
   ]
