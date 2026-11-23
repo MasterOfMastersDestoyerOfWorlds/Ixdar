@@ -139,9 +139,10 @@ public final class MeshHoleFiller {
 
     /**
      * Minimum-area triangulation of the loop by the standard interval dynamic program, skipping
-     * any chord {@link #forbiddenChords} rules out.
+     * any chord {@link #forbiddenChords} rules out and any triangle of zero area, which has no
+     * normal for Liepa's dihedral weight and no gradient for a parametrization.
      *
-     * @return whether a triangulation exists under those chord restrictions
+     * @return whether a triangulation exists under those restrictions
      */
     private boolean triangulate() {
         triangles = new int[(loopLength - 2) * TRIANGLE_CORNERS];
@@ -216,8 +217,9 @@ public final class MeshHoleFiller {
                     if (halves >= best) {
                         continue;
                     }
-                    double candidate = halves + TriangleGeometry.area(loopPositions, polygon[start], polygon[middle], polygon[end]);
-                    if (candidate < best) {
+                    double area = TriangleGeometry.area(loopPositions, polygon[start], polygon[middle], polygon[end]);
+                    double candidate = halves + area;
+                    if (area > 0 && candidate < best) {
                         best = candidate;
                         bestSplit = middle;
                     }
@@ -370,7 +372,7 @@ public final class MeshHoleFiller {
 
     /**
      * Flips the patch edge shared by the two corner slots when the opposite angles exceed a
-     * straight angle and the replacement edge does not already exist.
+     * straight angle, the replacement edge does not already exist and both new triangles have area.
      *
      * @param firstSlot corner slot of one incident triangle
      * @param secondSlot corner slot of the other incident triangle
@@ -397,7 +399,9 @@ public final class MeshHoleFiller {
             return false;
         }
         long replacement = EdgeKey.undirected(firstApex, secondApex);
-        if (Arrays.binarySearch(edgeKeys, replacement) >= 0
+        if (TriangleGeometry.area(vertexPositions, startVertex, secondApex, firstApex) == 0
+                || TriangleGeometry.area(vertexPositions, secondApex, endVertex, firstApex) == 0
+                || Arrays.binarySearch(edgeKeys, replacement) >= 0
                 || Arrays.binarySearch(forbiddenChords, replacement) >= 0
                 || !created.add(replacement)) {
             return false;

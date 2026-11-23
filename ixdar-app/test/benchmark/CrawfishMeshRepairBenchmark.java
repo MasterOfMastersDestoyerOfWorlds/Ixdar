@@ -1,5 +1,6 @@
 package benchmark;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -70,22 +71,28 @@ public final class CrawfishMeshRepairBenchmark {
         assertEquals(report.outputFaceCount, halfEdge.faceCount(),
                 "the half-edge build accepts every repaired face");
         assertTrue(report.shellKept[0], "the main shell survives");
-        assertEquals(0, report.openHoleCount, "every boundary loop on a scan is fillable");
-        assertEquals(0, report.outputBoundaryEdgeCount, "so the repaired scan has no boundary");
-        assertEquals(0, report.unorientedEdgeCount, "and no contradiction survives the split");
         int[] activeOf = new int[halfEdge.vertexIdBound()];
         boolean[] folded = new MeshFolds(halfEdge, activeOf, halfEdge.packedPositions(activeOf)).foldedAtStart;
-        assertTrue(IntStream.range(0, halfEdge.faceCount()).noneMatch(face -> folded[halfEdge.faceIdAt(face)]),
-                "no face is folded, so quad_layout accepts the scan");
-        assertTrue(IntStream.range(0, halfEdge.edgeCount())
-                .allMatch(edge -> halfEdge.edgeLength(halfEdge.edgeIdAt(edge)) > 0), "no edge has zero length");
+        long foldedFaces = IntStream.range(0, halfEdge.faceCount()).filter(face -> folded[halfEdge.faceIdAt(face)])
+                .count();
+        long flatFaces = IntStream.range(0, halfEdge.faceCount())
+                .filter(face -> halfEdge.faceArea(halfEdge.faceIdAt(face)) == 0).count();
+        long zeroLengthEdges = IntStream.range(0, halfEdge.edgeCount())
+                .filter(edge -> halfEdge.edgeLength(halfEdge.edgeIdAt(edge)) == 0).count();
         float slack = (float) halfEdge.meanEdgeLength();
         Vector3f low = scan.boundsMin(new Vector3f()).sub(slack, slack, slack);
         Vector3f high = scan.boundsMax(new Vector3f()).add(slack, slack, slack);
-        assertTrue(IntStream.range(0, halfEdge.vertexCount())
+        long outsideVertices = IntStream.range(0, halfEdge.vertexCount())
                 .mapToObj(vertex -> halfEdge.vertexPosition(halfEdge.vertexIdAt(vertex), new Vector3f()))
-                .allMatch(position -> new Vector3f(position).max(low).min(high).equals(position)),
-                "no vertex leaves the scan's bounding box by more than a mean edge");
+                .filter(position -> !new Vector3f(position).max(low).min(high).equals(position)).count();
+        assertAll(
+                () -> assertEquals(0, report.openHoleCount, "every boundary loop on a scan is fillable"),
+                () -> assertEquals(0, report.outputBoundaryEdgeCount, "so the repaired scan has no boundary"),
+                () -> assertEquals(0, report.unorientedEdgeCount, "and no contradiction survives the split"),
+                () -> assertEquals(0, foldedFaces, "folded faces, which quad_layout refuses"),
+                () -> assertEquals(0, flatFaces, "faces of zero area, which have no seamless gradient"),
+                () -> assertEquals(0, zeroLengthEdges, "edges of zero length"),
+                () -> assertEquals(0, outsideVertices, "vertices further than a mean edge outside the scan's box"));
         Platforms.log(String.format("[repair] euler V-E+F = %d%n",
                 halfEdge.vertexCount() - halfEdge.edgeCount() + halfEdge.faceCount()));
 
