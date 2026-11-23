@@ -117,6 +117,12 @@ public final class MeshRepairReport {
     /** Faces still folded after the unfold, which quad_layout will refuse. */
     public int stillFoldedFaceCount;
 
+    /** Faces deleted round the points the split copied, before the fill, until no rim pinches. */
+    public int tangleDeletedFaceCount;
+
+    /** Faces deleted round the faces the unfold left folded, before each refill. */
+    public int foldClearedFaceCount;
+
     /** Face count of each shell, largest first. */
     public int[] shellFaceCounts = new int[0];
 
@@ -173,7 +179,8 @@ public final class MeshRepairReport {
                 + " unfillable=" + unfillableHoleCount
                 + " exposed=" + exposedFaceCount + " pruned=" + prunedFaceCount
                 + " boundaryEdges=" + outputBoundaryEdgeCount
-                + " folded=" + foldedFaceCount + " stillFolded=" + stillFoldedFaceCount;
+                + " folded=" + foldedFaceCount + " stillFolded=" + stillFoldedFaceCount
+                + " tangleFaces=" + tangleDeletedFaceCount + " foldCleared=" + foldClearedFaceCount;
     }
 
     /**
@@ -219,6 +226,8 @@ public final class MeshRepairReport {
         appendCount(text, "foldedFaceCount", foldedFaceCount);
         appendCount(text, "unfoldMovedVertexCount", unfoldMovedVertexCount);
         appendCount(text, "stillFoldedFaceCount", stillFoldedFaceCount);
+        appendCount(text, "tangleDeletedFaceCount", tangleDeletedFaceCount);
+        appendCount(text, "foldClearedFaceCount", foldClearedFaceCount);
         for (int shell = 0; shell < shellFaceCounts.length; shell++) {
             text.append("  shell ").append(shell)
                     .append(" faces=").append(shellFaceCounts[shell])

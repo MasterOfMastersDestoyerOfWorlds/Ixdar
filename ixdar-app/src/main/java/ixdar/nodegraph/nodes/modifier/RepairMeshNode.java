@@ -71,7 +71,10 @@ public class RepairMeshNode implements MeshNode {
         return "Repairs mesh topology in place of a rebuild: welds near-coincident vertices, makes"
                 + " the winding consistent, splits non-manifold edges apart, resolves degenerate"
                 + " faces, drops only debris and enclosed shells, fills small boundary loops, and"
-                + " prunes faces that show their back to the outside, then unfolds folded slivers.";
+                + " prunes faces that show their back to the outside, then unfolds folded slivers."
+                + " Wherever the split leaves a surface touching itself, or a fold or zero-length edge"
+                + " survives the unfold, it deletes a ring of faces and refills the hole, a ring wider"
+                + " each round until the surface is clean.";
     }
 
     @Override

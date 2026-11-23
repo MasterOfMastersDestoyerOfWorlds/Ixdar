@@ -177,6 +177,35 @@ class MeshRepairTest {
         assertEquals(0, repair.report.outputBoundaryEdgeCount, "the sphere stays closed");
     }
 
+    /** CRAW-130: two top holes meeting at one corner pinch it; the tangle is cleared and filled. */
+    @Test
+    void aFigureEightHoleIsClearedAndFilledClosed() {
+        GridSoup soup = new GridSoup();
+        soup.addCube(2, 4);
+
+        assertTangleClearedAndClosed(repair(soup.bundle(), WELD_EPSILON, SCAN_HOLE_EDGES, 1));
+    }
+
+    /** CRAW-130: the top's middle row pressed onto the floor gives its edges four faces each. */
+    @Test
+    void anEdgeCarryingFourFacesIsClearedAndFilledClosed() {
+        MeshRepair repair = repair(cubeWithTopPressedOntoTheFloor(2, CUBE_GRID - 2), WELD_EPSILON,
+                SCAN_HOLE_EDGES, 1);
+
+        assertTrue(repair.report.nonManifoldEdgeCount > 0, "the pressed edges carry four faces");
+        assertTangleClearedAndClosed(repair);
+    }
+
+    /** CRAW-130: one top vertex pressed onto the floor is an hourglass vertex with two fans. */
+    @Test
+    void anHourglassVertexIsClearedAndFilledClosed() {
+        MeshRepair repair = repair(cubeWithTopPressedOntoTheFloor(CUBE_GRID / 2, CUBE_GRID / 2), WELD_EPSILON,
+                SCAN_HOLE_EDGES, 1);
+
+        assertTrue(repair.report.splitVertexCount > 0, "the pressed vertex has two fans");
+        assertTangleClearedAndClosed(repair);
+    }
+
     @Test
     void aReversedPatchSharingTheSkinsWindingThroughABridgeIsTurnedOutward() {
         GeometryBundle scan = cubeWithReversedPatchAndBridge();
@@ -194,7 +223,7 @@ class MeshRepairTest {
 
         MeshTopology cube = repair.output.mesh();
         Vector3f corner = new Vector3f();
-        int topFaces = 0;
+        double topArea = 0;
         for (int activeFace = 0; activeFace < cube.faceCount(); activeFace++) {
             int faceId = cube.faceIdAt(activeFace);
             boolean onTop = true;
@@ -205,10 +234,11 @@ class MeshRepairTest {
             if (onTop) {
                 assertTrue(facesOutOfTheCube(cube, faceId), "top face " + faceId + " at "
                         + corner + " winds out of the cube");
-                topFaces++;
+                topArea += cube.faceArea(faceId);
             }
         }
-        assertTrue(topFaces >= CUBE_GRID * CUBE_GRID * 2 - 1, "the whole top was checked");
+        assertEquals(2 * 2, topArea, AREA_TOLERANCE,
+                "the whole top was checked, however the bridge's tangle refilled it");
         assertTrue(repair.report.mobiusEdgeCount < PATCH_CELLS,
                 "the contradiction is cut at the bridge, not around the patch's rim");
         assertEquals(0, repair.report.outputBoundaryEdgeCount, "and the repaired cube is closed");
@@ -483,6 +513,41 @@ class MeshRepairTest {
     }
 
     /**
+     * Asserts the repair cleared a tangle and left a closed half-edge surface with no edge of zero
+     * length.
+     *
+     * @param repair a finished repair
+     */
+    private static void assertTangleClearedAndClosed(MeshRepair repair) {
+        assertTrue(repair.report.tangleDeletedFaceCount > 0, "the faces round the tangle are cleared");
+        assertHalfEdgeBuildable(repair);
+        assertEquals(0, repair.report.outputBoundaryEdgeCount, "the surface is closed");
+        HalfEdgeMesh repaired = (HalfEdgeMesh) repair.output.mesh();
+        for (int activeEdge = 0; activeEdge < repaired.edgeCount(); activeEdge++) {
+            assertTrue(repaired.edgeLength(repaired.edgeIdAt(activeEdge)) > 0, "every edge has length");
+        }
+    }
+
+    /**
+     * A gridded outward cube whose top's middle row, between two steps, is pressed straight down
+     * onto the floor's matching vertices, which the weld then fuses.
+     *
+     * @param firstStep first pressed step along the top's middle row
+     * @param lastStep  last pressed step, inclusive
+     * @return the fixture bundle
+     */
+    private static GeometryBundle cubeWithTopPressedOntoTheFloor(int firstStep, int lastStep) {
+        GridSoup soup = new GridSoup();
+        soup.addCube();
+        int columns = CUBE_GRID + 1;
+        for (int step = firstStep; step <= lastStep; step++) {
+            Vector3f pressed = soup.positions.at(step * columns + CUBE_GRID / 2);
+            soup.positions.set(step * columns + CUBE_GRID / 2, pressed.x, pressed.y, -1);
+        }
+        return soup.bundle();
+    }
+
+    /**
      * An outward gridded cube whose top carries an inward-wound square, joined consistently to the
      * bottom by a sheet through the inside, as a scan's flipped patch reaches its skin elsewhere.
      *
@@ -574,18 +639,7 @@ class MeshRepairTest {
      */
     private static GeometryBundle cubeWithChamberThroughTheBottom() {
         GridSoup soup = new GridSoup();
-        soup.add(new float[] { -1, -1, 1 }, new float[] { 2, 0, 0 }, new float[] { 0, 2, 0 },
-                CUBE_GRID, CUBE_GRID, PIT_FIRST_CELL);
-        soup.add(new float[] { -1, -1, -1 }, new float[] { 0, 2, 0 }, new float[] { 2, 0, 0 },
-                CUBE_GRID, CUBE_GRID, -1);
-        soup.add(new float[] { 1, -1, -1 }, new float[] { 0, 2, 0 }, new float[] { 0, 0, 2 },
-                CUBE_GRID, CUBE_GRID, -1);
-        soup.add(new float[] { -1, -1, -1 }, new float[] { 0, 0, 2 }, new float[] { 0, 2, 0 },
-                CUBE_GRID, CUBE_GRID, -1);
-        soup.add(new float[] { -1, 1, -1 }, new float[] { 0, 0, 2 }, new float[] { 2, 0, 0 },
-                CUBE_GRID, CUBE_GRID, -1);
-        soup.add(new float[] { -1, -1, -1 }, new float[] { 2, 0, 0 }, new float[] { 0, 0, 2 },
-                CUBE_GRID, CUBE_GRID, -1);
+        soup.addCube(PIT_FIRST_CELL);
         float pit = PIT_HALF_WIDTH;
         float tubeHeight = 1 - CHAMBER_ROOF;
         soup.add(new float[] { pit, -pit, CHAMBER_ROOF }, new float[] { 0, 0, tubeHeight },
@@ -628,18 +682,35 @@ class MeshRepairTest {
         private int faceCount;
 
         /**
-         * Appends one gridded parallelogram wound along {@code along x across}, leaving out the
-         * central two-by-two cells when asked.
+         * Appends the six outward sides of the cube {@code [-1, 1]^3}, the top first, each a
+         * {@link #CUBE_GRID} grid.
+         *
+         * @param topHoleFirstCells the top's two-by-two holes, as for {@link #add}
+         */
+        void addCube(int... topHoleFirstCells) {
+            float[][][] sides = { { { -1, -1, 1 }, { 2, 0, 0 }, { 0, 2, 0 } },
+                { { -1, -1, -1 }, { 0, 2, 0 }, { 2, 0, 0 } }, { { 1, -1, -1 }, { 0, 2, 0 }, { 0, 0, 2 } },
+                { { -1, -1, -1 }, { 0, 0, 2 }, { 0, 2, 0 } }, { { -1, 1, -1 }, { 0, 0, 2 }, { 2, 0, 0 } },
+                { { -1, -1, -1 }, { 2, 0, 0 }, { 0, 0, 2 } } };
+            for (int side = 0; side < sides.length; side++) {
+                add(sides[side][0], sides[side][1], sides[side][2], CUBE_GRID, CUBE_GRID,
+                        side == 0 ? topHoleFirstCells : new int[0]);
+            }
+        }
+
+        /**
+         * Appends one gridded parallelogram wound along {@code along x across}, leaving out
+         * two-by-two blocks of cells on its diagonal when asked.
          *
          * @param origin first corner
          * @param along first edge
          * @param across second edge
          * @param alongCells cells along the first edge
          * @param acrossCells cells along the second edge
-         * @param holeFirstCell first of the two skipped cells on both edges, or -1 for none
+         * @param holeFirstCells per skipped block its first cell on both edges; -1 or none for none
          */
         void add(float[] origin, float[] along, float[] across, int alongCells, int acrossCells,
-                int holeFirstCell) {
+                int... holeFirstCells) {
             int first = positions.size();
             int columns = acrossCells + 1;
             for (int step = 0; step <= alongCells; step++) {
@@ -653,8 +724,10 @@ class MeshRepairTest {
                     (faceCount + alongCells * acrossCells * 2) * TRIANGLE_CORNERS);
             for (int step = 0; step < alongCells; step++) {
                 for (int cross = 0; cross < acrossCells; cross++) {
-                    if (holeFirstCell >= 0 && step - holeFirstCell >= 0 && step - holeFirstCell < 2
-                            && cross - holeFirstCell >= 0 && cross - holeFirstCell < 2) {
+                    int cellStep = step;
+                    int cellCross = cross;
+                    if (Arrays.stream(holeFirstCells).anyMatch(hole -> hole >= 0 && cellStep - hole >= 0
+                            && cellStep - hole < 2 && cellCross - hole >= 0 && cellCross - hole < 2)) {
                         continue;
                     }
                     int corner = first + step * columns + cross;

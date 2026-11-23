@@ -2,6 +2,8 @@ package ixdar.geometry.mesh.data.ops;
 
 import java.util.Arrays;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
 
@@ -21,6 +23,9 @@ public final class MeshUnfold {
 
     /** Vertices it moved. */
     public int movedVertexCount;
+
+    /** Ids of the faces still folded after it. */
+    public int[] stillFoldedFaceIds = new int[0];
 
     /**
      * Unfold {@code mesh} in place.
@@ -56,16 +61,23 @@ public final class MeshUnfold {
                     }
                 }
             }
-            PackedPoints centroids = xyz.ringMean(rings);
+            PackedPoints centroids = new PackedPoints(moverCount);
             for (int index = 0; index < moverCount; index++) {
-                int vertex = movers[index];
-                xyz.set(vertex, centroids.get(vertex, 0), centroids.get(vertex, 1), centroids.get(vertex, 2));
-                moved[vertex] = true;
+                Vector3f sum = new Vector3f();
+                for (int neighbour : rings[movers[index]]) {
+                    sum.add(xyz.at(neighbour));
+                }
+                centroids.set(index, sum.div(rings[movers[index]].length));
+            }
+            for (int index = 0; index < moverCount; index++) {
+                xyz.set(movers[index], centroids.at(index));
+                moved[movers[index]] = true;
             }
             folds.update(xyz, movers, moverCount);
             folded = foldedFaces(mesh, folds.failedByFaceId);
         }
         result.stillFoldedFaceCount = folded.length;
+        result.stillFoldedFaceIds = folded;
         for (int vertex = 0; vertex < vertexCount; vertex++) {
             if (moved[vertex]) {
                 result.movedVertexCount++;

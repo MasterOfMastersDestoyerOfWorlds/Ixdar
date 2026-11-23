@@ -5,11 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.util.stream.IntStream;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
+import ixdar.geometry.mesh.data.ops.MeshFolds;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -24,23 +27,14 @@ import ixdar.platform.Platforms;
  */
 public final class CrawfishMeshRepairBenchmark {
 
-    /** System property naming the scan to repair. */
     public static final String GLB_PROPERTY = "benchmark.glb";
 
-    /** Scan the benchmark repairs when {@link #GLB_PROPERTY} is unset. */
-    public static final String DEFAULT_GLB = "/home/acw/crawfish/IMG_4109.glb";
+    public static final String DEFAULT_GLB = MeshLoader.DATA_ROOT_PLACEHOLDER + "/crawfish/IMG_4109.glb";
 
-    /**
-     * Safety cap the benchmark fills up to. Trellis closes the back surface badly rather than
-     * leaving it open, so every loop on a scan is an artefact and the node's own default cap is
-     * what this uses.
-     */
     public static final int MAX_HOLE_EDGES = RepairMeshNode.DEFAULT_MAX_HOLE_EDGES;
 
-    /** Debris threshold: anything under this many faces is scanner noise. */
     public static final int MIN_SHELL_FACES = 100;
 
-    /** Nanoseconds per second, for the reported times. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     /**
@@ -79,6 +73,19 @@ public final class CrawfishMeshRepairBenchmark {
         assertEquals(0, report.openHoleCount, "every boundary loop on a scan is fillable");
         assertEquals(0, report.outputBoundaryEdgeCount, "so the repaired scan has no boundary");
         assertEquals(0, report.unorientedEdgeCount, "and no contradiction survives the split");
+        int[] activeOf = new int[halfEdge.vertexIdBound()];
+        boolean[] folded = new MeshFolds(halfEdge, activeOf, halfEdge.packedPositions(activeOf)).foldedAtStart;
+        assertTrue(IntStream.range(0, halfEdge.faceCount()).noneMatch(face -> folded[halfEdge.faceIdAt(face)]),
+                "no face is folded, so quad_layout accepts the scan");
+        assertTrue(IntStream.range(0, halfEdge.edgeCount())
+                .allMatch(edge -> halfEdge.edgeLength(halfEdge.edgeIdAt(edge)) > 0), "no edge has zero length");
+        float slack = (float) halfEdge.meanEdgeLength();
+        Vector3f low = scan.boundsMin(new Vector3f()).sub(slack, slack, slack);
+        Vector3f high = scan.boundsMax(new Vector3f()).add(slack, slack, slack);
+        assertTrue(IntStream.range(0, halfEdge.vertexCount())
+                .mapToObj(vertex -> halfEdge.vertexPosition(halfEdge.vertexIdAt(vertex), new Vector3f()))
+                .allMatch(position -> new Vector3f(position).max(low).min(high).equals(position)),
+                "no vertex leaves the scan's bounding box by more than a mean edge");
         Platforms.log(String.format("[repair] euler V-E+F = %d%n",
                 halfEdge.vertexCount() - halfEdge.edgeCount() + halfEdge.faceCount()));
 

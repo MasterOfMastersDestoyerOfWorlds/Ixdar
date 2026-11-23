@@ -11,6 +11,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.joml.Vector3d;
@@ -127,7 +128,10 @@ public final class MeshRepair {
 
     private int splitVertexCount;
 
-    /** Working vertex positions; only ever appended to, so no vertex moves. */
+    /** Per vertex of the last assembled mesh, in its order, the working vertex it came from. */
+    private int[] assembledVertices = new int[0];
+
+    /** Working vertex positions; appended to, and moved only by the unfold written back. */
     private PackedPoints positions = new PackedPoints(0);
 
     /** Live working vertices. */
@@ -261,7 +265,9 @@ public final class MeshRepair {
     }
 
     /**
-     * Runs every stage in order and leaves the repaired bundle in {@link #output}.
+     * Runs every stage in order and leaves the repaired bundle in {@link #output}. Bad spots, the
+     * split's copies left on one surface before the fill, and the folds and zero-length edges the
+     * unfold's centroid moves leave after it, are cleared and refilled a ring wider each round.
      *
      * @throws IllegalArgumentException when the input mesh is not made of triangles
      */
@@ -279,6 +285,18 @@ public final class MeshRepair {
         orient();
         splitNonManifold();
         fixDegenerates();
+        int[] componentOf = faceComponents();
+        int[] split = Arrays.stream(splitVertices, 0, splitVertexCount).distinct()
+                .filter(vertex -> facesRound(vertex) > 0).toArray();
+        long[] pointOnSurface = Arrays.stream(split).mapToLong(vertex -> {
+            facesRound(vertex);
+            return (long) originalOfVertex[vertex] << KEY_SHIFT | UnionFind.find(componentOf, aroundScratch[0]);
+        }).toArray();
+        Map<Long, Long> copiesOnSurface = Arrays.stream(pointOnSurface).boxed()
+                .collect(Collectors.groupingBy(key -> key, Collectors.counting()));
+        int[] tangled = IntStream.range(0, split.length).filter(index -> copiesOnSurface.get(pointOnSurface[index]) > 1)
+                .map(index -> split[index]).toArray();
+        report.tangleDeletedFaceCount = clearAround(tangled, 1);
         classifyShells();
         firstFillFace = faceCount;
         TriangleBvh pruneTree = pruneExposed ? rayTree() : null;
@@ -346,11 +364,33 @@ public final class MeshRepair {
             pruneExposedFaces(pruneTree, pruneCreases.join(), cellsChangedBeforeFill.join());
         }
         assemble();
-        if (unfold && output.mesh() instanceof HalfEdgeMesh surface) {
+        int openBefore = report.refillOpenHoleCount;
+        for (int rings = 1; unfold && output.mesh() instanceof HalfEdgeMesh surface; rings++) {
             MeshUnfold unfolded = MeshUnfold.run(surface);
-            report.foldedFaceCount = unfolded.foldedFaceCount;
-            report.unfoldMovedVertexCount = unfolded.movedVertexCount;
+            if (rings == 1) {
+                report.foldedFaceCount = unfolded.foldedFaceCount;
+            }
+            report.unfoldMovedVertexCount += unfolded.movedVertexCount;
             report.stillFoldedFaceCount = unfolded.stillFoldedFaceCount;
+            IntStream collapsed = IntStream.range(0, surface.edgeCount()).map(surface::edgeIdAt)
+                    .filter(edgeId -> surface.edgeLength(edgeId) == 0).map(surface::edgeHalfEdge)
+                    .flatMap(halfEdge -> IntStream.of(surface.halfEdgeVertex(halfEdge),
+                            surface.halfEdgeEndVertex(halfEdge)));
+            IntStream folded = Arrays.stream(unfolded.stillFoldedFaceIds).flatMap(faceId -> IntStream
+                    .range(0, surface.faceVertexCount(faceId)).map(corner -> surface.faceVertexAt(faceId, corner)));
+            int[] activeOf = new int[surface.vertexIdBound()];
+            PackedPoints unfoldedPositions = surface.packedPositions(activeOf);
+            int[] seeds = IntStream.concat(folded, collapsed).map(vertexId -> assembledVertices[activeOf[vertexId]])
+                    .distinct().toArray();
+            if (seeds.length == 0 || report.refillOpenHoleCount > openBefore) {
+                break;
+            }
+            for (int activeVertex = 0; activeVertex < surface.vertexCount(); activeVertex++) {
+                positions.set(assembledVertices[activeVertex], unfoldedPositions.at(activeVertex));
+            }
+            report.foldClearedFaceCount += clearAround(seeds, rings);
+            refillCuts();
+            assemble();
         }
     }
 
@@ -555,7 +595,7 @@ public final class MeshRepair {
                 facing[face] = asked[face] ? refined[face] : clusterFacing[clusterNumber[face] - 1];
             }
         }
-        int[] parentPlusOne = new int[faceCount];
+        int[] patchParent = UnionFind.singletons(faceCount);
         int[] seamSlots = new int[0];
         int seamCount = 0;
         for (int edge = 0; edge < edges.edgeCount(); edge++) {
@@ -567,11 +607,7 @@ public final class MeshRepair {
             int firstFace = firstSlot / TRIANGLE_CORNERS;
             int secondFace = secondSlot / TRIANGLE_CORNERS;
             if (edges.forward(firstSlot) != edges.forward(secondSlot) && facing[firstFace] == facing[secondFace]) {
-                int firstRoot = rootPlusOne(parentPlusOne, firstFace);
-                int secondRoot = rootPlusOne(parentPlusOne, secondFace);
-                if (firstRoot != secondRoot) {
-                    parentPlusOne[secondRoot] = firstRoot + 1;
-                }
+                UnionFind.union(patchParent, firstFace, secondFace);
                 continue;
             }
             if ((seamCount + 1) * SLOTS_PER_EDGE > seamSlots.length) {
@@ -594,7 +630,7 @@ public final class MeshRepair {
             if (!faceAlive[face]) {
                 continue;
             }
-            int root = rootPlusOne(parentPlusOne, face);
+            int root = UnionFind.find(patchParent, face);
             if (metPatchOfRoot[root] == 0) {
                 if (components == rootOfMet.length) {
                     rootOfMet = Arrays.copyOf(rootOfMet, components * GROWTH);
@@ -882,26 +918,6 @@ public final class MeshRepair {
         return soup;
     }
 
-    /**
-     * {@link UnionFind#find} over a forest whose parents are kept one more than their element and
-     * zero at a root, so a fresh array is already the singleton forest; it halves the path walked.
-     *
-     * @param parentPlusOne per element, one more than its parent, or zero at a root
-     * @param element       the element
-     * @return its root
-     */
-    private static int rootPlusOne(int[] parentPlusOne, int element) {
-        int root = element;
-        while (parentPlusOne[root] != 0) {
-            int parent = parentPlusOne[root] - 1;
-            if (parentPlusOne[parent] != 0) {
-                parentPlusOne[root] = parentPlusOne[parent];
-            }
-            root = parent;
-        }
-        return root;
-    }
-
 
     /**
      * Pulls non-manifold edges apart by giving each edge-connected face fan its own copy of the
@@ -910,8 +926,8 @@ public final class MeshRepair {
     private void splitNonManifold() {
         ensureEdges();
         edges.clearChanged();
-        int[] uneven = IntStream.range(0, aroundStart.length - 1).parallel().filter(vertex -> !oneFan(vertex))
-                .toArray();
+        int[] uneven = IntStream.range(0, aroundStart.length - 1).parallel().filter(vertex -> !oneFan(vertex,
+                aroundFaces, aroundStart[vertex], aroundStart[vertex + 1] - aroundStart[vertex])).toArray();
         List<VertexFans> found = Arrays.stream(uneven).mapToObj(this::fansAt).filter(Objects::nonNull).toList();
         List<int[]> extraFans = new ArrayList<>();
         IntStream.Builder nonManifold = IntStream.builder();
@@ -966,16 +982,17 @@ public final class MeshRepair {
      * the first face across manifold edges, one way and then the other, reaches every one of them.
      *
      * @param vertex working vertex
+     * @param faces  holds the alive faces round the vertex in one run
+     * @param start  where the run starts in {@code faces}
+     * @param count  the run's length
      * @return true when {@link #fansAt} would find nothing to do
      */
-    private boolean oneFan(int vertex) {
-        int start = aroundStart[vertex];
-        int count = aroundStart[vertex + 1] - start;
+    private boolean oneFan(int vertex, int[] faces, int start, int count) {
         if (count <= 1) {
-            return count == 0 || manifoldOrOpen(vertexSlot(aroundFaces[start], vertex))
-                    && manifoldOrOpen(previousSlot(vertexSlot(aroundFaces[start], vertex)));
+            return count == 0 || manifoldOrOpen(vertexSlot(faces[start], vertex))
+                    && manifoldOrOpen(previousSlot(vertexSlot(faces[start], vertex)));
         }
-        int first = vertexSlot(aroundFaces[start], vertex);
+        int first = vertexSlot(faces[start], vertex);
         int reached = 1;
         int slot = first;
         while (true) {
@@ -1332,24 +1349,63 @@ public final class MeshRepair {
         return moved;
     }
 
+    /**
+     * Deletes the faces within some rings of the seed vertices, then a ring more round every rim
+     * vertex whose faces still pinch (two fans or a non-manifold edge), until none does, so every
+     * spot leaves one simple hole for the fill.
+     *
+     * @param seeds the vertices whose faces go first
+     * @param rings rings deleted round the seeds whether pinched or not, at least one
+     * @return faces deleted
+     */
+    private int clearAround(int[] seeds, int rings) {
+        int cleared = 0;
+        int[] frontier = seeds;
+        for (int ring = 1; frontier.length > 0; ring++) {
+            IntStream.Builder rim = IntStream.builder();
+            for (int vertex : frontier) {
+                int around = facesRound(vertex);
+                for (int index = 0; index < around; index++) {
+                    int face = aroundScratch[index];
+                    faceAlive[face] = false;
+                    touch(face);
+                    cleared++;
+                    cornerVertices(faceCorners, IntStream.of(face)).forEach(rim::add);
+                }
+            }
+            ensureEdges();
+            IntStream next = rim.build().distinct();
+            frontier = (ring < rings ? next : next.filter(vertex -> {
+                int around = facesRound(vertex);
+                return !oneFan(vertex, aroundScratch, 0, around);
+            })).toArray();
+        }
+        return cleared;
+    }
+
+    /**
+     * The edge-connected components of the alive faces.
+     *
+     * @return a forest over working faces whose classes are the components
+     */
+    private int[] faceComponents() {
+        ensureEdges();
+        int[] componentOf = UnionFind.singletons(faceCount);
+        for (int edge = 0; edge < edges.edgeCount(); edge++) {
+            for (int use = 1; use < edges.useCount(edge); use++) {
+                UnionFind.union(componentOf, edges.use(edge, 0) / TRIANGLE_CORNERS,
+                        edges.use(edge, use) / TRIANGLE_CORNERS);
+            }
+        }
+        return componentOf;
+    }
 
     /**
      * Groups the faces into edge-connected shells, decides which sit inside another by ray parity,
      * and drops only debris below {@link #minShellFaces} and enclosed bubbles.
      */
     private void classifyShells() {
-        ensureEdges();
-        int[] parentPlusOne = new int[faceCount];
-        for (int edge = 0; edge < edges.edgeCount(); edge++) {
-            int first = edges.use(edge, 0) / TRIANGLE_CORNERS;
-            for (int use = 1; use < edges.useCount(edge); use++) {
-                int firstRoot = rootPlusOne(parentPlusOne, first);
-                int otherRoot = rootPlusOne(parentPlusOne, edges.use(edge, use) / TRIANGLE_CORNERS);
-                if (firstRoot != otherRoot) {
-                    parentPlusOne[otherRoot] = firstRoot + 1;
-                }
-            }
-        }
+        int[] componentOf = faceComponents();
         int[] shellOfRoot = new int[faceCount];
         shellOfFace = new int[faceCount];
         int[] shellFaceCount = new int[SMALL_BUCKET];
@@ -1360,7 +1416,7 @@ public final class MeshRepair {
                 shellOfFace[face] = -1;
                 continue;
             }
-            int root = rootPlusOne(parentPlusOne, face);
+            int root = UnionFind.find(componentOf, face);
             if (shellOfRoot[root] == 0) {
                 if (shells == shellFaceCount.length) {
                     shellFaceCount = Arrays.copyOf(shellFaceCount, shells * GROWTH);
@@ -2931,6 +2987,8 @@ public final class MeshRepair {
      */
     private void assemble() {
         ensureEdges();
+        report.outputBoundaryEdgeCount = 0;
+        report.unorientedEdgeCount = 0;
         boolean twinsKnown = true;
         for (int edge = 0; edge < edges.edgeCount(); edge++) {
             int uses = edges.useCount(edge);
@@ -2960,6 +3018,7 @@ public final class MeshRepair {
         }
         int[] survivingVertices = IntStream.range(0, vertexCount).filter(vertex -> newIndexOfVertex[vertex] >= 0)
                 .toArray();
+        assembledVertices = survivingVertices;
         PackedPoints outPositions = positions.gather(survivingVertices);
         int[] outOriginal = Arrays.stream(survivingVertices).map(vertex -> originalOfVertex[vertex]).toArray();
         int[] outFaces = new int[aliveFaces * TRIANGLE_CORNERS];
