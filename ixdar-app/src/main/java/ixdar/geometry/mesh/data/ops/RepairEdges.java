@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data.ops;
 import java.util.Arrays;
 
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * The undirected edges of a repair's working triangles and the corner slots that use each one,
@@ -470,19 +471,15 @@ public final class RepairEdges {
     private void ensureSlots(int slots) {
         if (edgeOfSlot.length < slots) {
             int capacity = Math.max(slots, edgeOfSlot.length * GROWTH);
-            int old = edgeOfSlot.length;
-            edgeOfSlot = Arrays.copyOf(edgeOfSlot, capacity);
-            Arrays.fill(edgeOfSlot, old, capacity, NO_EDGE);
+            edgeOfSlot = HalfEdgeMesh.growLayer(edgeOfSlot, capacity, NO_EDGE);
             forward = Arrays.copyOf(forward, capacity);
         }
     }
 
     private void ensureVertices(int vertices) {
         if (appendedHead.length < vertices) {
-            int capacity = Math.max(vertices, appendedHead.length * GROWTH);
-            int old = appendedHead.length;
-            appendedHead = Arrays.copyOf(appendedHead, capacity);
-            Arrays.fill(appendedHead, old, capacity, NO_EDGE);
+            appendedHead = HalfEdgeMesh.growLayer(appendedHead, Math.max(vertices, appendedHead.length * GROWTH),
+                    NO_EDGE);
             if (lowStart.length < vertices + 1) {
                 lowStart = Arrays.copyOf(lowStart, vertices + 1);
             }
@@ -497,9 +494,7 @@ public final class RepairEdges {
             firstUses = Arrays.copyOf(firstUses, capacity);
             secondUses = Arrays.copyOf(secondUses, capacity);
             moreUses = Arrays.copyOf(moreUses, capacity);
-            int old = appendedNext.length;
-            appendedNext = Arrays.copyOf(appendedNext, capacity);
-            Arrays.fill(appendedNext, old, capacity, NO_EDGE);
+            appendedNext = HalfEdgeMesh.growLayer(appendedNext, capacity, NO_EDGE);
         }
     }
 

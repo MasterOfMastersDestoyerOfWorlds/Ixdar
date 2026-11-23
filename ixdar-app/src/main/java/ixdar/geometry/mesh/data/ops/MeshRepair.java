@@ -617,32 +617,19 @@ public final class MeshRepair {
             seamSlots[seamCount * SLOTS_PER_EDGE + 1] = secondSlot;
             seamCount++;
         }
-        int[] componentOf = new int[faceCount];
-        int[] metPatchOfRoot = new int[faceCount];
-        int[] rootOfMet = new int[SMALL_BUCKET];
-        int[] metBalance = new int[SMALL_BUCKET];
-        long[] metSeed = new long[SMALL_BUCKET];
+        int[] componentOf = UnionFind.classes(patchParent, face -> faceAlive[face]);
+        int components = Arrays.stream(componentOf).max().orElse(-1) + 1;
+        int[] rootOfMet = new int[components];
+        int[] metBalance = new int[components];
+        long[] metSeed = new long[components];
+        Arrays.fill(metSeed, -1);
         double[] faceAreas = new double[faceCount];
-        int[] flat = new int[SMALL_BUCKET];
-        int flatCount = 0;
-        int components = 0;
         for (int face = 0; face < faceCount; face++) {
             if (!faceAlive[face]) {
                 continue;
             }
-            int root = UnionFind.find(patchParent, face);
-            if (metPatchOfRoot[root] == 0) {
-                if (components == rootOfMet.length) {
-                    rootOfMet = Arrays.copyOf(rootOfMet, components * GROWTH);
-                    metBalance = Arrays.copyOf(metBalance, components * GROWTH);
-                    metSeed = Arrays.copyOf(metSeed, components * GROWTH);
-                }
-                rootOfMet[components] = root;
-                metSeed[components] = -1;
-                metPatchOfRoot[root] = ++components;
-            }
-            int met = metPatchOfRoot[root] - 1;
-            componentOf[face] = met;
+            int met = componentOf[face];
+            rootOfMet[met] = UnionFind.find(patchParent, face);
             metBalance[met] += asked[face] ? refinedExposed[face] : clusterExposed[clusterNumber[face] - 1];
             double area = faceArea(face);
             faceAreas[face] = area;
@@ -650,24 +637,14 @@ public final class MeshRepair {
             orientedAreaFaces++;
             long key = ((long) Float.floatToIntBits((float) area) << KEY_SHIFT) | face;
             metSeed[met] = Math.max(metSeed[met], key);
-            if (area == 0) {
-                if (flatCount == flat.length) {
-                    flat = Arrays.copyOf(flat, flatCount * GROWTH);
-                }
-                flat[flatCount++] = face;
-            }
         }
-        flatFaces = Arrays.copyOf(flat, flatCount);
-        long[] byRoot = new long[components];
-        for (int met = 0; met < components; met++) {
-            byRoot[met] = ((long) rootOfMet[met] << KEY_SHIFT) | met;
-        }
-        Arrays.sort(byRoot);
+        flatFaces = IntStream.range(0, faceCount).filter(face -> faceAlive[face] && faceAreas[face] == 0).toArray();
+        int[] metByRoot = MeshTopologyAnalysis.ranked(components, met -> rootOfMet[met]);
         int[] patchOfMet = new int[components];
         int[] exposedBalance = new int[components];
         long[] seedOrder = new long[components];
         for (int patch = 0; patch < components; patch++) {
-            int met = (int) (byRoot[patch] & KEY_MASK);
+            int met = metByRoot[patch];
             patchOfMet[met] = patch;
             exposedBalance[patch] = metBalance[met];
             seedOrder[patch] = metSeed[met];
@@ -904,16 +881,13 @@ public final class MeshRepair {
         soup.triangleCount = faceCount + boundaryEdges;
         soup.firstExposureOnly = faceCount;
         soup.triangleCorners = Arrays.copyOf(faceCorners, soup.triangleCount * TRIANGLE_CORNERS);
-        soup.triangleGroup = new int[soup.triangleCount];
-        for (int face = 0; face < faceCount; face++) {
-            soup.triangleGroup[face] = faceAlive[face] ? face : -1;
-        }
+        soup.triangleGroup = IntStream.range(0, soup.triangleCount)
+                .map(triangle -> triangle >= faceCount || faceAlive[triangle] ? triangle : -1).toArray();
         for (int index = 0; index < boundaryEdges; index++) {
             int fan = faceCount + index;
             soup.triangleCorners[fan * TRIANGLE_CORNERS] = lowOfEdge[index];
             soup.triangleCorners[fan * TRIANGLE_CORNERS + 1] = EdgeKey.maxVertex(edges.key(open[index]));
             soup.triangleCorners[fan * TRIANGLE_CORNERS + 2] = centreOfLoop[loopOfEdge[index]];
-            soup.triangleGroup[fan] = fan;
         }
         return soup;
     }
@@ -1285,12 +1259,7 @@ public final class MeshRepair {
      * @return the faces
      */
     private int[] facesAround(int first, int second) {
-        int firstCount = facesRound(first);
-        int[] faces = Arrays.copyOf(aroundScratch, firstCount);
-        int secondCount = facesRound(second);
-        faces = Arrays.copyOf(faces, firstCount + secondCount);
-        System.arraycopy(aroundScratch, 0, faces, firstCount, secondCount);
-        return Arrays.stream(faces).sorted().distinct().toArray();
+        return IntStream.of(first, second).flatMap(this::facesAt).sorted().distinct().toArray();
     }
 
     /**
@@ -1405,34 +1374,20 @@ public final class MeshRepair {
      * and drops only debris below {@link #minShellFaces} and enclosed bubbles.
      */
     private void classifyShells() {
-        int[] componentOf = faceComponents();
-        int[] shellOfRoot = new int[faceCount];
-        shellOfFace = new int[faceCount];
-        int[] shellFaceCount = new int[SMALL_BUCKET];
-        int[] shellFirstFace = new int[SMALL_BUCKET];
-        int shells = 0;
-        for (int face = 0; face < faceCount; face++) {
-            if (!faceAlive[face]) {
-                shellOfFace[face] = -1;
-                continue;
+        shellOfFace = UnionFind.classes(faceComponents(), face -> faceAlive[face]);
+        int shells = Arrays.stream(shellOfFace).max().orElse(-1) + 1;
+        int[] shellFaceCount = new int[shells];
+        int[] shellFirstFace = new int[shells];
+        for (int face = faceCount - 1; face >= 0; face--) {
+            if (shellOfFace[face] >= 0) {
+                shellFirstFace[shellOfFace[face]] = face;
+                shellFaceCount[shellOfFace[face]]++;
             }
-            int root = UnionFind.find(componentOf, face);
-            if (shellOfRoot[root] == 0) {
-                if (shells == shellFaceCount.length) {
-                    shellFaceCount = Arrays.copyOf(shellFaceCount, shells * GROWTH);
-                    shellFirstFace = Arrays.copyOf(shellFirstFace, shells * GROWTH);
-                }
-                shellFirstFace[shells] = face;
-                shellOfRoot[root] = ++shells;
-            }
-            shellOfFace[face] = shellOfRoot[root] - 1;
-            shellFaceCount[shellOfFace[face]]++;
         }
         report.shellCount = shells;
         if (shells == 0) {
             return;
         }
-        shellFaceCount = Arrays.copyOf(shellFaceCount, shells);
         int largestShell = 0;
         for (int shell = 1; shell < shells; shell++) {
             if (shellFaceCount[shell] > shellFaceCount[largestShell]) {
@@ -1459,16 +1414,12 @@ public final class MeshRepair {
                 touch(face);
             }
         }
-        long[] order = new long[shells];
-        for (int shell = 0; shell < shells; shell++) {
-            order[shell] = ((long) (Integer.MAX_VALUE - shellFaceCount[shell]) << KEY_SHIFT) | shell;
-        }
-        Arrays.sort(order);
+        int[] order = MeshTopologyAnalysis.ranked(shells, shell -> -shellFaceCount[shell]);
         report.shellFaceCounts = new int[shells];
         report.shellContained = new boolean[shells];
         report.shellKept = new boolean[shells];
         for (int index = 0; index < shells; index++) {
-            int shell = (int) (order[index] & KEY_MASK);
+            int shell = order[index];
             report.shellFaceCounts[index] = shellFaceCount[shell];
             report.shellContained[index] = contained[shell];
             report.shellKept[index] = kept[shell];
@@ -1557,18 +1508,16 @@ public final class MeshRepair {
      * {@link #dropLooseDebris} after cuts, flooding out from the cut corners instead of over every
      * face.
      *
-     * @param seeds     the corners of the faces cut since the last check, three per face
-     * @param seedCount how many of them
+     * @param seeds the corners of the faces cut since the last check, three per face
      * @return the faces dropped, ascending; null when the floods cannot settle it cheaply or a
      *         loose piece is large enough to need the shells' containment test
      */
-    private int[] dropDebrisNear(int[] seeds, int seedCount) {
+    private int[] dropDebrisNear(int[] seeds) {
         int[] vertexFlood = new int[vertexCount];
         Arrays.fill(vertexFlood, -1);
-        int[] queue = new int[Math.max(SMALL_BUCKET, seedCount)];
+        int[] queue = new int[Math.max(SMALL_BUCKET, seeds.length)];
         int tail = 0;
-        for (int index = 0; index < seedCount; index++) {
-            int vertex = seeds[index];
+        for (int vertex : seeds) {
             if (vertexFlood[vertex] < 0) {
                 vertexFlood[vertex] = tail;
                 queue[tail++] = vertex;
@@ -1576,7 +1525,7 @@ public final class MeshRepair {
         }
         int floods = tail;
         int[] regionParent = UnionFind.singletons(floods);
-        for (int index = 0; index + 2 < seedCount; index += TRIANGLE_CORNERS) {
+        for (int index = 0; index + 2 < seeds.length; index += TRIANGLE_CORNERS) {
             UnionFind.union(regionParent, vertexFlood[seeds[index]], vertexFlood[seeds[index + 1]]);
             UnionFind.union(regionParent, vertexFlood[seeds[index]], vertexFlood[seeds[index + 2]]);
         }
@@ -1753,16 +1702,12 @@ public final class MeshRepair {
         ensureEdges();
         int candidates = openedByCuts ? edges.changedEdgeCount() : edges.edgeCount();
         if (holeNext.length < vertexCount) {
-            int old = holeNext.length;
-            int capacity = Math.max(vertexCount, old + old / GROWTH);
-            holeNext = Arrays.copyOf(holeNext, capacity);
-            Arrays.fill(holeNext, old, capacity, -1);
+            int capacity = Math.max(vertexCount, holeNext.length + holeNext.length / GROWTH);
+            holeNext = HalfEdgeMesh.growLayer(holeNext, capacity, -1);
             holeAmbiguous = Arrays.copyOf(holeAmbiguous, capacity);
             holeWalked = Arrays.copyOf(holeWalked, capacity);
-            loopLocalOfVertex = Arrays.copyOf(loopLocalOfVertex, capacity);
-            ringLocalOfVertex = Arrays.copyOf(ringLocalOfVertex, capacity);
-            Arrays.fill(loopLocalOfVertex, old, capacity, -1);
-            Arrays.fill(ringLocalOfVertex, old, capacity, -1);
+            loopLocalOfVertex = HalfEdgeMesh.growLayer(loopLocalOfVertex, capacity, -1);
+            ringLocalOfVertex = HalfEdgeMesh.growLayer(ringLocalOfVertex, capacity, -1);
         }
         int[] boundary = new int[SMALL_BUCKET];
         int boundaryCount = 0;
@@ -1872,17 +1817,13 @@ public final class MeshRepair {
             }
         }
         report.holeCount = holes;
-        long[] order = new long[holes];
-        for (int hole = 0; hole < holes; hole++) {
-            order[hole] = ((long) (Integer.MAX_VALUE - holeEdgeCounts[hole]) << KEY_SHIFT) | hole;
-        }
-        Arrays.sort(order);
+        int[] order = MeshTopologyAnalysis.ranked(holes, hole -> -holeEdgeCounts[hole]);
         report.holeEdgeCounts = new int[holes];
         report.holeFilled = new boolean[holes];
         report.holePerimeters = new double[holes];
         report.holeFillFaceCounts = new int[holes];
         for (int index = 0; index < holes; index++) {
-            int hole = (int) (order[index] & KEY_MASK);
+            int hole = order[index];
             report.holeEdgeCounts[index] = holeEdgeCounts[hole];
             report.holeFilled[index] = holeFilled[hole];
             report.holePerimeters[index] = holePerimeters[hole];
@@ -2001,19 +1942,8 @@ public final class MeshRepair {
      * @return edge indices, ascending
      */
     private int[] edgesRound(int vertex) {
-        int around = facesRound(vertex);
-        int[] found = new int[around * 2];
-        int count = 0;
-        for (int index = 0; index < around; index++) {
-            int slot = aroundScratch[index] * TRIANGLE_CORNERS;
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                if (faceCorners[slot + corner] == vertex) {
-                    found[count++] = edges.find(vertex, faceCorners[slot + (corner + 1) % TRIANGLE_CORNERS]);
-                    found[count++] = edges.find(vertex, faceCorners[slot + (corner + 2) % TRIANGLE_CORNERS]);
-                }
-            }
-        }
-        return Arrays.stream(found, 0, count).sorted().distinct().toArray();
+        return facesAt(vertex).map(face -> vertexSlot(face, vertex)).flatMap(slot -> IntStream.of(
+                edges.edgeOfSlot(slot), edges.edgeOfSlot(previousSlot(slot)))).sorted().distinct().toArray();
     }
 
     /**
@@ -2087,10 +2017,7 @@ public final class MeshRepair {
         tree.positions = positions;
         tree.triangleCorners = Arrays.copyOf(faceCorners, faceCount * TRIANGLE_CORNERS);
         tree.triangleCount = faceCount;
-        tree.triangleGroup = new int[faceCount];
-        for (int face = 0; face < faceCount; face++) {
-            tree.triangleGroup[face] = faceAlive[face] ? face : -1;
-        }
+        tree.triangleGroup = IntStream.range(0, faceCount).map(face -> faceAlive[face] ? face : -1).toArray();
         tree.parallelBuild = true;
         tree.retired = new boolean[faceCount];
         return tree;
@@ -2155,8 +2082,7 @@ public final class MeshRepair {
         int blockingCount = 0;
         int[] woken = new int[0];
         boolean[] recounted = new boolean[faceCount];
-        int[] debrisSeeds = new int[SMALL_BUCKET];
-        int debrisSeedCount = 0;
+        int[] debrisSeeds = new int[0];
         boolean buriedChecked = false;
         for (int round = 0; round < MAX_PRUNE_ROUNDS; round++) {
             int[] candidates = changed == null ? null
@@ -2169,9 +2095,7 @@ public final class MeshRepair {
                 seenThisRound = Arrays.copyOf(seenThisRound, capacity);
                 parityCell = Arrays.copyOf(parityCell, capacity);
                 recounted = Arrays.copyOf(recounted, capacity);
-                int old = blockingHead.length;
-                blockingHead = Arrays.copyOf(blockingHead, capacity);
-                Arrays.fill(blockingHead, old, capacity, -1);
+                blockingHead = HalfEdgeMesh.growLayer(blockingHead, capacity, -1);
             }
             RoundState state = new RoundState(tree, grid, changed, changedColumns, countedBelow, creased,
                     tinyDoubleArea, parityCell, verdict, blockers, seenThisRound, candidates, recounted);
@@ -2216,52 +2140,29 @@ public final class MeshRepair {
             if (marked.length < vertexCount) {
                 marked = Arrays.copyOf(marked, Math.max(vertexCount, marked.length + marked.length / GROWTH));
             }
-            int[] markedList = new int[SMALL_BUCKET];
-            int markedCount = 0;
-            int exposed = 0;
+            IntStream.Builder seenFaces = IntStream.builder();
             for (int index = 0; index < judging; index++) {
                 int face = candidates == null ? index : candidates[index];
-                boolean faceSeen = seenThisRound[face];
-                seenThisRound[face] = false;
-                if (faceAlive[face] && faceSeen) {
-                    exposed++;
-                    for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                        int vertex = faceCorners[face * TRIANGLE_CORNERS + corner];
-                        if (!marked[vertex]) {
-                            marked[vertex] = true;
-                            if (markedCount == markedList.length) {
-                                markedList = Arrays.copyOf(markedList, markedCount * GROWTH);
-                            }
-                            markedList[markedCount++] = vertex;
-                        }
-                    }
+                if (faceAlive[face] && seenThisRound[face]) {
+                    seenFaces.add(face);
                 }
+                seenThisRound[face] = false;
             }
+            int[] cutFrom = seenFaces.build().toArray();
+            int exposed = cutFrom.length;
             boolean buriedCut = false;
             if (exposed == 0 && !buriedChecked) {
                 buriedChecked = true;
-                int[] buried = buriedFaces(tree);
-                for (int face : buried) {
-                    for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                        int vertex = faceCorners[face * TRIANGLE_CORNERS + corner];
-                        if (!marked[vertex]) {
-                            marked[vertex] = true;
-                            if (markedCount == markedList.length) {
-                                markedList = Arrays.copyOf(markedList, markedCount * GROWTH);
-                            }
-                            markedList[markedCount++] = vertex;
-                        }
-                    }
-                }
-                buriedCut = buried.length > 0;
+                cutFrom = buriedFaces(tree);
+                buriedCut = cutFrom.length > 0;
             }
             if (!buriedCut && exposed == 0 && (shellsChecked || !mayDetach)) {
                 return;
             }
             if (!buriedCut && exposed == 0) {
                 shellsChecked = true;
-                int[] droppedFaces = dropDebrisNear(debrisSeeds, debrisSeedCount);
-                debrisSeedCount = 0;
+                int[] droppedFaces = dropDebrisNear(debrisSeeds);
+                debrisSeeds = new int[0];
                 if (droppedFaces == null) {
                     boolean[] aliveBeforeShells = faceAlive.clone();
                     if (!dropLooseDebris()) {
@@ -2294,25 +2195,21 @@ public final class MeshRepair {
             report.exposedFaceCount += exposed;
             report.pruneRoundCount++;
             ensureEdges();
-            int frontierStart = 0;
-            for (int ring = 0; ring < (buriedCut ? 0 : FIRST_PRUNE_RINGS + round); ring++) {
-                int frontierEnd = markedCount;
-                for (int index = frontierStart; index < frontierEnd; index++) {
-                    int around = facesRound(markedList[index]);
-                    for (int near = 0; near < around; near++) {
-                        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                            int vertex = faceCorners[aroundScratch[near] * TRIANGLE_CORNERS + corner];
-                            if (!marked[vertex]) {
-                                marked[vertex] = true;
-                                if (markedCount == markedList.length) {
-                                    markedList = Arrays.copyOf(markedList, markedCount * GROWTH);
-                                }
-                                markedList[markedCount++] = vertex;
-                            }
+            int[] markedList = new int[SMALL_BUCKET];
+            int markedCount = 0;
+            IntStream reached = IntStream.of(cutFrom);
+            for (int ring = 0; ring <= (buriedCut ? 0 : FIRST_PRUNE_RINGS + round); ring++) {
+                int frontierStart = markedCount;
+                for (int vertex : cornerVertices(faceCorners, reached).toArray()) {
+                    if (!marked[vertex]) {
+                        marked[vertex] = true;
+                        if (markedCount == markedList.length) {
+                            markedList = Arrays.copyOf(markedList, markedCount * GROWTH);
                         }
+                        markedList[markedCount++] = vertex;
                     }
                 }
-                frontierStart = frontierEnd;
+                reached = Arrays.stream(markedList, frontierStart, markedCount).flatMap(this::facesAt);
             }
             int[] cut = new int[SMALL_BUCKET];
             int cutCount = 0;
@@ -2345,13 +2242,9 @@ public final class MeshRepair {
                     wake.add(blockedFace[entry]);
                 }
                 blockingHead[face] = -1;
-                if (debrisSeedCount + TRIANGLE_CORNERS > debrisSeeds.length) {
-                    debrisSeeds = Arrays.copyOf(debrisSeeds, (debrisSeedCount + TRIANGLE_CORNERS) * GROWTH);
-                }
-                System.arraycopy(faceCorners, face * TRIANGLE_CORNERS, debrisSeeds, debrisSeedCount, TRIANGLE_CORNERS);
-                debrisSeedCount += TRIANGLE_CORNERS;
             }
             woken = wake.build().toArray();
+            debrisSeeds = IntStream.concat(Arrays.stream(debrisSeeds), Arrays.stream(cutCorners)).toArray();
             mayDetach |= cutLeavesSeveralLoops(cut);
             mayDetach |= splitPinchedVertices(markedList, markedCount);
             int firstRefill = faceCount;
@@ -2407,17 +2300,8 @@ public final class MeshRepair {
     private int[] buriedFaces(TriangleBvh tree) {
         ensureEdges();
         int stackSize = Math.max(tree.nodeCount, tree.companion == null ? 0 : tree.companion.nodeCount) + 1;
-        IntStream.Builder seeds = IntStream.builder();
-        for (int index = 0; index < splitVertexCount; index++) {
-            int around = facesRound(splitVertices[index]);
-            for (int near = 0; near < around; near++) {
-                seeds.add(aroundScratch[near]);
-            }
-        }
-        for (int face = firstFillFace; face < faceCount; face++) {
-            seeds.add(face);
-        }
-        int[] candidates = seeds.build().filter(face -> faceAlive[face]).sorted().distinct().toArray();
+        int[] candidates = IntStream.concat(Arrays.stream(splitVertices, 0, splitVertexCount).flatMap(this::facesAt),
+                IntStream.range(firstFillFace, faceCount)).filter(face -> faceAlive[face]).sorted().distinct().toArray();
         boolean[] sealed = new boolean[candidates.length];
         IntStream.range(0, (candidates.length + FACES_PER_RAY_TASK - 1) / FACES_PER_RAY_TASK).parallel()
                 .forEach(task -> {
@@ -2776,21 +2660,9 @@ public final class MeshRepair {
      * @return true when some vertex was split
      */
     private boolean splitPinchedVertices(int[] markedList, int markedCount) {
-        long[] entries = new long[SMALL_BUCKET];
-        int entryCount = 0;
-        for (int index = 0; index < markedCount; index++) {
-            int vertex = markedList[index];
-            int around = facesRound(vertex);
-            for (int near = 0; near < around; near++) {
-                int slot = vertexSlot(aroundScratch[near], vertex);
-                if (entryCount == entries.length) {
-                    entries = Arrays.copyOf(entries, entryCount * GROWTH);
-                }
-                entries[entryCount++] = ((long) vertex << KEY_SHIFT) | slot;
-            }
-        }
-        entries = Arrays.stream(entries, 0, entryCount).sorted().distinct().toArray();
-        entryCount = entries.length;
+        long[] entries = Arrays.stream(markedList, 0, markedCount).boxed().flatMapToLong(vertex -> facesAt(vertex)
+                .mapToLong(face -> ((long) vertex << KEY_SHIFT) | vertexSlot(face, vertex))).sorted().distinct().toArray();
+        int entryCount = entries.length;
         boolean split = false;
         int groupStart = 0;
         while (groupStart < entryCount) {
@@ -2866,29 +2738,8 @@ public final class MeshRepair {
     private boolean[] foldedBackNear(int first, boolean[] flags) {
         boolean[] creased = flags.length >= faceCount ? flags
                 : Arrays.copyOf(flags, Math.max(faceCount, flags.length + flags.length / GROWTH));
-        int[] near = new int[SMALL_BUCKET];
-        int nearCount = 0;
-        for (int slot = first * TRIANGLE_CORNERS; slot < faceCount * TRIANGLE_CORNERS; slot++) {
-            if (faceAlive[slot / TRIANGLE_CORNERS]) {
-                if (nearCount == near.length) {
-                    near = Arrays.copyOf(near, nearCount * GROWTH);
-                }
-                near[nearCount++] = faceCorners[slot];
-            }
-        }
-        near = Arrays.stream(near, 0, nearCount).sorted().distinct().toArray();
-        int[] judged = new int[SMALL_BUCKET];
-        int judgedCount = 0;
-        for (int vertex : near) {
-            int around = facesRound(vertex);
-            for (int index = 0; index < around; index++) {
-                if (judgedCount == judged.length) {
-                    judged = Arrays.copyOf(judged, judgedCount * GROWTH);
-                }
-                judged[judgedCount++] = aroundScratch[index];
-            }
-        }
-        judged = Arrays.stream(judged, 0, judgedCount).sorted().distinct().toArray();
+        int[] judged = cornerVertices(faceCorners, IntStream.range(first, faceCount).filter(face -> faceAlive[face]))
+                .sorted().distinct().flatMap(this::facesAt).sorted().distinct().toArray();
         creaseJudged = judged;
         PackedPoints judgedNormals = TriangleGeometry.normals(positions,
                 cornerVertices(faceCorners, IntStream.of(judged)).toArray());
@@ -3126,9 +2977,7 @@ public final class MeshRepair {
      */
     private void noteCorner(int face, int vertex) {
         if (vertex >= aroundHead.length) {
-            int old = aroundHead.length;
-            aroundHead = Arrays.copyOf(aroundHead, Math.max(vertex + 1, old * GROWTH));
-            Arrays.fill(aroundHead, old, aroundHead.length, -1);
+            aroundHead = HalfEdgeMesh.growLayer(aroundHead, Math.max(vertex + 1, aroundHead.length * GROWTH), -1);
         }
         if (aroundChainCount == aroundNext.length) {
             int capacity = Math.max(SMALL_BUCKET, aroundChainCount * GROWTH);
@@ -3147,29 +2996,24 @@ public final class MeshRepair {
      * @return how many faces were gathered
      */
     private int facesRound(int vertex) {
-        int count = 0;
-        int filedEnd = vertex < aroundStart.length - 1 ? aroundStart[vertex + 1] : 0;
-        int filedStart = vertex < aroundStart.length - 1 ? aroundStart[vertex] : 0;
-        int chained = vertex < aroundHead.length ? aroundHead[vertex] : -1;
-        for (int index = filedStart; index < filedEnd || chained >= 0; ) {
-            int face;
-            if (index < filedEnd) {
-                face = aroundFaces[index++];
-            } else {
-                face = aroundChained[chained];
-                chained = aroundNext[chained];
-            }
-            int slot = face * TRIANGLE_CORNERS;
-            if (!faceAlive[face] || faceCorners[slot] != vertex && faceCorners[slot + 1] != vertex
-                    && faceCorners[slot + 2] != vertex) {
-                continue;
-            }
-            if (count == aroundScratch.length) {
-                aroundScratch = Arrays.copyOf(aroundScratch, count * GROWTH);
-            }
-            aroundScratch[count++] = face;
+        int count = facesRoundInto(vertex, -1, aroundScratch, 0);
+        while (count == aroundScratch.length) {
+            aroundScratch = new int[count * GROWTH];
+            count = facesRoundInto(vertex, -1, aroundScratch, 0);
         }
         return count;
+    }
+
+    /**
+     * The alive faces round a vertex now, read from {@link #aroundScratch}; consume the stream
+     * before gathering round another vertex.
+     *
+     * @param vertex working vertex
+     * @return the faces, in {@link #facesRound}'s order
+     */
+    private IntStream facesAt(int vertex) {
+        int count = facesRound(vertex);
+        return Arrays.stream(aroundScratch, 0, count);
     }
 
     /**

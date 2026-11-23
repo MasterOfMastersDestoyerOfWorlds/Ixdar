@@ -1,6 +1,9 @@
 package ixdar.geometry.mesh.data.ops;
 
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.function.IntUnaryOperator;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
@@ -432,31 +435,17 @@ public final class MeshTopologyAnalysis {
                 }
             }
         }
-        int[] shellOfRoot = new int[Math.max(1, faceCount)];
-        Arrays.fill(shellOfRoot, -1);
-        shellOfFace = new int[faceCount];
-        int discovered = 0;
-        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            int root = UnionFind.find(parent, activeFace);
-            if (shellOfRoot[root] < 0) {
-                shellOfRoot[root] = discovered++;
-            }
-            shellOfFace[activeFace] = shellOfRoot[root];
-        }
+        shellOfFace = UnionFind.classes(parent, activeFace -> activeFace < faceCount);
+        int discovered = Arrays.stream(shellOfFace).max().orElse(-1) + 1;
         shellCount = discovered;
         int[] facesPerDiscovered = new int[discovered];
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             facesPerDiscovered[shellOfFace[activeFace]]++;
         }
-        long[] order = new long[discovered];
-        for (int shell = 0; shell < discovered; shell++) {
-            order[shell] =
-                    ((long) (Integer.MAX_VALUE - facesPerDiscovered[shell]) << KEY_SHIFT) | shell;
-        }
-        Arrays.sort(order);
+        int[] order = ranked(discovered, shell -> -facesPerDiscovered[shell]);
         int[] rankOfDiscovered = new int[discovered];
         for (int rank = 0; rank < discovered; rank++) {
-            rankOfDiscovered[(int) (order[rank] & KEY_MASK)] = rank;
+            rankOfDiscovered[order[rank]] = rank;
         }
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             shellOfFace[activeFace] = rankOfDiscovered[shellOfFace[activeFace]];
@@ -561,18 +550,13 @@ public final class MeshTopologyAnalysis {
         }
         boundaryLoopCount = discovered;
         unwalkedBoundaryEdgeCount = boundaryEdgeCount - loopEdgeTotal;
-        long[] order = new long[discovered];
-        for (int hole = 0; hole < discovered; hole++) {
-            order[hole] =
-                    ((long) (Integer.MAX_VALUE - discoveredEdgeCounts[hole]) << KEY_SHIFT) | hole;
-        }
-        Arrays.sort(order);
+        int[] order = ranked(discovered, hole -> -discoveredEdgeCounts[hole]);
         loopEdgeCounts = new int[discovered];
         loopPerimeters = new double[discovered];
         loopAreas = new double[discovered];
         loopShells = new int[discovered];
         for (int rank = 0; rank < discovered; rank++) {
-            int hole = (int) (order[rank] & KEY_MASK);
+            int hole = order[rank];
             loopEdgeCounts[rank] = discoveredEdgeCounts[hole];
             loopPerimeters[rank] = discoveredPerimeters[hole];
             loopAreas[rank] = discoveredAreas[hole];
@@ -660,6 +644,18 @@ public final class MeshTopologyAnalysis {
         }
         distinctPositionCount = clusters;
         duplicatePositionVertexCount = vertexCount - clusters;
+    }
+
+    /**
+     * Indices ordered by a key, ascending, ties by index.
+     *
+     * @param count indices to order
+     * @param key   per index its key
+     * @return the indices in that order
+     */
+    public static int[] ranked(int count, IntUnaryOperator key) {
+        return IntStream.range(0, count).boxed().sorted(Comparator.comparingInt(key::applyAsInt))
+                .mapToInt(Integer::intValue).toArray();
     }
 
     /**

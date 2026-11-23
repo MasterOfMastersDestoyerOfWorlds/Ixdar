@@ -1,6 +1,7 @@
 package ixdar.numeric.graph;
 
 import java.util.Arrays;
+import java.util.function.IntPredicate;
 
 /**
  * Disjoint-set forest over an {@code int[] parent} array the caller owns, with path halving on
@@ -79,6 +80,27 @@ public final class UnionFind {
         if (rank[firstRoot] == rank[secondRoot]) {
             rank[firstRoot]++;
         }
+    }
+
+    /**
+     * Numbers the classes of the members in the order their first member comes.
+     *
+     * @param parent parent array, updated in place
+     * @param member which elements to number
+     * @return per element its class number, or -1 for a non-member
+     */
+    public static int[] classes(int[] parent, IntPredicate member) {
+        int[] numberOfRoot = new int[parent.length];
+        int[] classOf = new int[parent.length];
+        int classCount = 0;
+        for (int element = 0; element < parent.length; element++) {
+            int root = member.test(element) ? find(parent, element) : -1;
+            if (root >= 0 && numberOfRoot[root] == 0) {
+                numberOfRoot[root] = ++classCount;
+            }
+            classOf[element] = root < 0 ? -1 : numberOfRoot[root] - 1;
+        }
+        return classOf;
     }
 
     /**

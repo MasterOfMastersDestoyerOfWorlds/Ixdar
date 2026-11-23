@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.IntStream;
 
-import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.EdgeKey;
@@ -394,8 +393,8 @@ public final class MeshHoleFiller {
         if (firstApex == secondApex) {
             return false;
         }
-        if (angleAt(firstApex, startVertex, endVertex) + angleAt(secondApex, startVertex, endVertex)
-                <= Math.PI) {
+        if (TriangleGeometry.cornerAngle(vertexPositions, firstApex, startVertex, endVertex)
+                + TriangleGeometry.cornerAngle(vertexPositions, secondApex, startVertex, endVertex) <= Math.PI) {
             return false;
         }
         long replacement = EdgeKey.undirected(firstApex, secondApex);
@@ -413,21 +412,6 @@ public final class MeshHoleFiller {
         triangles[secondTriangle * TRIANGLE_CORNERS + 1] = endVertex;
         triangles[secondTriangle * TRIANGLE_CORNERS + 2] = firstApex;
         return true;
-    }
-
-    /**
-     * Interior angle of the triangle at {@code apex}.
-     *
-     * @param apex vertex the angle sits at
-     * @param first one of the other two vertices
-     * @param second the remaining vertex
-     * @return the angle in radians, zero when either leg has no length
-     */
-    private double angleAt(int apex, int first, int second) {
-        Vector3d at = new Vector3d(vertexPositions.at(apex));
-        Vector3d toFirst = new Vector3d(vertexPositions.at(first)).sub(at);
-        Vector3d toSecond = new Vector3d(vertexPositions.at(second)).sub(at);
-        return toFirst.lengthSquared() == 0 || toSecond.lengthSquared() == 0 ? 0 : toFirst.angle(toSecond);
     }
 
     /**
