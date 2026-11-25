@@ -545,6 +545,16 @@
       "responseHint": "{ok, shown, active_tool, hotspots, hotspot, hotspot_rank, node_count, edge_count, total_ms, critical_path_ms, critical_path, slowest, text_px, scale_factor, scroll:{horizontal, vertical:{content_px, visible_px, offset_px, thumb_start_px, thumb_length_px, track_px}}, home_frame, scroll_range, view_rect, whole_graph_visible, nodes:[{id, type, ms, peak_heap_mib, expandable, depth, order, box, screen}], expanded_groups:[{path, type, ms, screen}], edges:[{from, from_port, to, to_port, critical}]}"
     },
     {
+      "commandName": "mesh-dsl-stages",
+      "path": "/mesh/dsl/stages",
+      "method": "GET",
+      "description": "Report how far the graph the active model scene ran last got: each top-level statement\u0027s mesh counts and repair report, each quad_layout call\u0027s furthest stage, cones, Euler characteristic, genus, quad and patch counts, and every node\u0027s time; it answers while a stage is still running.",
+      "sourceClass": "ixdar.automation.endpoints.mesh.dsl.Stages",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Stages.java",
+      "params": [],
+      "responseHint": "{ok, furthest, furthest_type, statements:[{node, type, ms, vertex_count, face_count, repair:{summary, ...}, layout:{furthest, stages, cones, euler_characteristic, shell_count, boundary_loop_count, genus, quad_count, patch_count}}], revision, total_ms, peak_heap_mib, nodes:[...]}"
+    },
+    {
       "commandName": "mesh-dsl-timing",
       "path": "/mesh/dsl/timing",
       "method": "GET",

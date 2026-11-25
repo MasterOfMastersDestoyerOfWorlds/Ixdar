@@ -27,6 +27,7 @@ from ixdar_automation_cli.cli_commands import install_alias
 from ixdar_automation_cli.cli_commands import launch_entry
 from ixdar_automation_cli.cli_commands import link_profiler
 from ixdar_automation_cli.cli_commands import mesh_viewer
+from ixdar_automation_cli.cli_commands import model_sweep
 from ixdar_automation_cli.cli_commands import teavm_build
 from ixdar_automation_cli import png_image
 from ixdar_automation_cli import quilt_mesh_fingerprint
@@ -2278,6 +2279,73 @@ class SceneHostTest(unittest.TestCase):
         self.assertEqual(["--include=/tmp/", "--include=/tmp/a.png", "--include=/tmp/a.png/***",
                           "--include=/pom.xml", "--include=/pom.xml/***", "--exclude=*"],
                          scene_host.rsync_filters([os.path.join("tmp", "a.png"), "pom.xml"]))
+
+
+class ModelSweepTests(unittest.TestCase):
+    def test_a_second_writer_is_refused_while_the_first_lives(self):
+        with tempfile.TemporaryDirectory() as out:
+            lock, owner = model_sweep.acquire_lock(out)
+            self.assertTrue(lock)
+            self.assertEqual(0, owner)
+            with open(lock, "w", encoding="utf-8") as handle:
+                handle.write(str(os.getppid()))
+            refused, holder = model_sweep.acquire_lock(out)
+            self.assertEqual("", refused)
+            self.assertEqual(os.getppid(), holder)
+
+    def test_a_lock_left_by_an_exited_sweep_is_reclaimed(self):
+        with tempfile.TemporaryDirectory() as out:
+            with open(os.path.join(out, model_sweep.LOCK_NAME), "w", encoding="utf-8") as handle:
+                handle.write("999999")
+            with patch.object(model_sweep, "process_alive", return_value=False):
+                lock, owner = model_sweep.acquire_lock(out)
+            self.assertTrue(lock)
+            with open(lock, encoding="utf-8") as handle:
+                self.assertEqual(str(os.getpid()), handle.read())
+
+    def test_a_bound_that_stops_moving_is_a_stall_and_a_moving_one_is_not(self):
+        line = "[branch-bound] nodes={n} open={n} incumbent=Infinity bound={b} {t}s\n"
+        stuck = model_sweep.StallWatch(120)
+        moving = model_sweep.StallWatch(120)
+        for second in range(0, 200, 5):
+            stuck.feed(line.format(n=second, b="41852.006", t=second), float(second))
+            moving.feed(line.format(n=second, b=41852.0 + second, t=second), float(second))
+        self.assertIn("bound 41852.006 -> 41852.006", stuck.stalled(195.0))
+        self.assertEqual("", moving.stalled(195.0))
+        self.assertEqual("", model_sweep.StallWatch(0).stalled(195.0))
+
+    def test_a_new_root_relaxation_restarts_the_stall_window(self):
+        watch = model_sweep.StallWatch(120)
+        line = "[branch-bound] nodes=1 open=1 incumbent=10.0 bound=5.0 {t}s\n"
+        for second in range(0, 200, 5):
+            watch.feed(line.format(t=second), float(second))
+        watch.feed("[branch-bound] root rows=3 columns=4: solving the LP relaxation\n", 200.0)
+        self.assertEqual("", watch.stalled(200.0))
+
+    def test_the_failure_line_is_the_root_cause_with_short_class_names(self):
+        error = ("java.lang.IllegalStateException: graph tmp/a.dsl failed; caused by "
+                 "java.lang.IllegalStateException: cross field breaks Poincare-Hopf")
+        self.assertEqual("IllegalStateException: cross field breaks Poincare-Hopf",
+                         model_sweep.failure_line(error))
+
+    def test_the_sets_name_the_suite_and_the_crawfish_scans_below_the_data_root(self):
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, "crawfish"))
+            for name in model_sweep.CRAWFISH_SCANS:
+                Path(root, "crawfish", name + ".glb").touch()
+            with patch.dict(os.environ, {scene_host.DATA_ROOT_VARIABLE: root}):
+                models = model_sweep.expand_models(["suite,crawfish", "bolt"])
+        self.assertEqual(list(model_sweep.SUITE_MODELS) + list(model_sweep.CRAWFISH_SCANS),
+                         [model["name"] for model in models])
+        self.assertEqual("${IXDAR_DATA_ROOT}/crawfish/IMG_4109.glb", models[11]["path"])
+        self.assertEqual(model_sweep.LAYOUT_GRAPH, model_sweep.graph_template("", models[:11])[0])
+        self.assertEqual(model_sweep.REPAIR_LAYOUT_GRAPH, model_sweep.graph_template("", models)[0])
+
+    def test_a_missing_crawfish_scan_is_refused_naming_the_data_root(self):
+        with tempfile.TemporaryDirectory() as root:
+            with patch.dict(os.environ, {scene_host.DATA_ROOT_VARIABLE: root}):
+                with self.assertRaisesRegex(ValueError, "IXDAR_DATA_ROOT"):
+                    model_sweep.expand_models(["crawfish"])
 
 
 if __name__ == "__main__":
