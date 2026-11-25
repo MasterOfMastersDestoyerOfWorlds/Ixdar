@@ -22,7 +22,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.file.Files;
 
@@ -34,7 +33,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryStack;
 
 import com.google.gson.Gson;
@@ -48,6 +46,8 @@ import ixdar.automation.AutomationRuntime;
 import ixdar.canvas.IxdarWindow;
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
+import ixdar.geometry.mesh.quadlayout.quantization.NativeIntegerProgramBackend;
+import ixdar.geometry.mesh.quadlayout.quantization.ortools.OrToolsIntegerProgramBackend;
 import ixdar.numeric.sparse.chol.DesktopCholeskyBackend;
 import ixdar.numeric.sparse.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
@@ -74,6 +74,7 @@ public class LwjglPlatform implements Platform {
 
     private final long window;
     private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
+    private final OrToolsIntegerProgramBackend integerProgramBackend = new OrToolsIntegerProgramBackend();
     private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
     private float frameBufferSizeX;
     private float frameBufferSizeY;
@@ -275,6 +276,12 @@ public class LwjglPlatform implements Platform {
     @Override
     public NativeCholeskyBackend nativeCholeskyBackend() {
         return choleskyBackend;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public NativeIntegerProgramBackend nativeIntegerProgramBackend() {
+        return integerProgramBackend;
     }
 
     /** {@inheritDoc}. */

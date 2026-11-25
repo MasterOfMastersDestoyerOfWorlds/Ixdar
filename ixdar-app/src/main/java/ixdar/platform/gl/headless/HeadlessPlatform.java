@@ -22,6 +22,8 @@ import ixdar.audio.AudioSystem;
 import ixdar.automation.AutomationRuntime;
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
+import ixdar.geometry.mesh.quadlayout.quantization.NativeIntegerProgramBackend;
+import ixdar.geometry.mesh.quadlayout.quantization.ortools.OrToolsIntegerProgramBackend;
 import ixdar.numeric.sparse.chol.DesktopCholeskyBackend;
 import ixdar.numeric.sparse.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
@@ -54,6 +56,7 @@ public class HeadlessPlatform implements Platform {
     public static final double NANOS_PER_SECOND = 1e9;
 
     private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
+    private final OrToolsIntegerProgramBackend integerProgramBackend = new OrToolsIntegerProgramBackend();
     private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
     private int platformId;
     private float startTime;
@@ -265,6 +268,16 @@ public class HeadlessPlatform implements Platform {
     @Override
     public NativeCholeskyBackend nativeCholeskyBackend() {
         return choleskyBackend;
+    }
+
+    /**
+     * Solve quantization programs with SCIP through OR-Tools, the same as the desktop backend.
+     *
+     * @return the OR-Tools integer program backend
+     */
+    @Override
+    public NativeIntegerProgramBackend nativeIntegerProgramBackend() {
+        return integerProgramBackend;
     }
 
     /**

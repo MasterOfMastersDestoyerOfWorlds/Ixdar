@@ -22,6 +22,7 @@ import org.teavm.jso.typedarrays.Uint8ClampedArray;
 import ixdar.audio.AudioBackend;
 import ixdar.canvas.WebLauncher;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
+import ixdar.geometry.mesh.quadlayout.quantization.NativeIntegerProgramBackend;
 import ixdar.numeric.sparse.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.ModelRuntime;
@@ -488,6 +489,18 @@ public class WebPlatform implements Platform {
      */
     @Override
     public NativeCholeskyBackend nativeCholeskyBackend() {
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
+     * <p>Returning null keeps OR-Tools out of the JavaScript output, as for the Cholesky backend.
+     *
+     * @return always {@code null}; quantization runs the built-in branch and bound
+     */
+    @Override
+    public NativeIntegerProgramBackend nativeIntegerProgramBackend() {
         return null;
     }
 

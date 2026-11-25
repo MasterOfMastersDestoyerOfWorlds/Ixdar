@@ -6,6 +6,7 @@ import java.util.function.Consumer;
 
 import ixdar.audio.AudioBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
+import ixdar.geometry.mesh.quadlayout.quantization.NativeIntegerProgramBackend;
 import ixdar.numeric.sparse.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.ModelRuntime;
@@ -266,6 +267,14 @@ public interface Platform {
      * @return the platform's native backend, or {@code null}
      */
     NativeCholeskyBackend nativeCholeskyBackend();
+
+    /**
+     * Native integer programming for quad-layout quantization, or {@code null} when the platform has
+     * none and the built-in solver runs. Naming it here keeps OR-Tools out of the browser build.
+     *
+     * @return the platform's integer program backend, or {@code null}
+     */
+    NativeIntegerProgramBackend nativeIntegerProgramBackend();
 
     /**
      * A pool for fanning identical work out across {@code workerCount} slices. Backends without

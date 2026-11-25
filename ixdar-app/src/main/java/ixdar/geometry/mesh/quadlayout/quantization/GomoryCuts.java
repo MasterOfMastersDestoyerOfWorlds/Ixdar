@@ -20,7 +20,8 @@ final class GomoryCuts {
 
     /**
      * Rounds of cuts at a solved root relaxation, one per fractional basic structural column,
-     * re-solved warm until a round yields no cut or no longer raises the bound.
+     * re-solved warm until a round yields no cut, no longer raises the bound, or the cuts
+     * outnumber the root's own rows (quantization programs stop under a third; sts45 never stops).
      *
      * @param root           the solved root relaxation
      * @param integerSlots   slots below this index are integer: the structural columns and the
@@ -118,7 +119,7 @@ final class GomoryCuts {
             }
             double raised = extended.objective();
             current = extended;
-            if (raised - bound <= boundTolerance) {
+            if (raised - bound <= boundTolerance || current.matrix.rowTotal >= 2 * root.matrix.rowTotal) {
                 return current;
             }
             bound = raised;

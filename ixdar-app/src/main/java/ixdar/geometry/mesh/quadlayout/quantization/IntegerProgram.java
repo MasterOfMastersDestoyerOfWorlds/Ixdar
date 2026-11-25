@@ -32,6 +32,12 @@ public final class IntegerProgram {
 
     private static final String LOG_PREFIX = "[branch-bound] ";
 
+    private static final String BUILT_IN = "built-in";
+
+    private static final String NATIVE = "SCIP";
+
+    private static final long NODE_BUDGET = 100_000;
+
     /** Objective weight per variable, all non-negative. */
     public final double[] weights;
 
@@ -63,6 +69,12 @@ public final class IntegerProgram {
     public double relativeGap;
 
     /**
+     * SCIP, which finishes every program the first dive leaves open; the platform's by default,
+     * {@code null} (on the web build, or to force it) leaves the whole search to the built-in solver.
+     */
+    public NativeIntegerProgramBackend backend;
+
+    /**
      * Start a program over one variable per weight.
      *
      * @param weights objective weight per variable, all non-negative
@@ -75,15 +87,16 @@ public final class IntegerProgram {
             }
         }
         this.weights = weights;
+        this.backend = Platforms.isInitialized() ? Platforms.get().nativeIntegerProgramBackend() : null;
     }
 
     /**
-     * Find a minimum-weight integer assignment by best-first branch and bound over a root
-     * tightened by {@link GomoryCuts}. Among tied optima the first found is kept: Lyon et al.
-     * 2021 §5 states no preference, and on the suite it matches the earlier tie-break (CRAW-118).
+     * Find a minimum-weight integer assignment by branch and bound over a root tightened by
+     * {@link GomoryCuts}, handing a program its first dive leaves open to {@link #backend} when it
+     * loads. Among tied optima the first found is kept (LCK21a §5 states no preference).
      *
-     * @throws IllegalStateException when the simplex fails to converge or the rounded optimum
-     *                               violates a row, both numerical failures
+     * @throws IllegalStateException when the node budget runs out, naming the gap, or the simplex
+     *                               fails to converge or the rounded optimum violates a row
      * @return this, with {@link #feasible}, {@link #values} and {@link #objectiveValue} set
      */
     public IntegerProgram solve() {
@@ -363,6 +376,8 @@ public final class IntegerProgram {
             rootLower[columns + row] = equality ? 0.0 : 1.0;
             rootUpper[columns + row] = equality ? 0.0 : Double.POSITIVE_INFINITY;
         }
+        double[] rowLower = Arrays.copyOfRange(rootLower, columns, variableSlots);
+        double[] rowUpper = Arrays.copyOfRange(rootUpper, columns, variableSlots);
 
         double[] incumbent = null;
         double incumbentBound = Double.POSITIVE_INFINITY;
@@ -396,6 +411,7 @@ public final class IntegerProgram {
         Platforms.log("%sroot relaxation=%.3f feasible=%b (%.3f before %d Gomory cuts) %.1fs%n", LOG_PREFIX,
                 relaxation, node != null, uncutRelaxation, rowTotal - matrix.rowTotal,
                 (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
+        String solver = BUILT_IN;
         // The root's reduced costs, for fixing columns globally each time the incumbent improves.
         double rootRelaxation = relaxation;
         double[] rootReduced = new double[columns];
@@ -417,7 +433,10 @@ public final class IntegerProgram {
         long nodesSolved = 0;
         long nextProgressNanos = System.nanoTime() + PROGRESS_INTERVAL_NANOS;
         while (node != null || !frontier.isEmpty()) {
-            if (System.nanoTime() >= nextProgressNanos) {
+            // The budget is 3.5 times the most nodes a closing quantization program has needed
+            // (crawfish IMG_4109, 28,571 nodes in 84.5 s); IMG_4113 is still open at 384,093.
+            boolean overBudget = nodesSolved >= NODE_BUDGET;
+            if (System.nanoTime() >= nextProgressNanos || overBudget) {
                 nextProgressNanos = System.nanoTime() + PROGRESS_INTERVAL_NANOS;
                 double bestBound = frontier.isEmpty() ? Double.POSITIVE_INFINITY
                         : frontier.peekPriority();
@@ -427,6 +446,11 @@ public final class IntegerProgram {
                 Platforms.log("%snodes=%d open=%d incumbent=%.3f bound=%.3f %.0fs%n", LOG_PREFIX,
                         nodesSolved, frontier.size(), incumbentBound, bestBound,
                         (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
+                if (overBudget) {
+                    throw new IllegalStateException(String.format("integer program: branch and bound used its"
+                            + " node budget of %d (open=%d incumbent=%.6f bound=%.6f gap=%.6f)", NODE_BUDGET,
+                            frontier.size(), incumbentBound, bestBound, incumbentBound - bestBound));
+                }
             }
             if (node == null) {
                 int index = frontier.pollId();
@@ -508,6 +532,19 @@ public final class IntegerProgram {
                 }
                 Platforms.log("%snew incumbent=%.3f at node %d, open=%d %.0fs%n", LOG_PREFIX, incumbentBound,
                         nodesSolved, frontier.size(), (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
+                // A program the first dive leaves open goes to SCIP; every suite program closes at the
+                // root or in that dive, where loading the natives would only add time.
+                if (backend != null && !frontier.isEmpty() && frontier.peekPriority() < pruneAt
+                        && backend.available()) {
+                    solver = NATIVE;
+                    incumbent = backend.solve(columnWeights, columnLower, matrixColumns, matrixCoefficients,
+                            rowLower, rowUpper, relativeGap, NODE_BUDGET);
+                    incumbentBound = 0.0;
+                    for (int column = 0; incumbent != null && column < columns; column++) {
+                        incumbentBound += columnWeights[column] * incumbent[column];
+                    }
+                    break;
+                }
                 continue;
             }
 
@@ -647,8 +684,9 @@ public final class IntegerProgram {
                 relaxation = branchRelaxations[plunge];
             }
         }
-        Platforms.log("%sdone nodes=%d incumbent=%.3f fixed=%d strong=%d %.1fs%n", LOG_PREFIX, nodesSolved,
-                incumbentBound, fixedTotal, strongTotal, (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
+        Platforms.log(LOG_PREFIX + "done solver=%s nodes=%d incumbent=%.3f fixed=%d strong=%d %.1fs%n", solver,
+                nodesSolved, incumbentBound, fixedTotal, strongTotal,
+                (System.nanoTime() - startedNanos) / NANOS_PER_SECOND);
 
         feasible = incumbent != null;
         if (!feasible) {

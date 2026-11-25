@@ -191,6 +191,7 @@
   <properties>
     <lwjgl.version>3.3.6</lwjgl.version>
     <mkl.version>2025.0-1.5.11</mkl.version>
+    <ortools.version>9.15.6755</ortools.version>
     <native.maven.plugin.version>0.9.19</native.maven.plugin.version>
     <teavm.version>0.15.0</teavm.version>
     <ixdar.audio.asset.include.pattern>**/*.wav</ixdar.audio.asset.include.pattern>
@@ -247,6 +248,11 @@
           <version>${mkl.version}</version>
           <classifier>windows-x86_64-redist</classifier>
         </dependency>
+        <dependency>
+          <groupId>com.google.ortools</groupId>
+          <artifactId>ortools-win32-x86-64</artifactId>
+          <version>${ortools.version}</version>
+        </dependency>
       </dependencies>
     </profile>
     <profile>
@@ -272,6 +278,11 @@
           <version>${mkl.version}</version>
           <classifier>linux-x86_64-redist</classifier>
         </dependency>
+        <dependency>
+          <groupId>com.google.ortools</groupId>
+          <artifactId>ortools-linux-x86-64</artifactId>
+          <version>${ortools.version}</version>
+        </dependency>
       </dependencies>
     </profile>
     <profile>
@@ -284,6 +295,13 @@
       <properties>
         <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
       </properties>
+      <dependencies>
+        <dependency>
+          <groupId>com.google.ortools</groupId>
+          <artifactId>ortools-darwin-aarch64</artifactId>
+          <version>${ortools.version}</version>
+        </dependency>
+      </dependencies>
     </profile>
     <profile>
       <id>asset-root-env</id>
@@ -638,6 +656,27 @@
       <groupId>org.bytedeco</groupId>
       <artifactId>mkl</artifactId>
       <version>${mkl.version}</version>
+    </dependency>
+
+    <!-- SCIP through OR-Tools for the quantization integer program (OrToolsIntegerProgramBackend).
+         OR-Tools: Apache-2.0 (https://github.com/google/or-tools/blob/stable/LICENSE); its bundled
+         SCIP 10: Apache-2.0 (https://scipopt.org/#license), built without SCIP's optional GPL/LGPL
+         add-ons (GMP, Bliss, MPFR, ZIMPL, libquadmath); bundled HiGHS MIT, abseil Apache-2.0,
+         protobuf and re2 BSD-3-Clause, zlib zlib, bzip2 bzip2 licence. Transitive: protobuf-java
+         BSD-3-Clause, jna-platform dual Apache-2.0 / LGPL-2.1, used under Apache-2.0. The JNI
+         natives come per OS from the windows/linux/macos-aarch64 profiles above, so the
+         all-platform native jars ortools-java names are excluded; the web build never reaches
+         the backend class. -->
+    <dependency>
+      <groupId>com.google.ortools</groupId>
+      <artifactId>ortools-java</artifactId>
+      <version>${ortools.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.ortools</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
