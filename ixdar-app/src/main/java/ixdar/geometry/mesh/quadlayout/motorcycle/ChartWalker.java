@@ -65,7 +65,7 @@ public final class ChartWalker {
      * {@code cornerLocalIndex}; the caller must then route through
      * {@link #crossVertex}.
      *
-     * <p>See also: Lyon 2021 Section 3
+     * <p>See also: LCK21a Section 3
      *
      * @param state current position and direction; unchanged by this call
      * @return edge hit data, or {@code null} when the level line leaves the face
@@ -211,7 +211,7 @@ public final class ChartWalker {
      * vertex fan around that corner and composing cut transitions per crossed seam
      * until a face's interior wedge contains the transported direction.
      *
-     * <p>See also: Lyon 2021 Section 3
+     * <p>See also: LCK21a Section 3
      *
      * @param state   state at the corner exit (chart position == V in {@code
      *                 state.activeFace})

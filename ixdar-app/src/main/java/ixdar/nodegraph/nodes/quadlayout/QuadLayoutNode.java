@@ -27,7 +27,7 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 
 /**
- * The quad-layout pipeline (Lyon 2021, LCBK19, LCK21a) as a compiled group of its stage nodes:
+ * The quad-layout pipeline (LCK21a, LCBK19) as a compiled group of its stage nodes:
  * each stage a named output, {@link #LAYOUT} all of them as a {@link QuadLayout}.
  *
  * <p>

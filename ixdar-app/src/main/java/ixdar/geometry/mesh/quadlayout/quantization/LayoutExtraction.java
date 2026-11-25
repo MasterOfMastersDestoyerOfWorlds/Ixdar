@@ -16,7 +16,7 @@ import ixdar.platform.Platforms;
  * positive arcs as the layout's separatrix skeleton.
  *
  * <p>
- * See also: Lyon 2021 Section 6
+ * See also: LCK21a Section 6
  */
 public final class LayoutExtraction {
 

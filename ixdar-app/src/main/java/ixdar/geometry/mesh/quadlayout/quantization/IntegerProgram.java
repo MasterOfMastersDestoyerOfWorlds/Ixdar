@@ -46,7 +46,7 @@ public final class IntegerProgram {
 
     /**
      * Optimal integer value per variable, filled by {@link #solve()} when feasible: the branch and
-     * bound's first optimum, with no preference among tied optima, as in Lyon 2021 §5.
+     * bound's first optimum, with no preference among tied optima, as in LCK21a §5.
      */
     public int[] values;
 

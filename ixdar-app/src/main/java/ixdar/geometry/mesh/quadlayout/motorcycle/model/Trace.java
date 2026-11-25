@@ -159,7 +159,7 @@ public final class Trace {
      * direction to {@code lij · ti.forward − lji · tj.forward}, positive when j
      * lies on ti's ccw side.
      *
-     * <p>See also: Lyon 2021 Section 3
+     * <p>See also: LCK21a Section 3
      *
      * @param tiAxis parametric axis of trace ti at the intersection face
      * @param tiSign sign of ti along {@code tiAxis}

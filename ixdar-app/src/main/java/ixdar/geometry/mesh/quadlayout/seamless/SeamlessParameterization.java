@@ -59,7 +59,7 @@ public final class SeamlessParameterization {
     /**
      * If true, run MC19 (Mandad–Campen 2019) exact-constraint projection after the
      * injectivity-constraint solve. Drives the per-cut-edge transition residual to
-     * literal zero, making the output safe to feed into Lyon 2021's T-mesh stage;
+     * literal zero, making the output safe to feed into LCK21a's T-mesh stage;
      * the BCE13 ε margin absorbs the projection's adjustment (MC19 §7).
      */
     public boolean exactSeams = true;

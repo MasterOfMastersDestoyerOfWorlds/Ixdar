@@ -28,7 +28,7 @@ import ixdar.platform.Platforms;
  * {@link EmbeddedPatch}, cornered where travel turns.
  *
  * <p>
- * See also: Lyon 2021 Section 4
+ * See also: LCK21a Section 4
  */
 public final class PatchBoundaryBuilder {
 

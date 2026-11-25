@@ -16,7 +16,7 @@ import ixdar.numeric.graph.UnionFind;
  * zero arcs merges all its nodes into one layout vertex. A cluster containing two
  * or more distinct singularity vertices is a quantization validity violation.
  *
- * <p>See also: Lyon 2021 Section 6
+ * <p>See also: LCK21a Section 6
  */
 public final class ZeroArcCollapse {
 

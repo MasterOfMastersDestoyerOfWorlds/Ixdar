@@ -32,7 +32,7 @@ import ixdar.platform.Platforms;
  * n-direction field with curvature alignment and soft feature/boundary
  * guidance, with its cf.singularities extracted.
  *
- * <p>See also: Lyon 2021 stages 1-2
+ * <p>See also: LCK21a stages 1-2
  */
 public class NDirectionField {
 

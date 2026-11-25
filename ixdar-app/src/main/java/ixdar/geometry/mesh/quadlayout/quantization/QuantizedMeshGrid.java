@@ -22,7 +22,7 @@ import ixdar.platform.Platforms;
  * objective that drives the layout as coarse as those allow.
  *
  * <p>
- * See also: Lyon 2021 Sections 4 and 5
+ * See also: LCK21a Sections 4 and 5
  */
 public class QuantizedMeshGrid {
 
@@ -374,7 +374,7 @@ public class QuantizedMeshGrid {
      * first meeting falls back to {@code Σ chain ≥ 1}.
      *
      * <p>
-     * See also: Lyon 2021 Section 4
+     * See also: LCK21a Section 4
      */
     private void addValidityConstraints(IntegerProgram model) {
         for (Trace trace : network.traces) {
@@ -433,7 +433,7 @@ public class QuantizedMeshGrid {
      * recordings are deduplicated by (other trace, node).
      *
      * <p>
-     * See also: Lyon 2021 Section 4.4
+     * See also: LCK21a Section 4.4
      */
     private void addLayoutConstraints(IntegerProgram model) {
         double tanAlpha = Math.tan(alphaRadians);

@@ -34,10 +34,10 @@ import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.platform.Platforms;
 
 /**
- * Lyon 2021 §3 modified motorcycle graph T-mesh: traces, nodes, arcs, and
+ * LCK21a §3 modified motorcycle graph T-mesh: traces, nodes, arcs, and
  * patches built from a seamless parametrization.
  *
- * <p>See also: Lyon 2021 Section 3, Eppstein 2008
+ * <p>See also: LCK21a Section 3, Eppstein 2008
  */
 public final class MotorcycleGraph {
 
@@ -1100,7 +1100,7 @@ public final class MotorcycleGraph {
      * discarded and rebuilt with fresh ids; node ids are preserved.
      *
      * <p>
-     * See also: Lyon 2021 Section 5.1
+     * See also: LCK21a Section 5.1
      */
     private void subdivideArcsAtMeetings() {
         buildTraceChains();

@@ -20,7 +20,7 @@ import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
 
 /**
- * Inspector for Lyon 2021 modified motorcycle graphs: trace iso-lines, T-mesh
+ * Inspector for LCK21a modified motorcycle graphs: trace iso-lines, T-mesh
  * nodes, patch fills, and live α stepping. It pulls the motorcycle output of
  * {@link QuadLayoutNode}, so only the stages the motorcycle graph depends on run.
  */

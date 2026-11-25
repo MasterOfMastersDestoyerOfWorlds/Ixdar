@@ -7,7 +7,7 @@ import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 
 /**
- * One quad layout of a triangle mesh (Lyon 2021, LCBK19, LCK21a), the typed result of the
+ * One quad layout of a triangle mesh (LCK21a, LCBK19), the typed result of the
  * {@code quad_layout} node group: every stage's product, from the cross field to the patch
  * surfaces.
  */

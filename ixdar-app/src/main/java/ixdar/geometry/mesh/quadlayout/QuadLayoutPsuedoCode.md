@@ -1,4 +1,4 @@
-# Lyon 2021 — Quad Layouts via Constrained T‑Mesh Quantization
+# LCK21a — Quad Layouts via Constrained T‑Mesh Quantization
 ## Complete Pseudocode (no library black-boxes)
 
 This document gives the full pipeline of Lyon, Campen, Kobbelt 2021, with every
@@ -31,7 +31,7 @@ OUTPUT:
     L = quad layout (graph of nodes + arcs embedded on M)
     Q = (optional) quad mesh refining L
 
-ALGORITHM Lyon2021(M, α, feature_edges):
+ALGORITHM LCK21a(M, α, feature_edges):
     # --- 1. Cross field ----------------------------------------------------
     ξ ← BuildCrossField(M, feature_edges)       # § A below
     # --- 2. Singularities --------------------------------------------------
