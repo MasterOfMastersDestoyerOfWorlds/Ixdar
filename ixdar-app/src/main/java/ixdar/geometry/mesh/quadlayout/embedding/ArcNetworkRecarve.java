@@ -450,11 +450,17 @@ public final class ArcNetworkRecarve {
             snapping.endNodeByArc[denseArcId] = denseNodeIdByOldId[arc.endNodeId];
             FaceStripPath strip = new FaceStripPath(fresh, denseArcId);
             snapping.stripByArc.add(strip);
+            int startVertex = snapping.vertexIdByNode[snapping.startNodeByArc[denseArcId]];
+            int endVertex = snapping.vertexIdByNode[snapping.endNodeByArc[denseArcId]];
             for (int step = 1; step < path.size(); step++) {
                 int sourceFace = stepSourceFace(arc.arcId, path, step);
+                double[] from = step == 1 && startVertex != EmbeddedMeshTopology.UNCLAIMED
+                        ? fresh.barycentricOf(sourceFace, startVertex) : null;
+                double[] to = step == path.size() - 1 && endVertex != EmbeddedMeshTopology.UNCLAIMED
+                        ? fresh.barycentricOf(sourceFace, endVertex) : null;
                 strip.addPassage(sourceFace,
-                        source.topology.barycentricOf(sourceFace, path.get(step - 1)),
-                        source.topology.barycentricOf(sourceFace, path.get(step)));
+                        from != null ? from : source.topology.barycentricOf(sourceFace, path.get(step - 1)),
+                        to != null ? to : source.topology.barycentricOf(sourceFace, path.get(step)));
                 replayedStepCount++;
                 if (step < path.size() - 1) {
                     auditForeignNode(arc, path.get(step));

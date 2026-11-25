@@ -17,8 +17,6 @@ public final class FaceStripPath {
 
     public static final int CORNERS = 3;
 
-    private static final double MIDPOINT = 0.5;
-
     public final EmbeddedMeshTopology topology;
 
     /** Arc the route belongs to. */
@@ -449,8 +447,8 @@ public final class FaceStripPath {
     }
 
     /**
-     * Records a crossed constraint edge and where the traced segment met it, in a fixed
-     * endpoint order so both faces sharing the edge agree on the position.
+     * Records a crossed constraint edge and where the segment met it, found along the
+     * segment so one running along the edge still lands between its own ends.
      *
      * @param sourceFace source active face the coordinates are in
      * @param first      one endpoint of the crossed edge
@@ -464,11 +462,17 @@ public final class FaceStripPath {
         int high = Math.max(first, second);
         crossedEdges.add(new int[] { low, high });
         crossedVertices.add(EmbeddedMeshTopology.UNCLAIMED);
-        double areaAtLow = ExactBarycentricOrient.area(from, to, topology.barycentricOf(sourceFace, low));
-        double areaAtHigh = ExactBarycentricOrient.area(from, to, topology.barycentricOf(sourceFace, high));
-        double reach = Math.abs(areaAtLow) + Math.abs(areaAtHigh);
-        double crossingPosition =  reach == 0.0 ? MIDPOINT : Math.abs(areaAtLow) / reach;
-        crossingParameters.add(crossingPosition);
+        double[] lowCorner = topology.barycentricOf(sourceFace, low);
+        double[] highCorner = topology.barycentricOf(sourceFace, high);
+        double fromSide = ExactBarycentricOrient.area(lowCorner, highCorner, from);
+        double toSide = ExactBarycentricOrient.area(lowCorner, highCorner, to);
+        double alongSegment = fromSide == toSide ? 0.0
+                : Math.max(0.0, Math.min(1.0, fromSide / (fromSide - toSide)));
+        double[] meeting = new double[CORNERS];
+        for (int index = 0; index < CORNERS; index++) {
+            meeting[index] = from[index] + alongSegment * (to[index] - from[index]);
+        }
+        crossingParameters.add(alongEdge(sourceFace, low, high, meeting));
     }
 
     /**
