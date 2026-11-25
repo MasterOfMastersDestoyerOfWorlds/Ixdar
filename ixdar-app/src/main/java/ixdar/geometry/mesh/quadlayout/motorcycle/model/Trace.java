@@ -194,9 +194,11 @@ public final class Trace {
     }
 
     /**
-     * Record a meeting with another trace and apply stopping test bookkeeping.
+     * Records a meeting and applies the stopping test at it. A crossing of the trace's own trail
+     * counts like any other: LCK21a §3 stops on every intersected trace, so deferring it would
+     * stop the trace later, past its last node.
      *
-     * @param other        other trace
+     * @param other        other trace, or this one at a self-crossing
      * @param ourLength    parametric length along this trace to the intersection
      * @param theirLength  parametric length along the other trace to the
      *                     intersection
@@ -216,9 +218,6 @@ public final class Trace {
         MetOtherTraceEntry meeting = new MetOtherTraceEntry(other.traceId, alphaIj, ourLength,
                 theirLength, ourAxis, ourSign, otherAxis, otherSign, ourVisitId, otherVisitId);
         metOtherTraces.add(meeting);
-        if (other == this) {
-            return;
-        }
         if (!sawFirstSectorCollision && isSectorMeeting(meeting)) {
             sawFirstSectorCollision = true;
             if (Double.isNaN(eppsteinStopLength)) {

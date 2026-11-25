@@ -335,8 +335,18 @@ public class ArcNetwork {
             List<Integer> lastSide = patch.sideArcIds.get(EmbeddedPatch.SIDES - 1);
             EmbeddedArc entering = arcs.get(firstSide.get(0));
             EmbeddedArc leaving = arcs.get(lastSide.get(lastSide.size() - 1));
+            EmbeddedArc following = arcs.get(firstSide.size() > 1 ? firstSide.get(1)
+                    : patch.sideArcIds.get(1).get(0));
+            boolean followingTouchesStart = following.startNodeId == entering.startNodeId
+                    || following.endNodeId == entering.startNodeId;
+            boolean followingTouchesEnd = following.startNodeId == entering.endNodeId
+                    || following.endNodeId == entering.endNodeId;
+            // A patch closing on a two-arc loop (round a valence-1 cone) shares both of its
+            // first arc's nodes with its last arc, so the arc it walks on to decides.
             int firstCorner = entering.endNodeId;
-            if (entering.startNodeId == leaving.startNodeId
+            if (followingTouchesStart != followingTouchesEnd) {
+                firstCorner = followingTouchesEnd ? entering.startNodeId : entering.endNodeId;
+            } else if (entering.startNodeId == leaving.startNodeId
                     || entering.startNodeId == leaving.endNodeId) {
                 firstCorner = entering.startNodeId;
             }
