@@ -20,6 +20,8 @@ Never `cat` or `tail` the harness's `tasks/` directory, which the sleep-poll hoo
 
 Every script or command that loads a model has a timeout: wrap each `ixdar-cli model` or scene run in `timeout`, give one model at most 10 seconds, and when it runs over, kill the scene's JVM, record the model as timed out and go on with the next. A model that hangs (a quantization loop that never converges, say) otherwise blocks the whole sweep. Leave sphere_random out of model sweeps: the pipeline cannot handle it yet.
 
+To run several models through one graph, use `uv run ixdar-cli model-sweep --models <set|list|glob>` (sets `suite` and `crawfish`; `--graph`, `--stall`, `--timeout`, `--out`): one scene JVM, a per-model table of counts, furthest stage, failure line and stage times in `sweep.md`/`sweep.json`, and screenshots of finished layouts. Do not write sweep scripts.
+
 # Conventions
 
 ## Naming
