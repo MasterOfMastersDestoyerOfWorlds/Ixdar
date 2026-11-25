@@ -113,12 +113,6 @@ public final class GltfMeshParser {
 
     public static final String BUFFER = "buffer";
 
-    public static final int WELD_LOAD_DIVISOR = 4;
-
-    public static final int HASH_MULTIPLIER = 31;
-
-    public static final int HASH_SHIFT = 16;
-
     public static final float NORMAL_CONFLICT_EPSILON = 1e-3f;
 
     /**
@@ -324,25 +318,17 @@ public final class GltfMeshParser {
      * only to give it another UV, which the corner field now holds instead.
      */
     private void weldByPosition() {
-        int capacity = Integer.highestOneBit(Math.max(totalVertexCount, 1)) * WELD_LOAD_DIVISOR;
-        int[] table = new int[capacity];
-        Arrays.fill(table, -1);
-        int mask = capacity - 1;
         int[] weldedOf = new int[totalVertexCount];
-        int[] representative = new int[totalVertexCount];
-        weldedVertexCount = 0;
+        weldedVertexCount = PackedPoints.view(positions, 0, FLOATS_PER_VERTEX, totalVertexCount)
+                .exactGroups(sourceWeldKey, weldedOf);
+        int[] representative = new int[weldedVertexCount];
+        Arrays.fill(representative, -1);
         for (int sourceVertex = 0; sourceVertex < totalVertexCount; sourceVertex++) {
-            int slot = positionHash(sourceVertex) & mask;
-            while (table[slot] != -1 && !samePosition(table[slot], sourceVertex)) {
-                slot = (slot + 1) & mask;
-            }
-            if (table[slot] == -1) {
-                table[slot] = sourceVertex;
-                representative[weldedVertexCount] = sourceVertex;
-                weldedOf[sourceVertex] = weldedVertexCount++;
+            int welded = weldedOf[sourceVertex];
+            if (representative[welded] < 0) {
+                representative[welded] = sourceVertex;
             } else {
-                weldedOf[sourceVertex] = weldedOf[table[slot]];
-                normalConflicts += sameNormal(table[slot], sourceVertex) ? 0 : 1;
+                normalConflicts += sameNormal(representative[welded], sourceVertex) ? 0 : 1;
             }
         }
         weldedPositions = new PackedPoints(weldedVertexCount);
@@ -355,45 +341,6 @@ public final class GltfMeshParser {
         for (int corner = 0; corner < triangleIndices.length; corner++) {
             triangleIndices[corner] = weldedOf[triangleIndices[corner]];
         }
-    }
-
-    /**
-     * Hash of a source vertex's position bits, mixing the three components so the open-addressed
-     * weld table spreads.
-     *
-     * @param sourceVertex index into the source vertex arrays
-     * @return a non-negative hash
-     */
-    private int positionHash(int sourceVertex) {
-        int offset = sourceVertex * FLOATS_PER_VERTEX;
-        int hash = Float.floatToRawIntBits(positions[offset]);
-        hash = hash * HASH_MULTIPLIER + Float.floatToRawIntBits(positions[offset + 1]);
-        hash = hash * HASH_MULTIPLIER + Float.floatToRawIntBits(positions[offset + 2]);
-        if (sourceWeldKey != null) {
-            hash = hash * HASH_MULTIPLIER + Float.floatToRawIntBits(sourceWeldKey[sourceVertex]);
-        }
-        return (hash ^ (hash >>> HASH_SHIFT)) & Integer.MAX_VALUE;
-    }
-
-    /**
-     * Whether two source vertices sit at bitwise-identical positions and carry the same
-     * {@link #WELD_KEY} when the file has one. No epsilon: a real seam
-     * duplicate is a byte-for-byte copy of its twin, and a tolerance would merge distinct geometry.
-     *
-     * @param left index into the source vertex arrays
-     * @param right index into the source vertex arrays
-     * @return {@code true} when all three components and the weld keys match bit for bit
-     */
-    private boolean samePosition(int left, int right) {
-        int leftOffset = left * FLOATS_PER_VERTEX;
-        int rightOffset = right * FLOATS_PER_VERTEX;
-        for (int component = 0; component < FLOATS_PER_VERTEX; component++) {
-            if (Float.floatToRawIntBits(positions[leftOffset + component])
-                    != Float.floatToRawIntBits(positions[rightOffset + component])) {
-                return false;
-            }
-        }
-        return sourceWeldKey == null || sourceWeldKey[left] == sourceWeldKey[right];
     }
 
     /**

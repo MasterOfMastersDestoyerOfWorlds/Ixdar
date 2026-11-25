@@ -13,9 +13,8 @@ import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 public final class ObjMeshParser {
     /**
-     * Load an OBJ file into a triangle mesh ({@link MeshLoader#indexedMesh}).
-     * Supports vertex positions (v x y z) and normals (vn x y z); a file without normals gets the
-     * mesh's own area-weighted ones.
+     * Load an OBJ's positions and normals into a triangle mesh ({@link MeshLoader#indexedMesh}),
+     * welding the bitwise-identical copies a UV seam splits; a welded mesh gets area-weighted normals.
      *
      * @param content raw OBJ content
      * @throws RuntimeException wraps any {@link IOException} from the underlying reader
@@ -87,6 +86,13 @@ public final class ObjMeshParser {
                     || normals.get(vertex, 2) != 0f;
         }
 
+        int[] weldedOf = new int[positions.size()];
+        int weldedCount = positions.exactGroups(null, weldedOf);
+        if (weldedCount < positions.size()) {
+            positions = positions.groupMeans(weldedOf, weldedCount);
+            hasVertexNormals = false;
+        }
+
         int[] faceIndices = new int[totalTriIndices];
         int[] fan = new int[0];
         int fi = 0;
@@ -97,7 +103,7 @@ public final class ObjMeshParser {
             int triangles = MeshTopology.triangleCorners(TriangulationRule.FAN, face.length, true,
                     fan);
             for (int slot = 0; slot < MeshLoader.FLOATS_PER_VERTEX * triangles; slot++) {
-                faceIndices[fi++] = face[fan[slot]];
+                faceIndices[fi++] = weldedOf[face[fan[slot]]];
             }
         }
 

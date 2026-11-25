@@ -15,6 +15,12 @@ public final class PackedPoints {
 
     private static final int INITIAL_CAPACITY = 16;
 
+    private static final int GROUP_TABLE_SPREAD = 4;
+
+    private static final int HASH_MULTIPLIER = 31;
+
+    private static final int HASH_SHIFT = 16;
+
     private static final String ONLY_PLAIN_GROWS = "only a plain xyz buffer grows";
 
     private float[] xyz;
@@ -583,6 +589,52 @@ public final class PackedPoints {
             }
         }
         return means;
+    }
+
+    /**
+     * Group the points whose positions are bitwise identical, the groups numbered in order of their
+     * first member. No tolerance: a vertex a file split along a UV seam is a byte-for-byte copy of
+     * its twin, and an epsilon would merge distinct geometry.
+     *
+     * @param keys    one value per point that must also match bit for bit, or {@code null}
+     * @param groupOf filled with each point's group, at least {@link #size()} long
+     * @return the number of groups
+     */
+    public int exactGroups(float[] keys, int[] groupOf) {
+        int capacity = Integer.highestOneBit(Math.max(count, 1)) * GROUP_TABLE_SPREAD;
+        int mask = capacity - 1;
+        int[] table = new int[capacity];
+        Arrays.fill(table, -1);
+        int groups = 0;
+        for (int point = 0; point < count; point++) {
+            int at = first + point * stride;
+            int hash = Float.floatToRawIntBits(xyz[at]);
+            hash = hash * HASH_MULTIPLIER + Float.floatToRawIntBits(xyz[at + 1]);
+            hash = hash * HASH_MULTIPLIER + Float.floatToRawIntBits(xyz[at + 2]);
+            if (keys != null) {
+                hash = hash * HASH_MULTIPLIER + Float.floatToRawIntBits(keys[point]);
+            }
+            int slot = (hash ^ (hash >>> HASH_SHIFT)) & mask;
+            while (table[slot] != -1) {
+                int other = table[slot];
+                int otherAt = first + other * stride;
+                if (Float.floatToRawIntBits(xyz[otherAt]) == Float.floatToRawIntBits(xyz[at])
+                        && Float.floatToRawIntBits(xyz[otherAt + 1]) == Float.floatToRawIntBits(xyz[at + 1])
+                        && Float.floatToRawIntBits(xyz[otherAt + 2]) == Float.floatToRawIntBits(xyz[at + 2])
+                        && (keys == null || Float.floatToRawIntBits(keys[other])
+                                == Float.floatToRawIntBits(keys[point]))) {
+                    break;
+                }
+                slot = (slot + 1) & mask;
+            }
+            if (table[slot] == -1) {
+                table[slot] = point;
+                groupOf[point] = groups++;
+            } else {
+                groupOf[point] = groupOf[table[slot]];
+            }
+        }
+        return groups;
     }
 
     /**
