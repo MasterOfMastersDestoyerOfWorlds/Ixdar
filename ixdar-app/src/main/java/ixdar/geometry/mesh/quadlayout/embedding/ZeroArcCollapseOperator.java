@@ -85,9 +85,9 @@ public final class ZeroArcCollapseOperator {
     public final List<Integer> channel = new ArrayList<>();
 
     /**
-     * Spoke at the surviving vertex the next drag from the fan's front arrives just
-     * after: first the arc before the collapsing arc there, then the last arc
-     * dragged from the front. {@link ArcNetwork#NONE} when no arc bounds it.
+     * Spoke at the survivor the next front drag arrives just after: the arc before
+     * the collapsing arc, then the last front arc; with none, the first arrival
+     * bounds both fan ends.
      */
     public int frontArrivalSpoke = ArcNetwork.NONE;
 
@@ -310,6 +310,10 @@ public final class ZeroArcCollapseOperator {
                     channel.get(0) == targetVertex ? channel.get(1) : channel.get(channel.size() - 2));
             frontArrivalSpoke = nextClaimedSpoke(arcSpoke, false);
             backArrivalSpoke = nextClaimedSpoke(arcSpoke, true);
+            if (frontArrivalSpoke == arcSpoke) {
+                frontArrivalSpoke = ArcNetwork.NONE;
+                backArrivalSpoke = ArcNetwork.NONE;
+            }
         }
         fanCursor = 0;
         lastDraggedArcId = ArcNetwork.NONE;
@@ -519,9 +523,10 @@ public final class ZeroArcCollapseOperator {
         rerouter.rebuildLegEdges(routedVertices, routedEdges);
         int arrivedSpoke = outgoingHalfEdge(targetCopyVertex,
                 routedVertices.get(routedVertices.size() - 2));
-        if (fromFront) {
+        if (fromFront || frontArrivalSpoke == ArcNetwork.NONE) {
             frontArrivalSpoke = arrivedSpoke;
-        } else {
+        }
+        if (!fromFront || backArrivalSpoke == ArcNetwork.NONE) {
             backArrivalSpoke = arrivedSpoke;
         }
         if (movesPathStart) {

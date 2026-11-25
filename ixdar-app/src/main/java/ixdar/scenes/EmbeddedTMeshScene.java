@@ -70,6 +70,8 @@ public class EmbeddedTMeshScene extends ModelScene {
         super();
         registerGraph(new ModelChoice("Fan collapse",
                 "dsl/fixtures/fan_collapse.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice("Sibling pair collapse",
+                "dsl/fixtures/sibling_pair_collapse.dsl", ModelChoice.Kind.DSL));
         registerGraph(new ModelChoice("Sliver pinch",
                 "dsl/fixtures/sliver_pinch.dsl", ModelChoice.Kind.DSL));
         registerGraph(new ModelChoice("Merged-cell slot",
