@@ -1,10 +1,13 @@
 package ixdar.geometry.mesh.data.ops;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.EdgeKey;
@@ -63,10 +66,10 @@ public final class MeshHoleFiller {
     public int ringCount;
 
     /**
-     * Mesh edges among the loop and the surrounding ring, as packed local index pairs. They give
-     * the loop vertices their true surface valence in the fairing operator.
+     * The mesh faces round the loop vertices as local corners, three per face: they give the loop
+     * vertices their whole one-ring, and its cotangent weights, in the fairing operator.
      */
-    public long[] surfaceEdges = new long[0];
+    public int[] surfaceTriangles = new int[0];
 
     /** Vertices in the loop. */
     public int loopLength;
@@ -106,6 +109,12 @@ public final class MeshHoleFiller {
 
     /** Neighbour vertex indices used by the fairing pass. */
     private int[] neighbours = new int[0];
+
+    /** Harmonic weight per neighbour entry, parallel to {@link #neighbours}. */
+    private double[] weights = new double[0];
+
+    /** Per local vertex the sum of its neighbour weights, {@code ω(v)}. */
+    private double[] weightSums = new double[0];
 
     /** The minted vertices and their neighbours, whose umbrellas the fairing operator forms. */
     private int[] umbrellaRows = new int[0];
@@ -415,10 +424,9 @@ public final class MeshHoleFiller {
     }
 
     /**
-     * Solves the thin-plate system {@code U(U(x)) = 0} over the minted vertices, holding the loop
-     * and the surrounding ring fixed so the patch leaves the surface along its tangent.
-     *
-     * <p>Matrix-free conjugate gradient on the normal equations of {@code min ||U x||^2}.
+     * L03 section 6: solves {@code U²(x) = 0} for the harmonic umbrella over the minted vertices,
+     * holding the loop and the surrounding ring fixed so the patch leaves the surface along its
+     * tangent. Matrix-free conjugate gradient on the symmetric form of that system.
      */
     private void fair() {
         int fixedCount = loopLength + ringCount;
@@ -495,7 +503,9 @@ public final class MeshHoleFiller {
     }
 
     /**
-     * Applies {@code U^T U} for the uniform umbrella {@code U = D^-1 A - I}.
+     * Applies L03's second-order umbrella scaled by {@code ω(v)} at each minted vertex,
+     * {@code Σ ω(v, vi) U(vi) - ω(v) U(v)}: that is {@code L D⁻¹ L} for the symmetric weight
+     * matrix {@code L}, so conjugate gradient applies.
      *
      * @param source one value per local vertex
      * @param destination filled with the operator's output, one value per local vertex
@@ -504,42 +514,32 @@ public final class MeshHoleFiller {
         int fixedCount = loopLength + ringCount;
         double[] umbrella = umbrellaScratch;
         for (int vertex : umbrellaRows) {
-            int start = neighbourStart[vertex];
-            int end = neighbourStart[vertex + 1];
-            if (end == start) {
-                umbrella[vertex] = 0;
-                continue;
-            }
             double sum = 0;
-            for (int index = start; index < end; index++) {
-                sum += source[neighbours[index]];
+            for (int index = neighbourStart[vertex]; index < neighbourStart[vertex + 1]; index++) {
+                sum += weights[index] * source[neighbours[index]];
             }
-            umbrella[vertex] = sum / (end - start) - source[vertex];
+            umbrella[vertex] = sum / weightSums[vertex] - source[vertex];
         }
         for (int vertex = fixedCount; vertex < vertexCount; vertex++) {
-            int start = neighbourStart[vertex];
-            int end = neighbourStart[vertex + 1];
             double sum = 0;
-            for (int index = start; index < end; index++) {
-                int neighbour = neighbours[index];
-                int degree = neighbourStart[neighbour + 1] - neighbourStart[neighbour];
-                if (degree > 0) {
-                    sum += umbrella[neighbour] / degree;
-                }
+            for (int index = neighbourStart[vertex]; index < neighbourStart[vertex + 1]; index++) {
+                sum += weights[index] * umbrella[neighbours[index]];
             }
-            destination[vertex] = sum - umbrella[vertex];
+            destination[vertex] = sum - weightSums[vertex] * umbrella[vertex];
         }
     }
 
-    /** Builds the patch's vertex adjacency in compressed row form, each neighbour listed once. */
+    /**
+     * Builds the adjacency of the patch and the surrounding faces in compressed row form, each
+     * neighbour listed once, with L03's harmonic weight {@code cot α + cot β} per entry, or uniform
+     * weights for all when some vertex's do not sum positive.
+     */
     private void buildNeighbours() {
+        int[] all = IntStream.concat(Arrays.stream(triangles, 0, triangleCount * TRIANGLE_CORNERS),
+                Arrays.stream(surfaceTriangles)).toArray();
         int[] degree = new int[vertexCount + 1];
-        for (int slot = 0; slot < triangleCount * TRIANGLE_CORNERS; slot++) {
-            degree[triangles[slot]] += 2;
-        }
-        for (long edge : surfaceEdges) {
-            degree[EdgeKey.minVertex(edge)]++;
-            degree[EdgeKey.maxVertex(edge)]++;
+        for (int corner : all) {
+            degree[corner] += 2;
         }
         neighbourStart = new int[vertexCount + 1];
         int running = 0;
@@ -550,20 +550,19 @@ public final class MeshHoleFiller {
         neighbourStart[vertexCount] = running;
         int[] cursor = Arrays.copyOf(neighbourStart, vertexCount);
         int[] raw = new int[running];
-        for (int triangle = 0; triangle < triangleCount; triangle++) {
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                int vertex = triangles[triangle * TRIANGLE_CORNERS + corner];
-                raw[cursor[vertex]++] = triangles[triangle * TRIANGLE_CORNERS
-                        + (corner + 1) % TRIANGLE_CORNERS];
-                raw[cursor[vertex]++] = triangles[triangle * TRIANGLE_CORNERS
-                        + (corner + 2) % TRIANGLE_CORNERS];
+        Map<Long, Double> cotangents = new HashMap<>();
+        for (int slot = 0; slot < all.length; slot++) {
+            int first = slot - slot % TRIANGLE_CORNERS;
+            int from = all[first + (slot + 1) % TRIANGLE_CORNERS];
+            int to = all[first + (slot + 2) % TRIANGLE_CORNERS];
+            raw[cursor[all[slot]]++] = from;
+            raw[cursor[all[slot]]++] = to;
+            Vector3d toFrom = new Vector3d(vertexPositions.at(from)).sub(new Vector3d(vertexPositions.at(all[slot])));
+            Vector3d toTo = new Vector3d(vertexPositions.at(to)).sub(new Vector3d(vertexPositions.at(all[slot])));
+            double sine = toFrom.cross(toTo, new Vector3d()).length();
+            if (sine > 0) {
+                cotangents.merge(EdgeKey.undirected(from, to), toFrom.dot(toTo) / sine, Double::sum);
             }
-        }
-        for (long edge : surfaceEdges) {
-            int low = EdgeKey.minVertex(edge);
-            int high = EdgeKey.maxVertex(edge);
-            raw[cursor[low]++] = high;
-            raw[cursor[high]++] = low;
         }
         neighbours = new int[running];
         int packed = 0;
@@ -579,6 +578,21 @@ public final class MeshHoleFiller {
             }
         }
         neighbourStart[vertexCount] = packed;
+        weights = new double[packed];
+        weightSums = new double[vertexCount];
+        for (int vertex = 0; vertex < vertexCount; vertex++) {
+            for (int index = neighbourStart[vertex]; index < neighbourStart[vertex + 1]; index++) {
+                weights[index] = cotangents.getOrDefault(EdgeKey.undirected(vertex, neighbours[index]), 0.0);
+                weightSums[vertex] += weights[index];
+            }
+        }
+        if (IntStream.range(0, vertexCount).filter(vertex -> vertex < loopLength || vertex >= loopLength + ringCount)
+                .anyMatch(vertex -> !(weightSums[vertex] > 0))) {
+            Arrays.fill(weights, 1);
+            for (int vertex = 0; vertex < vertexCount; vertex++) {
+                weightSums[vertex] = neighbourStart[vertex + 1] - neighbourStart[vertex];
+            }
+        }
     }
 
     /**

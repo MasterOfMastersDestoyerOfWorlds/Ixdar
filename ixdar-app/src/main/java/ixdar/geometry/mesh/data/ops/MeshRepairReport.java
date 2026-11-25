@@ -123,6 +123,9 @@ public final class MeshRepairReport {
     /** Faces deleted round the faces the unfold left folded, before each refill. */
     public int foldClearedFaceCount;
 
+    /** Faces deleted round the needle and crumple cones fills left, before each refill. */
+    public int coneClearedFaceCount;
+
     /** Face count of each shell, largest first. */
     public int[] shellFaceCounts = new int[0];
 
@@ -180,7 +183,8 @@ public final class MeshRepairReport {
                 + " exposed=" + exposedFaceCount + " pruned=" + prunedFaceCount
                 + " boundaryEdges=" + outputBoundaryEdgeCount
                 + " folded=" + foldedFaceCount + " stillFolded=" + stillFoldedFaceCount
-                + " tangleFaces=" + tangleDeletedFaceCount + " foldCleared=" + foldClearedFaceCount;
+                + " tangleFaces=" + tangleDeletedFaceCount + " foldCleared=" + foldClearedFaceCount
+                + " coneCleared=" + coneClearedFaceCount;
     }
 
     /**
@@ -228,6 +232,7 @@ public final class MeshRepairReport {
         appendCount(text, "stillFoldedFaceCount", stillFoldedFaceCount);
         appendCount(text, "tangleDeletedFaceCount", tangleDeletedFaceCount);
         appendCount(text, "foldClearedFaceCount", foldClearedFaceCount);
+        appendCount(text, "coneClearedFaceCount", coneClearedFaceCount);
         for (int shell = 0; shell < shellFaceCounts.length; shell++) {
             text.append("  shell ").append(shell)
                     .append(" faces=").append(shellFaceCounts[shell])

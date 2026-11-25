@@ -11,12 +11,13 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.ops.MeshHoleFiller;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.PackedPoints;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 
 /**
- * {@link MeshHoleFiller} on loops whose consecutive vertices are collinear, the T-junction cracks
- * a Trellis2 scan leaves: no fill triangle may have zero area.
+ * {@link MeshHoleFiller} on hand-made loops: collinear T-junction cracks fill without flat
+ * triangles, and refinement and fairing leave no needle fan or cone (CRAW-146).
  */
 class MeshHoleFillerTest {
 
@@ -44,6 +45,14 @@ class MeshHoleFillerTest {
     private static final double COARSE_SIGMA = 10.0;
 
     private static final double FINE_SIGMA = 0.25;
+
+    private static final int POLYGON_SIDES = 24;
+
+    private static final double CAP_POLAR_DEGREES = 40;
+
+    private static final String MINTS = "refinement mints vertices";
+
+    private static final String FILLS = "the loop fills";
 
     /**
      * A square loop with a midpoint on every side, filled bare and with refinement: every
@@ -77,6 +86,106 @@ class MeshHoleFillerTest {
         assertNoFlatTriangle(fill(SCAN_CRACK, SCAN_CRACK_SIGMA.clone(), forbidden));
     }
 
+    /**
+     * A flat regular polygon, where every triangulation has the same area so the bare fill is a fan
+     * of needles: refined at the loop's own spacing (L03 section 5), no vertex keeps such a fan, the
+     * thinnest corner widens, and no minted vertex is a cone.
+     */
+    @Test
+    void flatPolygonRefinesItsNeedleFanAway() {
+        double step = 2 * Math.PI / POLYGON_SIDES;
+        MeshHoleFiller bare = banded(latitude(Math.PI / 2, 1), latitude(Math.PI / 2, 1 + step), COARSE_SIGMA);
+        MeshHoleFiller refined = banded(latitude(Math.PI / 2, 1), latitude(Math.PI / 2, 1 + step), step);
+        assertTrue(refined.vertexCount > 2 * POLYGON_SIDES, MINTS);
+        assertTrue(widestFan(refined) < widestFan(bare), "refinement breaks the needle fan up");
+        assertTrue(thinnestCorner(refined) > thinnestCorner(bare), "and widens the thinnest corner");
+        assertNoCone(refined);
+    }
+
+    /**
+     * A cap cut out of the unit sphere with the sphere's next ring held fixed: the L03 section 6
+     * fairing bulges the refined patch out of the loop's plane toward the sphere, and no minted
+     * vertex is a cone sharper or more crumpled than a half turn.
+     */
+    @Test
+    void sphereCapFairsIntoABulgeWithoutCones() {
+        double loopPolar = Math.toRadians(CAP_POLAR_DEGREES);
+        double step = 2 * Math.PI * Math.sin(loopPolar) / POLYGON_SIDES;
+        MeshHoleFiller filler = banded(latitude(loopPolar, 1), latitude(loopPolar + step, 1), step);
+        assertTrue(filler.vertexCount > 2 * POLYGON_SIDES, MINTS);
+        double loopHeight = Math.cos(loopPolar);
+        for (int vertex = 2 * POLYGON_SIDES; vertex < filler.vertexCount; vertex++) {
+            assertTrue(filler.vertexPositions.get(vertex, 2) > loopHeight,
+                    "minted vertex " + vertex + " bulges above the loop's plane");
+        }
+        assertNoCone(filler);
+    }
+
+    /**
+     * Fills a loop whose surroundings are one band of triangles out to a parallel ring, every loop
+     * vertex at one density.
+     */
+    private static MeshHoleFiller banded(float[] loop, float[] ring, double sigma) {
+        MeshHoleFiller filler = new MeshHoleFiller();
+        filler.loopPositions = PackedPoints.view(loop, 0, PackedPoints.XYZ);
+        filler.loopLength = POLYGON_SIDES;
+        filler.loopSigma = new double[POLYGON_SIDES];
+        Arrays.fill(filler.loopSigma, sigma);
+        filler.ringPositions = PackedPoints.view(ring, 0, PackedPoints.XYZ);
+        filler.ringCount = POLYGON_SIDES;
+        filler.surfaceTriangles = IntStream.range(0, POLYGON_SIDES).flatMap(index -> {
+            int next = (index + 1) % POLYGON_SIDES;
+            return IntStream.of(index, POLYGON_SIDES + next, POLYGON_SIDES + index, index, next, POLYGON_SIDES + next);
+        }).toArray();
+        filler.build();
+        assertTrue(filler.filled, FILLS);
+        return filler;
+    }
+
+    private static float[] latitude(double polar, double radius) {
+        float[] points = new float[POLYGON_SIDES * PackedPoints.XYZ];
+        for (int index = 0; index < POLYGON_SIDES; index++) {
+            double azimuth = 2 * Math.PI * index / POLYGON_SIDES;
+            points[index * PackedPoints.XYZ] = (float) (radius * Math.sin(polar) * Math.cos(azimuth));
+            points[index * PackedPoints.XYZ + 1] = (float) (radius * Math.sin(polar) * Math.sin(azimuth));
+            points[index * PackedPoints.XYZ + 2] = (float) (radius * Math.cos(polar));
+        }
+        return points;
+    }
+
+    private static int widestFan(MeshHoleFiller filler) {
+        int[] fan = new int[filler.vertexCount];
+        for (int slot = 0; slot < filler.triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS; slot++) {
+            fan[filler.triangles[slot]]++;
+        }
+        return Arrays.stream(fan).max().orElse(0);
+    }
+
+    private static double thinnestCorner(MeshHoleFiller filler) {
+        return Arrays.stream(cornerAngles(filler)).min().orElse(0);
+    }
+
+    private static double[] cornerAngles(MeshHoleFiller filler) {
+        return IntStream.range(0, filler.triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS).mapToDouble(slot -> {
+            int first = slot - slot % HalfEdgeMesh.TRIANGLE_CORNERS;
+            return TriangleGeometry.cornerAngle(filler.vertexPositions, filler.triangles[slot],
+                    filler.triangles[first + (slot + 1) % HalfEdgeMesh.TRIANGLE_CORNERS],
+                    filler.triangles[first + (slot + 2) % HalfEdgeMesh.TRIANGLE_CORNERS]);
+        }).toArray();
+    }
+
+    private static void assertNoCone(MeshHoleFiller filler) {
+        double[] angles = cornerAngles(filler);
+        double[] sums = new double[filler.vertexCount];
+        for (int slot = 0; slot < angles.length; slot++) {
+            sums[filler.triangles[slot]] += angles[slot];
+        }
+        for (int vertex = filler.loopLength + filler.ringCount; vertex < filler.vertexCount; vertex++) {
+            assertTrue(Math.abs(2 * Math.PI - sums[vertex]) < Math.PI,
+                    "minted vertex " + vertex + " has angle sum " + Math.toDegrees(sums[vertex]));
+        }
+    }
+
     private static MeshHoleFiller fill(float[] loop, double sigma) {
         double[] loopSigma = new double[loop.length / PackedPoints.XYZ];
         Arrays.fill(loopSigma, sigma);
@@ -90,12 +199,12 @@ class MeshHoleFillerTest {
         filler.loopSigma = loopSigma;
         filler.forbiddenChords = forbiddenChords;
         filler.build();
-        assertTrue(filler.filled, "the loop fills");
+        assertTrue(filler.filled, FILLS);
         return filler;
     }
 
     private static void assertNoFlatTriangle(MeshHoleFiller filler) {
-        int[] corners = Arrays.copyOf(filler.triangles, filler.triangleCount * MeshHoleFiller.TRIANGLE_CORNERS);
+        int[] corners = Arrays.copyOf(filler.triangles, filler.triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS);
         double[] areas = TriangleGeometry.areas(filler.vertexPositions, corners);
         List<Integer> flat = IntStream.range(0, areas.length).filter(triangle -> areas[triangle] == 0).boxed().toList();
         assertEquals(List.of(), flat, "fill triangles of zero area");

@@ -363,6 +363,7 @@ public final class MeshRepair {
             treeBuilt.join();
             pruneExposedFaces(pruneTree, pruneCreases.join(), cellsChangedBeforeFill.join());
         }
+        clearCones();
         assemble();
         int openBefore = report.refillOpenHoleCount;
         for (int rings = 1; unfold && output.mesh() instanceof HalfEdgeMesh surface; rings++) {
@@ -380,17 +381,62 @@ public final class MeshRepair {
                     .range(0, surface.faceVertexCount(faceId)).map(corner -> surface.faceVertexAt(faceId, corner)));
             int[] activeOf = new int[surface.vertexIdBound()];
             PackedPoints unfoldedPositions = surface.packedPositions(activeOf);
-            int[] seeds = IntStream.concat(folded, collapsed).map(vertexId -> assembledVertices[activeOf[vertexId]])
-                    .distinct().toArray();
-            if (seeds.length == 0 || report.refillOpenHoleCount > openBefore) {
+            IntStream moved = IntStream.range(0, surface.vertexCount()).filter(active -> !unfoldedPositions.at(active)
+                    .equals(positions.at(assembledVertices[active]))).map(active -> surface.vertexIdAt(active));
+            int[] seeds = IntStream.concat(IntStream.concat(folded, collapsed), moved)
+                    .map(vertexId -> assembledVertices[activeOf[vertexId]]).distinct().toArray();
+            if (report.refillOpenHoleCount > openBefore) {
                 break;
             }
             for (int activeVertex = 0; activeVertex < surface.vertexCount(); activeVertex++) {
                 positions.set(assembledVertices[activeVertex], unfoldedPositions.at(activeVertex));
             }
-            report.foldClearedFaceCount += clearAround(seeds, rings);
-            refillCuts();
+            if (seeds.length > 0) {
+                report.foldClearedFaceCount += clearAround(seeds, rings);
+                refillCuts();
+            }
+            if (clearCones() == 0 && seeds.length == 0) {
+                break;
+            }
             assemble();
+        }
+    }
+
+    /**
+     * Clears and refills, a ring wider each round while their number falls, the cones past a half
+     * turn either way at the fill faces' corners: the needles and crumples a fill left, which no
+     * seamless map opens.
+     *
+     * @return faces cleared
+     */
+    private int clearCones() {
+        int cleared = 0;
+        int conesBefore = Integer.MAX_VALUE;
+        for (int rings = 1; true; rings++) {
+            ensureEdges();
+            int[] cones = cornerVertices(faceCorners,
+                    IntStream.range(firstFillFace, faceCount).filter(face -> faceAlive[face])).distinct()
+                    .filter(vertex -> {
+                        int around = facesRound(vertex);
+                        double angleSum = 0;
+                        for (int index = 0; index < around; index++) {
+                            int slot = vertexSlot(aroundScratch[index], vertex);
+                            int first = slot - slot % TRIANGLE_CORNERS;
+                            angleSum += TriangleGeometry.cornerAngle(positions, vertex,
+                                    faceCorners[first + (slot + 1) % TRIANGLE_CORNERS],
+                                    faceCorners[first + (slot + 2) % TRIANGLE_CORNERS]);
+                        }
+                        return around > 0 && Math.abs(2 * Math.PI - angleSum) > Math.PI
+                                && Arrays.stream(edgesRound(vertex)).allMatch(edge -> edges.useCount(edge) == 2);
+                    }).toArray();
+            if (cones.length == 0 || cones.length >= conesBefore) {
+                return cleared;
+            }
+            conesBefore = cones.length;
+            int faces = clearAround(cones, rings);
+            cleared += faces;
+            report.coneClearedFaceCount += faces;
+            refillCuts();
         }
     }
 
@@ -1860,8 +1906,6 @@ public final class MeshRepair {
         }
         long[] forbidden = new long[incidence];
         int forbiddenCount = 0;
-        long[] surfaceEdges = new long[incidence];
-        int surfaceEdgeCount = 0;
         int[] ringVertices = new int[incidence];
         int ringCount = 0;
         for (int index = 0; index < length; index++) {
@@ -1873,9 +1917,6 @@ public final class MeshRepair {
                     int gap = Math.abs(other - index);
                     if (gap != 1 && gap != length - 1) {
                         forbidden[forbiddenCount++] = EdgeKey.undirected(index, other);
-                        if (index < other) {
-                            surfaceEdges[surfaceEdgeCount++] = EdgeKey.undirected(index, other);
-                        }
                     }
                     continue;
                 }
@@ -1886,9 +1927,13 @@ public final class MeshRepair {
                     ringVertices[ringCount] = neighbour;
                     ringCount++;
                 }
-                surfaceEdges[surfaceEdgeCount++] = EdgeKey.undirected(index, ringLocal);
             }
         }
+        filler.surfaceTriangles = Arrays.stream(loop, 0, length).flatMap(this::facesAt).distinct()
+                .mapToObj(face -> cornerVertices(faceCorners, IntStream.of(face)).map(corner ->
+                        loopLocalOfVertex[corner] >= 0 ? loopLocalOfVertex[corner] : ringLocalOfVertex[corner]).toArray())
+                .filter(corners -> Arrays.stream(corners).allMatch(local -> local >= 0))
+                .flatMapToInt(Arrays::stream).toArray();
         for (int index = 0; index < length; index++) {
             loopLocalOfVertex[loop[index]] = -1;
         }
@@ -1897,7 +1942,6 @@ public final class MeshRepair {
         }
         filler.forbiddenChords = Arrays.copyOf(forbidden, forbiddenCount);
         Arrays.sort(filler.forbiddenChords);
-        filler.surfaceEdges = Arrays.copyOf(surfaceEdges, surfaceEdgeCount);
         filler.ringCount = ringCount;
         filler.ringPositions = positions.gather(Arrays.copyOf(ringVertices, ringCount));
         int[] meshOfFixed = new int[length + ringCount];
