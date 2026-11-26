@@ -81,6 +81,8 @@ public abstract class ModelScene extends Scene {
 
     public static final String TEXTURED_LOOK = "textured";
 
+    public static final String WIREFRAME_ACTION = "toggle-wireframe";
+
     /** Model menu of this scene's models. */
     public SceneModelMenu sceneModelMenu;
 
@@ -152,6 +154,9 @@ public abstract class ModelScene extends Scene {
 
     /** The clay lights key straight from the camera instead of from its upper left. */
     public boolean headlight;
+
+    /** Whether the surface draws the wireframe edge overlay over the filled triangles. */
+    public boolean wireframe;
 
     /** The palette worn before a paper look swapped in the paper one, restored when it goes. */
     public Palette paletteBeforeLook;
@@ -325,14 +330,17 @@ public abstract class ModelScene extends Scene {
             paletteBeforeLook = null;
         }
         HalfEdgeMeshRuntime surface = surfaceRuntime();
-        if (surface != null && shown != null) {
-            surface.look = shown;
-            surface.headlight = headlight;
-            if (shown.field != null && (fieldShown != shown || fieldRuntime != surface
-                    || !surface.hasPerVertexScalar())) {
-                fieldShown = shown;
-                fieldRuntime = surface;
-                surface.setPerVertexScalar(shown.field.values(), shown.fieldMin, shown.fieldMax);
+        if (surface != null) {
+            surface.setWireframe(wireframe);
+            if (shown != null) {
+                surface.look = shown;
+                surface.headlight = headlight;
+                if (shown.field != null && (fieldShown != shown || fieldRuntime != surface
+                        || !surface.hasPerVertexScalar())) {
+                    fieldShown = shown;
+                    fieldRuntime = surface;
+                    surface.setPerVertexScalar(shown.field.values(), shown.fieldMin, shown.fieldMax);
+                }
             }
         }
         runtime.setSolidColor(palette.surface.toVector4f());
@@ -980,10 +988,8 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Fill the scene's section of {@link #controls}. Base adds the orbit/scroll rows while the mouse
-     * orbits the camera, Ctrl+R to re-centre the orbit unless a tool switch or tool binds it, Ctrl+I
-     * for the menu and Esc to close it; scenes call {@code super.setControls(controls)} then add
-     * their keyed hints.
+     * Fill the scene's section of {@link #controls}: orbit/scroll, Ctrl+R, M for look, W for
+     * wireframe unless already bound, Ctrl+I for the menu and Esc to close it.
      *
      * @param controls the scene's section
      */
@@ -994,9 +1000,12 @@ public abstract class ModelScene extends Scene {
             controls.add(new ControlHint(Keys.SCROLL, "zoom"));
         }
         boolean controlRBound = false;
+        boolean wireframeBound = false;
         for (List<ControlHint> section : this.controls) {
             for (ControlHint hint : section) {
                 controlRBound |= hint.key == Keys.R && hint.controlHeld && !hint.shiftHeld;
+                wireframeBound |= (hint.key == Keys.W && !hint.controlHeld && !hint.shiftHeld)
+                        || WIREFRAME_ACTION.equals(hint.actionName);
             }
         }
         if (!controlRBound) {
@@ -1007,9 +1016,22 @@ public abstract class ModelScene extends Scene {
             controls.add(new ControlHint("cycle-look", Keys.M, "cycle the look: "
                     + looks.names() + " (now " + looks.picked.id + ")", this::cycleLook));
         }
+        if (!wireframeBound) {
+            controls.add(new ControlHint(WIREFRAME_ACTION, Keys.W, "toggle wireframe", this::toggleWireframe));
+        }
         controls.add(new ControlHint("toggle-menu", Keys.I, true, "menu", () -> sceneModelMenu.toggle()));
         controls.add(new ControlHint("escape", Keys.ESCAPE, escapeDescription(), this::escapePressed));
         super.setControls(controls);
+    }
+
+    /** Toggle the wireframe edge overlay on the active surface runtime. */
+    public void toggleWireframe() {
+        wireframe = !wireframe;
+        HalfEdgeMeshRuntime surface = surfaceRuntime();
+        if (surface != null) {
+            surface.setWireframe(wireframe);
+        }
+        Platforms.get().log("[wireframe] " + (wireframe ? "on" : "off"));
     }
 
     /** Pick the next registered look. */

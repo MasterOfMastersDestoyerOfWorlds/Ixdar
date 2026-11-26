@@ -135,7 +135,6 @@ public class MeshBooleanScene extends ModelScene {
                 () -> setOperation(MeshBooleanNode.DIFFERENCE)));
         controls.add(new ControlHint(INTERSECT_ACTION, Keys.I, INTERSECT_ACTION,
                 () -> setOperation(MeshBooleanNode.INTERSECT)));
-        controls.add(new ControlHint("toggle-wireframe", Keys.W, "toggle wireframe", this::toggleWireframe));
     }
 
     /**
@@ -146,16 +145,6 @@ public class MeshBooleanScene extends ModelScene {
     void setOperation(String mode) {
         operation = mode;
         rebuild();
-    }
-
-    /**
-     * Toggle the wireframe overlay that shows how the intersection curve split the
-     * faces.
-     */
-    void toggleWireframe() {
-        if (runtime != null) {
-            runtime.setWireframe(!runtime.isWireframe());
-        }
     }
 
     /**

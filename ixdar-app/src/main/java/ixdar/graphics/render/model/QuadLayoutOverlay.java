@@ -575,6 +575,9 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                         layoutPatchIndexCount[patch]);
             }
         }
+        if (isWireframe() && (drawSurface || drawLayoutFill)) {
+            renderEdges(camera);
+        }
         if (drawQuadGrid) {
             drawLines(camera, layoutLines, layoutBoundaryVertexCount,
                     layoutLines.vertexCount - layoutBoundaryVertexCount, palette.gridLine,

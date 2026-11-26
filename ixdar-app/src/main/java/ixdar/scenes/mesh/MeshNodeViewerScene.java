@@ -910,7 +910,6 @@ public class MeshNodeViewerScene extends ModelScene {
     public void setControls(List<ControlHint> controls) {
         controls.add(new ControlHint("previous-model", Keys.LEFT_BRACKET, "previous model", this::prevModel));
         controls.add(new ControlHint("next-model", Keys.RIGHT_BRACKET, "next model", this::nextModel));
-        controls.add(new ControlHint("toggle-wireframe", Keys.Z, "toggle wireframe", this::toggleMeshWireframe));
         super.setControls(controls);
     }
 
@@ -1066,18 +1065,6 @@ public class MeshNodeViewerScene extends ModelScene {
     @Override
     public boolean texturedDraw() {
         return meshRuntime != null && meshRuntime.hasTexturedDraw();
-    }
-
-
-    /**
-     * Toggle wireframe rendering on the mesh runtime.
-     */
-    public void toggleMeshWireframe() {
-        if (meshRuntime == null) {
-            return;
-        }
-        meshRuntime.setWireframe(!meshRuntime.isWireframe());
-        Platforms.get().log("[mesh-viewer] wireframe=" + meshRuntime.isWireframe());
     }
 
     /**

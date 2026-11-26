@@ -274,6 +274,7 @@ public class DungeonViewerScene extends ModelScene {
         controls.add(new ControlHint("toggle-view-mode", Keys.V, "first or third person while walking",
                 this::toggleViewMode));
         controls.add(new ControlHint("reset-look", Keys.R, "reset the look", camera::reset));
+        controls.add(new ControlHint(WIREFRAME_ACTION, Keys.Z, "toggle wireframe", this::toggleWireframe));
         super.setControls(controls);
     }
 

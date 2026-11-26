@@ -386,6 +386,16 @@
       "args": "e-means-playground",
       "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Quad layout (IMG_4111)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "projectName": "ixdar-app",
+      "args": "quad-layout",
+      "vmArgs": "-XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Xmx14g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.model=../tmp/img4111_quad_layout.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
     }
 
   ]
